@@ -1,6 +1,7 @@
-const routes = {
+export const publicRoutes = {
   login: "/login",
-  home: "/inicio",
 };
 
-export default routes;
+export const privateRoutes = {
+  home: "/home",
+};

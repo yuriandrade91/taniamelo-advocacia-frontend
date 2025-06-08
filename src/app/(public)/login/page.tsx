@@ -3,6 +3,11 @@ import React, { useState, useMemo } from "react";
 import Image from "next/image";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
+import api from "@/services/axiosService";
+import endpoints from "@/constants/endpoints/endpoints";
+import { useRouter } from "next/navigation";
+import { Spinner } from "@heroui/spinner";
+import { privateRoutes } from "@/constants/paths/routes";
 // import { ClosedEye, OpenedEye } from "./assets/icons/icons";
 
 export default function Login() {
@@ -11,6 +16,8 @@ export default function Login() {
   const [isVisible, setIsVisible] = useState(false);
   const [usernameVisited, setUsernameVisited] = useState(false);
   const [passwordVisited, setPasswordVisited] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   const validateUsername = (value: string) => value !== "";
   const validatePassword = (value: string) => value.length >= 8;
@@ -30,12 +37,29 @@ export default function Login() {
   const isButtonDisabled =
     !validateUsername(username) || !validatePassword(password);
 
+  const handleLogin = async () => {
+    setLoading(true);
+    try {
+      const response = await api.post(endpoints.AUTH.POST_LOGIN, {
+        username,
+        password,
+      });
+      const token = response.data?.data?.token;
+      if (token) {
+        document.cookie = `token=${token}; path=/`;
+        router.push(`${privateRoutes.home}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <main className="h-screen flex flex-col lg:flex-row">
       <div className="relative lg:w-1/2 bg-primary flex items-center justify-center p-4 lg:p-0">
         <div className="absolute top-0 left-0 h-60 p-3 bg-secondary"></div>
         <Image
-          src="../svg/logo-gold.svg"
+          src="../svg/gold-logo.svg"
           alt="Logo"
           height={200}
           width={200}
@@ -49,7 +73,7 @@ export default function Login() {
         <div className="absolute bottom-0 right-0 h-60 p-3 bg-primary"></div>
         <div className="w-full lg:w-1/2 flex flex-col gap-5 align-middle">
           <Input
-            className="w-full"
+            className="w-full text-primary"
             isClearable
             type="text"
             variant="faded"
@@ -64,7 +88,7 @@ export default function Login() {
             onBlur={() => setUsernameVisited(true)}
           />
           <Input
-            className="w-full"
+            className="w-full text-primary"
             type={isVisible ? "text" : "password"}
             variant="faded"
             label="Senha"
@@ -91,9 +115,22 @@ export default function Login() {
             color="primary"
             radius="sm"
             className="w-full cursor-pointer"
-            isDisabled={isButtonDisabled}
+            isDisabled={isButtonDisabled || loading}
+            onPress={handleLogin}
           >
-            Entrar
+            {loading ? (
+              <>
+                <Spinner
+                  size="md"
+                  color="default"
+                  variant="gradient"
+                  className="mr-2"
+                />
+                {/* <span className="text-white">Entrando...</span> */}
+              </>
+            ) : (
+              "Entrar"
+            )}
           </Button>
         </div>
         <div className="absolute w-60 p-3 bg-secondary top-0 right-0"></div>
