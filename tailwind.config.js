@@ -1,12 +1,12 @@
-import { heroui } from '@heroui/theme';
+import { heroui } from "@heroui/theme";
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    './src/**/*.{html,tsx}',
-    './node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}',
+    "./src/**/*.{html,tsx}",
+    "./node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}",
   ],
-  darkMode: 'media',
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
@@ -14,6 +14,7 @@ module.exports = {
         secondary: "#B5843C",
         success: "#2ECC71",
         danger: "#F34649",
+        "light-gray": "#DDDFE3",
         "light-secondary": "rgba(181, 132, 60, 0.1)",
         "light-white": "rgba(255, 255, 255, 0.3)",
         "light-green ": "rgba(106, 231, 110, 0.25)",
@@ -24,7 +25,7 @@ module.exports = {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
-      },
+    },
   },
   plugins: [
     heroui({
