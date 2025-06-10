@@ -1,13 +1,23 @@
-import Navbar from "@/components/Navbar/Navbar";
-import type { ReactNode } from "react";
+"use client";
 
-export default function PrivateLayout({ children }: { children: ReactNode }) {
+import Navbar from "@/components/Navbar/Navbar";
+import { HeroUIProvider } from "@heroui/system";
+
+export default function PrivateLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return (
-    <html lang="pt-BR" className="bg-light-gray">
-      <body className="w-[90%] mx-auto bg-light-gray">
-        <Navbar />
-        {children}
-      </body>
-    </html>
+    <HeroUIProvider>
+      <html lang="pt-BR" >
+        <body>
+          <div className="w-[90%] mx-auto bg-light-gray">
+            <Navbar />
+            {children}
+          </div>
+        </body>
+      </html>
+    </HeroUIProvider>
   );
 }

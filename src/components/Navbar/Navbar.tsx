@@ -4,7 +4,7 @@ import Image from "next/image";
 export default function Navbar() {
   const menuItems = [
     { label: "Home", href: "#home" },
-    { label: "Clientes", href: "#clientes" },
+    { label: "Clientes", href: "/clientes" },
     { label: "Documentos", href: "#documentos" },
     { label: "Pagamentos", href: "#pagamentos" },
     { label: "Carteira", href: "#carteira" },
