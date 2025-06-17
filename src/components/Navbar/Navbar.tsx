@@ -12,7 +12,7 @@ export default function Navbar() {
   ];
 
   return (
-    <div className="w-full flex justify-center bg-light-gray">
+    <div className="w-full flex justify-center bg-light-gray mb-8">
       <header className="h-20 w-full mt-4 flex items-center justify-between px-4 md:px-8 bg-primary text-white  rounded-[8px] mx-auto">
         <div className="flex items-center gap-4 min-w-[80px]">
           <Image

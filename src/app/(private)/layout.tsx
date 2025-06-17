@@ -12,7 +12,7 @@ export default function PrivateLayout({
     <HeroUIProvider>
       <html lang="pt-BR" >
         <body>
-          <div className="w-[90%] mx-auto bg-light-gray">
+          <div className="h-screen max-w-[1440px] mx-auto bg-light-gray">
             <Navbar />
             {children}
           </div>
