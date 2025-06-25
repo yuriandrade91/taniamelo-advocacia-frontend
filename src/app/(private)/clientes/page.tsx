@@ -10,12 +10,11 @@ import {
 import { useState } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
-import { Select } from "@heroui/select";
+import { Select, SelectItem } from "@heroui/select";
 import { DateRangePicker } from "@heroui/date-picker";
 import { Pagination } from "@heroui/pagination";
 import type { DateValue } from "@heroui/date-picker";
 import Image from "next/image";
-
 
 export default function Clients() {
   const tableColumns = [
@@ -110,7 +109,7 @@ export default function Clients() {
   const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   return (
-    <div >
+    <div>
       {/* Header de filtros */}
       <div className="w-full bg-primary rounded-t-lg p-4 flex gap-3">
         <Input
@@ -128,33 +127,41 @@ export default function Clients() {
           placeholder="Benefício pretendido"
           selectedKeys={beneficio ? [beneficio] : []}
           onSelectionChange={(keys) => {
-            const key =
-              Array.isArray(keys) ? keys[0] : Array.from(keys)[0] || "";
+            const key = Array.isArray(keys)
+              ? keys[0]
+              : Array.from(keys)[0] || "";
             setBeneficio(key);
             setPage(1);
           }}
           className="min-w-[180px]"
-          options={[
-            { key: "", label: "Todos os benefícios" },
-            ...beneficios.map((b) => ({ key: b, label: b })),
-          ]}
-        />
+        >
+          <>
+            <SelectItem key="">Todos os benefícios</SelectItem>
+            {beneficios.map((b) => (
+              <SelectItem key={b}>{b}</SelectItem>
+            ))}
+          </>
+        </Select>
         <Select
           size="lg"
           placeholder="Situação"
           selectedKeys={situacao ? [situacao] : []}
           onSelectionChange={(keys) => {
-            const key =
-              Array.isArray(keys) ? keys[0] : Array.from(keys)[0] || "";
+            const key = Array.isArray(keys)
+              ? keys[0]
+              : Array.from(keys)[0] || "";
             setSituacao(key);
             setPage(1);
           }}
           className="min-w-[140px]"
-          options={[
-            { key: "", label: "Todas as situações" },
-            ...situacoes.map((s) => ({ key: s, label: s })),
-          ]}
-        />
+        >
+          <SelectItem key="">Todas as situações</SelectItem>
+          <>
+            {situacoes.map((s) => (
+              <SelectItem key={s}>{s}</SelectItem>
+            ))}
+          </>
+        </Select>
         <DateRangePicker
           size="lg"
           value={data}
@@ -164,20 +171,53 @@ export default function Clients() {
           }}
           className="min-w-[160px] text-primary"
         />
-        <Button size="lg" variant="flat" className="text-white px-12">Limpar filtro</Button>
-        <Button size="lg" variant="bordered" className="text-white border-white px-12"><Image
-          src="../../svg/icons/add.svg"
-          alt="botao adicionar cliente"
-          height={100}
-          width={100}
-        /> Cliente</Button>
+        <Button
+          size="lg"
+          variant="flat"
+          className="text-white px-12"
+          onPress={() => {
+            setSearch("");
+            setBeneficio("");
+            setSituacao("");
+            setData(null);
+            setPage(1);
+          }}
+          disabled={!search && !beneficio && !situacao && !data}
+        >
+          Limpar filtro
+        </Button>
+        <Button
+          size="lg"
+          variant="bordered"
+          className="text-white border-white px-12"
+        >
+          <Image
+            src="../../svg/icons/add.svg"
+            alt="botao adicionar cliente"
+            height={100}
+            width={100}
+          />{" "}
+          Cliente
+        </Button>
       </div>
 
       {/* Tabela */}
-      <Table aria-label="Tabela de clientes" isStriped={false} shadow="none" radius="sm" selectionMode="single" color="secondary">
-        <TableHeader  >
+      <Table
+        aria-label="Tabela de clientes"
+        isStriped={false}
+        shadow="none"
+        radius="sm"
+        selectionMode="single"
+        color="secondary"
+      >
+        <TableHeader>
           {tableColumns.map((column) => (
-            <TableColumn className="text-sm text-center bg-white border-b-1 text-secondary border-secondary/20 border-solid" key={column.key}>{column.label}</TableColumn>
+            <TableColumn
+              className="text-sm text-center bg-white border-b-1 text-secondary border-secondary/20 border-solid"
+              key={column.key}
+            >
+              {column.label}
+            </TableColumn>
           ))}
         </TableHeader>
         <TableBody>
@@ -187,14 +227,22 @@ export default function Clients() {
               <TableCell className="text-center">{item.cpf}</TableCell>
               <TableCell className="text-center">{item.nit}</TableCell>
               <TableCell className="text-center">{item.beneficiario}</TableCell>
-              <TableCell className="text-center font-semibold">{item.beneficio}</TableCell>
+              <TableCell className="text-center font-semibold">
+                {item.beneficio}
+              </TableCell>
               <TableCell className="text-center">
                 {new Date(item.dataRegistro).toLocaleDateString("pt-BR")}
               </TableCell>
               <TableCell className="text-center">{item.situacao}</TableCell>
               <TableCell className="text-center">
                 <div className="flex justify-center gap-1">
-                  <Button variant="light" isIconOnly size="sm" color="primary" title="Visualizar detalhes deste cliente">
+                  <Button
+                    variant="light"
+                    isIconOnly
+                    size="sm"
+                    color="primary"
+                    title="Visualizar detalhes deste cliente"
+                  >
                     <Image
                       src="../../svg/icons/details.svg"
                       alt="botao ver detalhes do cliente"
@@ -202,7 +250,13 @@ export default function Clients() {
                       width={25}
                     />
                   </Button>
-                  <Button variant="light" isIconOnly size="sm" color="warning" title="Editar este cliente">
+                  <Button
+                    variant="light"
+                    isIconOnly
+                    size="sm"
+                    color="warning"
+                    title="Editar este cliente"
+                  >
                     <Image
                       src="../../svg/icons/edit.svg"
                       alt="botao editar cliente"
@@ -210,7 +264,13 @@ export default function Clients() {
                       width={25}
                     />
                   </Button>
-                  <Button variant="light" isIconOnly size="sm" color="danger" title="Excluir este cliente" >
+                  <Button
+                    variant="light"
+                    isIconOnly
+                    size="sm"
+                    color="danger"
+                    title="Excluir este cliente"
+                  >
                     <Image
                       src="../../svg/icons/trash.svg"
                       alt="botao de excluir cliente"
@@ -235,7 +295,12 @@ export default function Clients() {
           onChange={setPage}
           showControls
         />
-        <div className="text-base font-semibold text-gray-600">Total de clientes: <span className="py-1 px-2 border-solid border-1 border-secondary rounded-lg bg-secondary/10">{total}</span></div>
+        <div className="text-base font-semibold text-gray-600">
+          Total de clientes:{" "}
+          <span className="py-1 px-2 border-solid border-1 border-secondary rounded-lg bg-secondary/10">
+            {total}
+          </span>
+        </div>
       </div>
     </div>
   );
