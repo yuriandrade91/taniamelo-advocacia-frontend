@@ -7,14 +7,19 @@ import {
   TableRow,
   TableCell,
 } from "@heroui/table";
-import { useState } from "react";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import { Select, SelectItem } from "@heroui/select";
 import { DateRangePicker } from "@heroui/date-picker";
 import { Pagination } from "@heroui/pagination";
-import type { DateValue } from "@heroui/date-picker";
 import Image from "next/image";
+import DeleteClientModal from "@/components/modals/DeleteClientModal/DeleteClientModal";
+import { useState } from "react";
+
+// Tipos locais para DateValue e RangeValue
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type DateValue = any;
+type RangeValue<T> = { start: T; end: T } | null;
 
 export default function Clients() {
   const tableColumns = [
@@ -29,7 +34,7 @@ export default function Clients() {
   ];
 
   // Simulação de dados
-  const mockData = [
+  const [clients, setClients] = useState([
     {
       id: "1",
       nome: "Ana Paula Silva",
@@ -80,7 +85,7 @@ export default function Clients() {
       dataRegistro: "2025-06-01",
       situacao: "Ativo",
     },
-  ];
+  ]);
 
   const beneficios = ["Aposentadoria", "Auxílio Doença", "Pensão"];
   const situacoes = ["Ativo", "Pendente", "Inativo"];
@@ -89,11 +94,24 @@ export default function Clients() {
   const [search, setSearch] = useState("");
   const [beneficio, setBeneficio] = useState<string>("");
   const [situacao, setSituacao] = useState<string>("");
-  const [data, setData] = useState<DateValue | null>(null);
+  const [data, setData] = useState<RangeValue<DateValue>>(null);
   const [page, setPage] = useState(1);
+  const [modalDeleteOpen, setModalDeleteOpen] = useState(false);
+  const [clientToDelete, setClientDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
-  // Filtro simples
-  const filtered = mockData.filter((item) => {
+  // Remover cliente
+  const handleDeleteClient = () => {
+    if (clientToDelete) {
+      setClients((prev) => prev.filter((c) => c.id !== clientToDelete.id));
+      setModalDeleteOpen(false);
+      setClientDelete(null);
+    }
+  };
+
+  const filtered = clients.filter((item) => {
     return (
       (search === "" ||
         item.nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -234,8 +252,8 @@ export default function Clients() {
                 {new Date(item.dataRegistro).toLocaleDateString("pt-BR")}
               </TableCell>
               <TableCell className="text-center">{item.situacao}</TableCell>
-              <TableCell className="text-center">
-                <div className="flex justify-center gap-1">
+              <TableCell className="flex items-center justify-center gap-2">
+                <div className="flex gap-2">
                   <Button
                     variant="light"
                     isIconOnly
@@ -244,7 +262,7 @@ export default function Clients() {
                     title="Visualizar detalhes deste cliente"
                   >
                     <Image
-                      src="../../svg/icons/details.svg"
+                      src="/svg/icons/details.svg"
                       alt="botao ver detalhes do cliente"
                       height={25}
                       width={25}
@@ -258,7 +276,7 @@ export default function Clients() {
                     title="Editar este cliente"
                   >
                     <Image
-                      src="../../svg/icons/edit.svg"
+                      src="/svg/icons/edit.svg"
                       alt="botao editar cliente"
                       height={25}
                       width={25}
@@ -270,9 +288,13 @@ export default function Clients() {
                     size="sm"
                     color="danger"
                     title="Excluir este cliente"
+                    onPress={() => {
+                      setClientDelete({ id: item.id, name: item.nome });
+                      setModalDeleteOpen(true);
+                    }}
                   >
                     <Image
-                      src="../../svg/icons/trash.svg"
+                      src="/svg/icons/trash.svg"
                       alt="botao de excluir cliente"
                       height={25}
                       width={25}
@@ -296,12 +318,24 @@ export default function Clients() {
           showControls
         />
         <div className="text-base font-semibold text-gray-600">
-          Total de clientes:{" "}
-          <span className="py-1 px-2 border-solid border-1 border-secondary rounded-lg bg-secondary/10">
+          Total de clientes:
+          <span className="ml-2 py-1 px-2 border-solid border-1 border-secondary rounded-lg bg-secondary/10">
             {total}
           </span>
         </div>
       </div>
+
+
+      <DeleteClientModal
+        isOpen={modalDeleteOpen}
+        onClose={() => {
+          setModalDeleteOpen(false);
+          setClientDelete(null);
+        }}
+        clientName={clientToDelete?.name || ""}
+        onConfirm={handleDeleteClient}
+      >
+      </DeleteClientModal>
     </div>
   );
 }
