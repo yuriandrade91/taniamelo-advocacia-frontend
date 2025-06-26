@@ -9,12 +9,14 @@ module.exports = {
   darkMode: "class",
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["Jost", "Arial", "Helvetica", "sans-serif"],
+      },
       colors: {
         primary: "#090D4C",
         secondary: "#B5843C",
         success: "#2ECC71",
         danger: "#F34649",
-        "light-gray": "#DDDFE3",
         "light-secondary": "rgba(181, 132, 60, 0.1)",
         "light-white": "rgba(255, 255, 255, 0.3)",
         "light-green ": "rgba(106, 231, 110, 0.25)",
@@ -22,6 +24,7 @@ module.exports = {
           secondary:
             "linear-gradient(0deg, rgba(181,132,60,1) 0%, rgba(89,68,69,1) 50%, rgba(9,13,76,1) 100%)",
         },
+        "gray-100": "#5B5B5B",
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
