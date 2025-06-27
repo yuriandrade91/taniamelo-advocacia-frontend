@@ -204,7 +204,9 @@ export default function Clients() {
           ))}
         </Select>
         <DateRangePicker
-          size="lg"
+          label="Período"
+          size="sm"
+          radius="md"
           value={data}
           onChange={(date) => {
             setData(date);
