@@ -15,6 +15,8 @@ import { Pagination } from "@heroui/pagination";
 import Image from "next/image";
 import DeleteClientModal from "@/components/modals/DeleteClientModal/DeleteClientModal";
 import { useState } from "react";
+import { RetirementType } from "@/enums/retirementType/RetirementType";
+import { IntendedBenefit } from "@/enums/intendedBenefit/IntendedBenefit";
 
 // Tipos locais para DateValue e RangeValue
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -41,9 +43,9 @@ export default function Clients() {
       cpf: "123.456.789-00",
       nit: "1234567890",
       beneficiario: "10001",
-      beneficio: "Aposentadoria",
+      beneficio: RetirementType.Age,
       dataRegistro: "2025-06-01",
-      situacao: "Ativo",
+      situacao: IntendedBenefit.FormFilled,
     },
     {
       id: "2",
@@ -51,9 +53,9 @@ export default function Clients() {
       cpf: "987.654.321-11",
       nit: "9876543210",
       beneficiario: "10002",
-      beneficio: "Auxílio Doença",
+      beneficio: RetirementType.ContributionTime,
       dataRegistro: "2025-05-15",
-      situacao: "Pendente",
+      situacao: IntendedBenefit.DocumentAnalysis,
     },
     {
       id: "3",
@@ -61,9 +63,9 @@ export default function Clients() {
       cpf: "111.222.333-44",
       nit: "1122334455",
       beneficiario: "10003",
-      beneficio: "Pensão",
+      beneficio: RetirementType.PermanentDisability,
       dataRegistro: "2025-04-20",
-      situacao: "Inativo",
+      situacao: IntendedBenefit.PlanningInProgress,
     },
     {
       id: "4",
@@ -71,29 +73,60 @@ export default function Clients() {
       cpf: "555.666.777-88",
       nit: "5566778899",
       beneficiario: "10004",
-      beneficio: "Aposentadoria",
+      beneficio: RetirementType.PermanentDisability,
       dataRegistro: "2025-06-10",
-      situacao: "Ativo",
+      situacao: IntendedBenefit.PlanningCompleted,
     },
     {
       id: "5",
+      nome: "Fernanda Costa de Melo Andrade Pacheco",
+      cpf: "999.888.777-66",
+      nit: "9988776655",
+      beneficiario: "10005",
+      beneficio: RetirementType.Special,
+      dataRegistro: "2025-06-01",
+      situacao: IntendedBenefit.FutureBenefit,
+    },
+    {
+      id: "6",
       nome: "Fernanda Costa",
       cpf: "999.888.777-66",
       nit: "9988776655",
       beneficiario: "10005",
-      beneficio: "Auxílio Doença",
+      beneficio: RetirementType.Disability,
       dataRegistro: "2025-06-01",
-      situacao: "Ativo",
+      situacao: IntendedBenefit.BenefitCompleted,
+    },
+    {
+      id: "7",
+      nome: "Yuri Felipe de Melo Andrade",
+      cpf: "999.888.777-66",
+      nit: "9988776655",
+      beneficiario: "10005",
+      beneficio: RetirementType.TeacherContributionTime,
+      dataRegistro: "2025-06-01",
+      situacao: IntendedBenefit.BenefitCompleted,
+    },
+    {
+      id: "8",
+      nome: "Fernanda Costa",
+      cpf: "999.888.777-66",
+      nit: "9988776655",
+      beneficiario: "10005",
+      beneficio: RetirementType.Invalidity,
+      dataRegistro: "2025-06-01",
+      situacao: IntendedBenefit.BenefitCompleted,
     },
   ]);
 
-  const beneficios = ["Aposentadoria", "Auxílio Doença", "Pensão"];
-  const situacoes = ["Ativo", "Pendente", "Inativo"];
+  // Gera dinamicamente os benefícios e situações únicos presentes nos dados dos clientes
+  const beneficios = Array.from(new Set(clients.map((c) => c.beneficio)));
+  const situacoes = Array.from(new Set(clients.map((c) => c.situacao)));
   const PAGE_SIZE = 3;
 
   const [search, setSearch] = useState("");
-  const [beneficio, setBeneficio] = useState<string>("");
-  const [situacao, setSituacao] = useState<string>("");
+  const [beneficio, setBeneficio] = useState<string[]>([]);
+  const [situacao, setSituacao] = useState<string[]>([]);
   const [data, setData] = useState<RangeValue<DateValue>>(null);
   const [page, setPage] = useState(1);
   const [modalDeleteOpen, setModalDeleteOpen] = useState(false);
@@ -116,8 +149,8 @@ export default function Clients() {
       (search === "" ||
         item.nome.toLowerCase().includes(search.toLowerCase()) ||
         item.cpf.includes(search)) &&
-      (beneficio === "" || item.beneficio === beneficio) &&
-      (situacao === "" || item.situacao === situacao) &&
+      (beneficio.length === 0 || beneficio.includes(item.beneficio)) &&
+      (situacao.length === 0 || situacao.includes(item.situacao)) &&
       (!data || item.dataRegistro === data?.toString())
     );
   });
@@ -143,42 +176,32 @@ export default function Clients() {
         <Select
           size="lg"
           placeholder="Benefício pretendido"
-          selectedKeys={beneficio ? [beneficio] : []}
+          selectionMode="multiple"
+          selectedKeys={beneficio}
           onSelectionChange={(keys) => {
-            const key = Array.isArray(keys)
-              ? keys[0]
-              : Array.from(keys)[0] || "";
-            setBeneficio(key);
+            setBeneficio(Array.from(keys).map(String));
             setPage(1);
           }}
           className="min-w-[180px]"
         >
-          <>
-            <SelectItem key="">Todos os benefícios</SelectItem>
-            {beneficios.map((b) => (
-              <SelectItem key={b}>{b}</SelectItem>
-            ))}
-          </>
+          {beneficios.map((b) => (
+            <SelectItem key={b}>{b}</SelectItem>
+          ))}
         </Select>
         <Select
           size="lg"
           placeholder="Situação"
-          selectedKeys={situacao ? [situacao] : []}
+          selectionMode="multiple"
+          selectedKeys={situacao}
           onSelectionChange={(keys) => {
-            const key = Array.isArray(keys)
-              ? keys[0]
-              : Array.from(keys)[0] || "";
-            setSituacao(key);
+            setSituacao(Array.from(keys).map(String));
             setPage(1);
           }}
           className="min-w-[140px]"
         >
-          <SelectItem key="">Todas as situações</SelectItem>
-          <>
-            {situacoes.map((s) => (
-              <SelectItem key={s}>{s}</SelectItem>
-            ))}
-          </>
+          {situacoes.map((s) => (
+            <SelectItem key={s}>{s}</SelectItem>
+          ))}
         </Select>
         <DateRangePicker
           size="lg"
@@ -195,12 +218,17 @@ export default function Clients() {
           className="text-white px-12"
           onPress={() => {
             setSearch("");
-            setBeneficio("");
-            setSituacao("");
+            setBeneficio([]);
+            setSituacao([]);
             setData(null);
             setPage(1);
           }}
-          disabled={!search && !beneficio && !situacao && !data}
+          isDisabled={
+            search === "" &&
+            beneficio.length === 0 &&
+            situacao.length === 0 &&
+            !data
+          }
         >
           Limpar filtro
         </Button>
@@ -239,21 +267,27 @@ export default function Clients() {
           ))}
         </TableHeader>
         <TableBody>
-          {paginated.map((item) => (
-            <TableRow key={item.id} className="text-gray-600">
-              <TableCell className="text-center">{item.nome}</TableCell>
-              <TableCell className="text-center">{item.cpf}</TableCell>
-              <TableCell className="text-center">{item.nit}</TableCell>
-              <TableCell className="text-center">{item.beneficiario}</TableCell>
-              <TableCell className="text-center font-semibold">
-                {item.beneficio}
+          {paginated.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={tableColumns.length} className="text-center py-8 text-lg text-gray-500">
+                Nenhum cliente encontrado com os filtros selecionados.
               </TableCell>
-              <TableCell className="text-center">
-                {new Date(item.dataRegistro).toLocaleDateString("pt-BR")}
-              </TableCell>
-              <TableCell className="text-center">{item.situacao}</TableCell>
-              <TableCell className="flex items-center justify-center gap-2">
-                <div className="flex gap-2">
+            </TableRow>
+          ) : (
+            paginated.map((item) => (
+              <TableRow key={item.id} className="text-gray-100">
+                <TableCell className="text-base text-center max-w-48">{item.nome}</TableCell>
+                <TableCell className="text-base text-center">{item.cpf}</TableCell>
+                <TableCell className="text-base text-center">{item.nit}</TableCell>
+                <TableCell className="text-base text-center">{item.beneficiario}</TableCell>
+                <TableCell className="text-base text-center font-semibold max-w-52">
+                  {item.beneficio}
+                </TableCell>
+                <TableCell className="text-base text-center">
+                  {new Date(item.dataRegistro).toLocaleDateString("pt-BR")}
+                </TableCell>
+                <TableCell className="text-base text-center">{item.situacao}</TableCell>
+                <TableCell className="h-16 flex justify-center items-center gap-2">
                   <Button
                     variant="light"
                     isIconOnly
@@ -300,10 +334,10 @@ export default function Clients() {
                       width={25}
                     />
                   </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
+                </TableCell>
+              </TableRow>
+            ))
+          )}
         </TableBody>
       </Table>
       {/* Paginação */}
