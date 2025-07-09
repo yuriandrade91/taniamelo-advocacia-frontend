@@ -15,8 +15,9 @@ import { Pagination } from "@heroui/pagination";
 import Image from "next/image";
 import DeleteClientModal from "@/components/modals/DeleteClientModal/DeleteClientModal";
 import { useState } from "react";
-import { RetirementType } from "@/enums/retirementType/RetirementType";
+import { RetirementType, RetirementTypeText } from "@/enums/retirementType/RetirementType";
 import { IntendedBenefit } from "@/enums/intendedBenefit/IntendedBenefit";
+import DetailsClientModal from "@/components/modals/DetailsClientModal/DetailsClientModal";
 
 // Tipos locais para DateValue e RangeValue
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -134,6 +135,12 @@ export default function Clients() {
     id: string;
     name: string;
   } | null>(null);
+  const [modalDetailsOpen, setModalDetailsOpen] = useState(false);
+  const [clientToDetails, setClientDetails] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [editDetailsMode, setEditDetailsMode] = useState(false);
 
   // Remover cliente
   const handleDeleteClient = () => {
@@ -149,7 +156,7 @@ export default function Clients() {
       (search === "" ||
         item.nome.toLowerCase().includes(search.toLowerCase()) ||
         item.cpf.includes(search)) &&
-      (beneficio.length === 0 || beneficio.includes(item.beneficio)) &&
+      (beneficio.length === 0 || beneficio.includes(String(item.beneficio))) &&
       (situacao.length === 0 || situacao.includes(item.situacao)) &&
       (!data || item.dataRegistro === data?.toString())
     );
@@ -183,9 +190,12 @@ export default function Clients() {
             setPage(1);
           }}
           className="min-w-[180px]"
+          variant="flat"
+          radius="md"
+          classNames={{ trigger: "bg-white text-gray-900", listbox: "bg-white text-gray-900", popoverContent: "bg-white text-gray-900" }}
         >
           {beneficios.map((b) => (
-            <SelectItem key={b}>{b}</SelectItem>
+            <SelectItem key={String(b)}>{RetirementTypeText[b as RetirementType] || b}</SelectItem>
           ))}
         </Select>
         <Select
@@ -198,6 +208,9 @@ export default function Clients() {
             setPage(1);
           }}
           className="min-w-[140px]"
+          variant="flat"
+          radius="md"
+          classNames={{ trigger: "bg-white text-gray-900", listbox: "bg-white text-gray-900", popoverContent: "bg-white text-gray-900" }}
         >
           {situacoes.map((s) => (
             <SelectItem key={s}>{s}</SelectItem>
@@ -283,7 +296,7 @@ export default function Clients() {
                 <TableCell className="text-base text-center">{item.nit}</TableCell>
                 <TableCell className="text-base text-center">{item.beneficiario}</TableCell>
                 <TableCell className="text-base text-center font-semibold max-w-52">
-                  {item.beneficio}
+                  {RetirementTypeText[item.beneficio as RetirementType] || item.beneficio}
                 </TableCell>
                 <TableCell className="text-base text-center">
                   {new Date(item.dataRegistro).toLocaleDateString("pt-BR")}
@@ -291,11 +304,16 @@ export default function Clients() {
                 <TableCell className="text-base text-center">{item.situacao}</TableCell>
                 <TableCell className="h-16 flex justify-center items-center gap-2">
                   <Button
-                    variant="light"
                     isIconOnly
+                    variant="light"
                     size="sm"
                     color="primary"
                     title="Visualizar detalhes deste cliente"
+                    onPress={() => {
+                      setClientDetails({ id: item.id, name: item.nome });
+                      setEditDetailsMode(false);
+                      setModalDetailsOpen(true);
+                    }}
                   >
                     <Image
                       src="/svg/icons/details.svg"
@@ -310,6 +328,11 @@ export default function Clients() {
                     size="sm"
                     color="warning"
                     title="Editar este cliente"
+                    onPress={() => {
+                      setClientDetails({ id: item.id, name: item.nome });
+                      setEditDetailsMode(true);
+                      setModalDetailsOpen(true);
+                    }}
                   >
                     <Image
                       src="/svg/icons/edit.svg"
@@ -372,6 +395,16 @@ export default function Clients() {
         onConfirm={handleDeleteClient}
       >
       </DeleteClientModal>
+
+      <DetailsClientModal
+        isOpen={modalDetailsOpen}
+        onClose={() => {
+          setModalDetailsOpen(false);
+          setClientDelete(null);
+        }}
+        clientName={clientToDetails?.name || ""}
+        editOnOpen={editDetailsMode}
+      />
     </div>
   );
 }
