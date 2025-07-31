@@ -15,9 +15,13 @@ import { Pagination } from "@heroui/pagination";
 import Image from "next/image";
 import DeleteClientModal from "@/components/modals/DeleteClientModal/DeleteClientModal";
 import { useState } from "react";
-import { RetirementType, RetirementTypeText } from "@/enums/retirementType/RetirementType";
+import {
+  RetirementType,
+  RetirementTypeText,
+} from "@/enums/retirementType/RetirementType";
 import { IntendedBenefit } from "@/enums/intendedBenefit/IntendedBenefit";
 import DetailsClientModal from "@/components/modals/DetailsClientModal/DetailsClientModal";
+import AddNewClientModal from "@/components/modals/AddNewClientModal/AddNewClientModal";
 
 // Tipos locais para DateValue e RangeValue
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -151,6 +155,9 @@ export default function Clients() {
     }
   };
 
+  // Estado para controlar o modal de adicionar novo cliente
+  const [modalAddClientOpen, setModalAddClientOpen] = useState(false);
+
   const filtered = clients.filter((item) => {
     return (
       (search === "" ||
@@ -192,10 +199,16 @@ export default function Clients() {
           className="min-w-[180px]"
           variant="flat"
           radius="md"
-          classNames={{ trigger: "bg-white text-gray-900", listbox: "bg-white text-gray-900", popoverContent: "bg-white text-gray-900" }}
+          classNames={{
+            trigger: "bg-white text-gray-900",
+            listbox: "bg-white text-gray-900",
+            popoverContent: "bg-white text-gray-900",
+          }}
         >
           {beneficios.map((b) => (
-            <SelectItem key={String(b)}>{RetirementTypeText[b as RetirementType] || b}</SelectItem>
+            <SelectItem key={String(b)}>
+              {RetirementTypeText[b as RetirementType] || b}
+            </SelectItem>
           ))}
         </Select>
         <Select
@@ -210,7 +223,11 @@ export default function Clients() {
           className="min-w-[140px]"
           variant="flat"
           radius="md"
-          classNames={{ trigger: "bg-white text-gray-900", listbox: "bg-white text-gray-900", popoverContent: "bg-white text-gray-900" }}
+          classNames={{
+            trigger: "bg-white text-gray-900",
+            listbox: "bg-white text-gray-900",
+            popoverContent: "bg-white text-gray-900",
+          }}
         >
           {situacoes.map((s) => (
             <SelectItem key={s}>{s}</SelectItem>
@@ -251,13 +268,14 @@ export default function Clients() {
           size="lg"
           variant="bordered"
           className="text-white border-white px-12"
+          onPress={() => setModalAddClientOpen(true)}
         >
           <Image
             src="../../svg/icons/add.svg"
-            alt="botao adicionar cliente"
+            alt="botão adicionar cliente"
             height={100}
             width={100}
-          />{" "}
+          />
           Cliente
         </Button>
       </div>
@@ -284,24 +302,38 @@ export default function Clients() {
         <TableBody>
           {paginated.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={tableColumns.length} className="text-center py-8 text-lg text-gray-500">
+              <TableCell
+                colSpan={tableColumns.length}
+                className="text-center py-8 text-lg text-gray-500"
+              >
                 Nenhum cliente encontrado com os filtros selecionados.
               </TableCell>
             </TableRow>
           ) : (
             paginated.map((item) => (
               <TableRow key={item.id} className="text-gray-100">
-                <TableCell className="text-base text-center max-w-48">{item.nome}</TableCell>
-                <TableCell className="text-base text-center">{item.cpf}</TableCell>
-                <TableCell className="text-base text-center">{item.nit}</TableCell>
-                <TableCell className="text-base text-center">{item.beneficiario}</TableCell>
+                <TableCell className="text-base text-center max-w-48">
+                  {item.nome}
+                </TableCell>
+                <TableCell className="text-base text-center">
+                  {item.cpf}
+                </TableCell>
+                <TableCell className="text-base text-center">
+                  {item.nit}
+                </TableCell>
+                <TableCell className="text-base text-center">
+                  {item.beneficiario}
+                </TableCell>
                 <TableCell className="text-base text-center font-semibold max-w-52">
-                  {RetirementTypeText[item.beneficio as RetirementType] || item.beneficio}
+                  {RetirementTypeText[item.beneficio as RetirementType] ||
+                    item.beneficio}
                 </TableCell>
                 <TableCell className="text-base text-center">
                   {new Date(item.dataRegistro).toLocaleDateString("pt-BR")}
                 </TableCell>
-                <TableCell className="text-base text-center">{item.situacao}</TableCell>
+                <TableCell className="text-base text-center">
+                  {item.situacao}
+                </TableCell>
                 <TableCell className="h-16 flex justify-center items-center gap-2">
                   <Button
                     isIconOnly
@@ -384,7 +416,6 @@ export default function Clients() {
         </div>
       </div>
 
-
       <DeleteClientModal
         isOpen={modalDeleteOpen}
         onClose={() => {
@@ -393,8 +424,7 @@ export default function Clients() {
         }}
         clientName={clientToDelete?.name || ""}
         onConfirm={handleDeleteClient}
-      >
-      </DeleteClientModal>
+      ></DeleteClientModal>
 
       <DetailsClientModal
         isOpen={modalDetailsOpen}
@@ -404,6 +434,11 @@ export default function Clients() {
         }}
         clientName={clientToDetails?.name || ""}
         editOnOpen={editDetailsMode}
+      />
+      <AddNewClientModal
+        isOpen={modalAddClientOpen}
+        onClose={() => setModalAddClientOpen(false)}
+        clientName="Novo cliente"
       />
     </div>
   );

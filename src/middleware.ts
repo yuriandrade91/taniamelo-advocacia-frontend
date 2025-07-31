@@ -8,11 +8,11 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const token = request.cookies.get("token");
+  // const token = request.cookies.get("token");
 
-  if (!token) {
-    return NextResponse.redirect(new URL(`${publicRoutes.login}`, request.url));
-  }
+  // if (!token) {
+  //   return NextResponse.redirect(new URL(`${publicRoutes.login}`, request.url));
+  // }
 
   return NextResponse.next();
 }
