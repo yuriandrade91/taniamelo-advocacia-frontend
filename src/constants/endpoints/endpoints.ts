@@ -1,16 +1,14 @@
-const API_BASE_PATH_V1 = "/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "";
+const API_BASE_PATH_V1 = "/v1";
 
 const endpoints = {
   AUTH: {
-    POST_LOGIN: `${API_BASE_PATH_V1}/login`,
+    POST_LOGIN: `${API_BASE_URL}/login`,
   },
   CLIENTS: {
-    GET_CLIENTS: `${API_BASE_PATH_V1}/clients`,
-    POST_CLIENTS: `${API_BASE_PATH_V1}/clients`,
-    GET_CLIENT_BY_ID: (id: string | number) => `${API_BASE_PATH_V1}/clients/${id}`,
-    PUT_CLIENT_BY_ID: (id: string | number) => `${API_BASE_PATH_V1}/clients/${id}`,
-    DELETE_CLIENT_BY_ID: (id: string | number) => `${API_BASE_PATH_V1}/clients/${id}`,
-  }
+    URL_CLIENTS: `${API_BASE_URL}${API_BASE_PATH_V1}/client`,
+    CLIENT_BY_ID: (client_id: string | number) => `${API_BASE_URL}${API_BASE_PATH_V1}/client/${client_id}`,
+  },
 };
 
 export default endpoints;

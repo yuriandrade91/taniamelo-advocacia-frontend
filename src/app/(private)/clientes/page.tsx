@@ -1,27 +1,29 @@
 "use client";
-import {
-  Table,
-  TableHeader,
-  TableBody,
-  TableColumn,
-  TableRow,
-  TableCell,
-} from "@heroui/table";
-import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
-import { Select, SelectItem } from "@heroui/select";
-import { DateRangePicker } from "@heroui/date-picker";
-import { Pagination } from "@heroui/pagination";
-import Image from "next/image";
+import AddNewClientModal from "@/components/modals/AddNewClientModal/AddNewClientModal";
 import DeleteClientModal from "@/components/modals/DeleteClientModal/DeleteClientModal";
-import { useState } from "react";
+import DetailsClientModal from "@/components/modals/DetailsClientModal/DetailsClientModal";
+import endpoints from "@/constants/endpoints/endpoints";
 import {
   RetirementType,
   RetirementTypeText,
 } from "@/enums/retirementType/RetirementType";
-import { IntendedBenefit } from "@/enums/intendedBenefit/IntendedBenefit";
-import DetailsClientModal from "@/components/modals/DetailsClientModal/DetailsClientModal";
-import AddNewClientModal from "@/components/modals/AddNewClientModal/AddNewClientModal";
+import { Client } from "@/interfaces/client/clientInterface";
+import { Button } from "@heroui/button";
+import { DateRangePicker } from "@heroui/date-picker";
+import { Input } from "@heroui/input";
+import { Pagination } from "@heroui/pagination";
+import { Select, SelectItem } from "@heroui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableColumn,
+  TableHeader,
+  TableRow,
+} from "@heroui/table";
+import Image from "next/image";
+import { useEffect, useState } from "react";
+import axiosInstance from "@/services/axiosService";
 
 // Tipos locais para DateValue e RangeValue
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -40,94 +42,25 @@ export default function Clients() {
     { key: "actions", label: "AÇÕES" },
   ];
 
-  // Simulação de dados
-  const [clients, setClients] = useState([
-    {
-      id: "1",
-      nome: "Ana Paula Silva",
-      cpf: "123.456.789-00",
-      nit: "1234567890",
-      beneficiario: "10001",
-      beneficio: RetirementType.Age,
-      dataRegistro: "2025-06-01",
-      situacao: IntendedBenefit.FormFilled,
-    },
-    {
-      id: "2",
-      nome: "Carlos Souza",
-      cpf: "987.654.321-11",
-      nit: "9876543210",
-      beneficiario: "10002",
-      beneficio: RetirementType.ContributionTime,
-      dataRegistro: "2025-05-15",
-      situacao: IntendedBenefit.DocumentAnalysis,
-    },
-    {
-      id: "3",
-      nome: "Maria Oliveira",
-      cpf: "111.222.333-44",
-      nit: "1122334455",
-      beneficiario: "10003",
-      beneficio: RetirementType.PermanentDisability,
-      dataRegistro: "2025-04-20",
-      situacao: IntendedBenefit.PlanningInProgress,
-    },
-    {
-      id: "4",
-      nome: "João Lima",
-      cpf: "555.666.777-88",
-      nit: "5566778899",
-      beneficiario: "10004",
-      beneficio: RetirementType.PermanentDisability,
-      dataRegistro: "2025-06-10",
-      situacao: IntendedBenefit.PlanningCompleted,
-    },
-    {
-      id: "5",
-      nome: "Fernanda Costa de Melo Andrade Pacheco",
-      cpf: "999.888.777-66",
-      nit: "9988776655",
-      beneficiario: "10005",
-      beneficio: RetirementType.Special,
-      dataRegistro: "2025-06-01",
-      situacao: IntendedBenefit.FutureBenefit,
-    },
-    {
-      id: "6",
-      nome: "Fernanda Costa",
-      cpf: "999.888.777-66",
-      nit: "9988776655",
-      beneficiario: "10005",
-      beneficio: RetirementType.Disability,
-      dataRegistro: "2025-06-01",
-      situacao: IntendedBenefit.BenefitCompleted,
-    },
-    {
-      id: "7",
-      nome: "Yuri Felipe de Melo Andrade",
-      cpf: "999.888.777-66",
-      nit: "9988776655",
-      beneficiario: "10005",
-      beneficio: RetirementType.TeacherContributionTime,
-      dataRegistro: "2025-06-01",
-      situacao: IntendedBenefit.BenefitCompleted,
-    },
-    {
-      id: "8",
-      nome: "Fernanda Costa",
-      cpf: "999.888.777-66",
-      nit: "9988776655",
-      beneficiario: "10005",
-      beneficio: RetirementType.Invalidity,
-      dataRegistro: "2025-06-01",
-      situacao: IntendedBenefit.BenefitCompleted,
-    },
-  ]);
+  // Estado para clientes vindos da API
+  const [clients, setClients] = useState<Client[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
+
+useEffect(() => {
+  setLoading(true);
+  setError("");
+  axiosInstance
+    .get(endpoints.CLIENTS.URL_CLIENTS)
+    .then((res) => setClients(res.data))
+    .catch((err) => setError(err.message || "Erro desconhecido"))
+    .finally(() => setLoading(false));
+}, []);
 
   // Gera dinamicamente os benefícios e situações únicos presentes nos dados dos clientes
-  const beneficios = Array.from(new Set(clients.map((c) => c.beneficio)));
-  const situacoes = Array.from(new Set(clients.map((c) => c.situacao)));
-  const PAGE_SIZE = 3;
+  const beneficios = Array.from(new Set(clients.map((c) => c.benefit_type)));
+  const situacoes = Array.from(new Set(clients.map((c) => c.situation_status)));
+  const PAGE_SIZE = 10;
 
   const [search, setSearch] = useState("");
   const [beneficio, setBeneficio] = useState<string[]>([]);
@@ -149,7 +82,9 @@ export default function Clients() {
   // Remover cliente
   const handleDeleteClient = () => {
     if (clientToDelete) {
-      setClients((prev) => prev.filter((c) => c.id !== clientToDelete.id));
+      setClients((prev) =>
+        prev.filter((c) => String(c.id) !== clientToDelete.id)
+      );
       setModalDeleteOpen(false);
       setClientDelete(null);
     }
@@ -161,11 +96,12 @@ export default function Clients() {
   const filtered = clients.filter((item) => {
     return (
       (search === "" ||
-        item.nome.toLowerCase().includes(search.toLowerCase()) ||
+        item.full_name.toLowerCase().includes(search.toLowerCase()) ||
         item.cpf.includes(search)) &&
-      (beneficio.length === 0 || beneficio.includes(String(item.beneficio))) &&
-      (situacao.length === 0 || situacao.includes(item.situacao)) &&
-      (!data || item.dataRegistro === data?.toString())
+      (beneficio.length === 0 ||
+        beneficio.includes(String(item.benefit_type))) &&
+      (situacao.length === 0 || situacao.includes(item.situation_status)) &&
+      (!data || item.created_at === data?.toString())
     );
   });
 
@@ -207,7 +143,7 @@ export default function Clients() {
         >
           {beneficios.map((b) => (
             <SelectItem key={String(b)}>
-              {RetirementTypeText[b as RetirementType] || b}
+              {RetirementTypeText[b as unknown as RetirementType] || b}
             </SelectItem>
           ))}
         </Select>
@@ -300,7 +236,25 @@ export default function Clients() {
           ))}
         </TableHeader>
         <TableBody>
-          {paginated.length === 0 ? (
+          {loading ? (
+            <TableRow>
+              <TableCell
+                colSpan={tableColumns.length}
+                className="text-center py-8 text-lg text-gray-500"
+              >
+                Carregando clientes...
+              </TableCell>
+            </TableRow>
+          ) : error ? (
+            <TableRow>
+              <TableCell
+                colSpan={tableColumns.length}
+                className="text-center py-8 text-lg text-red-500"
+              >
+                {error}
+              </TableCell>
+            </TableRow>
+          ) : paginated.length === 0 ? (
             <TableRow>
               <TableCell
                 colSpan={tableColumns.length}
@@ -313,26 +267,25 @@ export default function Clients() {
             paginated.map((item) => (
               <TableRow key={item.id} className="text-gray-100">
                 <TableCell className="text-base text-center max-w-48">
-                  {item.nome}
+                  {item.full_name}
                 </TableCell>
                 <TableCell className="text-base text-center">
                   {item.cpf}
                 </TableCell>
                 <TableCell className="text-base text-center">
-                  {item.nit}
+                  {item.nit_pis}
                 </TableCell>
                 <TableCell className="text-base text-center">
-                  {item.beneficiario}
+                  {item.benefit_number}
                 </TableCell>
                 <TableCell className="text-base text-center font-semibold max-w-52">
-                  {RetirementTypeText[item.beneficio as RetirementType] ||
-                    item.beneficio}
+                  {item.benefit_type}
                 </TableCell>
                 <TableCell className="text-base text-center">
-                  {new Date(item.dataRegistro).toLocaleDateString("pt-BR")}
+                  {new Date(item.created_at).toLocaleDateString("pt-BR")}
                 </TableCell>
                 <TableCell className="text-base text-center">
-                  {item.situacao}
+                  {item.situation_status}
                 </TableCell>
                 <TableCell className="h-16 flex justify-center items-center gap-2">
                   <Button
@@ -342,7 +295,10 @@ export default function Clients() {
                     color="primary"
                     title="Visualizar detalhes deste cliente"
                     onPress={() => {
-                      setClientDetails({ id: item.id, name: item.nome });
+                      setClientDetails({
+                        id: String(item.id),
+                        name: item.full_name,
+                      });
                       setEditDetailsMode(false);
                       setModalDetailsOpen(true);
                     }}
@@ -361,7 +317,10 @@ export default function Clients() {
                     color="warning"
                     title="Editar este cliente"
                     onPress={() => {
-                      setClientDetails({ id: item.id, name: item.nome });
+                      setClientDetails({
+                        id: String(item.id),
+                        name: item.full_name,
+                      });
                       setEditDetailsMode(true);
                       setModalDetailsOpen(true);
                     }}
@@ -380,7 +339,10 @@ export default function Clients() {
                     color="danger"
                     title="Excluir este cliente"
                     onPress={() => {
-                      setClientDelete({ id: item.id, name: item.nome });
+                      setClientDelete({
+                        id: String(item.id),
+                        name: item.full_name,
+                      });
                       setModalDeleteOpen(true);
                     }}
                   >
@@ -398,7 +360,7 @@ export default function Clients() {
         </TableBody>
       </Table>
       {/* Paginação */}
-      <div className="flex items-center justify-between mt-4">
+      <div className="flex items-center justify-between pt-4">
         <div />
         <Pagination
           variant="light"
@@ -438,7 +400,6 @@ export default function Clients() {
       <AddNewClientModal
         isOpen={modalAddClientOpen}
         onClose={() => setModalAddClientOpen(false)}
-        clientName="Novo cliente"
       />
     </div>
   );
