@@ -1,9 +1,9 @@
 export enum MaritalStatus {
-  Single = 1,      // Solteiro
-  Married = 2,     // Casado
-  Divorced = 3,    // Divorciado
-  Widowed = 4,     // Viúvo
-  StableUnion = 5, // União Estável
+  Single = 1,
+  Married = 2,
+  Divorced = 3,
+  Widowed = 4,
+  StableUnion = 5,
 }
 
 export const MaritalStatusText: Record<MaritalStatus, string> = {
@@ -13,3 +13,11 @@ export const MaritalStatusText: Record<MaritalStatus, string> = {
   [MaritalStatus.Widowed]: "Viúvo",
   [MaritalStatus.StableUnion]: "União Estável",
 };
+
+export const MaritalStatusOptions: { id: MaritalStatus; label: string }[] = [
+  { id: MaritalStatus.Single, label: MaritalStatusText[MaritalStatus.Single] },
+  { id: MaritalStatus.Married, label: MaritalStatusText[MaritalStatus.Married] },
+  { id: MaritalStatus.Divorced, label: MaritalStatusText[MaritalStatus.Divorced] },
+  { id: MaritalStatus.Widowed, label: MaritalStatusText[MaritalStatus.Widowed] },
+  { id: MaritalStatus.StableUnion, label: MaritalStatusText[MaritalStatus.StableUnion] },
+];

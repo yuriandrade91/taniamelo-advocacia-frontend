@@ -28,7 +28,7 @@ export function maskTelefone(value: string) {
     .replace(/\D/g, "")
     .replace(/(\d{2})(\d)/, "($1) $2")
     .replace(/(\d{4,5})(\d)/, "$1-$2")
-    .slice(0, 14);
+    .slice(0, 15);
 }
 export function maskNIT(value: string) {
   return value
@@ -39,8 +39,12 @@ export function maskNIT(value: string) {
 }
 export function maskCTPS(value: string) {
   return value
-    .replace(/\D/g, "")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    .replace(/\s+/g, "")
+    .replace(/[^a-zA-Z0-9]/g, "")
+    .replace(/^(\d{7})(\d{5})([a-zA-Z]{0,2})/, (_, num, serie, uf) => {
+      const formattedUF = uf.toUpperCase();
+      return `${num}/${serie}${formattedUF ? " " + formattedUF : ""}`;
+    })
+    .slice(0, 16);
+
 }

@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Button } from "@heroui/button";
 import { Input } from "@heroui/input";
 import api from "@/services/axiosService";
-import endpoints from "@/constants/endpoints/endpoints";
+import endpoints from "@/constants/endpoints/paths";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@heroui/spinner";
 import { privateRoutes } from "@/constants/paths/routes";

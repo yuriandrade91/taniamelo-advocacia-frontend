@@ -1,13 +1,10 @@
 "use client";
-import AddNewClientModal from "@/components/modals/AddNewClientModal/AddNewClientModal";
-import DeleteClientModal from "@/components/modals/DeleteClientModal/DeleteClientModal";
-import DetailsClientModal from "@/components/modals/DetailsClientModal/DetailsClientModal";
-import endpoints from "@/constants/endpoints/endpoints";
-import {
-  RetirementType,
-  RetirementTypeText,
-} from "@/enums/retirementType/RetirementType";
-import { Client } from "@/interfaces/client/clientInterface";
+import AddNewClientModal from "@/components/ui/modals/AddNewClientModal/AddNewClientModal";
+import DeleteClientModal from "@/components/ui/modals/DeleteClientModal/DeleteClientModal";
+import DetailsClientModal from "@/components/ui/modals/DetailsClientModal/DetailsClientModal";
+import endpoints from "@/constants/endpoints/paths";
+import { Situation, SituationText } from "@/enums/situation/Situation";
+import { ClientResponse } from "@/interfaces/client/Response/ClientResponse.interface";
 import { Button } from "@heroui/button";
 import { DateRangePicker } from "@heroui/date-picker";
 import { Input } from "@heroui/input";
@@ -21,11 +18,12 @@ import {
   TableHeader,
   TableRow,
 } from "@heroui/table";
+import { Tooltip } from "@heroui/tooltip";
+import { Skeleton } from "@heroui/skeleton";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import axiosInstance from "@/services/axiosService";
 
-// Tipos locais para DateValue e RangeValue
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DateValue = any;
 type RangeValue<T> = { start: T; end: T } | null;
@@ -34,30 +32,47 @@ export default function Clients() {
   const tableColumns = [
     { key: "fullName", label: "NOME COMPLETO" },
     { key: "cpf", label: "CPF" },
-    { key: "nitPis", label: "NIT/PIS" },
+    // { key: "nitPis", label: "NIT/PIS" },
     { key: "beneficiaryName", label: "Nº BENEFICIÁRIO" },
     { key: "requestedBenefit", label: "BENEFÍCIO PRETENDIDO" },
     { key: "registrationDate", label: "DATA DO REGISTRO" },
+    { key: "updatedDate", label: "ÚLTIMA ATUALIZAÇÃO" },
     { key: "status", label: "SITUAÇÃO" },
     { key: "actions", label: "AÇÕES" },
   ];
 
-  // Estado para clientes vindos da API
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<ClientResponse[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-useEffect(() => {
-  setLoading(true);
-  setError("");
-  axiosInstance
-    .get(endpoints.CLIENTS.URL_CLIENTS)
-    .then((res) => setClients(res.data))
-    .catch((err) => setError(err.message || "Erro desconhecido"))
-    .finally(() => setLoading(false));
-}, []);
+  useEffect(() => {
+    setLoading(true);
+    setError("");
+    axiosInstance
+      .get(endpoints.CLIENTS.URL_CLIENTS)
+      .then((res) => setClients(res.data))
+      .catch((err) => setError(err.message || "Erro desconhecido"))
+      .finally(() => setLoading(false));
+  }, [refreshTrigger]);
 
-  // Gera dinamicamente os benefícios e situações únicos presentes nos dados dos clientes
+  const handleAddClientSuccess = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  // Remover cliente
+  const handleDeleteClient = (clientId: string | number | null) => {
+    setLoading(true);
+    setError("");
+    axiosInstance
+      .delete(`${endpoints.CLIENTS.URL_CLIENTS}/${clientId}`)
+      .then(() => {
+        setRefreshTrigger((prev) => prev + 1);
+      })
+      .catch((err) => setError(err.message || "Erro ao deletar cliente"))
+      .finally(() => setLoading(false));
+  };
+
   const beneficios = Array.from(new Set(clients.map((c) => c.benefit_type)));
   const situacoes = Array.from(new Set(clients.map((c) => c.situation_status)));
   const PAGE_SIZE = 10;
@@ -79,30 +94,17 @@ useEffect(() => {
   } | null>(null);
   const [editDetailsMode, setEditDetailsMode] = useState(false);
 
-  // Remover cliente
-  const handleDeleteClient = () => {
-    if (clientToDelete) {
-      setClients((prev) =>
-        prev.filter((c) => String(c.id) !== clientToDelete.id)
-      );
-      setModalDeleteOpen(false);
-      setClientDelete(null);
-    }
-  };
-
-  // Estado para controlar o modal de adicionar novo cliente
   const [modalAddClientOpen, setModalAddClientOpen] = useState(false);
 
   const filtered = clients.filter((item) => {
-    return (
-      (search === "" ||
-        item.full_name.toLowerCase().includes(search.toLowerCase()) ||
-        item.cpf.includes(search)) &&
-      (beneficio.length === 0 ||
-        beneficio.includes(String(item.benefit_type))) &&
-      (situacao.length === 0 || situacao.includes(item.situation_status)) &&
-      (!data || item.created_at === data?.toString())
-    );
+    const searchLower = search.toLowerCase();
+
+    const matchesSearch = Object.values(item).some((value) => {
+      if (value === null || value === undefined) return false;
+      return String(value).toLowerCase().includes(searchLower);
+    });
+
+    return search === "" || matchesSearch;
   });
 
   const total = filtered.length;
@@ -143,7 +145,7 @@ useEffect(() => {
         >
           {beneficios.map((b) => (
             <SelectItem key={String(b)}>
-              {RetirementTypeText[b as unknown as RetirementType] || b}
+              {SituationText[b as unknown as Situation] || b}
             </SelectItem>
           ))}
         </Select>
@@ -237,14 +239,59 @@ useEffect(() => {
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableRow>
-              <TableCell
-                colSpan={tableColumns.length}
-                className="text-center py-8 text-lg text-gray-500"
-              >
-                Carregando clientes...
-              </TableCell>
-            </TableRow>
+            Array.from({ length: 10 }).map((_, rowIndex) => (
+              <TableRow key={rowIndex}>
+                <TableCell className="text-center">
+                  <Skeleton className="rounded-lg">
+                    <div className="h-6 w-32 rounded-lg bg-default-300" />
+                  </Skeleton>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Skeleton className="rounded-lg">
+                    <div className="h-6 w-24 rounded-lg bg-default-300" />
+                  </Skeleton>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Skeleton className="rounded-lg">
+                    <div className="h-6 w-20 rounded-lg bg-default-300" />
+                  </Skeleton>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Skeleton className="rounded-lg">
+                    <div className="h-6 w-24 rounded-lg bg-default-300" />
+                  </Skeleton>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Skeleton className="rounded-lg">
+                    <div className="h-6 w-28 rounded-lg bg-default-300" />
+                  </Skeleton>
+                </TableCell>
+                {/* <TableCell className="text-center">
+                  <Skeleton className="rounded-lg">
+                    <div className="h-6 w-20 rounded-lg bg-default-300" />
+                  </Skeleton>
+                </TableCell> */}
+                <TableCell className="text-center">
+                  <Skeleton className="rounded-lg">
+                    <div className="h-6 w-20 rounded-lg bg-default-300" />
+                  </Skeleton>
+                </TableCell>
+                <TableCell className="text-center">
+                  <Skeleton className="rounded-lg">
+                    <div className="h-6 w-24 rounded-lg bg-default-300" />
+                  </Skeleton>
+                </TableCell>
+                <TableCell className="text-center">
+                  <div className="flex justify-center gap-2">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                      <Skeleton key={i} className="rounded-full">
+                        <div className="h-8 w-8 rounded-full bg-default-300" />
+                      </Skeleton>
+                    ))}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
           ) : error ? (
             <TableRow>
               <TableCell
@@ -272,9 +319,9 @@ useEffect(() => {
                 <TableCell className="text-base text-center">
                   {item.cpf}
                 </TableCell>
-                <TableCell className="text-base text-center">
+                {/* <TableCell className="text-base text-center">
                   {item.nit_pis}
-                </TableCell>
+                </TableCell> */}
                 <TableCell className="text-base text-center">
                   {item.benefit_number}
                 </TableCell>
@@ -284,98 +331,141 @@ useEffect(() => {
                 <TableCell className="text-base text-center">
                   {new Date(item.created_at).toLocaleDateString("pt-BR")}
                 </TableCell>
+                <TableCell
+                  className={`text-base text-center ${
+                    item.updated_at !== item.created_at ? "text-success" : ""
+                  }`}
+                >
+                  {new Date(item.updated_at).toLocaleDateString("pt-BR")}
+                </TableCell>
                 <TableCell className="text-base text-center">
                   {item.situation_status}
                 </TableCell>
-                <TableCell className="h-16 flex justify-center items-center gap-2">
-                  <Button
-                    isIconOnly
-                    variant="light"
-                    size="sm"
+                <TableCell className="h-20 flex justify-center items-center gap-2">
+                  <Tooltip
                     color="primary"
-                    title="Visualizar detalhes deste cliente"
-                    onPress={() => {
-                      setClientDetails({
-                        id: String(item.id),
-                        name: item.full_name,
-                      });
-                      setEditDetailsMode(false);
-                      setModalDetailsOpen(true);
-                    }}
+                    placement="bottom"
+                    content="Visualizar cliente"
+                    showArrow={true}
                   >
-                    <Image
-                      src="/svg/icons/details.svg"
-                      alt="botao ver detalhes do cliente"
-                      height={25}
-                      width={25}
-                    />
-                  </Button>
-                  <Button
-                    variant="light"
-                    isIconOnly
-                    size="sm"
-                    color="warning"
-                    title="Editar este cliente"
-                    onPress={() => {
-                      setClientDetails({
-                        id: String(item.id),
-                        name: item.full_name,
-                      });
-                      setEditDetailsMode(true);
-                      setModalDetailsOpen(true);
-                    }}
+                    <Button
+                      isIconOnly
+                      variant="light"
+                      size="sm"
+                      color="primary"
+                      onPress={() => {
+                        console.debug(
+                          "Clients page: open details for",
+                          item.id
+                        );
+                        setClientDetails({
+                          id: String(item.id),
+                          name: item.full_name,
+                        });
+                        setEditDetailsMode(false);
+                        setModalDetailsOpen(true);
+                      }}
+                    >
+                      <Image
+                        src="/svg/icons/details.svg"
+                        alt="botao ver detalhes do cliente"
+                        height={25}
+                        width={25}
+                      />
+                    </Button>
+                  </Tooltip>
+                  <Tooltip
+                    color="secondary"
+                    placement="bottom"
+                    content="Editar este cliente"
+                    showArrow={true}
                   >
-                    <Image
-                      src="/svg/icons/edit.svg"
-                      alt="botao editar cliente"
-                      height={25}
-                      width={25}
-                    />
-                  </Button>
-                  <Button
-                    variant="light"
-                    isIconOnly
-                    size="sm"
+                    <Button
+                      variant="light"
+                      isIconOnly
+                      size="sm"
+                      color="warning"
+                      onPress={() => {
+                        console.debug("Clients page: open edit for", item.id);
+                        setClientDetails({
+                          id: String(item.id),
+                          name: item.full_name,
+                        });
+                        setEditDetailsMode(true);
+                        setModalDetailsOpen(true);
+                      }}
+                    >
+                      <Image
+                        src="/svg/icons/edit.svg"
+                        alt="botao editar cliente"
+                        height={25}
+                        width={25}
+                      />
+                    </Button>
+                  </Tooltip>
+                  <Tooltip
                     color="danger"
-                    title="Excluir este cliente"
-                    onPress={() => {
-                      setClientDelete({
-                        id: String(item.id),
-                        name: item.full_name,
-                      });
-                      setModalDeleteOpen(true);
-                    }}
+                    placement="bottom"
+                    content="Excluir este cliente"
+                    showArrow={true}
                   >
-                    <Image
-                      src="/svg/icons/trash.svg"
-                      alt="botao de excluir cliente"
-                      height={25}
-                      width={25}
-                    />
-                  </Button>
+                    <Button
+                      variant="light"
+                      isIconOnly
+                      size="sm"
+                      color="danger"
+                      onPress={() => {
+                        setClientDelete({
+                          id: String(item.id),
+                          name: item.full_name,
+                        });
+                        setModalDeleteOpen(true);
+                      }}
+                    >
+                      <Image
+                        src="/svg/icons/trash.svg"
+                        alt="botao de excluir cliente"
+                        height={25}
+                        width={25}
+                      />
+                    </Button>
+                  </Tooltip>
                 </TableCell>
               </TableRow>
             ))
           )}
         </TableBody>
       </Table>
+
       {/* Paginação */}
       <div className="flex items-center justify-between pt-4">
         <div />
-        <Pagination
-          variant="light"
-          color="primary"
-          total={totalPages}
-          page={page}
-          onChange={setPage}
-          showControls
-        />
-        <div className="text-base font-semibold text-gray-600">
-          Total de clientes:
-          <span className="ml-2 py-1 px-2 border-solid border-1 border-secondary rounded-lg bg-secondary/10">
-            {total}
-          </span>
-        </div>
+        {loading ? (
+          <Skeleton className="rounded-lg">
+            <div className="h-8 w-48 rounded-lg bg-default-300" />
+          </Skeleton>
+        ) : (
+          <Pagination
+            variant="light"
+            color="primary"
+            total={totalPages}
+            page={page}
+            onChange={setPage}
+            showControls
+          />
+        )}
+        {loading ? (
+          <Skeleton className="rounded-lg">
+            <div className="h-6 w-40 rounded-lg bg-default-300" />
+          </Skeleton>
+        ) : (
+          <div className="text-base font-semibold text-gray-600">
+            Total de clientes:
+            <span className="ml-2 py-1 px-2 border-solid border-1 border-secondary rounded-lg bg-secondary/10">
+              {total}
+            </span>
+          </div>
+        )}
       </div>
 
       <DeleteClientModal
@@ -385,21 +475,24 @@ useEffect(() => {
           setClientDelete(null);
         }}
         clientName={clientToDelete?.name || ""}
-        onConfirm={handleDeleteClient}
-      ></DeleteClientModal>
+        onConfirm={() => handleDeleteClient(clientToDelete?.id || null)}
+      />
 
       <DetailsClientModal
         isOpen={modalDetailsOpen}
         onClose={() => {
           setModalDetailsOpen(false);
-          setClientDelete(null);
+          setClientDetails(null);
         }}
         clientName={clientToDetails?.name || ""}
+        clientId={clientToDetails?.id}
         editOnOpen={editDetailsMode}
+        onConfirm={() => setRefreshTrigger((prev) => prev + 1)}
       />
       <AddNewClientModal
         isOpen={modalAddClientOpen}
         onClose={() => setModalAddClientOpen(false)}
+        onConfirm={handleAddClientSuccess}
       />
     </div>
   );
