@@ -6,8 +6,9 @@ const endpoints = {
     POST_LOGIN: `${API_BASE_URL}/login`,
   },
   CLIENTS: {
-    URL_CLIENTS: `${API_BASE_URL}${API_BASE_PATH_V1}/client`,
-    CLIENT_BY_ID: (client_id: string | number) => `${API_BASE_URL}${API_BASE_PATH_V1}/client/${client_id}`,
+    URL_CLIENTS: `${API_BASE_URL}${API_BASE_PATH_V1}/clients`,
+    CLIENT_BY_ID: (client_id: string | number) =>
+      `${API_BASE_URL}${API_BASE_PATH_V1}/clients/${client_id}`,
   },
 };
 
