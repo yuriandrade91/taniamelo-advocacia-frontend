@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Input } from "@heroui/input";
 import { Button } from "@heroui/button";
-import ExemptFromServiceSwitch from "@/components/exemptFromServiceSwitch/exemptFromServiceSwitch";
+// import ExemptFromServiceSwitch from "@/components/exemptFromServiceSwitch/exemptFromServiceSwitch";
 import { Select, SelectItem } from "@heroui/select";
 import { Modal, ModalContent, ModalHeader, ModalBody } from "@heroui/modal";
 import { Spinner } from "@heroui/spinner";
@@ -529,10 +529,10 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
               </div>
             </div>
             <div className="flex justify-between items-center gap-5 pb-6 px-6">
-              <ExemptFromServiceSwitch
+              {/* <ExemptFromServiceSwitch
                 value={isento}
                 onChange={handleSwitchChange}
-              />
+              /> */}
 
               <div className="flex gap-3 justify-end self-end">
                 <Button

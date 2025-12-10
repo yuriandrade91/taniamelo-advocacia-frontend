@@ -16,7 +16,7 @@ interface DeleteClientModalProps {
 
 import React, { useState, useEffect } from "react";
 import { Select, SelectItem } from "@heroui/select";
-import ExemptFromServiceSwitch from "@/components/exemptFromServiceSwitch/exemptFromServiceSwitch";
+// import ExemptFromServiceSwitch from "@/components/exemptFromServiceSwitch/exemptFromServiceSwitch";
 import DeleteClientModal from "../DeleteClientModal/DeleteClientModal";
 import axiosInstance from "@/services/axiosService";
 import endpoints from "@/constants/endpoints/paths";
@@ -620,7 +620,7 @@ export default function DetailsClientModal({
               ) : (
                 <div className="grid grid-cols-[2fr_.8fr] gap-4 py-4">
                   <div className="grid grid-rows-2 gap-2 w-full">
-                  {/* Dados Pessoais */}
+                    {/* Dados Pessoais */}
                     <div className="bg-white flex flex-col rounded-2xl">
                       <div className="flex items-center gap-2 p-4">
                         <Image
@@ -1060,7 +1060,7 @@ export default function DetailsClientModal({
                       </div>
                     </div>
                     <div className="w-full flex flex-1 pl-6 pt-4">
-                      <ExemptFromServiceSwitch
+                      {/* <ExemptFromServiceSwitch
                         value={!!form.isento}
                         onChange={(v) => setForm((f) => ({ ...f, isento: v }))}
                         disabled={!isEditing}
@@ -1069,7 +1069,7 @@ export default function DetailsClientModal({
                             ? "text-gray-400 font-medium"
                             : "text-primary font-medium"
                         }
-                      />
+                      /> */}
                     </div>
                   </div>
                   <div className="py-4 px-2 h-32 w-full bg-white rounded-2xl">
