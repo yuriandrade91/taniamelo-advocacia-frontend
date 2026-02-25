@@ -1,28 +1,34 @@
-export enum Benefits {
-  FormFilled = 1,
-  DocumentAnalysis = 2,
-  PlanningInProgress = 3,
-  PlanningCompleted = 4,
-  FutureBenefit = 5,
-  BenefitCompleted = 6,
-}
+const BENEFIT_ENTRIES = [
+  ['APOSENTADORIA_POR_IDADE', 'Aposentadoria por idade'],
+  ['APOSENTADORIA_POR_TEMPO_CONTRIBUICAO', 'Aposentadoria por tempo de contribuição'],
+  ['APOSENTADORIA_POR_INCAPACIDADE_PERMANENTE', 'Aposentadoria por incapacidade permanente'],
+  ['APOSENTADORIA_ESPECIAL', 'Aposentadoria especial'],
+  ['APOSENTADORIA_POR_DEFICIENCIA', 'Aposentadoria por deficiência'],
+  ['APOSENTADORIA_POR_TEMPO_PROFESSOR', 'Aposentadoria por tempo de contribuição do professor'],
+  ['APOSENTADORIA_POR_INVALIDEZ', 'Aposentadoria por invalidez'],
+] as const;
 
-// Labels to show in the form select. Use these for UI.
-export const BenefitLabel: Record<Benefits, string> = {
-  [Benefits.FormFilled]: "Formulário preenchido",
-  [Benefits.DocumentAnalysis]: "Análise documental",
-  [Benefits.PlanningInProgress]: "Planejamento em execução",
-  [Benefits.PlanningCompleted]: "Planejamento concluído",
-  [Benefits.FutureBenefit]: "Benefício futuro",
-  [Benefits.BenefitCompleted]: "Benefício concluído",
+export type BenefitKey = typeof BENEFIT_ENTRIES[number][0];
+
+export const BenefitOptions = Array.from(BENEFIT_ENTRIES).map(([value, label]) => ({ value: value as BenefitKey, label }));
+
+export const BenefitLabelByKey = Object.fromEntries(
+  Array.from(BENEFIT_ENTRIES).map(([k, v]) => [k, v])
+) as Record<BenefitKey, string>;
+
+const benefitKeyByLabel = Object.fromEntries(
+  Array.from(BENEFIT_ENTRIES).map(([k, v]) => [v, k])
+) as Record<string, BenefitKey>;
+
+export const getBenefitKeyByLabel = (label?: string): BenefitKey | undefined => (label ? benefitKeyByLabel[label] : undefined);
+
+export const getBenefitLabelByKey = (key?: BenefitKey): string | undefined => (key ? BenefitLabelByKey[key] : undefined);
+
+export { BENEFIT_ENTRIES };
+
+// Compatibility aliases used across the codebase
+export const IntendedBenefitOptions = BenefitOptions;
+export const Benefits = {
+  BenefitOptions,
+  BenefitLabelByKey,
 };
-
-// Options array convenient for mapping into select components.
-export const IntendedBenefitOptions: { id: Benefits; label: string }[] = [
-  { id: Benefits.FormFilled, label: BenefitLabel[Benefits.FormFilled] },
-  { id: Benefits.DocumentAnalysis, label: BenefitLabel[Benefits.DocumentAnalysis] },
-  { id: Benefits.PlanningInProgress, label: BenefitLabel[Benefits.PlanningInProgress] },
-  { id: Benefits.PlanningCompleted, label: BenefitLabel[Benefits.PlanningCompleted] },
-  { id: Benefits.FutureBenefit, label: BenefitLabel[Benefits.FutureBenefit] },
-  { id: Benefits.BenefitCompleted, label: BenefitLabel[Benefits.BenefitCompleted] },
-];

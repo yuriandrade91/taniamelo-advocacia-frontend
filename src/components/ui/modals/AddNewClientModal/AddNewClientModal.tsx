@@ -1,28 +1,48 @@
-import React, { useState, useEffect } from "react";
+"use client";
+
+import React, { useState, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { Input } from "@heroui/input";
 import { Button } from "@heroui/button";
-// import ExemptFromServiceSwitch from "@/components/exemptFromServiceSwitch/exemptFromServiceSwitch";
 import { Select, SelectItem } from "@heroui/select";
 import { Modal, ModalContent, ModalHeader, ModalBody } from "@heroui/modal";
 import { Spinner } from "@heroui/spinner";
-import Image from "next/image";
+
+import axiosInstance from "@/services/axiosService";
+import endpoints from "@/constants/endpoints/paths";
+import NotBillableSwitch from "@/components/ui/NotBillableSwitch/NotBillableSwitch";
+
+import { MaritalStatusOptions } from "@/enums/maritalStatus/MaritalStatus";
+import { IntendedBenefitOptions } from "@/enums/benefit/Benefits";
+import {
+  SituationOptions,
+  RetirementTypeOptions,
+} from "@/enums/situation/Situation";
+
 import {
   maskCPF,
-  maskRG,
   maskEmail,
   maskCelular,
   maskTelefone,
   maskNIT,
   maskCTPS,
-} from "../../../../lib/masks/masks";
-import { MaritalStatusOptions } from "@/enums/maritalStatus/MaritalStatus";
-import { IntendedBenefitOptions } from "@/enums/benefit/benefits";
-import { RetirementTypeOptions } from "@/enums/situation/Situation";
+} from "@/lib/masks/masks";
 
-const initialForm = {
+import type { Clients } from "@/interfaces/Clients.interface";
+import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
+
+// ─── Constants ───────────────────────────────────────────────
+
+const GENDER_OPTIONS = [
+  { key: "Masculino", label: "Masculino" },
+  { key: "Feminino", label: "Feminino" },
+] as const;
+
+const INITIAL_FORM = {
   nome: "",
   nascimento: "",
-  estadoCivil: null,
+  estadoCivil: "",
+  genero: "",
   cpf: "",
   rg: "",
   nomeMae: "",
@@ -30,8 +50,8 @@ const initialForm = {
   celular: "",
   telRecado: "",
   responsavelRecado: "",
-  situacaoBeneficio: null,
-  beneficioPretendido: null,
+  situacaoBeneficio: "",
+  beneficioPretendido: "",
   numBeneficiario: "",
   nitPis: "",
   profissao: "",
@@ -41,100 +61,225 @@ const initialForm = {
   tempoContribuicao: "",
 };
 
+type FormState = Record<keyof typeof INITIAL_FORM, string>;
+
+const REQUIRED_FIELDS: (keyof FormState)[] = [
+  "nome",
+  "nascimento",
+  "genero",
+  "cpf",
+  "celular",
+  "nomeMae",
+  "beneficioPretendido",
+  "situacaoBeneficio",
+  "senhaInss",
+];
+
+// ─── Helpers ─────────────────────────────────────────────────
+
+const digits = (v: string) => v.replace(/\D+/g, "");
+
+const labelAt = <T extends { label: string }>(
+  options: readonly T[],
+  oneBasedIndex: number,
+): string | undefined => options[oneBasedIndex - 1]?.label;
+
+const filled = (v: string) => v.trim().length > 0;
+
+/** Placeholder map — garante artigo correto: "Digite o CPF", "Digite a profissão" etc. */
+const PLACEHOLDERS: Partial<Record<keyof typeof INITIAL_FORM, string>> = {
+  nome: "Digite o nome completo",
+  nascimento: "dd/mm/aaaa",
+  cpf: "Digite o CPF",
+  rg: "Digite o RG",
+  nomeMae: "Digite o nome da mãe",
+  email: "Digite o e-mail",
+  celular: "Digite o celular",
+  telRecado: "Digite o telefone de recado",
+  responsavelRecado: "Digite o responsável",
+  numBeneficiario: "Digite o número do beneficiário",
+  nitPis: "Digite o NIT/PIS",
+  profissao: "Digite a profissão",
+  ctps: "Digite o número da CTPS",
+  serie: "Digite a série da CTPS",
+  senhaInss: "Digite a senha do INSS",
+  tempoContribuicao: "Digite o tempo de contribuição",
+};
+
+// ─── Props ───────────────────────────────────────────────────
+
 type AddNewClientModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onConfirm?: () => void;
-  clientId?: number;
 };
-import axiosInstance from "@/services/axiosService";
-import endpoints from "@/constants/endpoints/paths";
-import { ClientRequest } from "@/interfaces/client/Request/ClientResquest.interface";
 
-type FormFields = typeof initialForm;
+// ─── Component ───────────────────────────────────────────────
 
 const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
   isOpen,
   onClose,
   onConfirm,
 }) => {
-  const [form, setForm] = useState<FormFields>({ ...initialForm });
-  const [isento, setIsento] = useState<boolean>(false);
-  const onlyDigits = (v?: string | number) => {
-    if (v === undefined || v === null) return "";
-    return String(v).replace(/\D+/g, "");
-  };
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [form, setForm] = useState<FormState>({ ...INITIAL_FORM });
+  const [touched, setTouched] = useState<Set<keyof FormState>>(new Set());
+  const [nonBillable, setNonBillable] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
+  // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
-      setForm({ ...initialForm });
-      setIsento(false);
+      setForm({ ...INITIAL_FORM });
+      setTouched(new Set());
+      setNonBillable(false);
     }
   }, [isOpen]);
 
-  const handleFieldChange = (
-    field: keyof FormFields,
-    value: string | number
-  ) => {
-    setForm((f) => ({ ...f, [field]: value }));
-  };
+  // ── Field handlers ──
 
-  const handleSwitchChange = (value: boolean) => {
-    setIsento(value);
-  };
+  const set = useCallback(
+    (field: keyof FormState, value: string) =>
+      setForm((prev) => ({ ...prev, [field]: value })),
+    [],
+  );
 
-  // const payload = {
-  //   ...form,
-  //   isento,
-  // };
+  const touch = useCallback(
+    (field: keyof FormState) =>
+      setTouched((prev) => new Set(prev).add(field)),
+    [],
+  );
+
+  const onSelect = useCallback(
+    (field: keyof FormState, keys: "all" | Set<React.Key>) => {
+      const value = String(Array.from(keys as Iterable<React.Key>)[0] ?? "");
+      set(field, value);
+      touch(field);
+    },
+    [set, touch],
+  );
+
+  // ── Validation ──
+
+  const isFormValid = useCallback((): boolean => {
+    return (
+      filled(form.nome) &&
+      filled(form.nascimento) &&
+      filled(form.genero) &&
+      digits(form.cpf).length >= 11 &&
+      digits(form.celular).length > 0 &&
+      filled(form.nomeMae) &&
+      Number(form.beneficioPretendido) > 0 &&
+      Number(form.situacaoBeneficio) > 0 &&
+      filled(form.senhaInss)
+    );
+  }, [form]);
+
+  const showError = (field: keyof FormState, msg: string) =>
+    touched.has(field) ? msg : "";
+
+  // ── Submit ──
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const payload: Partial<ClientRequest> = {
-      full_name: form.nome,
-      birth_date: form.nascimento,
-      marital_status_id: form.estadoCivil
-        ? Number(form.estadoCivil)
-        : undefined,
-      cpf: onlyDigits(form.cpf),
-      rg: onlyDigits(form.rg),
-      mother_name: form.nomeMae,
-      email: form.email,
-      mobile_phone: onlyDigits(form.celular),
-      reference_phone: onlyDigits(form.telRecado),
-      reference_responsible: form.responsavelRecado,
-      benefit_id: form.situacaoBeneficio
-        ? Number(form.situacaoBeneficio)
-        : undefined,
-      situation_id: form.beneficioPretendido
-        ? Number(form.beneficioPretendido)
-        : undefined,
-      benefit_number: onlyDigits(form.numBeneficiario),
-      nit_pis: onlyDigits(form.nitPis),
-      profession: form.profissao,
-      ctps: onlyDigits(form.ctps),
-      ctps_series: onlyDigits(form.serie),
-      inss_password: form.senhaInss,
-      contribution_time: form.tempoContribuicao
-        ? Number(form.tempoContribuicao)
-        : undefined,
-      non_billable: isento,
-      created_by: undefined,
+
+    if (!isFormValid()) {
+      setTouched(new Set(REQUIRED_FIELDS));
+      return;
+    }
+
+    const bi = Number(form.beneficioPretendido);
+    const si = Number(form.situacaoBeneficio);
+    const mi = Number(form.estadoCivil);
+
+    const raw: Record<string, unknown> = {
+      fullName: form.nome,
+      birthDate: form.nascimento,
+      cpf: form.cpf,
+      motherName: form.nomeMae,
+      mobilePhone: form.celular,
+      inssPassword: form.senhaInss,
+      gender: form.genero || undefined,
+      rg: form.rg || undefined,
+      email: form.email || undefined,
+      referencePhone: form.telRecado || undefined,
+      referenceResponsible: form.responsavelRecado || undefined,
+      maritalStatus: labelAt(MaritalStatusOptions, mi),
+      benefit: labelAt(IntendedBenefitOptions, bi),
+      situation: labelAt(SituationOptions, si),
+      beneficiaryNumber: form.numBeneficiario || undefined,
+      nitPis: form.nitPis || undefined,
+      profession: form.profissao || undefined,
+      ctps: form.ctps || undefined,
+      ctpsSeries: form.serie || undefined,
+      contributionTime: form.tempoContribuicao || undefined,
+      nonBillable,
     };
 
-    setIsSubmitting(true);
+    const body = Object.fromEntries(
+      Object.entries(raw).filter(([, v]) => v !== undefined),
+    );
+
+    setSubmitting(true);
+
     axiosInstance
-      .post(endpoints.CLIENTS.URL_CLIENTS, payload)
+      .post<ApiEnvelope<Clients>>(endpoints.URL_CLIENTS.CLIENT, body)
       .then(() => {
         onConfirm?.();
         onClose();
       })
-      .catch((err) => {
-        console.error("Erro ao adicionar cliente:", err);
-      })
-      .finally(() => setIsSubmitting(false));
+      .catch((err) => console.error("Erro ao adicionar cliente:", err))
+      .finally(() => setSubmitting(false));
   };
+
+  // ── Input factory ──
+
+  const inputProps = (
+    field: keyof FormState,
+    label: string,
+    opts?: {
+      required?: boolean;
+      mask?: (v: string) => string;
+      maxLength?: number;
+      type?: string;
+      minW?: string;
+      placeholder?: string;
+    },
+  ) => {
+    const {
+      required = false,
+      mask,
+      maxLength,
+      type,
+      minW = "180px",
+      placeholder,
+    } = opts ?? {};
+
+    const value = form[field];
+    const invalid = required && touched.has(field) && !filled(value);
+
+    return {
+      label,
+      placeholder: placeholder ?? PLACEHOLDERS[field] ?? "Digite " + label.toLowerCase(),
+      variant: "flat" as const,
+      size: "lg" as const,
+      radius: "md" as const,
+      classNames: { label: "!text-secondary", input: "!text-gray-100" },
+      className: `min-w-[${minW}]`,
+      value,
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+        set(field, mask ? mask(e.target.value) : e.target.value),
+      ...(required && {
+        isRequired: true,
+        onBlur: () => touch(field),
+        isInvalid: invalid,
+        errorMessage: invalid ? `${label} é obrigatório(a)` : "",
+      }),
+      ...(maxLength && { maxLength }),
+      ...(type && { type }),
+    };
+  };
+
+  // ── JSX ──
 
   return (
     <Modal
@@ -142,436 +287,160 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
       backdrop="blur"
       isOpen={isOpen}
       onClose={onClose}
-      hideCloseButton={false}
       className="bg-[#F4F4F5] min-h-[80vh] max-w-[1440px]"
     >
       <ModalContent>
-        <form onSubmit={handleSubmit}>
-          <ModalHeader className="relative">
-            <div className="flex flex-col p-8 w-full bg-primary rounded-2xl gap-4">
-              <div className="flex items-center justify-between w-full">
-                <h1 className="text-4xl text-white">Cadastro de cliente</h1>
-                <p className="absolute mt-14 top-auto w-24 border-b-4 border-solid border-secondary" />
+        {() => (
+          <form onSubmit={handleSubmit}>
+            <ModalHeader className="relative mt-6">
+              <div className="flex flex-col p-8 w-full bg-primary rounded-2xl gap-4">
+                <div className="flex items-center justify-between w-full">
+                  <h1 className="text-4xl text-white">Cadastro de cliente</h1>
+                  <p className="absolute mt-14 top-auto w-24 border-b-4 border-solid border-secondary" />
+                </div>
               </div>
-            </div>
-          </ModalHeader>
-          <ModalBody>
-            {/* Dados pessoais */}
-            <div className="bg-white flex flex-col rounded-2xl">
-              <div className="flex items-center gap-2 p-4">
-                <Image
-                  src="../svg/icons/profile.svg"
-                  alt="Logo"
-                  height={24}
-                  width={24}
-                />
-                <h3 className="text-xl font-semibold text-secondary">
-                  Dados pessoais
-                </h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full p-4">
-                <Input
-                  label="Nome completo"
-                  placeholder="Digite o nome completo"
-                  variant="flat"
-                  size="lg"
-                  classNames={{
-                    label: "!text-secondary",
-                    input: "!text-gray-100",
-                  }}
-                  radius="md"
-                  value={form.nome}
-                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                  isInvalid={!form.nome}
-                  errorMessage={!form.nome ? "Nome é obrigatório" : ""}
-                  className="min-w-[240px]"
-                />
-                <Input
-                  label="Data de nascimento"
-                  placeholder="dd/mm/aaaa"
-                  variant="flat"
-                  size="lg"
-                  classNames={{
-                    label: "!text-secondary",
-                    input: "!text-gray-100",
-                  }}
-                  radius="md"
-                  value={form.nascimento}
-                  onChange={(e) =>
-                    handleFieldChange("nascimento", e.target.value)
-                  }
-                  isInvalid={!form.nascimento}
-                  errorMessage={
-                    !form.nascimento ? "Data de nascimento é obrigatória" : ""
-                  }
-                  className="min-w-[180px]"
-                />
-                <Select
-                  label="Estado civil"
-                  size="lg"
-                  variant="flat"
-                  placeholder="Selecione o estado civil"
-                  radius="md"
-                  selectedKeys={
-                    form.estadoCivil ? [String(form.estadoCivil)] : []
-                  }
-                  onSelectionChange={(keys) => {
-                    const value = String(Array.from(keys)[0] ?? "");
-                    handleFieldChange("estadoCivil", Number(value));
-                  }}
-                  classNames={{
-                    label: "!text-secondary",
-                    value: "!text-gray-100",
-                  }}
-                  className="min-w-[180px]"
-                >
-                  {MaritalStatusOptions.map((opt) => (
-                    <SelectItem key={String(opt.id)}>{opt.label}</SelectItem>
-                  ))}
-                </Select>
-                <Input
-                  label="CPF"
-                  placeholder="Digite o CPF"
-                  maxLength={14}
-                  variant="flat"
-                  size="lg"
-                  classNames={{
-                    label: "!text-secondary",
-                    input: "!text-gray-100",
-                  }}
-                  radius="md"
-                  value={form.cpf}
-                  onChange={(e) =>
-                    setForm({ ...form, cpf: maskCPF(e.target.value) })
-                  }
-                  isInvalid={!form.cpf}
-                  errorMessage={!form.cpf ? "CPF é obrigatório" : ""}
-                  className="min-w-[180px]"
-                />
-                <Input
-                  label="RG"
-                  placeholder="Digite o RG"
-                  variant="flat"
-                  size="lg"
-                  classNames={{
-                    label: "!text-secondary",
-                    input: "!text-gray-100",
-                  }}
-                  radius="md"
-                  value={form.rg}
-                  onChange={(e) =>
-                    handleFieldChange("rg", maskRG(e.target.value))
-                  }
-                  className="min-w-[180px]"
-                />
-                <Input
-                  label="Nome da mãe"
-                  placeholder="Digite o nome da mãe"
-                  variant="flat"
-                  size="lg"
-                  classNames={{
-                    label: "!text-secondary",
-                    input: "!text-gray-100",
-                  }}
-                  radius="md"
-                  value={form.nomeMae}
-                  onChange={(e) => handleFieldChange("nomeMae", e.target.value)}
-                  className="min-w-[240px]"
-                />
-                <Input
-                  label="E-mail"
-                  placeholder="Digite o e-mail"
-                  variant="flat"
-                  size="lg"
-                  classNames={{
-                    label: "!text-secondary",
-                    input: "!text-gray-100",
-                  }}
-                  radius="md"
-                  value={form.email}
-                  onChange={(e) =>
-                    handleFieldChange("email", maskEmail(e.target.value))
-                  }
-                  className="min-w-[240px]"
-                />
-                <Input
-                  label="Celular"
-                  placeholder="Digite o celular"
-                  maxLength={15}
-                  variant="flat"
-                  size="lg"
-                  classNames={{
-                    label: "!text-secondary",
-                    input: "!text-gray-100",
-                  }}
-                  radius="md"
-                  value={form.celular}
-                  onChange={(e) =>
-                    setForm({ ...form, celular: maskCelular(e.target.value) })
-                  }
-                  isInvalid={!form.celular}
-                  errorMessage={!form.celular ? "Celular é obrigatório" : ""}
-                  className="min-w-[180px]"
-                />
-                <Input
-                  label="Telefone recado"
-                  placeholder="Digite o telefone de recado"
-                  maxLength={15}
-                  variant="flat"
-                  size="lg"
-                  classNames={{
-                    label: "!text-secondary",
-                    input: "!text-gray-100",
-                  }}
-                  radius="md"
-                  value={form.telRecado}
-                  onChange={(e) =>
-                    handleFieldChange("telRecado", maskTelefone(e.target.value))
-                  }
-                  className="min-w-[180px]"
-                />
-                <Input
-                  label="Responsável pelo recado"
-                  placeholder="Digite o responsável"
-                  variant="flat"
-                  size="lg"
-                  classNames={{
-                    label: "!text-secondary",
-                    input: "!text-gray-100",
-                  }}
-                  radius="md"
-                  value={form.responsavelRecado}
-                  onChange={(e) =>
-                    handleFieldChange("responsavelRecado", e.target.value)
-                  }
-                  className="min-w-[180px]"
-                />
-                <Select
-                  label="Situação do benefício"
-                  size="lg"
-                  variant="flat"
-                  radius="md"
-                  placeholder="Selecione a situação"
-                  selectedKeys={
-                    form.situacaoBeneficio
-                      ? [String(form.situacaoBeneficio)]
-                      : []
-                  }
-                  onSelectionChange={(keys) => {
-                    const value = String(Array.from(keys)[0] ?? "");
-                    handleFieldChange("situacaoBeneficio", Number(value));
-                  }}
-                  classNames={{
-                    label: "!text-secondary",
-                    value: "!text-gray-100",
-                  }}
-                  className="min-w-[240px]"
-                >
-                  {RetirementTypeOptions.map((opt) => (
-                    <SelectItem key={String(opt.id)}>{opt.label}</SelectItem>
-                  ))}
-                </Select>
-              </div>
-            </div>
-            {/* Dados profissionais */}
-            <div className="bg-white flex flex-col rounded-2xl mb-4">
-              <div className="flex items-center gap-2 p-4">
-                <Image
-                  src="../svg/icons/user_id.svg"
-                  alt="Logo"
-                  height={24}
-                  width={24}
-                />
-                <h3 className="text-xl font-semibold text-secondary">
-                  Dados profissionais
-                </h3>
-              </div>
-              <div className="flex flex-wrap gap-4 p-4 w-full">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
+            </ModalHeader>
+
+            <ModalBody>
+              {/* ── Dados pessoais ── */}
+              <section className="bg-white flex flex-col rounded-2xl">
+                <SectionTitle icon="../svg/icons/profile.svg" title="Dados pessoais" />
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full p-4">
+                  <Input {...inputProps("nome", "Nome completo", { required: true, minW: "240px" })} />
+                  <Input {...inputProps("nascimento", "Data de nascimento", { required: true, type: "date", placeholder: "dd/mm/aaaa" })} />
+
                   <Select
-                    className="min-w-80"
+                    isRequired
+                    label="Gênero"
+                    size="lg"
+                    variant="flat"
+                    radius="md"
+                    placeholder="Selecione o gênero"
+                    classNames={{ label: "!text-secondary", value: "!text-gray-100" }}
+                    className="min-w-[180px]"
+                    selectedKeys={form.genero ? [form.genero] : []}
+                    onSelectionChange={(keys) => onSelect("genero", keys)}
+                    errorMessage={showError("genero", "Gênero é obrigatório(a)")}
+                  >
+                    {GENDER_OPTIONS.map((g) => (
+                      <SelectItem key={g.key}>{g.label}</SelectItem>
+                    ))}
+                  </Select>
+
+                  <Select
+                    label="Estado civil"
+                    size="lg"
+                    variant="flat"
+                    radius="md"
+                    placeholder="Selecione o estado civil"
+                    classNames={{ label: "!text-secondary", value: "!text-gray-100" }}
+                    className="min-w-[180px]"
+                    selectedKeys={form.estadoCivil ? [form.estadoCivil] : []}
+                    onSelectionChange={(keys) => onSelect("estadoCivil", keys)}
+                  >
+                    {MaritalStatusOptions.map((opt, i) => (
+                      <SelectItem key={String(i + 1)}>{opt.label}</SelectItem>
+                    ))}
+                  </Select>
+
+                  <Input {...inputProps("cpf", "CPF", { required: true, mask: maskCPF, maxLength: 14 })} />
+                  <Input {...inputProps("rg", "RG")} />
+                  <Input {...inputProps("nomeMae", "Nome da mãe", { required: true, minW: "240px" })} />
+                  <Input
+                    {...inputProps("email", "E-mail", { mask: maskEmail, type: "email", minW: "240px" })}
+                    errorMessage="Formato de e-mail inválido"
+                  />
+                  <Input {...inputProps("celular", "Celular", { required: true, mask: maskCelular, maxLength: 15 })} />
+                  <Input {...inputProps("telRecado", "Telefone recado", { mask: maskTelefone, maxLength: 15 })} />
+                  <Input {...inputProps("responsavelRecado", "Responsável pelo recado")} />
+
+                  <Select
+                    isRequired
+                    label="Situação do benefício"
+                    size="lg"
+                    variant="flat"
+                    radius="md"
+                    placeholder="Selecione a situação"
+                    classNames={{ label: "!text-secondary", value: "!text-gray-100" }}
+                    className="min-w-[240px]"
+                    selectedKeys={form.situacaoBeneficio ? [form.situacaoBeneficio] : []}
+                    onSelectionChange={(keys) => onSelect("situacaoBeneficio", keys)}
+                    errorMessage={showError("situacaoBeneficio", "Situação do benefício é obrigatório(a)")}
+                  >
+                    {RetirementTypeOptions.map((opt, i) => (
+                      <SelectItem key={String(i + 1)}>{opt.label}</SelectItem>
+                    ))}
+                  </Select>
+                </div>
+              </section>
+
+              {/* ── Dados profissionais ── */}
+              <section className="bg-white flex flex-col rounded-2xl mb-4">
+                <SectionTitle icon="../svg/icons/user_id.svg" title="Dados profissionais" />
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full p-4">
+                  <Select
+                    isRequired
                     label="Benefício pretendido"
                     size="lg"
                     variant="flat"
                     radius="md"
                     placeholder="Selecione o benefício"
-                    selectedKeys={
-                      form.beneficioPretendido
-                        ? [String(form.beneficioPretendido)]
-                        : []
-                    }
-                    onSelectionChange={(keys) => {
-                      const value = String(Array.from(keys)[0] ?? "");
-                      handleFieldChange("beneficioPretendido", Number(value));
-                    }}
-                    classNames={{
-                      label: "!text-secondary",
-                      value: "!text-gray-100",
-                    }}
+                    classNames={{ label: "!text-secondary", value: "!text-gray-100" }}
+                    className="min-w-80"
+                    selectedKeys={form.beneficioPretendido ? [form.beneficioPretendido] : []}
+                    onSelectionChange={(keys) => onSelect("beneficioPretendido", keys)}
+                    errorMessage="Benefício pretendido é obrigatório(a)"
                   >
-                    {IntendedBenefitOptions.map((opt) => (
-                      <SelectItem key={String(opt.id)}>{opt.label}</SelectItem>
+                    {IntendedBenefitOptions.map((opt, i) => (
+                      <SelectItem key={String(i + 1)}>{opt.label}</SelectItem>
                     ))}
                   </Select>
-                  <Input
-                    label="Nº do beneficiário"
-                    placeholder="Digite o número do beneficiário"
-                    variant="flat"
-                    size="lg"
-                    classNames={{
-                      label: "!text-secondary",
-                      input: "!text-gray-100",
-                    }}
-                    radius="md"
-                    value={form.numBeneficiario}
-                    onChange={(e) =>
-                      handleFieldChange("numBeneficiario", e.target.value)
-                    }
-                    className="min-w-[180px]"
-                  />
-                  <Input
-                    label="NIT/PIS"
-                    placeholder="Digite o NIT/PIS"
-                    variant="flat"
-                    maxLength={13}
-                    size="lg"
-                    classNames={{
-                      label: "!text-secondary",
-                      input: "!text-gray-100",
-                    }}
-                    radius="md"
-                    value={form.nitPis}
-                    onChange={(e) =>
-                      handleFieldChange("nitPis", maskNIT(e.target.value))
-                    }
-                    className="min-w-[180px]"
-                  />
-                  <Input
-                    label="Profissão"
-                    placeholder="Digite a profissão"
-                    variant="flat"
-                    size="lg"
-                    classNames={{
-                      label: "!text-secondary",
-                      input: "!text-gray-100",
-                    }}
-                    radius="md"
-                    value={form.profissao}
-                    onChange={(e) =>
-                      handleFieldChange("profissao", e.target.value)
-                    }
-                    className="min-w-[180px]"
-                  />
-                  <Input
-                    label="CTPS"
-                    placeholder="Digite o número da CTPS"
-                    variant="flat"
-                    size="lg"
-                    classNames={{
-                      label: "!text-secondary",
-                      input: "!text-gray-100",
-                    }}
-                    radius="md"
-                    value={form.ctps}
-                    onChange={(e) =>
-                      handleFieldChange("ctps", maskCTPS(e.target.value))
-                    }
-                    className="min-w-[180px]"
-                  />
-                  <Input
-                    label="Série"
-                    placeholder="Digite a série da CTPS"
-                    variant="flat"
-                    size="lg"
-                    classNames={{
-                      label: "!text-secondary",
-                      input: "!text-gray-100",
-                    }}
-                    radius="md"
-                    value={form.serie}
-                    onChange={(e) => handleFieldChange("serie", e.target.value)}
-                    className="min-w-[180px]"
-                  />
-                  <Input
-                    label='Senha "meu inss"'
-                    placeholder="Digite a senha do INSS"
-                    variant="flat"
-                    size="lg"
-                    classNames={{
-                      label: "!text-secondary",
-                      input: "!text-gray-100",
-                    }}
-                    radius="md"
-                    type="text"
-                    value={form.senhaInss}
-                    onChange={(e) =>
-                      handleFieldChange("senhaInss", e.target.value)
-                    }
-                    className="min-w-[180px]"
-                  />
-                  <Input
-                    label="Tempo de contribuição"
-                    placeholder="Digite o tempo de contribuição"
-                    variant="flat"
-                    size="lg"
-                    classNames={{
-                      label: "!text-secondary",
-                      input: "!text-gray-100",
-                    }}
-                    radius="md"
-                    value={form.tempoContribuicao}
-                    onChange={(e) =>
-                      handleFieldChange("tempoContribuicao", e.target.value)
-                    }
-                    className="min-w-[180px]"
-                  />
+
+                  <Input {...inputProps("numBeneficiario", "Nº do beneficiário")} />
+                  <Input {...inputProps("nitPis", "NIT/PIS", { mask: maskNIT, maxLength: 13 })} />
+                  <Input {...inputProps("profissao", "Profissão")} />
+                  <Input {...inputProps("ctps", "CTPS", { mask: maskCTPS })} />
+                  <Input {...inputProps("serie", "Série")} />
+                  <Input {...inputProps("senhaInss", "Senha \"meu inss\"", { required: true })} />
+                  <Input {...inputProps("tempoContribuicao", "Tempo de contribuição")} />
+                </div>
+              </section>
+
+              {/* ── Footer ── */}
+              <div className="flex justify-between items-center gap-5 pb-6 px-6">
+                <NotBillableSwitch value={nonBillable} onChange={setNonBillable} />
+                <div className="flex gap-3">
+                  <Button className="text-primary" variant="light" size="md" type="button" onPress={onClose}>
+                    Cancelar
+                  </Button>
+                  <Button type="submit" variant="solid" color="primary" isDisabled={submitting || !isFormValid()}>
+                    {submitting ? (
+                      <>
+                        Salvando… <Spinner variant="gradient" color="default" size="sm" />
+                      </>
+                    ) : (
+                      "Salvar"
+                    )}
+                  </Button>
                 </div>
               </div>
-            </div>
-            <div className="flex justify-between items-center gap-5 pb-6 px-6">
-              {/* <ExemptFromServiceSwitch
-                value={isento}
-                onChange={handleSwitchChange}
-              /> */}
-
-              <div className="flex gap-3 justify-end self-end">
-                <Button
-                  className="text-primary"
-                  variant="light"
-                  size="md"
-                  onPress={onClose}
-                  type="button"
-                >
-                  Cancelar
-                </Button>
-                <Button
-                  type="submit"
-                  variant="solid"
-                  color="primary"
-                  isDisabled={
-                    isSubmitting ||
-                    !form.nome ||
-                    !form.nascimento ||
-                    !form.cpf ||
-                    !form.celular
-                  }
-                >
-                  {isSubmitting ? (
-                    <>
-                      Salvando...{" "}
-                      <Spinner variant="gradient" color="default" size="sm" />
-                    </>
-                  ) : (
-                    "Salvar"
-                  )}
-                </Button>
-              </div>
-            </div>
-          </ModalBody>
-        </form>
+            </ModalBody>
+          </form>
+        )}
       </ModalContent>
     </Modal>
   );
 };
 
 export default AddNewClientModal;
+
+// ─── Internal sub-component ──────────────────────────────────
+
+function SectionTitle({ icon, title }: { icon: string; title: string }) {
+  return (
+    <div className="flex items-center gap-2 p-4">
+      <Image src={icon} alt="" height={24} width={24} />
+      <h3 className="text-xl font-semibold text-secondary">{title}</h3>
+    </div>
+  );
+}

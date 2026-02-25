@@ -1,4 +1,3 @@
-import React from "react";
 import { Switch } from "@heroui/switch";
 
 type IsentoSwitchProps = {
@@ -10,7 +9,7 @@ type IsentoSwitchProps = {
   labelClassName?: string;
 };
 
-export default function IsentoSwitch({
+export default function NotBillableSwitch({
   value,
   onChange,
   disabled = false,

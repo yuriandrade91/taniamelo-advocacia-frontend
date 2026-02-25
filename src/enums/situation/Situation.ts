@@ -1,29 +1,29 @@
-export enum Situation {
-  Age = 1,
-  ContributionTime = 2,
-  PermanentDisability = 3,
-  Special = 4,
-  Disability = 5,
-  TeacherContributionTime = 6,
-  Invalidity = 7,
-}
+const SITUATION_ENTRIES = [
+  ['FORMULARIO_PREENCHIDO', 'Formulário preenchido'],
+  ['ANALISE_DOCUMENTAL', 'Análise documental'],
+  ['PLANEJAMENTO_EM_EXECUCAO', 'Planejamento em execução'],
+  ['PLANEJAMENTO_CONCLUIDO', 'Planejamento concluído'],
+  ['BENEFICIO_FUTURO', 'Benefício futuro'],
+  ['BENEFICIO_CONCLUIDO', 'Benefício concluído'],
+] as const;
 
-export const SituationText: Record<Situation, string> = {
-  [Situation.Age]: "Aposentadoria por idade",
-  [Situation.ContributionTime]: "Aposentadoria por tempo de contribuição",
-  [Situation.PermanentDisability]: "Aposentadoria por incapacidade permanente",
-  [Situation.Special]: "Aposentadoria especial",
-  [Situation.Disability]: "Aposentadoria por deficiência",
-  [Situation.TeacherContributionTime]: "Aposentadoria por tempo de contribuição do professor",
-  [Situation.Invalidity]: "Aposentadoria por invalidez",
-};
+export type SituationKey = typeof SITUATION_ENTRIES[number][0];
 
-export const RetirementTypeOptions: { id: Situation; label: string }[] = [
-  { id: Situation.Age, label: SituationText[Situation.Age] },
-  { id: Situation.ContributionTime, label: SituationText[Situation.ContributionTime] },
-  { id: Situation.PermanentDisability, label: SituationText[Situation.PermanentDisability] },
-  { id: Situation.Special, label: SituationText[Situation.Special] },
-  { id: Situation.Disability, label: SituationText[Situation.Disability] },
-  { id: Situation.TeacherContributionTime, label: SituationText[Situation.TeacherContributionTime] },
-  { id: Situation.Invalidity, label: SituationText[Situation.Invalidity] },
-];
+export const SituationOptions = Array.from(SITUATION_ENTRIES).map(([value, label]) => ({ value: value as SituationKey, label }));
+
+export const SituationLabelByKey = Object.fromEntries(
+  Array.from(SITUATION_ENTRIES).map(([k, v]) => [k, v])
+) as Record<SituationKey, string>;
+
+const situationKeyByLabel = Object.fromEntries(
+  Array.from(SITUATION_ENTRIES).map(([k, v]) => [v, k])
+) as Record<string, SituationKey>;
+
+export const getSituationKeyByLabel = (label?: string): SituationKey | undefined => (label ? situationKeyByLabel[label] : undefined);
+
+export const getSituationLabelByKey = (key?: SituationKey): string | undefined => (key ? SituationLabelByKey[key] : undefined);
+
+// Compatibility: many components expect RetirementTypeOptions = {id,label}[]
+export const RetirementTypeOptions = SituationOptions.map((opt, i) => ({ id: i + 1, label: opt.label }));
+
+export { SITUATION_ENTRIES };

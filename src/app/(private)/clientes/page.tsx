@@ -1,15 +1,19 @@
 "use client";
 import AddNewClientModal from "@/components/ui/modals/AddNewClientModal/AddNewClientModal";
+
 import DeleteClientModal from "@/components/ui/modals/DeleteClientModal/DeleteClientModal";
 import DetailsClientModal from "@/components/ui/modals/DetailsClientModal/DetailsClientModal";
 import endpoints from "@/constants/endpoints/paths";
-import { Situation, SituationText } from "@/enums/situation/Situation";
-import { ClientResponse } from "@/interfaces/client/Response/ClientResponse.interface";
+import { BenefitOptions } from "@/enums/benefit/Benefits";
+import { SituationOptions } from "@/enums/situation/Situation";
+import type { Clients } from "@/interfaces/Clients.interface";
+import axiosInstance from "@/services/axiosService";
 import { Button } from "@heroui/button";
 import { DateRangePicker } from "@heroui/date-picker";
 import { Input } from "@heroui/input";
 import { Pagination } from "@heroui/pagination";
 import { Select, SelectItem } from "@heroui/select";
+import { Skeleton } from "@heroui/skeleton";
 import {
   Table,
   TableBody,
@@ -19,14 +23,15 @@ import {
   TableRow,
 } from "@heroui/table";
 import { Tooltip } from "@heroui/tooltip";
-import { Skeleton } from "@heroui/skeleton";
+import { SituationChips } from "@/components/SituationChips";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import axiosInstance from "@/services/axiosService";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type DateValue = any;
 type RangeValue<T> = { start: T; end: T } | null;
+// minimal alias to satisfy the page's params typing
+type ClientListRequest = any;
 
 export default function Clients() {
   const tableColumns = [
@@ -41,20 +46,124 @@ export default function Clients() {
     { key: "actions", label: "AÇÕES" },
   ];
 
-  const [clients, setClients] = useState<ClientResponse[]>([]);
+  const [clients, setClients] = useState<Clients[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [pagination, setPagination] = useState<{
+    pageNumber: number;
+    pageSize: number;
+    totalRecords: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  }>({
+    pageNumber: 1,
+    pageSize: 10,
+    totalRecords: 0,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false,
+  });
+
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  const [benefitType, setBenefitType] = useState<string[]>([]);
+  const [situation, setSituation] = useState<string[]>([]);
+
+  // Date range state for DateRangePicker
+  const [data, setData] = useState<RangeValue<DateValue>>(null);
+  const [dateError, setDateError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
     setError("");
-    axiosInstance
-      .get(endpoints.CLIENTS.URL_CLIENTS)
-      .then((res) => setClients(res.data))
-      .catch((err) => setError(err.message || "Erro desconhecido"))
-      .finally(() => setLoading(false));
-  }, [refreshTrigger]);
+    const requestedPage = pagination.pageNumber;
+    const requestedSize = pagination.pageSize;
+    const params: ClientListRequest = {};
+    if (debouncedSearch && String(debouncedSearch).trim() !== "") {
+      params.searchTerm = debouncedSearch;
+    } else {
+      params.pageNumber = requestedPage;
+      params.pageSize = requestedSize;
+    }
+
+    // Send selected benefit enum keys to backend as `benefitType` (array)
+    if (benefitType && benefitType.length > 0) {
+      params.benefitType = benefitType.filter(Boolean);
+    }
+
+    // Send selected situation enum keys to backend as `situation` (array)
+    if (situation && situation.length > 0) {
+      params.situation = situation.filter(Boolean);
+    }
+
+    // Date range filter: backend expects `createdFrom` and `createdTo`
+    // Do not send date filters while there is a validation error (start after end)
+    if (!dateError && data && data.start && data.end) {
+      const createdFrom =
+        typeof data.start === "string"
+          ? data.start
+          : new Date(data.start).toISOString();
+      const createdTo =
+        typeof data.end === "string"
+          ? data.end
+          : new Date(data.end).toISOString();
+      params.createdFrom = createdFrom;
+      params.createdTo = createdTo;
+    }
+
+    // Prefer using service wrapper which is typed
+    import("@/services/clientService").then(({ clients: fetchClients }) => {
+      fetchClients(params)
+        .then((envelope) => {
+          const items = envelope?.data ?? [];
+          setClients(items);
+
+          const p = envelope.pagination ?? null;
+          if (p) {
+            setPagination((prev) => ({
+              pageNumber:
+                typeof p.pageNumber === "number"
+                  ? p.pageNumber
+                  : prev.pageNumber,
+              pageSize:
+                typeof p.pageSize === "number" ? p.pageSize : prev.pageSize,
+              totalRecords:
+                typeof p.totalRecords === "number"
+                  ? p.totalRecords
+                  : prev.totalRecords,
+              totalPages:
+                typeof p.totalPages === "number"
+                  ? p.totalPages
+                  : prev.totalPages,
+              hasNextPage: !!p.hasNextPage,
+              hasPreviousPage: !!p.hasPreviousPage,
+            }));
+          }
+        })
+        .catch((err) => setError(String(err?.message ?? err)))
+        .finally(() => setLoading(false));
+    });
+  }, [
+    refreshTrigger,
+    pagination.pageNumber,
+    pagination.pageSize,
+    debouncedSearch,
+    benefitType,
+    situation,
+    data,
+    dateError,
+  ]);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPagination((s) => ({ ...s, pageNumber: 1 }));
+    }, 500);
+    return () => clearTimeout(t);
+  }, [search]);
 
   const handleAddClientSuccess = () => {
     setRefreshTrigger((prev) => prev + 1);
@@ -65,7 +174,7 @@ export default function Clients() {
     setLoading(true);
     setError("");
     axiosInstance
-      .delete(`${endpoints.CLIENTS.URL_CLIENTS}/${clientId}`)
+      .delete(`${endpoints.URL_CLIENTS.CLIENT}/${clientId}`)
       .then(() => {
         setRefreshTrigger((prev) => prev + 1);
       })
@@ -73,15 +182,7 @@ export default function Clients() {
       .finally(() => setLoading(false));
   };
 
-  const beneficios = Array.from(new Set(clients.map((c) => c.benefit_type)));
-  const situacoes = Array.from(new Set(clients.map((c) => c.situation_status)));
-  const PAGE_SIZE = 10;
-
-  const [search, setSearch] = useState("");
-  const [beneficio, setBeneficio] = useState<string[]>([]);
-  const [situacao, setSituacao] = useState<string[]>([]);
-  const [data, setData] = useState<RangeValue<DateValue>>(null);
-  const [page, setPage] = useState(1);
+  // situation options are provided by `SituationOptions`
   const [modalDeleteOpen, setModalDeleteOpen] = useState(false);
   const [clientToDelete, setClientDelete] = useState<{
     id: string;
@@ -96,20 +197,41 @@ export default function Clients() {
 
   const [modalAddClientOpen, setModalAddClientOpen] = useState(false);
 
-  const filtered = clients.filter((item) => {
-    const searchLower = search.toLowerCase();
+  // helpers: show '-' for null/undefined/empty and format dates
+  const display = (value: unknown) => {
+    if (value === null || value === undefined) return "-";
+    if (typeof value === "string" && value.trim() === "") return "-";
+    return String(value);
+  };
 
-    const matchesSearch = Object.values(item).some((value) => {
-      if (value === null || value === undefined) return false;
-      return String(value).toLowerCase().includes(searchLower);
-    });
+  const formatDate = (value: unknown) => {
+    if (!value) return "-";
+    const d = new Date(String(value));
+    if (isNaN(d.getTime())) return "-";
+    return d.toLocaleDateString("pt-BR");
+  };
 
-    return search === "" || matchesSearch;
-  });
+  // determine if an item was updated by comparing only the calendar date (YYYY-MM-DD)
+  const isUpdated = (item: Clients) => {
+    if (!item) return false;
+    const { createdAt, updatedAt } = item;
+    if (!createdAt || !updatedAt) return false;
 
-  const total = filtered.length;
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-  const paginated = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+    const cDate = new Date(String(createdAt));
+    const uDate = new Date(String(updatedAt));
+    if (isNaN(cDate.getTime()) || isNaN(uDate.getTime())) return false;
+
+    return (
+      cDate.getFullYear() !== uDate.getFullYear() ||
+      cDate.getMonth() !== uDate.getMonth() ||
+      cDate.getDate() !== uDate.getDate()
+    );
+  };
+
+  // server-side pagination: clients contains current page items
+  const total = pagination.totalRecords;
+  const totalPages = pagination.totalPages;
+  const paginated = clients; // already paged by server
 
   return (
     <div>
@@ -117,11 +239,14 @@ export default function Clients() {
       <div className="w-full bg-primary rounded-t-lg p-4 flex gap-3">
         <Input
           size="lg"
+          classNames={{
+            inputWrapper: "bg-white",
+          }}
           placeholder="Pesquisar beneficiário..."
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
-            setPage(1);
+            setPagination((s) => ({ ...s, pageNumber: 1 }));
           }}
           className="min-w-[220px]"
         />
@@ -129,10 +254,10 @@ export default function Clients() {
           size="lg"
           placeholder="Benefício pretendido"
           selectionMode="multiple"
-          selectedKeys={beneficio}
+          selectedKeys={benefitType}
           onSelectionChange={(keys) => {
-            setBeneficio(Array.from(keys).map(String));
-            setPage(1);
+            setBenefitType(Array.from(keys).map(String));
+            setPagination((s) => ({ ...s, pageNumber: 1 }));
           }}
           className="min-w-[180px]"
           variant="flat"
@@ -143,20 +268,18 @@ export default function Clients() {
             popoverContent: "bg-white text-gray-900",
           }}
         >
-          {beneficios.map((b) => (
-            <SelectItem key={String(b)}>
-              {SituationText[b as unknown as Situation] || b}
-            </SelectItem>
+          {BenefitOptions.map((opt) => (
+            <SelectItem key={opt.value}>{opt.label}</SelectItem>
           ))}
         </Select>
         <Select
           size="lg"
           placeholder="Situação"
           selectionMode="multiple"
-          selectedKeys={situacao}
+          selectedKeys={situation}
           onSelectionChange={(keys) => {
-            setSituacao(Array.from(keys).map(String));
-            setPage(1);
+            setSituation(Array.from(keys).map(String));
+            setPagination((s) => ({ ...s, pageNumber: 1 }));
           }}
           className="min-w-[140px]"
           variant="flat"
@@ -167,36 +290,63 @@ export default function Clients() {
             popoverContent: "bg-white text-gray-900",
           }}
         >
-          {situacoes.map((s) => (
-            <SelectItem key={s}>{s}</SelectItem>
+          {SituationOptions.map((opt) => (
+            <SelectItem key={opt.value}>{opt.label}</SelectItem>
           ))}
         </Select>
         <DateRangePicker
+          showMonthAndYearPickers
           label="Período"
           size="sm"
           radius="md"
           value={data}
           onChange={(date) => {
             setData(date);
-            setPage(1);
+            setPagination((s) => ({ ...s, pageNumber: 1 }));
+
+            // validate: start must be before end
+            if (date && date.start && date.end) {
+              const s = new Date(String(date.start));
+              const e = new Date(String(date.end));
+              if (!isNaN(s.getTime()) && !isNaN(e.getTime())) {
+                if (s > e) {
+                  setDateError("Data inicial deve ser anterior à data final");
+                } else {
+                  setDateError(null);
+                }
+              } else {
+                setDateError(null);
+              }
+            } else {
+              setDateError(null);
+            }
           }}
-          className="min-w-[160px] text-primary"
+          isInvalid={!!dateError}
+          errorMessage={dateError ?? undefined}
+          className="min-w-[160px]"
+          classNames={{
+            calendarContent: "bg-primary",
+            inputWrapper: "bg-white",
+            input: "bg-white",
+            description: "bg-white text-green-900",
+            selectorIcon: "text-primary",
+          }}
         />
         <Button
           size="lg"
           variant="flat"
-          className="text-white px-12"
+          className="text-white px-12 disabled:opacity-30"
           onPress={() => {
             setSearch("");
-            setBeneficio([]);
-            setSituacao([]);
+            setBenefitType([]);
+            setSituation([]);
             setData(null);
-            setPage(1);
+            setPagination((s) => ({ ...s, pageNumber: 1 }));
           }}
           isDisabled={
             search === "" &&
-            beneficio.length === 0 &&
-            situacao.length === 0 &&
+            benefitType.length === 0 &&
+            situation.length === 0 &&
             !data
           }
         >
@@ -307,45 +457,53 @@ export default function Clients() {
                 colSpan={tableColumns.length}
                 className="text-center py-8 text-lg text-gray-500"
               >
-                Nenhum cliente encontrado com os filtros selecionados.
+                Nenhum cliente encontrado.
               </TableCell>
             </TableRow>
           ) : (
             paginated.map((item) => (
-              <TableRow key={item.id} className="text-gray-100">
-                <TableCell className="text-base text-center max-w-48">
-                  {item.full_name}
+              <TableRow
+                key={item.id}
+                className={`text-gray-100 ${item.beneficiaryNumber ? "border-2 border-solid border-green-200 rounded-lg relative" : ""}`}
+              >
+                <TableCell className="text-base text-center max-w-48 relative">
+                  {display(item.fullName)}
+                  {item.beneficiaryNumber ? (
+                    <span className="absolute top-1 right-2 bg-green-600 text-white text-xs px-2 py-0.5 rounded-full">
+                      Isento
+                    </span>
+                  ) : null}
                 </TableCell>
                 <TableCell className="text-base text-center">
-                  {item.cpf}
+                  {display(item.cpf)}
                 </TableCell>
                 {/* <TableCell className="text-base text-center">
                   {item.nit_pis}
                 </TableCell> */}
                 <TableCell className="text-base text-center">
-                  {item.benefit_number}
+                  {display(item.beneficiaryNumber)}
                 </TableCell>
                 <TableCell className="text-base text-center font-semibold max-w-52">
-                  {item.benefit_type}
+                  {display(item.benefit)}
                 </TableCell>
                 <TableCell className="text-base text-center">
-                  {new Date(item.created_at).toLocaleDateString("pt-BR")}
+                  {formatDate(item.createdAt)}
                 </TableCell>
                 <TableCell
-                  className={`text-base text-center ${
-                    item.updated_at !== item.created_at ? "text-success" : ""
-                  }`}
+                  className={`text-base text-center ${isUpdated(item) ? "text-success" : "text-gray-600"}`}
                 >
-                  {new Date(item.updated_at).toLocaleDateString("pt-BR")}
+                  {formatDate(item.updatedAt)}
                 </TableCell>
-                <TableCell className="text-base text-center">
-                  {item.situation_status}
+                <TableCell>
+                  <div className="flex justify-center">
+                    <SituationChips situations={[item.situation]} />
+                  </div>
                 </TableCell>
                 <TableCell className="h-20 flex justify-center items-center gap-2">
                   <Tooltip
                     color="primary"
                     placement="bottom"
-                    content="Visualizar cliente"
+                    content="Visualizar este cliente"
                     showArrow={true}
                   >
                     <Button
@@ -356,11 +514,11 @@ export default function Clients() {
                       onPress={() => {
                         console.debug(
                           "Clients page: open details for",
-                          item.id
+                          item.id,
                         );
                         setClientDetails({
                           id: String(item.id),
-                          name: item.full_name,
+                          name: item.fullName,
                         });
                         setEditDetailsMode(false);
                         setModalDetailsOpen(true);
@@ -389,7 +547,7 @@ export default function Clients() {
                         console.debug("Clients page: open edit for", item.id);
                         setClientDetails({
                           id: String(item.id),
-                          name: item.full_name,
+                          name: item.fullName,
                         });
                         setEditDetailsMode(true);
                         setModalDetailsOpen(true);
@@ -417,7 +575,7 @@ export default function Clients() {
                       onPress={() => {
                         setClientDelete({
                           id: String(item.id),
-                          name: item.full_name,
+                          name: item.fullName,
                         });
                         setModalDeleteOpen(true);
                       }}
@@ -449,8 +607,8 @@ export default function Clients() {
             variant="light"
             color="primary"
             total={totalPages}
-            page={page}
-            onChange={setPage}
+            page={pagination.pageNumber}
+            onChange={(p) => setPagination((s) => ({ ...s, pageNumber: p }))}
             showControls
           />
         )}
