@@ -1,19 +1,22 @@
 
 import { NextRequest, NextResponse } from "next/server";
-import { publicRoutes } from "./constants/paths/routes";
+import { publicRoutes, privateRoutes } from "./constants/paths/routes";
 
 export default function proxy(request: NextRequest) {
 	const { pathname } = request.nextUrl;
+	const token = request.cookies.get("token")?.value;
 
 	if (pathname === publicRoutes.login) {
+		// Usuário já autenticado não deve ver a tela de login.
+		if (token) {
+			return NextResponse.redirect(new URL(privateRoutes.home, request.url));
+		}
 		return NextResponse.next();
 	}
 
-	// const token = request.cookies.get("token");
-
-	// if (!token) {
-	//   return NextResponse.redirect(new URL(`${publicRoutes.login}", request.url));
-	// }
+	if (!token) {
+		return NextResponse.redirect(new URL(publicRoutes.login, request.url));
+	}
 
 	return NextResponse.next();
 }
