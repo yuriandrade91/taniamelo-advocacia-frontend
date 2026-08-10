@@ -1,63 +1,12 @@
-import { heroui } from "@heroui/theme";
-
-/** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: [
-    "./src/**/*.{html,tsx}",
-    "./node_modules/@heroui/theme/dist/**/*.{js,ts,jsx,tsx}",
-  ],
-  darkMode: "class",
-  theme: {
-    extend: {
-      fontFamily: {
-        sans: ["Jost", "Arial", "Helvetica", "sans-serif"],
-      },
-      colors: {
-        primary: "#090D4C",
-        secondary: "#B5843C",
-        success: "#2ECC71",
-        danger: "#F34649",
-        "light-secondary": "rgba(181, 132, 60, 0.1)",
-        "light-white": "rgba(255, 255, 255, 0.3)",
-        "light-green ": "rgba(106, 231, 110, 0.25)",
-        "linear-gradient": {
-          secondary:
-            "linear-gradient(0deg, rgba(181,132,60,1) 0%, rgba(89,68,69,1) 50%, rgba(9,13,76,1) 100%)",
-        },
-        "gray-100": "#5B5B5B",
-        background: "var(--background)",
-        foreground: "var(--foreground)",
-      },
-    },
-  },
-  plugins: [
-    heroui({
-      // themes: {
-      //   light: {
-      //     colors: {
-      //       primary: {
-      //         DEFAULT: '#747480',
-      //         foreground: '#000000',
-      //       },
-      //       secondary: {
-      //         DEFAULT: '#FFEB0A',
-      //         foreground: '#000000',
-      //       },
-      //     },
-      //     dark: {
-      //       colors: {
-      //         primary: {
-      //           DEFAULT: '#747480',
-      //           foreground: '#000000',
-      //         },
-      //         secondary: {
-      //           DEFAULT: '#CCBB00',
-      //           foreground: '#000000',
-      //         },
-      //       },
-      //     },
-      //   },
-      // },
-    }),
-  ],
-};
+/**
+ * ⚠️ OBSOLETO — pode ser APAGADO.
+ *
+ * O Tailwind v4 é CSS-first: os tokens do style guide agora vivem no bloco
+ * `@theme` de `src/app/globals.css`, e o plugin `heroui()` deixou de existir
+ * (o HeroUI v3 é carregado via `@import "@heroui/styles"`).
+ *
+ * Este arquivo foi esvaziado em vez de removido porque o ambiente do agente
+ * não tem permissão para excluir arquivos. Rode:
+ *     rm tailwind.config.js
+ */
+export {};

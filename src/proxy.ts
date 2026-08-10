@@ -15,7 +15,12 @@ export default function proxy(request: NextRequest) {
 	}
 
 	if (!token) {
-		return NextResponse.redirect(new URL(publicRoutes.login, request.url));
+		// Preserva o destino para retomar após o login (?next=/rota).
+		const loginUrl = new URL(publicRoutes.login, request.url);
+		if (pathname && pathname !== "/") {
+			loginUrl.searchParams.set("next", pathname + request.nextUrl.search);
+		}
+		return NextResponse.redirect(loginUrl);
 	}
 
 	return NextResponse.next();

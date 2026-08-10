@@ -1,6 +1,10 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ─────────────────────────────────────────────────────────────
+ * Tailwind CSS v4 — configuração CSS-first.
+ * A ORDEM IMPORTA: `tailwindcss` primeiro, depois `@heroui/styles`.
+ * O antigo tailwind.config.js foi substituído pelo bloco @theme abaixo.
+ * ───────────────────────────────────────────────────────────── */
+@import "tailwindcss";
+@import "@heroui/styles";
 
 /* Fontes personalizadas Jost - todos os estilos */
 @font-face {
@@ -130,27 +134,101 @@
   font-display: swap;
 }
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ─────────────────────────────────────────────────────────────
+ * STYLE GUIDE — fonte única de verdade dos tokens da marca.
+ *
+ * Cada token vira, ao mesmo tempo:
+ *   • CSS custom property  ->  var(--color-primary)
+ *   • utility class        ->  bg-primary, text-primary, border-primary...
+ * ───────────────────────────────────────────────────────────── */
+@theme {
+  /* Tipografia */
+  --font-sans: "Jost", Arial, Helvetica, sans-serif;
+
+  /* Paleta da marca (mesmos valores de antes, agora em OKLCH) */
+  --color-primary: oklch(0.2157 0.1122 269.75);    /* #090D4C */
+  --color-secondary: oklch(0.6478 0.1071 74.24);   /* #B5843C */
+  --color-success: oklch(0.7459 0.1812 152.33);    /* #2ECC71 */
+  --color-danger: oklch(0.6460 0.2094 24.40);      /* #F34649 */
+  --color-gray-100: oklch(0.4712 0.0000 89.88);    /* #5B5B5B */
+
+  /* CORRIGIDO: usada em `bg-light-gray` porém nunca definida no theme antigo */
+  --color-light-gray: oklch(0.9033 0.0059 264.53); /* #DDDFE3 */
+
+  /* Fundo das telas internas — mais claro que `light-gray`, para os cards
+     brancos ganharem contraste. */
+  --color-page: oklch(0.9700 0.0029 264.54); /* #F4F5F7 */
+
+  /* Tons translúcidos (alpha é intencional -> mantidos em rgba) */
+  --color-light-secondary: rgba(181, 132, 60, 0.1);
+  --color-light-white: rgba(255, 255, 255, 0.3);
+  /* CORRIGIDO: a chave antiga tinha um espaço no fim ("light-green ") */
+  --color-light-green: rgba(106, 231, 110, 0.25);
 }
 
+/* ── Tema do HeroUI v3 mapeado para a marca ───────────────────
+ * O v3 renomeou `primary` -> `accent`. Sobrescrevendo estas
+ * variáveis, os componentes da lib passam a usar nossa identidade.
+ * ───────────────────────────────────────────────────────────── */
+:root,
+[data-theme="light"] {
+  --accent: var(--color-primary);
+  --accent-foreground: oklch(0.9911 0 0);
+  --success: var(--color-success);
+  --danger: var(--color-danger);
+
+  /* Superfície da aplicação */
+  --background: var(--color-page);
+  --foreground: var(--color-primary);
+
+  /* Dourado da marca como cor semântica própria */
+  --brand-gold: var(--color-secondary);
+}
+
+.dark,
+[data-theme="dark"] {
+  --brand-gold: var(--color-secondary);
+}
+
+/* Ponte para o Tailwind gerar bg-brand-gold / text-brand-gold */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: 'Jost', Arial, Helvetica, sans-serif;
-  --font-mono: var(--font-geist-mono);
+  --color-brand-gold: var(--brand-gold);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Gradiente da marca: utilitário, não "cor" ────────────────
+ * Antes estava declarado como cor (`linear-gradient.secondary`),
+ * o que nunca gerou gradiente algum.
+ * ───────────────────────────────────────────────────────────── */
+@utility bg-gradient-brand {
+  background-image: linear-gradient(
+    0deg,
+    rgb(181 132 60) 0%,
+    rgb(89 68 69) 50%,
+    rgb(9 13 76) 100%
+  );
+}
+
+/* ── Tipografia global: Jost em toda a aplicação ──────────────
+ * O HeroUI não declara `font-family` em nenhum componente, então tudo
+ * herda. O único vazamento seriam os controles de formulário
+ * (input/button/select/textarea), que por padrão do user-agent usam a
+ * fonte do sistema em vez de herdar — daí o `font-family: inherit`.
+ * Popovers e modais renderizam em portal sob o <body>, então herdam.
+ * ───────────────────────────────────────────────────────────── */
+html {
+  font-family: var(--font-sans);
 }
 
 body {
-  background: #DDDFE3;
-  color: #090D4C;
-  font-family: 'Jost', Arial, Helvetica, sans-serif;
+  background: var(--color-page);
+  color: var(--color-primary);
+  font-family: var(--font-sans);
+}
+
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
 }

@@ -1,8 +1,7 @@
-import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
-import { Modal, ModalBody, ModalContent, ModalHeader } from "@heroui/modal";
-import { CircularProgress } from "@heroui/progress";
-import { Skeleton } from "@heroui/skeleton";
+"use client";
+
+import { Button, Modal, ProgressCircle, Skeleton } from "@heroui/react";
+import { Field } from "@/components/ui/form/Field";
 import Image from "next/image";
 
 interface DetailsClientModalProps {
@@ -15,10 +14,15 @@ interface DetailsClientModalProps {
 }
 
 import React, { useState, useEffect } from "react";
-import { Select, SelectItem } from "@heroui/select";
+import { SelectField } from "@/components/ui/form/Field";
 import DeleteClientModal from "../DeleteClientModal/DeleteClientModal";
-import axiosInstance from "@/services/axiosService";
-import endpoints from "@/constants/endpoints/paths";
+import {
+  clientById,
+  updateClient,
+  deleteClient,
+  clientSituationHistory,
+} from "@/services/clientService";
+import type { ClientUpdateRequest } from "@/interfaces/client/Client.interface";
 import { Clients } from "@/interfaces/Clients.interface";
 import { MaritalStatusOptions } from "@/enums/maritalStatus/MaritalStatus";
 import {
@@ -79,7 +83,7 @@ export default function DetailsClientModal({
     setLoading(true);
     setError("");
     try {
-      await axiosInstance.delete(endpoints.URL_CLIENTS.BY_ID(String(clientId)));
+      await deleteClient(String(clientId));
       setShowDeleteModal(false);
       onClose();
       if (typeof onConfirm === "function") onConfirm();
@@ -210,9 +214,8 @@ export default function DetailsClientModal({
     };
 
     try {
-      const url = endpoints.URL_CLIENTS.BY_ID(String(clientId));
-      const res = await axiosInstance.get<Clients>(url);
-      const payload = (res?.data as any)?.data ?? res?.data ?? null;
+      // GET /api/v1/clients/{id} — o service já desembrulha o envelope.
+      const payload = (await clientById(String(clientId))) as Clients | null;
 
       const getNumberField = (
         obj: Partial<Clients> | null | undefined,
@@ -348,26 +351,30 @@ export default function DetailsClientModal({
                 (payload as any).contribution_time !== null
               ? String((payload as any).contribution_time)
               : defaultForm.tempoContribuicao,
+        // O backend expõe `notBillable`; os nomes antigos ficam como fallback.
         isento:
-          typeof (payload?.nonBillable as any) === "boolean"
-            ? (payload?.nonBillable as boolean)
-            : typeof (payload as any).non_billable === "boolean"
-              ? (payload as any).non_billable
-              : defaultForm.isento,
+          typeof payload?.notBillable === "boolean"
+            ? payload.notBillable
+            : typeof (payload as any)?.nonBillable === "boolean"
+              ? (payload as any).nonBillable
+              : typeof (payload as any)?.non_billable === "boolean"
+                ? (payload as any).non_billable
+                : defaultForm.isento,
       };
 
       setForm(mapped);
       setOriginalForm(mapped);
       // fetch situation history (single request)
       try {
-        const histRes = await axiosInstance.get(
-          endpoints.URL_CLIENTS.SITUATION_HISTORY(String(clientId)),
-        );
-        const histPayload = (histRes?.data as any)?.data ?? histRes?.data ?? [];
-        const items = Array.isArray(histPayload)
-          ? histPayload
-          : (histPayload.data ?? histPayload.items ?? []);
-        setSituationHistory(items);
+        // GET /api/v1/clients/{id}/situation-history (paginado, 1-based)
+        const histEnvelope = await clientSituationHistory(String(clientId), {
+          pageNumber: 1,
+          pageSize: 10,
+        });
+        const items = Array.isArray(histEnvelope?.data)
+          ? histEnvelope.data
+          : [];
+        setSituationHistory(items as never[]);
       } catch (errHistory) {
         console.debug("Could not load situation history:", errHistory);
       }
@@ -390,38 +397,42 @@ export default function DetailsClientModal({
     setLoading(true);
     setError("");
 
-    const payload: Record<string, unknown> = {
-      full_name: form.nome,
-      birth_date: form.nascimento,
-      gender: form.genero || undefined,
-      marital_status_id: form.estadoCivil || undefined,
+    // PUT /api/v1/clients/{id} — ClientUpdateRequestDTO.
+    // O backend usa camelCase; os enums aceitam label ou nome da constante.
+    const raw: Record<string, unknown> = {
+      fullName: form.nome,
+      birthDate: form.nascimento,
       cpf: form.cpf,
-      rg: form.rg,
-      mother_name: form.nomeMae,
-      email: form.email,
-      mobile_phone: form.celular,
-      reference_phone: form.telRecado,
-      reference_responsible: form.responsavelRecado,
-      situation_id: form.situacaoBeneficio || undefined,
-      benefit_id: form.beneficioPretendido || undefined,
-      benefit_number: form.numBeneficiario,
-      nit_pis: form.nitPis,
-      profession: form.profissao,
-      ctps: form.ctps,
-      ctps_series: form.serie,
-      inss_password: form.senhaInss,
-      contribution_time:
-        form.tempoContribuicao !== ""
-          ? Number(form.tempoContribuicao)
-          : undefined,
-      non_billable: form.isento,
-      created_by: 1,
+      motherName: form.nomeMae,
+      mobilePhone: form.celular,
+      inssPassword: form.senhaInss,
+      gender: form.genero || undefined,
+      benefit: displayBenefit || undefined,
+      situation: displaySituation || undefined,
+      maritalStatus:
+        findLabelById(MaritalStatusOptions, form.estadoCivil) || undefined,
+      rg: form.rg || undefined,
+      email: form.email || undefined,
+      referencePhone: form.telRecado || undefined,
+      referenceResponsible: form.responsavelRecado || undefined,
+      beneficiaryNumber: form.numBeneficiario || undefined,
+      nitPis: form.nitPis || undefined,
+      profession: form.profissao || undefined,
+      ctps: form.ctps || undefined,
+      ctpsSeries: form.serie || undefined,
+      // Texto livre no backend (não converter para número).
+      contributionTime: form.tempoContribuicao || undefined,
+      notBillable: form.isento,
     };
 
+    const payload = Object.fromEntries(
+      Object.entries(raw).filter(([, v]) => v !== undefined),
+    );
+
     try {
-      await axiosInstance.put(
-        endpoints.URL_CLIENTS.BY_ID(String(clientId)),
-        payload,
+      await updateClient(
+        String(clientId),
+        payload as unknown as ClientUpdateRequest,
       );
       // reload the client to present updated values
       await fetchClient();
@@ -466,29 +477,22 @@ export default function DetailsClientModal({
 
   // ...existing code...
   return (
-    <Modal
-      size="5xl"
-      backdrop="blur"
-      isOpen={isOpen}
-      onClose={handleClose}
-      className="bg-[#F4F4F5] min-h-[80vh] max-w-[1440px]"
-    >
-      <ModalContent>
-        <ModalHeader className="relative mt-6">
+    <Modal>
+      <Modal.Backdrop
+        variant="blur"
+        isOpen={isOpen}
+        onOpenChange={(open) => {
+          if (!open) handleClose();
+        }}
+      >
+        <Modal.Container size="cover">
+          <Modal.Dialog className="bg-[#F4F4F5] min-h-[80vh] max-w-[1440px]">
+        <Modal.Header className="relative mt-6">
           <div className="flex p-4 h-auto w-full bg-primary rounded-2xl gap-24">
             <div className="flex flex-col justify-center">
-              <CircularProgress
+              <ProgressCircle
                 className="text-white"
-                color="success"
-                showValueLabel={true}
-                strokeWidth={2}
                 value={progress}
-                classNames={{
-                  svg: "w-40 h-40 drop-shadow-md",
-                  indicator: "success",
-                  track: "stroke-white/30",
-                  value: "text-4xl font-medium text-white",
-                }}
               />
               <p className="text-sm text-white font-light">
                 Preenchimento do cadastro
@@ -581,8 +585,7 @@ export default function DetailsClientModal({
             </div>
             <div className="grid grid-rows-2 items-stretch gap-4 ml-auto">
               <Button
-                variant="solid"
-                color="danger"
+                variant="primary"
                 className="font-medium"
                 onPress={() => setShowDeleteModal(true)}
               >
@@ -594,8 +597,7 @@ export default function DetailsClientModal({
               typeof handleSave === "function" ? (
                 !isEditing ? (
                   <Button
-                    variant="bordered"
-                    color="default"
+                    variant="outline"
                     className="font-medium flex place-self-end"
                     onPress={() => setIsEditing(true)}
                   >
@@ -604,16 +606,14 @@ export default function DetailsClientModal({
                 ) : (
                   <div className="flex gap-2 items-end">
                     <Button
-                      variant="light"
-                      color="default"
+                      variant="ghost"
                       className="font-medium text-white"
                       onPress={handleCancelEdit}
                     >
                       Cancelar
                     </Button>
                     <Button
-                      variant="solid"
-                      color="success"
+                      variant="primary"
                       className="font-medium"
                       onPress={handleSave}
                     >
@@ -636,8 +636,8 @@ export default function DetailsClientModal({
               />
             )}
           </div>
-        </ModalHeader>
-        <ModalBody>
+        </Modal.Header>
+        <Modal.Body>
           {loading ? (
             <div className="p-6">
               <Skeleton className="w-full h-8 mb-4" />
@@ -665,15 +665,8 @@ export default function DetailsClientModal({
                     </h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full p-4">
-                    <Input
+                    <Field
                       label="Nome completo"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.nome}
                       onChange={(e) =>
@@ -681,15 +674,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[280px]"
                     />
-                    <Input
+                    <Field
                       label="Data de nascimento"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.nascimento}
                       onChange={(e) => {
@@ -704,74 +690,25 @@ export default function DetailsClientModal({
                       type="date"
                     />
                     <div className="flex-1 min-w-[220px]">
-                      <Select
+                      <SelectField
                         label="Estado civil"
-                        size="lg"
-                        variant="flat"
-                        radius="md"
                         isDisabled={!isEditing}
-                        selectedKeys={
-                          form.estadoCivil ? [String(form.estadoCivil)] : []
-                        }
-                        onSelectionChange={(keys) => {
-                          const value = String(Array.from(keys)[0] ?? "");
-                          setForm((f) => ({
-                            ...f,
-                            estadoCivil: Number(value),
-                          }));
-                        }}
-                        classNames={{
-                          label: "!text-secondary",
-                          value: isEditing
-                            ? "!text-gray-100"
-                            : "!text-gray-400",
-                        }}
-                      >
-                        {MaritalStatusOptions.map((opt) => (
-                          <SelectItem key={String(opt.id)}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </Select>
+                        options={MaritalStatusOptions.map((o) => ({ id: String(o.id), label: o.label }))}
+                        selectedKey={form.estadoCivil ? String(form.estadoCivil) : null}
+                        onSelectionChange={(key) => setForm((f) => ({ ...f, estadoCivil: Number(key) }))}
+                      />
                       {/* <div className="flex-1 min-w-[160px]">
-                            <Select
-                              label="Gênero"
-                              size="lg"
-                              variant="flat"
-                              radius="md"
-                              isDisabled={!isEditing}
-                              selectedKeys={
-                                form.genero ? [String(form.genero)] : []
-                              }
-                              onSelectionChange={(keys) => {
-                                const value = String(Array.from(keys)[0] ?? "");
-                                setForm((f) => ({ ...f, genero: value }));
-                              }}
-                              classNames={{
-                                label: "!text-secondary",
-                                value: isEditing
-                                  ? "!text-gray-100"
-                                  : "!text-gray-400",
-                              }}
-                            >
-                              <SelectItem key="Feminino">Feminino</SelectItem>
-                              <SelectItem key="Masculino">Masculino</SelectItem>
-                              <SelectItem key="Outro">Outro</SelectItem>
-                              <SelectItem key="Prefiro não dizer">
-                                Prefiro não dizer
-                              </SelectItem>
-                            </Select>
+                            <SelectField
+                        label="Situação do benefício"
+                        isDisabled={!isEditing}
+                        options={RetirementTypeOptions.map((o) => ({ id: String(o.id), label: o.label }))}
+                        selectedKey={form.situacaoBeneficio ? String(form.situacaoBeneficio) : null}
+                        onSelectionChange={(key) => setForm((f) => ({ ...f, situacaoBeneficio: Number(key) }))}
+                      />
                           </div> */}
                     </div>
-                    <Input
+                    <Field
                       label="CPF"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.cpf}
                       onChange={(e) =>
@@ -779,15 +716,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[140px]"
                     />
-                    <Input
+                    <Field
                       label="RG"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.rg}
                       onChange={(e) =>
@@ -795,15 +725,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[180px]"
                     />
-                    <Input
+                    <Field
                       label="Nome da mãe"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.nomeMae}
                       onChange={(e) =>
@@ -811,15 +734,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[180px]"
                     />
-                    <Input
+                    <Field
                       label="E-mail"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.email}
                       onChange={(e) =>
@@ -827,15 +743,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[180px]"
                     />
-                    <Input
+                    <Field
                       label="Celular"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.celular}
                       onChange={(e) =>
@@ -843,15 +752,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[140px]"
                     />
-                    <Input
+                    <Field
                       label="Telefone recado"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.telRecado}
                       onChange={(e) =>
@@ -862,15 +764,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[140px]"
                     />
-                    <Input
+                    <Field
                       label="Responsável"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.responsavelRecado}
                       onChange={(e) =>
@@ -882,37 +777,13 @@ export default function DetailsClientModal({
                       className="flex-1 min-w-[100px]"
                     />
                     <div className="flex-1 min-w-[180px]">
-                      <Select
-                        label="Situação do benefício"
-                        size="lg"
-                        variant="flat"
-                        radius="md"
+                      <SelectField
+                        label="Benefício pretendido"
                         isDisabled={!isEditing}
-                        selectedKeys={
-                          form.situacaoBeneficio
-                            ? [String(form.situacaoBeneficio)]
-                            : []
-                        }
-                        onSelectionChange={(keys) => {
-                          const value = String(Array.from(keys)[0] ?? "");
-                          setForm((f) => ({
-                            ...f,
-                            situacaoBeneficio: Number(value),
-                          }));
-                        }}
-                        classNames={{
-                          label: "!text-secondary",
-                          value: isEditing
-                            ? "!text-gray-100"
-                            : "!text-gray-400",
-                        }}
-                      >
-                        {RetirementTypeOptions.map((opt, i) => (
-                          <SelectItem key={String(i + 1)}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </Select>
+                        options={IntendedBenefitOptions.map((o, i) => ({ id: String(i + 1), label: o.label }))}
+                        selectedKey={form.beneficioPretendido ? String(form.beneficioPretendido) : null}
+                        onSelectionChange={(key) => setForm((f) => ({ ...f, beneficioPretendido: Number(key) }))}
+                      />
                     </div>
                   </div>
                 </div>
@@ -930,47 +801,18 @@ export default function DetailsClientModal({
                   </div>
                   <div className="flex flex-wrap gap-4 p-4 w-full">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
-                      <Select
+                      <SelectField
                         label="Benefício pretendido"
-                        size="lg"
-                        variant="flat"
-                        radius="md"
                         isDisabled={!isEditing}
-                        selectedKeys={
-                          form.beneficioPretendido
-                            ? [String(form.beneficioPretendido)]
-                            : []
+                        options={IntendedBenefitOptions.map((o, i) => ({ id: String(i + 1), label: o.label }))}
+                        selectedKey={form.beneficioPretendido ? String(form.beneficioPretendido) : null}
+                        onSelectionChange={(key) =>
+                          setForm((f) => ({ ...f, beneficioPretendido: Number(key) }))
                         }
-                        onSelectionChange={(keys) => {
-                          const value = String(Array.from(keys)[0] ?? "");
-                          setForm((f) => ({
-                            ...f,
-                            beneficioPretendido: Number(value),
-                          }));
-                        }}
-                        classNames={{
-                          label: "!text-secondary",
-                          value: isEditing
-                            ? "!text-gray-100"
-                            : "!text-gray-400",
-                        }}
-                      >
-                        {IntendedBenefitOptions.map((opt, i) => (
-                          <SelectItem key={String(i + 1)}>
-                            {opt.label}
-                          </SelectItem>
-                        ))}
-                      </Select>
+                      />
                     </div>
-                    <Input
+                    <Field
                       label="Nº do beneficiário"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.numBeneficiario}
                       onChange={(e) =>
@@ -981,15 +823,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[180px]"
                     />
-                    <Input
+                    <Field
                       label="NIT/PIS"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.nitPis}
                       onChange={(e) =>
@@ -997,15 +832,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[180px]"
                     />
-                    <Input
+                    <Field
                       label="Profissão"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.profissao}
                       onChange={(e) =>
@@ -1016,15 +844,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[180px]"
                     />
-                    <Input
+                    <Field
                       label="CTPS"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.ctps}
                       onChange={(e) =>
@@ -1032,15 +853,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[180px]"
                     />
-                    <Input
+                    <Field
                       label="Série"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.serie}
                       onChange={(e) =>
@@ -1048,15 +862,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[180px]"
                     />
-                    <Input
+                    <Field
                       label='Senha "meu inss"'
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       type="text"
                       value={form.senhaInss}
@@ -1068,15 +875,8 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[180px]"
                     />
-                    <Input
+                    <Field
                       label="Tempo de contribuição"
-                      variant="flat"
-                      size="lg"
-                      classNames={{
-                        label: "!text-secondary",
-                        input: isEditing ? "!text-gray-100" : "!text-gray-400",
-                      }}
-                      radius="md"
                       isReadOnly={!isEditing}
                       value={form.tempoContribuicao}
                       onChange={(e) =>
@@ -1149,8 +949,10 @@ export default function DetailsClientModal({
               </div>
             </div>
           )}
-        </ModalBody>
-      </ModalContent>
+        </Modal.Body>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </Modal>
   );
 }

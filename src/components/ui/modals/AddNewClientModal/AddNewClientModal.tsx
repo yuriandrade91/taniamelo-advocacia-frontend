@@ -2,14 +2,11 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { Input } from "@heroui/input";
-import { Button } from "@heroui/button";
-import { Select, SelectItem } from "@heroui/select";
-import { Modal, ModalContent, ModalHeader, ModalBody } from "@heroui/modal";
-import { Spinner } from "@heroui/spinner";
+import { Button, Modal, Spinner } from "@heroui/react";
+import { Field, SelectField } from "@/components/ui/form/Field";
 
-import axiosInstance from "@/services/axiosService";
-import endpoints from "@/constants/endpoints/paths";
+import { createClient } from "@/services/clientService";
+import type { ClientCreateRequest } from "@/interfaces/client/Client.interface";
 import NotBillableSwitch from "@/components/ui/NotBillableSwitch/NotBillableSwitch";
 
 import { MaritalStatusOptions } from "@/enums/maritalStatus/MaritalStatus";
@@ -212,17 +209,18 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
       ctps: form.ctps || undefined,
       ctpsSeries: form.serie || undefined,
       contributionTime: form.tempoContribuicao || undefined,
-      nonBillable,
+      // O backend espera `notBillable` (ClientCreateRequestDTO), não `nonBillable`.
+      notBillable: nonBillable,
     };
 
     const body = Object.fromEntries(
       Object.entries(raw).filter(([, v]) => v !== undefined),
-    );
+    ) as unknown as ClientCreateRequest;
 
     setSubmitting(true);
 
-    axiosInstance
-      .post<ApiEnvelope<Clients>>(endpoints.URL_CLIENTS.CLIENT, body)
+    // POST /api/v1/clients — os enums vão como label (o backend aceita label ou nome).
+    createClient(body)
       .then(() => {
         onConfirm?.();
         onClose();
@@ -260,10 +258,6 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
     return {
       label,
       placeholder: placeholder ?? PLACEHOLDERS[field] ?? "Digite " + label.toLowerCase(),
-      variant: "flat" as const,
-      size: "lg" as const,
-      radius: "md" as const,
-      classNames: { label: "!text-secondary", input: "!text-gray-100" },
       className: `min-w-[${minW}]`,
       value,
       onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -282,95 +276,76 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
   // ── JSX ──
 
   return (
-    <Modal
-      size="5xl"
-      backdrop="blur"
-      isOpen={isOpen}
-      onClose={onClose}
-      className="bg-[#F4F4F5] min-h-[80vh] max-w-[1440px]"
-    >
-      <ModalContent>
-        {() => (
+    <Modal>
+      <Modal.Backdrop
+        variant="blur"
+        isOpen={isOpen}
+        onOpenChange={(open) => {
+          if (!open) onClose();
+        }}
+      >
+        <Modal.Container size="cover">
+          <Modal.Dialog className="bg-[#F4F4F5] min-h-[80vh] max-w-[1440px]">
           <form onSubmit={handleSubmit}>
-            <ModalHeader className="relative mt-6">
+            <Modal.Header className="relative mt-6">
               <div className="flex flex-col p-8 w-full bg-primary rounded-2xl gap-4">
                 <div className="flex items-center justify-between w-full">
                   <h1 className="text-4xl text-white">Cadastro de cliente</h1>
                   <p className="absolute mt-14 top-auto w-24 border-b-4 border-solid border-secondary" />
                 </div>
               </div>
-            </ModalHeader>
+            </Modal.Header>
 
-            <ModalBody>
+            <Modal.Body>
               {/* ── Dados pessoais ── */}
               <section className="bg-white flex flex-col rounded-2xl">
                 <SectionTitle icon="../svg/icons/profile.svg" title="Dados pessoais" />
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full p-4">
-                  <Input {...inputProps("nome", "Nome completo", { required: true, minW: "240px" })} />
-                  <Input {...inputProps("nascimento", "Data de nascimento", { required: true, type: "date", placeholder: "dd/mm/aaaa" })} />
+                  <Field {...inputProps("nome", "Nome completo", { required: true, minW: "240px" })} />
+                  <Field {...inputProps("nascimento", "Data de nascimento", { required: true, type: "date", placeholder: "dd/mm/aaaa" })} />
 
-                  <Select
-                    isRequired
+                  <SelectField
                     label="Gênero"
-                    size="lg"
-                    variant="flat"
-                    radius="md"
                     placeholder="Selecione o gênero"
-                    classNames={{ label: "!text-secondary", value: "!text-gray-100" }}
                     className="min-w-[180px]"
-                    selectedKeys={form.genero ? [form.genero] : []}
-                    onSelectionChange={(keys) => onSelect("genero", keys)}
-                    errorMessage={showError("genero", "Gênero é obrigatório(a)")}
-                  >
-                    {GENDER_OPTIONS.map((g) => (
-                      <SelectItem key={g.key}>{g.label}</SelectItem>
-                    ))}
-                  </Select>
-
-                  <Select
-                    label="Estado civil"
-                    size="lg"
-                    variant="flat"
-                    radius="md"
-                    placeholder="Selecione o estado civil"
-                    classNames={{ label: "!text-secondary", value: "!text-gray-100" }}
-                    className="min-w-[180px]"
-                    selectedKeys={form.estadoCivil ? [form.estadoCivil] : []}
-                    onSelectionChange={(keys) => onSelect("estadoCivil", keys)}
-                  >
-                    {MaritalStatusOptions.map((opt, i) => (
-                      <SelectItem key={String(i + 1)}>{opt.label}</SelectItem>
-                    ))}
-                  </Select>
-
-                  <Input {...inputProps("cpf", "CPF", { required: true, mask: maskCPF, maxLength: 14 })} />
-                  <Input {...inputProps("rg", "RG")} />
-                  <Input {...inputProps("nomeMae", "Nome da mãe", { required: true, minW: "240px" })} />
-                  <Input
-                    {...inputProps("email", "E-mail", { mask: maskEmail, type: "email", minW: "240px" })}
-                    errorMessage="Formato de e-mail inválido"
-                  />
-                  <Input {...inputProps("celular", "Celular", { required: true, mask: maskCelular, maxLength: 15 })} />
-                  <Input {...inputProps("telRecado", "Telefone recado", { mask: maskTelefone, maxLength: 15 })} />
-                  <Input {...inputProps("responsavelRecado", "Responsável pelo recado")} />
-
-                  <Select
+                    options={GENDER_OPTIONS.map((g) => ({ id: g.key, label: g.label }))}
+                    selectedKey={form.genero || null}
+                    onSelectionChange={(key) => { set("genero", key); touch("genero"); }}
                     isRequired
+                    isInvalid={!!showError("genero", "")}
+                    errorMessage={showError("genero", "Gênero é obrigatório(a)")}
+                  />
+
+                  <SelectField
+                    label="Estado civil"
+                    placeholder="Selecione o estado civil"
+                    className="min-w-[180px]"
+                    options={MaritalStatusOptions.map((o, i) => ({ id: String(i + 1), label: o.label }))}
+                    selectedKey={form.estadoCivil || null}
+                    onSelectionChange={(key) => { set("estadoCivil", key); touch("estadoCivil"); }}
+                  />
+
+                  <Field {...inputProps("cpf", "CPF", { required: true, mask: maskCPF, maxLength: 14 })} />
+                  <Field {...inputProps("rg", "RG")} />
+                  <Field {...inputProps("nomeMae", "Nome da mãe", { required: true, minW: "240px" })} />
+                  <Field
+                    {...inputProps("email", "E-mail", { mask: maskEmail, type: "email", minW: "240px" })}
+                  />
+                  <Field {...inputProps("celular", "Celular", { required: true, mask: maskCelular, maxLength: 15 })} />
+                  <Field {...inputProps("telRecado", "Telefone recado", { mask: maskTelefone, maxLength: 15 })} />
+                  <Field {...inputProps("responsavelRecado", "Responsável pelo recado")} />
+
+                  <SelectField
                     label="Situação do benefício"
-                    size="lg"
-                    variant="flat"
-                    radius="md"
                     placeholder="Selecione a situação"
-                    classNames={{ label: "!text-secondary", value: "!text-gray-100" }}
-                    className="min-w-[240px]"
-                    selectedKeys={form.situacaoBeneficio ? [form.situacaoBeneficio] : []}
-                    onSelectionChange={(keys) => onSelect("situacaoBeneficio", keys)}
+                    className="min-w-[220px]"
+                    options={SituationOptions.map((o, i) => ({ id: String(i + 1), label: o.label }))}
+                    selectedKey={form.situacaoBeneficio || null}
+                    onSelectionChange={(key) => { set("situacaoBeneficio", key); touch("situacaoBeneficio"); }}
+                    isRequired
+                    isInvalid={!!showError("situacaoBeneficio", "")}
                     errorMessage={showError("situacaoBeneficio", "Situação do benefício é obrigatório(a)")}
-                  >
-                    {RetirementTypeOptions.map((opt, i) => (
-                      <SelectItem key={String(i + 1)}>{opt.label}</SelectItem>
-                    ))}
-                  </Select>
+                  />
                 </div>
               </section>
 
@@ -378,31 +353,25 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
               <section className="bg-white flex flex-col rounded-2xl mb-4">
                 <SectionTitle icon="../svg/icons/user_id.svg" title="Dados profissionais" />
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full p-4">
-                  <Select
-                    isRequired
+                  <SelectField
                     label="Benefício pretendido"
-                    size="lg"
-                    variant="flat"
-                    radius="md"
                     placeholder="Selecione o benefício"
-                    classNames={{ label: "!text-secondary", value: "!text-gray-100" }}
-                    className="min-w-80"
-                    selectedKeys={form.beneficioPretendido ? [form.beneficioPretendido] : []}
-                    onSelectionChange={(keys) => onSelect("beneficioPretendido", keys)}
-                    errorMessage="Benefício pretendido é obrigatório(a)"
-                  >
-                    {IntendedBenefitOptions.map((opt, i) => (
-                      <SelectItem key={String(i + 1)}>{opt.label}</SelectItem>
-                    ))}
-                  </Select>
+                    className="min-w-[260px]"
+                    options={IntendedBenefitOptions.map((o, i) => ({ id: String(i + 1), label: o.label }))}
+                    selectedKey={form.beneficioPretendido || null}
+                    onSelectionChange={(key) => { set("beneficioPretendido", key); touch("beneficioPretendido"); }}
+                    isRequired
+                    isInvalid={!!showError("beneficioPretendido", "")}
+                    errorMessage={showError("beneficioPretendido", "Benefício pretendido é obrigatório(a)")}
+                  />
 
-                  <Input {...inputProps("numBeneficiario", "Nº do beneficiário")} />
-                  <Input {...inputProps("nitPis", "NIT/PIS", { mask: maskNIT, maxLength: 13 })} />
-                  <Input {...inputProps("profissao", "Profissão")} />
-                  <Input {...inputProps("ctps", "CTPS", { mask: maskCTPS })} />
-                  <Input {...inputProps("serie", "Série")} />
-                  <Input {...inputProps("senhaInss", "Senha \"meu inss\"", { required: true })} />
-                  <Input {...inputProps("tempoContribuicao", "Tempo de contribuição")} />
+                  <Field {...inputProps("numBeneficiario", "Nº do beneficiário")} />
+                  <Field {...inputProps("nitPis", "NIT/PIS", { mask: maskNIT, maxLength: 13 })} />
+                  <Field {...inputProps("profissao", "Profissão")} />
+                  <Field {...inputProps("ctps", "CTPS", { mask: maskCTPS })} />
+                  <Field {...inputProps("serie", "Série")} />
+                  <Field {...inputProps("senhaInss", "Senha \"meu inss\"", { required: true })} />
+                  <Field {...inputProps("tempoContribuicao", "Tempo de contribuição")} />
                 </div>
               </section>
 
@@ -410,13 +379,13 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
               <div className="flex justify-between items-center gap-5 pb-6 px-6">
                 <NotBillableSwitch value={nonBillable} onChange={setNonBillable} />
                 <div className="flex gap-3">
-                  <Button className="text-primary" variant="light" size="md" type="button" onPress={onClose}>
+                  <Button className="text-primary" variant="ghost" type="button" onPress={onClose}>
                     Cancelar
                   </Button>
-                  <Button type="submit" variant="solid" color="primary" isDisabled={submitting || !isFormValid()}>
+                  <Button type="submit" variant="primary" isDisabled={submitting || !isFormValid()}>
                     {submitting ? (
                       <>
-                        Salvando… <Spinner variant="gradient" color="default" size="sm" />
+                        Salvando… <Spinner color="current" />
                       </>
                     ) : (
                       "Salvar"
@@ -424,10 +393,11 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
                   </Button>
                 </div>
               </div>
-            </ModalBody>
+            </Modal.Body>
           </form>
-        )}
-      </ModalContent>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </Modal>
   );
 };

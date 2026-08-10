@@ -1,12 +1,7 @@
+"use client";
+
 import React from "react";
-import {
-  Modal,
-  ModalContent,
-  ModalHeader,
-  ModalBody,
-  ModalFooter,
-} from "@heroui/modal";
-import { Button } from "@heroui/button";
+import { Modal, Button } from "@heroui/react";
 
 interface DeleteClientModalProps {
   isOpen: boolean;
@@ -15,6 +10,19 @@ interface DeleteClientModalProps {
   onConfirm?: () => void | undefined;
 }
 
+/**
+ * Confirmação de exclusão de cliente — HeroUI v3 (compound components).
+ *
+ * Anatomia do v3:
+ *   Modal > Modal.Backdrop > Modal.Container > Modal.Dialog
+ *           > Modal.Header (Modal.Heading) / Modal.Body / Modal.Footer
+ *
+ * Mudanças em relação ao v2:
+ * - `backdrop="blur"`      -> `variant="blur"` no `Modal.Backdrop`
+ * - `isOpen`/`onOpenChange` -> movidos para o `Modal.Backdrop`
+ * - `hideCloseButton`       -> basta omitir o `Modal.CloseTrigger`
+ * - `color`                 -> `variant` no `Button`
+ */
 export default function DeleteClientModal({
   isOpen,
   onClose,
@@ -22,52 +30,53 @@ export default function DeleteClientModal({
   onConfirm,
 }: DeleteClientModalProps) {
   return (
-    <Modal
-      backdrop="blur"
-      isOpen={isOpen}
-      onClose={onClose}
-      hideCloseButton={true}
-    >
-      <ModalContent>
-        {() => (
-          <>
-            <ModalHeader>
-              <span className="relative font-semibold">
+    <Modal>
+      <Modal.Backdrop
+        variant="blur"
+        isOpen={isOpen}
+        onOpenChange={(open) => {
+          if (!open) onClose();
+        }}
+      >
+        <Modal.Container size="md">
+          <Modal.Dialog>
+            <Modal.Header>
+              <Modal.Heading className="relative font-semibold">
                 Tem certeza que deseja excluir este cliente?
-              </span>
-              <span className="absolute top-11 border-b-3 border-solid border-secondary w-20" />
-            </ModalHeader>
-            <ModalBody>
-              <p className="text-gray-600 text-base font-light">
+              </Modal.Heading>
+              <span className="absolute top-11 border-b-[3px] border-solid border-secondary w-20" />
+            </Modal.Header>
+
+            <Modal.Body>
+              <p className="text-gray-100 text-base font-light">
                 Ao excluir o cliente{" "}
                 <span className="font-medium">{clientName}</span>, você não
                 poderá mais vê-lo(a) nesta lista.
               </p>
-            </ModalBody>
-            <ModalFooter>
+            </Modal.Body>
+
+            <Modal.Footer>
               <Button
-                variant="flat"
-                color="danger"
+                variant="secondary"
                 onPress={onClose}
-                className="font-medium"
+                className="font-medium text-danger"
               >
                 Não
               </Button>
               <Button
-                variant="flat"
-                color="success"
+                variant="primary"
                 onPress={() => {
-                  if (onConfirm) onConfirm();
+                  onConfirm?.();
                   onClose();
                 }}
                 className="font-medium"
               >
                 Sim
               </Button>
-            </ModalFooter>
-          </>
-        )}
-      </ModalContent>
+            </Modal.Footer>
+          </Modal.Dialog>
+        </Modal.Container>
+      </Modal.Backdrop>
     </Modal>
   );
 }

@@ -1,31 +1,52 @@
 "use client";
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, Suspense } from "react";
 import Image from "next/image";
-import { Button } from "@heroui/button";
-import { Input } from "@heroui/input";
-import api from "@/services/axiosService";
-import endpoints from "@/constants/endpoints/paths";
-import { useRouter } from "next/navigation";
-import { Spinner } from "@heroui/spinner";
+import {
+  Button,
+  FieldError,
+  Input,
+  InputGroup,
+  Label,
+  Spinner,
+  TextField,
+} from "@heroui/react";
+import {
+  login as authLogin,
+  tryRestoreSession,
+} from "@/services/authService";
+import { useRouter, useSearchParams } from "next/navigation";
 import { privateRoutes } from "@/constants/paths/routes";
 // import { ClosedEye, OpenedEye } from "./assets/icons/icons";
 
-export default function Login() {
-  const [username, setUsername] = useState("");
+function LoginForm() {
+  const [login, setlogin] = useState("");
   const [password, setPassword] = useState("");
   const [isVisible, setIsVisible] = useState(false);
-  const [usernameVisited, setUsernameVisited] = useState(false);
+  const [loginVisited, setloginVisited] = useState(false);
   const [passwordVisited, setPasswordVisited] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const validateUsername = (value: string) => value !== "";
-  const validatePassword = (value: string) => value.length >= 8;
+  /**
+   * Destino após autenticar: `?next=` (definido pela guarda em `proxy.ts`) ou
+   * a home. Só aceita caminhos internos, para evitar open redirect.
+   */
+  const redirectTo = useMemo(() => {
+    const next = searchParams.get("next");
+    if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+    return privateRoutes.home;
+  }, [searchParams]);
 
-  const isUsernameInvalid = useMemo(() => {
-    if (!usernameVisited) return false;
-    return !validateUsername(username);
-  }, [username, usernameVisited]);
+  // O backend exige apenas que os campos não sejam vazios (@NotBlank).
+  const validatelogin = (value: string) => value.trim() !== "";
+  const validatePassword = (value: string) => value !== "";
+
+  const isloginInvalid = useMemo(() => {
+    if (!loginVisited) return false;
+    return !validatelogin(login);
+  }, [login, loginVisited]);
 
   const isPasswordInvalid = useMemo(() => {
     if (!passwordVisited) return false;
@@ -34,24 +55,71 @@ export default function Login() {
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
-  const isButtonDisabled =
-    !validateUsername(username) || !validatePassword(password);
+  const isButtonDisabled = !validatelogin(login) || !validatePassword(password);
+
+  /**
+   * Se o access token expirou mas o refresh token (httpOnly, 14 dias) ainda é
+   * válido, restaura a sessão sem pedir credenciais novamente.
+   */
+  useEffect(() => {
+    let active = true;
+    // Roda em background: o formulário fica utilizável imediatamente.
+    tryRestoreSession()
+      .then((restored) => {
+        if (active && restored) router.replace(redirectTo);
+      })
+      .catch(() => {
+        /* sem sessão para restaurar — segue no login */
+      });
+    return () => {
+      active = false;
+    };
+  }, [router, redirectTo]);
 
   const handleLogin = async () => {
+    if (isButtonDisabled || loading) return;
     setLoading(true);
+    setAuthError("");
     try {
-      const response = await api.post(endpoints.AUTH.POST_LOGIN, {
-        username,
-        password,
-      });
-      const token = response.data?.data?.token;
-      if (token) {
-        document.cookie = `token=${token}; path=/`;
-        router.push(`${privateRoutes.home}`);
+      // O authService grava o cookie do access token (com validade) e persiste
+      // o tenant da sessão para o header X-Tenant-Id das próximas requisições.
+      // `login` aceita e-mail OU username.
+      const envelope = await authLogin({ login: login.trim(), password });
+      if (envelope?.data?.token) {
+        // `replace` para o botão "voltar" não retornar à tela de login.
+        router.replace(redirectTo);
+        return;
+      }
+      setAuthError("Não foi possível entrar. Tente novamente.");
+    } catch (err: unknown) {
+      const e = err as {
+        response?: { status?: number; data?: { message?: string } };
+      };
+      const status = e?.response?.status;
+      if (status === 401) {
+        setAuthError("Usuário ou senha inválidos.");
+      } else if (status === 403) {
+        setAuthError("Acesso não permitido para este usuário.");
+      } else if (status === 404 || status === 400) {
+        // Tenant inexistente/!ativo cai aqui (header X-Tenant-Id inválido).
+        setAuthError(
+          e?.response?.data?.message ??
+            "Não foi possível identificar o escritório. Verifique a configuração.",
+        );
+      } else {
+        setAuthError(
+          e?.response?.data?.message ??
+            "Erro ao conectar-se ao servidor. Tente novamente.",
+        );
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    void handleLogin();
   };
 
   return (
@@ -71,71 +139,107 @@ export default function Login() {
       </div>
       <div className="h-full w-full lg:w-1/2 bg-white flex flex-col justify-center items-center gap-10 p-4 lg:p-0">
         <div className="absolute bottom-0 right-0 h-60 p-3 bg-primary"></div>
-        <div className="w-full lg:w-1/2 flex flex-col gap-5 align-middle">
-          <Input
-            className="w-full text-primary"
-            isClearable
+        <form
+          onSubmit={handleSubmit}
+          className="w-full lg:w-1/2 flex flex-col gap-5 align-middle"
+        >
+          {/* v3: `Input` é primitivo; label/erro vêm do compound TextField.
+              `size`/`radius`/`color` saíram — usa-se Tailwind. */}
+          <TextField
+            className="w-full"
+            name="login"
             type="text"
-            variant="faded"
-            label="Usuário"
-            size="lg"
-            radius="sm"
-            color={isUsernameInvalid ? "danger" : "primary"}
-            value={username}
-            isInvalid={isUsernameInvalid}
-            errorMessage="Por favor, insira um nome de usuário"
-            onValueChange={setUsername}
-            onBlur={() => setUsernameVisited(true)}
-          />
-          <Input
-            className="w-full text-primary"
+            isInvalid={isloginInvalid}
+          >
+            <Label className="text-primary">Usuário ou e-mail</Label>
+            <Input
+              className="w-full text-primary"
+              autoComplete="username"
+              autoFocus
+              value={login}
+              onChange={(e) => {
+                setlogin(e.target.value);
+                if (authError) setAuthError("");
+              }}
+              onBlur={() => setloginVisited(true)}
+            />
+            {isloginInvalid && (
+              <FieldError>Informe seu usuário ou e-mail</FieldError>
+            )}
+          </TextField>
+
+          <TextField
+            className="w-full"
+            name="password"
             type={isVisible ? "text" : "password"}
-            variant="faded"
-            label="Senha"
-            size="lg"
-            radius="sm"
-            color={isPasswordInvalid ? "danger" : "primary"}
-            value={password}
             isInvalid={isPasswordInvalid}
-            errorMessage="A senha deve ter no mínimo 8 caracteres"
-            onValueChange={setPassword}
-            onBlur={() => setPasswordVisited(true)}
-            endContent={
-              <button
-                className="focus:outline-none"
-                type="button"
-                onClick={toggleVisibility}
-              >
-                {/* {isVisible ? <ClosedEye size={20} /> : <OpenedEye size={20} />} */}
-              </button>
-            }
-          />
+          >
+            <Label className="text-primary">Senha</Label>
+            <InputGroup>
+              <InputGroup.Input
+                className="w-full text-primary"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (authError) setAuthError("");
+                }}
+                onBlur={() => setPasswordVisited(true)}
+              />
+              <InputGroup.Suffix>
+                <button
+                  className="focus:outline-none"
+                  type="button"
+                  onClick={toggleVisibility}
+                  aria-label={isVisible ? "Ocultar senha" : "Mostrar senha"}
+                >
+                  {/* {isVisible ? <ClosedEye size={20} /> : <OpenedEye size={20} />} */}
+                </button>
+              </InputGroup.Suffix>
+            </InputGroup>
+            {isPasswordInvalid && <FieldError>Informe sua senha</FieldError>}
+          </TextField>
+          {authError && (
+            <div
+              role="alert"
+              aria-live="polite"
+              className="w-full rounded-sm bg-danger/10 border border-danger px-4 py-3 text-sm text-danger"
+            >
+              {authError}
+            </div>
+          )}
           <Button
-            size="lg"
-            color="primary"
-            radius="sm"
+            type="submit"
+            variant="primary"
             className="w-full cursor-pointer"
             isDisabled={isButtonDisabled || loading}
             onPress={handleLogin}
           >
             {loading ? (
               <>
-                <Spinner
-                  size="md"
-                  color="default"
-                  variant="gradient"
-                  className="mr-2"
-                />
-                {/* <span className="text-white">Entrando...</span> */}
+                <Spinner color="current" className="mr-2" />
+                <span className="text-white">Entrando...</span>
               </>
             ) : (
               "Entrar"
             )}
           </Button>
-        </div>
+        </form>
         <div className="absolute w-60 p-3 bg-secondary top-0 right-0"></div>
         <div className="absolute w-60 p-3 bg-primary top-6 right-24"></div>
       </div>
     </main>
+  );
+}
+
+/**
+ * `useSearchParams` (usado para o `?next=`) exige um boundary de Suspense em
+ * componentes client — sem ele o build do Next falha na pré-renderização.
+ */
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
   );
 }

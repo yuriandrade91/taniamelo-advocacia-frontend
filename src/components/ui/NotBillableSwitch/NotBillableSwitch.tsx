@@ -1,4 +1,6 @@
-import { Switch } from "@heroui/switch";
+"use client";
+
+import { Switch } from "@heroui/react";
 
 type IsentoSwitchProps = {
   value: boolean;
@@ -22,13 +24,12 @@ export default function NotBillableSwitch({
       <p className={labelClassName}>{label}</p>
       <div className="flex gap-3 items-center">
         <p className="text-gray-500 gap-1">Não</p>
+        {/* v3: o Switch envolve o primitivo do React Aria — `onValueChange`
+            virou `onChange(isSelected)`. */}
         <Switch
-          size="md"
-          color={value ? "success" : "default"}
-          className={value ? "text-success" : "text-gray-500"}
-          classNames={{ label: value ? "!text-success" : "!text-gray-500" }}
+          className={value ? "text-success" : "text-gray-100"}
           isSelected={value}
-          onValueChange={onChange}
+          onChange={onChange}
           isDisabled={disabled}
         >
           Sim

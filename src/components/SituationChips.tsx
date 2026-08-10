@@ -1,6 +1,7 @@
+"use client";
+
 import React from "react";
-import { Chip } from "@heroui/chip";
-import { color } from "framer-motion";
+import { Chip } from "@heroui/react";
 
 // Mapeamento de status para cor do Chip
 
@@ -32,7 +33,7 @@ export function SituationChips({ situations }: { situations: string[] }) {
   return (
     <div className="flex gap-4 flex-wrap">
       {situations.map((situation) => {
-        const entry = situationMap[situation] || { color: color };
+        const entry = situationMap[situation] ?? { color: "bg-gray-100 text-white" };
         return (
           <Chip key={situation} className={`${entry.color}`}>
             {situation}

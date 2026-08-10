@@ -8,6 +8,10 @@ const SITUATION_ENTRIES = [
 ] as const;
 
 export type SituationKey = typeof SITUATION_ENTRIES[number][0];
+/** Label PT-BR — é ESTE valor que a API devolve (@JsonValue no backend). */
+export type SituationLabel = typeof SITUATION_ENTRIES[number][1];
+/** Aceito em requisições: o backend resolve nome do enum OU label. */
+export type SituationInput = SituationKey | SituationLabel;
 
 export const SituationOptions = Array.from(SITUATION_ENTRIES).map(([value, label]) => ({ value: value as SituationKey, label }));
 
