@@ -13,6 +13,14 @@
 # testing
 /coverage
 
+# playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+# Sessao gravada pelo auth.setup.ts: contem token valido, nunca vai para o git.
+/e2e/.auth/
+
 # next.js
 /.next/
 /out/
