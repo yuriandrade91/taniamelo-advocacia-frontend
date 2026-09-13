@@ -78,6 +78,101 @@ Playwright deixa de subir servidor próprio.
 - Campo de data/hora do react-aria não aceita `fill`: cada parte é um
   spinbutton. Use o helper `preencherDataHora`.
 
+## Playwright MCP — para ESCREVER teste, não para rodar
+
+Um `.mcp.json` na raiz do projeto registra o servidor MCP do Playwright. Quem
+abrir o Claude Code aqui recebe um pedido de aprovação na primeira vez (config
+de escopo "project" exige isso) e, aceito, passa a ter ferramentas de navegador:
+abrir uma página, tirar um *snapshot da árvore de acessibilidade*, clicar,
+digitar, ler console e requisições de rede.
+
+O conteúdo é este — **o arquivo precisa ser criado à mão**, porque configuração
+de MCP é executável e ferramenta remota não tem (nem deve ter) permissão de
+plantar uma:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@playwright/mcp@latest",
+        "--isolated",
+        "--allowed-origins", "http://localhost:3001;http://localhost:8080",
+        "--test-id-attribute", "data-testid"
+      ]
+    }
+  }
+}
+```
+
+Conferir depois com `claude mcp list` (ou `/mcp` dentro da sessão).
+
+### Para que serve — e para que não serve
+
+**Serve para escrever e depurar teste.** A pergunta que ele responde em segundos
+é sempre a mesma: *como esta tela se parece, agora, para uma consulta por papel
+e rótulo?* Quatro surpresas reais desta suíte eram exatamente essa pergunta:
+
+- a seção do accordion já vinha **aberta**, e o `click()` do teste fechava — o
+  conteúdo continuava no DOM, deitado atrás dos cabeçalhos seguintes;
+- `getByLabel("Tipo")` passou a casar com **dois** controles, depois que a
+  agenda ganhou barra de filtros;
+- o diálogo fica `aria-hidden` enquanto o popover do ComboBox está aberto, então
+  nenhuma busca por papel encontra nada lá dentro;
+- `/home` não tem nenhum `h1` desde a reformulação em cards.
+
+Todas custaram rodadas de tentativa e erro. Um snapshot responderia cada uma de
+primeira.
+
+**Não serve para rodar a suíte.** Um agente clicando na tela não deixa asserção
+no repositório, não roda no CI e não protege ninguém amanhã. O que vale é o que
+está em `e2e/*.spec.ts`. O MCP é ferramenta de autoria — o produto dele é código
+commitado, não uma execução que passou.
+
+### Usando autenticado
+
+Do jeito que está commitado, o navegador abre **sem sessão** e cai no login —
+proposital, para funcionar em clone novo. Para explorar tela interna,
+acrescente a linha do estado de sessão em `.mcp.json`:
+
+```jsonc
+"--storage-state", "e2e/.auth/user.json",
+```
+
+Pré-requisito: ter rodado a suíte (ou só o projeto `setup`) ao menos uma vez,
+para o arquivo existir. **Sem o arquivo, o servidor sobe e a navegação falha** —
+o erro não diz que o problema é esse. O token expira; quando começar a cair no
+login de novo, rode o setup outra vez.
+
+### Detalhes que evitam investigação à toa
+
+- **`--test-id-attribute data-testid`** casa com o que o código já usa
+  (`InssPasswordField` expõe `inss-password-field` e `inss-password-toggle`).
+- **Snapshot logo após navegar pega a página antes da hidratação.** Esta
+  aplicação lê `localStorage` em `useEffect` — papel do usuário, nome no menu.
+  Tirado cedo demais, o snapshot mostra "Menu do usuário" e **nenhum botão de
+  excluir**, e a conclusão fácil é que a autorização quebrou. Não quebrou: é
+  cedo. Espere por um elemento antes de tirar o snapshot.
+- **`--allowed-origins` é guarda-corpo, não barreira de segurança** — está
+  escrito no `--help` da própria ferramenta. Serve para o agente não sair
+  navegando por engano; não substitui cuidado.
+- **`browser_evaluate` e `browser_run_code_unsafe` executam código arbitrário**
+  na página, com a sessão que estiver carregada. É o motivo de apontar isto para
+  `localhost` e para o escritório `demo` — **nunca** para `tania`, que é a base
+  real.
+- `--isolated` mantém o perfil em memória: não suja o navegador de ninguém.
+
+### Conferido
+
+Servidor `@playwright/mcp` 1.63.0-alpha (31/08/2026), 24 ferramentas, handshake
+MCP e `browser_navigate` + `browser_snapshot` contra `localhost:3001`
+autenticado, retornando a árvore de acessibilidade com os elementos nomeados da
+tela de clientes. Esta versão **não** tem ferramenta de gravação/codegen
+(`browser_start_recording` e parentes aparecem em artigos, mas não nesta versão)
+— o código do teste continua sendo escrito à mão, a partir do snapshot.
+
 ## Ainda não coberto
 
 Por ordem de valor, não de esforço:
