@@ -4,6 +4,8 @@
 // backend REJEITA) e não tinha "Separado(a)". As options mantêm `id` e `label`
 // (compatibilidade com as telas atuais) e passam a expor `value` — a chave real
 // enviada à API. Prefira `value` em código novo.
+import { createEnum } from "@/lib/enumFactory";
+
 const MARITAL_STATUS_ENTRIES = [
   ["SOLTEIRO", "Solteiro(a)"],
   ["CASADO", "Casado(a)"],
@@ -11,6 +13,8 @@ const MARITAL_STATUS_ENTRIES = [
   ["DIVORCIADO", "Divorciado(a)"],
   ["VIUVO", "Viúvo(a)"],
 ] as const;
+
+const maritalStatus = createEnum(MARITAL_STATUS_ENTRIES);
 
 export type MaritalStatusKey = (typeof MARITAL_STATUS_ENTRIES)[number][0];
 /** Label PT-BR — valor devolvido pela API (@JsonValue). */
@@ -22,28 +26,11 @@ export const MaritalStatusOptions: {
   id: number;
   value: MaritalStatusKey;
   label: string;
-}[] = Array.from(MARITAL_STATUS_ENTRIES).map(([value, label], index) => ({
-  id: index + 1,
-  value: value as MaritalStatusKey,
-  label,
-}));
+}[] = maritalStatus.optionsWithId;
 
-export const MaritalStatusLabelByKey = Object.fromEntries(
-  Array.from(MARITAL_STATUS_ENTRIES).map(([k, v]) => [k, v]),
-) as Record<MaritalStatusKey, string>;
-
-const maritalStatusKeyByLabel = Object.fromEntries(
-  Array.from(MARITAL_STATUS_ENTRIES).map(([k, v]) => [v, k]),
-) as Record<string, MaritalStatusKey>;
-
-export const getMaritalStatusKeyByLabel = (
-  label?: string,
-): MaritalStatusKey | undefined =>
-  label ? maritalStatusKeyByLabel[label] : undefined;
-
-export const getMaritalStatusLabelByKey = (
-  key?: MaritalStatusKey,
-): string | undefined => (key ? MaritalStatusLabelByKey[key] : undefined);
+export const MaritalStatusLabelByKey = maritalStatus.labelByKey;
+export const getMaritalStatusKeyByLabel = maritalStatus.getKeyByLabel;
+export const getMaritalStatusLabelByKey = maritalStatus.getLabelByKey;
 
 /** @deprecated Use `MaritalStatusLabelByKey`. Mantido para compatibilidade. */
 export const MaritalStatusText = MaritalStatusLabelByKey;

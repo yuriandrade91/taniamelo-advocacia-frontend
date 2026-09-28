@@ -1,4 +1,5 @@
 // Espelha com.lawfirm.law.firm.model.PaymentMethod e PaymentStatus (backend).
+import { createEnum } from "@/lib/enumFactory";
 
 // ── Forma de pagamento ──
 const PAYMENT_METHOD_ENTRIES = [
@@ -10,27 +11,17 @@ const PAYMENT_METHOD_ENTRIES = [
   ["OUTRO", "Outro"],
 ] as const;
 
+const paymentMethod = createEnum(PAYMENT_METHOD_ENTRIES);
+
 export type PaymentMethodKey = (typeof PAYMENT_METHOD_ENTRIES)[number][0];
 /** Label PT-BR — valor devolvido pela API (@JsonValue). */
 export type PaymentMethodLabel = (typeof PAYMENT_METHOD_ENTRIES)[number][1];
 /** Aceito em requisições (nome do enum OU label). */
 export type PaymentMethodInput = PaymentMethodKey | PaymentMethodLabel;
 
-export const PaymentMethodOptions = Array.from(PAYMENT_METHOD_ENTRIES).map(
-  ([value, label], index) => ({
-    id: index + 1,
-    value: value as PaymentMethodKey,
-    label,
-  }),
-);
-
-export const PaymentMethodLabelByKey = Object.fromEntries(
-  Array.from(PAYMENT_METHOD_ENTRIES).map(([k, v]) => [k, v]),
-) as Record<PaymentMethodKey, string>;
-
-export const getPaymentMethodLabelByKey = (
-  key?: PaymentMethodKey,
-): string | undefined => (key ? PaymentMethodLabelByKey[key] : undefined);
+export const PaymentMethodOptions = paymentMethod.optionsWithId;
+export const PaymentMethodLabelByKey = paymentMethod.labelByKey;
+export const getPaymentMethodLabelByKey = paymentMethod.getLabelByKey;
 
 // ── Status do pagamento ──
 const PAYMENT_STATUS_ENTRIES = [
@@ -39,26 +30,16 @@ const PAYMENT_STATUS_ENTRIES = [
   ["CANCELADO", "Cancelado"],
 ] as const;
 
+const paymentStatus = createEnum(PAYMENT_STATUS_ENTRIES);
+
 export type PaymentStatusKey = (typeof PAYMENT_STATUS_ENTRIES)[number][0];
 /** Label PT-BR — valor devolvido pela API (@JsonValue). */
 export type PaymentStatusLabel = (typeof PAYMENT_STATUS_ENTRIES)[number][1];
 /** Aceito em requisições (nome do enum OU label). */
 export type PaymentStatusInput = PaymentStatusKey | PaymentStatusLabel;
 
-export const PaymentStatusOptions = Array.from(PAYMENT_STATUS_ENTRIES).map(
-  ([value, label], index) => ({
-    id: index + 1,
-    value: value as PaymentStatusKey,
-    label,
-  }),
-);
-
-export const PaymentStatusLabelByKey = Object.fromEntries(
-  Array.from(PAYMENT_STATUS_ENTRIES).map(([k, v]) => [k, v]),
-) as Record<PaymentStatusKey, string>;
-
-export const getPaymentStatusLabelByKey = (
-  key?: PaymentStatusKey,
-): string | undefined => (key ? PaymentStatusLabelByKey[key] : undefined);
+export const PaymentStatusOptions = paymentStatus.optionsWithId;
+export const PaymentStatusLabelByKey = paymentStatus.labelByKey;
+export const getPaymentStatusLabelByKey = paymentStatus.getLabelByKey;
 
 export { PAYMENT_METHOD_ENTRIES, PAYMENT_STATUS_ENTRIES };

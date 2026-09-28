@@ -1,4 +1,6 @@
 // Espelha com.lawfirm.law.firm.model.DocumentType (backend) — 11 valores.
+import { createEnum } from "@/lib/enumFactory";
+
 const DOCUMENT_TYPE_ENTRIES = [
   ["IDENTIFICACAO_SEGURADO", "Documentos de identificação do segurado"],
   ["CADASTRAIS_DADOS_PESSOAIS", "Documentos cadastrais / dados pessoais"],
@@ -13,35 +15,17 @@ const DOCUMENT_TYPE_ENTRIES = [
   ["OUTROS", "Outros"],
 ] as const;
 
+const documentType = createEnum(DOCUMENT_TYPE_ENTRIES);
+
 export type DocumentTypeKey = (typeof DOCUMENT_TYPE_ENTRIES)[number][0];
 /** Label PT-BR — valor devolvido pela API (@JsonValue). */
 export type DocumentTypeLabel = (typeof DOCUMENT_TYPE_ENTRIES)[number][1];
 /** Aceito em requisições (nome do enum OU label). */
 export type DocumentTypeInput = DocumentTypeKey | DocumentTypeLabel;
 
-export const DocumentTypeOptions = Array.from(DOCUMENT_TYPE_ENTRIES).map(
-  ([value, label], index) => ({
-    id: index + 1,
-    value: value as DocumentTypeKey,
-    label,
-  }),
-);
-
-export const DocumentTypeLabelByKey = Object.fromEntries(
-  Array.from(DOCUMENT_TYPE_ENTRIES).map(([k, v]) => [k, v]),
-) as Record<DocumentTypeKey, string>;
-
-const documentTypeKeyByLabel = Object.fromEntries(
-  Array.from(DOCUMENT_TYPE_ENTRIES).map(([k, v]) => [v, k]),
-) as Record<string, DocumentTypeKey>;
-
-export const getDocumentTypeKeyByLabel = (
-  label?: string,
-): DocumentTypeKey | undefined =>
-  label ? documentTypeKeyByLabel[label] : undefined;
-
-export const getDocumentTypeLabelByKey = (
-  key?: DocumentTypeKey,
-): string | undefined => (key ? DocumentTypeLabelByKey[key] : undefined);
+export const DocumentTypeOptions = documentType.optionsWithId;
+export const DocumentTypeLabelByKey = documentType.labelByKey;
+export const getDocumentTypeKeyByLabel = documentType.getKeyByLabel;
+export const getDocumentTypeLabelByKey = documentType.getLabelByKey;
 
 export { DOCUMENT_TYPE_ENTRIES };
