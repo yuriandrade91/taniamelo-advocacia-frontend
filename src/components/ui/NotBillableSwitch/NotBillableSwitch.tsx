@@ -25,15 +25,24 @@ export default function NotBillableSwitch({
       <div className="flex gap-3 items-center">
         <p className="text-gray-500 gap-1">Não</p>
         {/* v3: o Switch envolve o primitivo do React Aria — `onValueChange`
-            virou `onChange(isSelected)`. */}
+            virou `onChange(isSelected)`. Sem `Switch.Content`/`Switch.Control`/
+            `Switch.Thumb` o controle não desenhava trilho nem bolinha, só o
+            texto passado como children. O `p` acima já rotula o campo, então
+            aqui é o padrão "without label" da HeroUI: `aria-label` no lugar de
+            um `Label` dentro do `Switch.Content`. */}
         <Switch
-          className={value ? "text-success" : "text-gray-100"}
+          aria-label={label}
           isSelected={value}
           onChange={onChange}
           isDisabled={disabled}
         >
-          Sim
+          <Switch.Content>
+            <Switch.Control>
+              <Switch.Thumb />
+            </Switch.Control>
+          </Switch.Content>
         </Switch>
+        <p className={value ? "text-success" : "text-gray-100"}>Sim</p>
       </div>
     </div>
   );
