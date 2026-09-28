@@ -1,0 +1,138 @@
+name: Deploy (S3 + CloudFront)
+
+# Só a develop publica, e só depois do CI passar. Um front quebrado no ar é
+# pior que um deploy que não saiu: a aplicação some para o escritório inteiro.
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+concurrency:
+  # Dois deploys ao mesmo tempo embaralham o bucket: um apaga o `_next/static`
+  # que o HTML do outro acabou de referenciar. A fila resolve; `cancel-in-progress`
+  # não, porque cancelar no meio deixa o bucket pela metade.
+  group: deploy-frontend
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment: development
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # O portão. Publicar sem isto transformaria o pipeline em "copiar
+      # arquivos para o S3", que não é deploy, é `scp`.
+      - name: Tipos
+        run: pnpm typecheck
+
+      - name: Testes de unidade
+        run: pnpm test
+
+      - name: Build estático
+        # As NEXT_PUBLIC_* são inlinadas no JavaScript pelo build — não são
+        # lidas em runtime. Trocar de backend exige build novo, e o conteúdo
+        # do bucket é específico deste ambiente. É por isso que elas vêm de
+        # variáveis do repositório e não de um .env versionado.
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+          NEXT_PUBLIC_TENANT_SLUG: ${{ vars.NEXT_PUBLIC_TENANT_SLUG }}
+        run: |
+          test -n "$NEXT_PUBLIC_API_URL" || { echo "::error::defina a variável NEXT_PUBLIC_API_URL no repositório"; exit 1; }
+          test -n "$NEXT_PUBLIC_TENANT_SLUG" || { echo "::error::defina a variável NEXT_PUBLIC_TENANT_SLUG no repositório"; exit 1; }
+          pnpm build
+          test -f out/index.html || { echo "::error::build não gerou out/index.html"; exit 1; }
+
+      - name: Credenciais AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      # ── A ordem destes dois passos é o que evita janela quebrada ──
+      #
+      # Primeiro os assets, depois o HTML. O HTML novo referencia chunks com
+      # hash novo; se ele subisse antes, quem carregasse a página nesse
+      # intervalo pediria um arquivo que ainda não existe e veria tela branca.
+      # Na ordem certa, o pior caso é HTML antigo apontando para chunk antigo,
+      # que continua no bucket até a limpeza do passo seguinte.
+      - name: Publicar assets (imutáveis, cache longo)
+        run: |
+          aws s3 sync out/_next/static "s3://${{ vars.S3_BUCKET }}/_next/static" \
+            --cache-control "public,max-age=31536000,immutable" \
+            --no-progress
+
+      - name: Publicar HTML e o restante (sem cache)
+        # `--delete` limpa o que saiu do build, inclusive chunks de versões
+        # antigas. Exclui `_next/static` porque aquele diretório acabou de ser
+        # sincronizado e apagá-lo aqui derrubaria a versão recém-publicada.
+        #
+        # `no-cache` no HTML: o CloudFront guarda, mas revalida a cada pedido.
+        # Sem isto, um deploy demoraria o TTL do cache para aparecer — e a
+        # pessoa que reportou o defeito continuaria vendo o defeito.
+        run: |
+          aws s3 sync out "s3://${{ vars.S3_BUCKET }}" \
+            --exclude "_next/static/*" \
+            --cache-control "no-cache" \
+            --delete \
+            --no-progress
+
+      - name: Invalidar o CloudFront
+        run: |
+          ID=$(aws cloudfront create-invalidation \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" \
+            --paths "/*" --query 'Invalidation.Id' --output text)
+          echo "Invalidação $ID criada; aguardando concluir..."
+          aws cloudfront wait invalidation-completed \
+            --distribution-id "${{ vars.CLOUDFRONT_DISTRIBUTION_ID }}" --id "$ID"
+
+      # ── Só agora o deploy pode se dizer concluído ──
+      #
+      # Mesma lógica do backend: sem esta checagem, um bucket com o nome errado
+      # ou uma função de reescrita ausente no CloudFront passariam como deploy
+      # bem-sucedido, e o job ficaria verde com a aplicação fora do ar.
+      - name: Conferir que o site respondeu
+        run: |
+          BASE="${{ vars.SITE_URL }}"
+          for rota in "/" "/login" "/home"; do
+            CODIGO=$(curl -s -o /dev/null -w '%{http_code}' -m 20 "$BASE$rota")
+            echo "$rota -> $CODIGO"
+            if [ "$CODIGO" != "200" ]; then
+              echo "::error::$BASE$rota respondeu $CODIGO."
+              echo "Se for 403 ou 404 em /login e /home, falta no CloudFront a função que acrescenta .html ao caminho sem extensão (docs/DEPLOY_FRONTEND.md)."
+              exit 1
+            fi
+          done
+
+          # ── A API responde pela mesma origem? ──
+          #
+          # Só quando o `NEXT_PUBLIC_API_URL` é a própria URL do site, ou seja,
+          # quando foi escolhido rotear /api/* pelo CloudFront até a EC2. Nessa
+          # topologia, um comportamento /api/* ausente na distribuição não
+          # quebra nenhuma das rotas acima: o site sobe inteiro e só a API
+          # falha, dentro do navegador, onde o pipeline não olha.
+          if [ "${{ vars.NEXT_PUBLIC_API_URL }}" = "$BASE" ]; then
+            SLUG="${{ vars.NEXT_PUBLIC_TENANT_SLUG }}"
+            API=$(curl -s -o /dev/null -w '%{http_code}' -m 20 \
+              "$BASE/api/v1/tenants/resolve?slug=$SLUG")
+            echo "/api/v1/tenants/resolve -> $API"
+            if [ "$API" != "200" ]; then
+              echo "::error::A API não respondeu pela origem do site ($API)."
+              echo "Falta o comportamento /api/* na distribuição, apontando para a EC2 (docs/DEPLOY_FRONTEND.md)."
+              exit 1
+            fi
+          fi
+
+          echo "✅ Frontend publicado e respondendo em $BASE"
