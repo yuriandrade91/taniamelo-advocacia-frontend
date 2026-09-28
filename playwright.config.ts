@@ -1,4 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
+import { existsSync } from "node:fs";
+
+/**
+ * Credenciais do e2e (E2E_USER, E2E_PASSWORD, ...) vêm de `env/e2e.local.env`,
+ * que o git ignora — modelo em `env/e2e.example.env`. Sem isto, cada sessão de
+ * terminal exigiria repetir os `export` à mão, e o primeiro `pnpm test:e2e`
+ * morreria no setup de login.
+ *
+ * `loadEnvFile` não sobrescreve o que já está no ambiente: `export` no shell ou
+ * secret do CI continuam valendo por cima do arquivo.
+ */
+const E2E_CREDENTIALS = "env/e2e.local.env";
+if (existsSync(E2E_CREDENTIALS)) process.loadEnvFile(E2E_CREDENTIALS);
 
 /**
  * Testes de ponta a ponta (navegador de verdade, contra o backend de verdade).
@@ -9,9 +22,9 @@ import { defineConfig, devices } from "@playwright/test";
  * resposta do backend chegando na tela.
  *
  * `E2E_BASE_URL` aponta para onde a aplicação está servindo. Sem ele, o
- * Playwright sobe `pnpm dev:local` na 3001 e usa o backend do `env/local.env`.
- * Para testar contra a instância da AWS, use o `env/development.env` (ver
- * docs/E2E_PLAYWRIGHT.md).
+ * Playwright sobe o `next dev` na 3001 herdando o ambiente de quem chamou —
+ * `pnpm test:e2e` usa o `env/local.env`, `pnpm test:e2e:dev` usa o
+ * `env/development.env` (ver docs/E2E_PLAYWRIGHT.md).
  */
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3001";
 
@@ -24,7 +37,22 @@ export default defineConfig({
   workers: 1,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : [["list"]],
+  /**
+   * `list` para acompanhar a execução, `html` para investigar o que falhou.
+   *
+   * O relatório HTML só era gerado no CI, e localmente `playwright show-report`
+   * respondia "No report found" — a ferramenta que existe justamente para
+   * examinar uma falha não estava disponível na máquina onde a falha acontece.
+   * O `trace` e o vídeo já eram gravados em `test-results/`; faltava a página
+   * que os abre.
+   *
+   * `open: "never"` porque abrir o navegador sozinho no fim de cada execução
+   * atrapalha quem está rodando a suíte em sequência. Para ver:
+   * `pnpm exec playwright show-report`.
+   */
+  reporter: process.env.CI
+    ? [["github"], ["html", { open: "never" }]]
+    : [["list"], ["html", { open: "never" }]],
 
   use: {
     baseURL,
@@ -47,12 +75,26 @@ export default defineConfig({
     },
   ],
 
-  // Reaproveita um `pnpm dev` que já esteja rodando: em desenvolvimento quase
-  // sempre há um. No CI sobe um do zero, porque lá não há nenhum.
+  /**
+   * Reaproveita um `pnpm dev` que já esteja rodando: em desenvolvimento quase
+   * sempre há um. No CI sobe um do zero, porque lá não há nenhum.
+   *
+   * O comando é `next dev` cru, e **não** `pnpm dev:local`. A diferença é
+   * séria: o script `dev:local` começa com `dotenv -e env/local.env`, que
+   * sobrescreveria as variáveis já carregadas por quem chamou. `pnpm
+   * test:e2e:dev` subiria um servidor apontado para o backend **local**
+   * enquanto o processo de teste acreditava estar na instância da AWS — e o
+   * relatório diria verde sobre um ambiente que ninguém pediu para testar.
+   *
+   * Sem o `dotenv` aqui, o servidor herda o ambiente do processo do
+   * Playwright, que é o que o script de cada alvo já preparou. `pnpm exec`
+   * resolve o binário sem depender de quem chamou ter posto
+   * `node_modules/.bin` no PATH.
+   */
   webServer: process.env.E2E_BASE_URL
     ? undefined
     : {
-        command: "pnpm dev:local",
+        command: "pnpm exec next dev --turbopack --port 3001",
         url: baseURL,
         reuseExistingServer: !process.env.CI,
         timeout: 120_000,

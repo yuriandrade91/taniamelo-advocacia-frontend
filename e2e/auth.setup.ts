@@ -24,7 +24,7 @@ setup("autenticar", async ({ page }) => {
   // encontrado", que manda procurar o problema no lugar errado.
   expect(
     user && password,
-    "Defina E2E_USER e E2E_PASSWORD no ambiente antes de rodar os testes e2e.",
+    "Defina E2E_USER e E2E_PASSWORD: copie env/e2e.example.env para env/e2e.local.env e preencha (ou exporte no shell).",
   ).toBeTruthy();
 
   await page.goto("/login");
@@ -36,7 +36,12 @@ setup("autenticar", async ({ page }) => {
   // A confirmação é ter saído do login e chegado na home, não o cookie existir:
   // cookie gravado com token recusado deixaria a suíte verde e cega.
   await page.waitForURL("**/home");
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+
+  // O que se afirma aqui é a CASCA autenticada — o menu do usuário só é
+  // renderizado com sessão válida. Antes era `heading level 1`, que a home não
+  // tem mais desde a reformulação em cards; e prender o login a um título de
+  // uma tela em obras faz a suíte inteira cair por um motivo que não é login.
+  await expect(page.getByRole("button", { name: /menu de/i })).toBeVisible();
 
   if (!existsSync(dirname(STORAGE))) mkdirSync(dirname(STORAGE), { recursive: true });
   await page.context().storageState({ path: STORAGE });
