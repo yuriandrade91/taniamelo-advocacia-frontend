@@ -48,3 +48,10 @@ export function maskCTPS(value: string) {
     .slice(0, 16);
 
 }
+
+export function maskCEP(value: string) {
+  return value
+    .replace(/\D/g, "")
+    .slice(0, 8)
+    .replace(/(\d{5})(\d)/, "$1-$2");
+}

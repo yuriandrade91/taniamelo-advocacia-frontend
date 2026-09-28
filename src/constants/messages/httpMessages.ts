@@ -7,6 +7,7 @@ type HttpStatus =
   | 404
   | 408
   | 409
+  | 429
   | 500
   | 502
   | 503
@@ -28,7 +29,14 @@ const httpMessages: Partial<
     title: "Não autorizado",
     description: "Redirecionando para login.",
   },
-  403: { title: "Acesso negado!", description: "Você não tem permissão para acessar este recurso." },
+  // 403 agora tem um significado só neste sistema: o papel do usuário não
+  // permite a ação (excluir, restaurar, ler a senha do INSS). Dizer "peça a um
+  // advogado ou admin" resolve o problema de quem leu; "você não tem permissão"
+  // deixa a pessoa sem saber a quem recorrer.
+  403: {
+    title: "Ação restrita",
+    description: "Esta ação é de advogado ou admin. Peça a quem tem esse acesso.",
+  },
   404: { title: "Não encontrado!", description: "O recurso não existe." },
   408: {
     title: "Erro ao processar requisição",
@@ -37,6 +45,13 @@ const httpMessages: Partial<
   409: {
     title: "Dados inválidos",
     description: "Erro nos dados enviados.",
+  },
+  // Só o login é freado hoje. A tela de login trata o 429 por conta própria
+  // (com o Retry-After); este texto é a rede de segurança para qualquer outra
+  // rota que venha a ser limitada.
+  429: {
+    title: "Muitas tentativas",
+    description: "Aguarde alguns minutos antes de tentar de novo.",
   },
   500: { title: "Erro interno", description: "Tente novamente mais tarde." },
   502: {
