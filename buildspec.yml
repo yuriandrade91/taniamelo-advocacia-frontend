@@ -1,0 +1,33 @@
+version: 0.2
+
+# Build do ambiente de desenvolvimento: API em http://98.82.73.175:8080,
+# escritório `tania` (ver env/development.env). As NEXT_PUBLIC_* são inlinadas
+# no JavaScript pelo build, então o `out/` gerado aqui só serve para dev.
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 22
+    commands:
+      # O projeto usa pnpm; sem package-lock.json, `npm ci` falha.
+      - npm install -g pnpm@10
+      - pnpm install --frozen-lockfile
+
+  pre_build:
+    commands:
+      - pnpm typecheck
+      - pnpm test
+
+  build:
+    commands:
+      - pnpm build:development
+      - test -f out/index.html
+
+artifacts:
+  base-directory: out
+  files:
+    - "**/*"
+
+cache:
+  paths:
+    - node_modules/**/*
