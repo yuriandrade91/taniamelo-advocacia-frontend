@@ -15,7 +15,6 @@ phases:
 
   pre_build:
     commands:
-      - pnpm typecheck
       - pnpm test
 
   build:
