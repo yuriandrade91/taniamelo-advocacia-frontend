@@ -1,28 +1,31 @@
 "use client";
 
 import React from "react";
-import { Modal, Button } from "@heroui/react";
+import { Button, Modal, WarningIcon } from "@heroui/react";
+
+/**
+ * Confirmação de exclusão de cliente.
+ *
+ * Alinhado ao padrão de confirmação do `AppointmentsCard`:
+ * - `isOpen`/`onOpenChange` no `Modal` raiz (não no `Backdrop`) — o `Backdrop`
+ *   aceitava por herança, mas o controle pertence ao componente raiz;
+ * - `Modal.Icon` com `WarningIcon`, para a natureza destrutiva aparecer antes
+ *   do texto;
+ * - ação destrutiva em `variant="danger"` e a saída segura em `primary` —
+ *   antes o "Sim" (que exclui) era `primary` e o "Não" era `secondary` com
+ *   texto vermelho, invertendo o peso visual;
+ * - rótulos que dizem o que acontece ("Excluir" / "Manter") em vez de
+ *   "Sim" / "Não", que só fazem sentido relidos junto com o título;
+ * - mesmas curvas de entrada/saída das demais modais.
+ */
 
 interface DeleteClientModalProps {
   isOpen: boolean;
   onClose: () => void;
   clientName: string;
-  onConfirm?: () => void | undefined;
+  onConfirm?: () => void;
 }
 
-/**
- * Confirmação de exclusão de cliente — HeroUI v3 (compound components).
- *
- * Anatomia do v3:
- *   Modal > Modal.Backdrop > Modal.Container > Modal.Dialog
- *           > Modal.Header (Modal.Heading) / Modal.Body / Modal.Footer
- *
- * Mudanças em relação ao v2:
- * - `backdrop="blur"`      -> `variant="blur"` no `Modal.Backdrop`
- * - `isOpen`/`onOpenChange` -> movidos para o `Modal.Backdrop`
- * - `hideCloseButton`       -> basta omitir o `Modal.CloseTrigger`
- * - `color`                 -> `variant` no `Button`
- */
 export default function DeleteClientModal({
   isOpen,
   onClose,
@@ -30,48 +33,43 @@ export default function DeleteClientModal({
   onConfirm,
 }: DeleteClientModalProps) {
   return (
-    <Modal>
+    <Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>
       <Modal.Backdrop
-        variant="blur"
-        isOpen={isOpen}
-        onOpenChange={(open) => {
-          if (!open) onClose();
-        }}
+        variant="opaque"
+        className="data-[entering]:duration-400 data-[entering]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[exiting]:duration-200 data-[exiting]:ease-[cubic-bezier(0.7,0,0.84,0)]"
       >
-        <Modal.Container size="md">
-          <Modal.Dialog>
+        <Modal.Container className="data-[entering]:animate-in data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[entering]:duration-400 data-[entering]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[exiting]:animate-out data-[exiting]:fade-out-0 data-[exiting]:zoom-out-95 data-[exiting]:duration-200 data-[exiting]:ease-[cubic-bezier(0.7,0,0.84,0)]">
+          <Modal.Dialog className="sm:max-w-[400px]">
+            <Modal.CloseTrigger />
+
             <Modal.Header>
-              <Modal.Heading className="relative font-semibold">
-                Tem certeza que deseja excluir este cliente?
-              </Modal.Heading>
-              <span className="absolute top-11 border-b-[3px] border-solid border-secondary w-20" />
+              <Modal.Icon className="bg-danger/10 text-danger">
+                <WarningIcon className="size-5" />
+              </Modal.Icon>
+              <Modal.Heading>Excluir cliente?</Modal.Heading>
             </Modal.Header>
 
             <Modal.Body>
-              <p className="text-gray-100 text-base font-light">
-                Ao excluir o cliente{" "}
-                <span className="font-medium">{clientName}</span>, você não
-                poderá mais vê-lo(a) nesta lista.
+              <p className="mt-1 text-sm text-gray-100/70">
+                <span className="font-medium">{clientName}</span> será removido
+                da lista. Essa ação não pode ser desfeita.
               </p>
             </Modal.Body>
 
             <Modal.Footer>
               <Button
-                variant="secondary"
-                onPress={onClose}
-                className="font-medium text-danger"
-              >
-                Não
-              </Button>
-              <Button
-                variant="primary"
-                onPress={() => {
+                className="w-full"
+                type="button"
+                variant="danger"
+                onClick={() => {
                   onConfirm?.();
                   onClose();
                 }}
-                className="font-medium"
               >
-                Sim
+                Excluir
+              </Button>
+              <Button type="button" variant="primary" onClick={onClose}>
+                Manter
               </Button>
             </Modal.Footer>
           </Modal.Dialog>

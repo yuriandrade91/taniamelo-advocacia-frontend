@@ -27,6 +27,7 @@ import {
 
 import type { Clients } from "@/interfaces/Clients.interface";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
+import svgPaths from "@/constants/svg/paths";
 
 // ─── Constants ───────────────────────────────────────────────
 
@@ -55,10 +56,15 @@ const INITIAL_FORM = {
   ctps: "",
   serie: "",
   senhaInss: "",
-  tempoContribuicao: "",
+  tempoAnos: "",
+  tempoMeses: "",
+  tempoDias: "",
 };
 
 type FormState = Record<keyof typeof INITIAL_FORM, string>;
+
+/** Só dígitos - anos, meses e dias de contribuição são contagem, não texto. */
+const soDigitos = (value: string) => value.replace(/\D/g, "");
 
 const REQUIRED_FIELDS: (keyof FormState)[] = [
   "nome",
@@ -76,10 +82,26 @@ const REQUIRED_FIELDS: (keyof FormState)[] = [
 
 const digits = (v: string) => v.replace(/\D+/g, "");
 
-const labelAt = <T extends { label: string }>(
+/**
+ * Converte `Options` de enum no formato do `SelectField`, usando a **chave do
+ * enum** como `id`.
+ *
+ * Antes o `id` era a posição no array (`String(i + 1)`) e a submissão fazia o
+ * caminho de volta por índice. Funcionava, mas amarrava o dado à ordem da
+ * lista: reordenar as `ENTRIES` — algo que parece inofensivo — mudava
+ * silenciosamente o significado de todo formulário aberto.
+ *
+ * Com a chave, o valor viaja direto para a API (o backend aceita nome da
+ * constante OU label, via `@JsonCreator`).
+ */
+const toSelectOptions = <T extends { value: string; label: string }>(
   options: readonly T[],
-  oneBasedIndex: number,
-): string | undefined => options[oneBasedIndex - 1]?.label;
+): { id: string; label: string }[] =>
+  options.map((option) => ({ id: option.value, label: option.label }));
+
+/** Campo de enum vazio vira `undefined` — não enviamos string vazia. */
+const enumOrUndefined = (value: string): string | undefined =>
+  value.trim() === "" ? undefined : value;
 
 const filled = (v: string) => v.trim().length > 0;
 
@@ -100,7 +122,9 @@ const PLACEHOLDERS: Partial<Record<keyof typeof INITIAL_FORM, string>> = {
   ctps: "Digite o número da CTPS",
   serie: "Digite a série da CTPS",
   senhaInss: "Digite a senha do INSS",
-  tempoContribuicao: "Digite o tempo de contribuição",
+  tempoAnos: "Anos de contribuição",
+  tempoMeses: "Meses",
+  tempoDias: "Dias",
 };
 
 // ─── Props ───────────────────────────────────────────────────
@@ -165,8 +189,8 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
       digits(form.cpf).length >= 11 &&
       digits(form.celular).length > 0 &&
       filled(form.nomeMae) &&
-      Number(form.beneficioPretendido) > 0 &&
-      Number(form.situacaoBeneficio) > 0 &&
+      filled(form.beneficioPretendido) &&
+      filled(form.situacaoBeneficio) &&
       filled(form.senhaInss)
     );
   }, [form]);
@@ -184,10 +208,6 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
       return;
     }
 
-    const bi = Number(form.beneficioPretendido);
-    const si = Number(form.situacaoBeneficio);
-    const mi = Number(form.estadoCivil);
-
     const raw: Record<string, unknown> = {
       fullName: form.nome,
       birthDate: form.nascimento,
@@ -200,15 +220,21 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
       email: form.email || undefined,
       referencePhone: form.telRecado || undefined,
       referenceResponsible: form.responsavelRecado || undefined,
-      maritalStatus: labelAt(MaritalStatusOptions, mi),
-      benefit: labelAt(IntendedBenefitOptions, bi),
-      situation: labelAt(SituationOptions, si),
+      // Chaves do enum — o backend resolve nome da constante OU label.
+      maritalStatus: enumOrUndefined(form.estadoCivil),
+      benefit: enumOrUndefined(form.beneficioPretendido),
+      situation: enumOrUndefined(form.situacaoBeneficio),
       beneficiaryNumber: form.numBeneficiario || undefined,
       nitPis: form.nitPis || undefined,
       profession: form.profissao || undefined,
       ctps: form.ctps || undefined,
       ctpsSeries: form.serie || undefined,
-      contributionTime: form.tempoContribuicao || undefined,
+      // Três números, não uma frase: o backend deixou de interpretar texto
+      // livre (onde "nao informado" virava 0 e "300000000 anos" virava
+      // -694967296). Em branco tem de sumir do JSON, e não virar 0.
+      contributionYears: form.tempoAnos ? Number(form.tempoAnos) : undefined,
+      contributionMonths: form.tempoMeses ? Number(form.tempoMeses) : undefined,
+      contributionDays: form.tempoDias ? Number(form.tempoDias) : undefined,
       // O backend espera `notBillable` (ClientCreateRequestDTO), não `nonBillable`.
       notBillable: nonBillable,
     };
@@ -276,15 +302,14 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
   // ── JSX ──
 
   return (
-    <Modal>
+    <Modal isOpen={isOpen} onOpenChange={(open) => {
+      if (!open) onClose();
+    }}>
       <Modal.Backdrop
         variant="blur"
-        isOpen={isOpen}
-        onOpenChange={(open) => {
-          if (!open) onClose();
-        }}
+        className="data-[entering]:duration-400 data-[entering]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[exiting]:duration-200 data-[exiting]:ease-[cubic-bezier(0.7,0,0.84,0)]"
       >
-        <Modal.Container size="cover">
+        <Modal.Container size="cover" className="data-[entering]:animate-in data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[entering]:duration-400 data-[entering]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[exiting]:animate-out data-[exiting]:fade-out-0 data-[exiting]:zoom-out-95 data-[exiting]:duration-200 data-[exiting]:ease-[cubic-bezier(0.7,0,0.84,0)]">
           <Modal.Dialog className="bg-[#F4F4F5] min-h-[80vh] max-w-[1440px]">
           <form onSubmit={handleSubmit}>
             <Modal.Header className="relative mt-6">
@@ -299,7 +324,7 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
             <Modal.Body>
               {/* ── Dados pessoais ── */}
               <section className="bg-white flex flex-col rounded-2xl">
-                <SectionTitle icon="../svg/icons/profile.svg" title="Dados pessoais" />
+                <SectionTitle icon={svgPaths.ICONS.PROFILE} title="Dados pessoais" />
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full p-4">
                   <Field {...inputProps("nome", "Nome completo", { required: true, minW: "240px" })} />
                   <Field {...inputProps("nascimento", "Data de nascimento", { required: true, type: "date", placeholder: "dd/mm/aaaa" })} />
@@ -320,7 +345,7 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
                     label="Estado civil"
                     placeholder="Selecione o estado civil"
                     className="min-w-[180px]"
-                    options={MaritalStatusOptions.map((o, i) => ({ id: String(i + 1), label: o.label }))}
+                    options={toSelectOptions(MaritalStatusOptions)}
                     selectedKey={form.estadoCivil || null}
                     onSelectionChange={(key) => { set("estadoCivil", key); touch("estadoCivil"); }}
                   />
@@ -339,7 +364,7 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
                     label="Situação do benefício"
                     placeholder="Selecione a situação"
                     className="min-w-[220px]"
-                    options={SituationOptions.map((o, i) => ({ id: String(i + 1), label: o.label }))}
+                    options={toSelectOptions(SituationOptions)}
                     selectedKey={form.situacaoBeneficio || null}
                     onSelectionChange={(key) => { set("situacaoBeneficio", key); touch("situacaoBeneficio"); }}
                     isRequired
@@ -351,13 +376,13 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
 
               {/* ── Dados profissionais ── */}
               <section className="bg-white flex flex-col rounded-2xl mb-4">
-                <SectionTitle icon="../svg/icons/user_id.svg" title="Dados profissionais" />
+                <SectionTitle icon={svgPaths.ICONS.USER_ID} title="Dados profissionais" />
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full p-4">
                   <SelectField
                     label="Benefício pretendido"
                     placeholder="Selecione o benefício"
                     className="min-w-[260px]"
-                    options={IntendedBenefitOptions.map((o, i) => ({ id: String(i + 1), label: o.label }))}
+                    options={toSelectOptions(IntendedBenefitOptions)}
                     selectedKey={form.beneficioPretendido || null}
                     onSelectionChange={(key) => { set("beneficioPretendido", key); touch("beneficioPretendido"); }}
                     isRequired
@@ -371,7 +396,9 @@ const AddNewClientModal: React.FC<AddNewClientModalProps> = ({
                   <Field {...inputProps("ctps", "CTPS", { mask: maskCTPS })} />
                   <Field {...inputProps("serie", "Série")} />
                   <Field {...inputProps("senhaInss", "Senha \"meu inss\"", { required: true })} />
-                  <Field {...inputProps("tempoContribuicao", "Tempo de contribuição")} />
+                  <Field {...inputProps("tempoAnos", "Tempo de contribuição (anos)", { mask: soDigitos, maxLength: 3, placeholder: "33" })} />
+                  <Field {...inputProps("tempoMeses", "Meses", { mask: soDigitos, maxLength: 2, placeholder: "11" })} />
+                  <Field {...inputProps("tempoDias", "Dias", { mask: soDigitos, maxLength: 2, placeholder: "5" })} />
                 </div>
               </section>
 

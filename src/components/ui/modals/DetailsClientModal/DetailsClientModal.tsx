@@ -1,7 +1,11 @@
 "use client";
 
-import { Button, Modal, ProgressCircle, Skeleton } from "@heroui/react";
-import { Field } from "@/components/ui/form/Field";
+import { Accordion, Button, Modal, Skeleton, Tooltip } from "@heroui/react";
+import {
+  DateTimePickerField,
+  Field,
+  TextAreaField,
+} from "@/components/ui/form/Field";
 import Image from "next/image";
 
 interface DetailsClientModalProps {
@@ -22,19 +26,78 @@ import {
   deleteClient,
   clientSituationHistory,
 } from "@/services/clientService";
-import type { ClientUpdateRequest } from "@/interfaces/client/Client.interface";
+import type {
+  ClientUpdateRequest,
+  ClientSituationHistory,
+} from "@/interfaces/client/Client.interface";
 import { Clients } from "@/interfaces/Clients.interface";
-import { MaritalStatusOptions } from "@/enums/maritalStatus/MaritalStatus";
 import {
-  RetirementTypeOptions,
+  createAddress,
+  listAddresses,
+  updateAddress,
+} from "@/services/clientAddressService";
+import {
+  createInterview,
+  listInterviews,
+  updateInterview,
+} from "@/services/clientInterviewService";
+import {
+  deleteFile,
+  listDocuments,
+  listSimulations,
+  uploadDocuments,
+  uploadSimulations,
+} from "@/services/clientFileService";
+import { InssPasswordField } from "@/components/clients/inss/InssPasswordField";
+import { usePermissoes } from "@/hooks/usePermissoes";
+import { useAutoresDoEscritorio } from "@/hooks/useAutoresDoEscritorio";
+import { FilesSection } from "@/components/clients/form/sections/files/FilesSection";
+import FileUploadModal from "@/components/clients/form/sections/files/FileUploadModal";
+import {
+  isDocumentReady,
+  type FileKind,
+  type StagedDocument,
+  type StagedSimulation,
+} from "@/components/clients/form/sections/files/types";
+import {
+  buildDocumentsFormData,
+  buildSimulationsFormData,
+} from "@/components/clients/form/documentsFormData";
+import { instantToLocalInput } from "@/components/clients/form/fromResponse";
+import type {
+  ClientFileDocumentResponse,
+  ClientFileSimulationResponse,
+} from "@/interfaces/client/ClientSubResources.interface";
+import svgPaths from "@/constants/svg/paths";
+import { ProgressRing } from "@/components/clients/form/ProgressRing";
+import { FormSection } from "@/components/clients/form/FormSection";
+import { formatDateBR } from "@/lib/format";
+import { ageFromBirthDate } from "@/lib/validators/validators";
+import { SituationHistorySection } from "@/components/clients/form/sections/SituationHistorySection";
+import fallbackMessages from "@/constants/messages/fallbackMessages";
+import {
+  MaritalStatusOptions,
+  getMaritalStatusKeyByLabel,
+  getMaritalStatusLabelByKey,
+  type MaritalStatusKey,
+} from "@/enums/maritalStatus/MaritalStatus";
+import {
   SituationOptions,
+  getSituationKeyByLabel,
+  getSituationLabelByKey,
+  type SituationKey,
 } from "@/enums/situation/Situation";
-import { IntendedBenefitOptions } from "@/enums/benefit/Benefits";
+import {
+  IntendedBenefitOptions,
+  getBenefitKeyByLabel,
+  getBenefitLabelByKey,
+  type BenefitKey,
+} from "@/enums/benefit/Benefits";
 
 type FormShape = {
   nome: string;
   nascimento: string;
-  estadoCivil: number;
+  estadoCivil: string;
   genero: string;
   age?: number | null;
   cpf: string;
@@ -44,16 +107,37 @@ type FormShape = {
   celular: string;
   telRecado: string;
   responsavelRecado: string;
-  situacaoBeneficio: number;
-  beneficioPretendido: number;
+  /**
+   * Chaves do enum (ex.: `"ANALISE_DOCUMENTAL"`), não índices.
+   * Antes eram a posição no array — reordenar as `ENTRIES` mudava o dado.
+   */
+  situacaoBeneficio: string;
+  beneficioPretendido: string;
   numBeneficiario: string;
   nitPis: string;
   profissao: string;
   ctps: string;
   serie: string;
   senhaInss: string;
-  tempoContribuicao: string;
+  tempoAnos: string;
+  tempoMeses: string;
+  tempoDias: string;
   isento: boolean;
+};
+
+/** Só dígitos - anos, meses e dias de contribuição são contagem, não texto. */
+const soDigitos = (value: string) => value.replace(/\D/g, "");
+
+/**
+ * Lê um número do payload aceitando as duas grafias, como o resto desta ficha
+ * faz: a API responde em camelCase, mas há respostas antigas em snake_case
+ * circulando. `0` é valor e tem de sobreviver - por isso a checagem é contra
+ * `null`/`undefined`, e não um teste de veracidade.
+ */
+const numeroDoPayload = (payload: any, camel: string): string => {
+  const snake = camel.replace(/[A-Z]/g, (c) => "_" + c.toLowerCase());
+  const bruto = payload?.[camel] ?? payload?.[snake];
+  return bruto === null || bruto === undefined ? "" : String(bruto);
 };
 
 export default function DetailsClientModal({
@@ -65,6 +149,11 @@ export default function DetailsClientModal({
   editOnOpen = false,
 }: DetailsClientModalProps) {
   // render props
+  // Excluir é de advogado/admin; o atendente não vê o botão (o backend recusa
+  // de qualquer forma — isto é só para não oferecer o que vai ser negado).
+  const { podeDestruir } = usePermissoes();
+  /** Traduz o `changedByUserId` da trilha em nome. Vazio para atendente. */
+  const autores = useAutoresDoEscritorio();
   // Local state for edit and delete modal logic
   const [isEditing, setIsEditing] = useState(false);
   // Keep a snapshot of the last loaded form so Cancel restores it
@@ -93,7 +182,8 @@ export default function DetailsClientModal({
         response?: { data?: { message?: string } };
       };
       setError(
-        e?.message || (e?.response?.data?.message ?? "Erro ao deletar cliente"),
+        e?.message ||
+          (e?.response?.data?.message ?? fallbackMessages.CLIENTS.DELETE_FAILED),
       );
     } finally {
       setLoading(false);
@@ -103,14 +193,65 @@ export default function DetailsClientModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [situationHistory, setSituationHistory] = useState<
-    Array<Record<string, any>>
+    ClientSituationHistory[]
   >([]);
+  /** Distingue "a rota falhou" de "nunca mudou de situação". */
+  const [historyFailed, setHistoryFailed] = useState(false);
+
+  /**
+   * Endereço principal do cliente.
+   *
+   * O modal mostra **um** endereço: o principal, ou o primeiro quando nenhum
+   * está marcado. O cliente pode ter até três (a tela de cadastro cria os
+   * outros), e trazer as três abas para cá exigiria a mesma coordenação de
+   * "quem é o principal" que vive lá. Aqui a pergunta é "para onde mando a
+   * correspondência", e a resposta é uma só.
+   *
+   * `addressId` nulo significa cliente sem endereço: salvar cria em vez de
+   * atualizar.
+   */
+  const [addressId, setAddressId] = useState<string | null>(null);
+
+  /**
+   * Entrevista mais recente.
+   *
+   * O backend guarda uma lista; a ficha mostra a última. Ver o histórico
+   * completo de entrevistas é outra tela — e mostrar a mais antiga aqui seria
+   * a escolha pior das duas. A contagem aparece no selo da seção para ninguém
+   * achar que só existe esta.
+   */
+  const [interviewId, setInterviewId] = useState<string | null>(null);
+  const [interviewCount, setInterviewCount] = useState(0);
+  const [interview, setInterview] = useState({
+    occurredAt: "",
+    durationMinutes: "",
+    content: "",
+  });
+
+  const [documents, setDocuments] = useState<ClientFileDocumentResponse[]>([]);
+  const [simulations, setSimulations] = useState<ClientFileSimulationResponse[]>(
+    [],
+  );
+  const [stagedDocuments, setStagedDocuments] = useState<StagedDocument[]>([]);
+  const [stagedSimulations, setStagedSimulations] = useState<StagedSimulation[]>(
+    [],
+  );
+  const [uploadKind, setUploadKind] = useState<FileKind | null>(null);
+  const [address, setAddress] = useState({
+    zipCode: "",
+    street: "",
+    addressNumber: "",
+    complement: "",
+    neighborhood: "",
+    city: "",
+    state: "",
+  });
 
   // Controlled state for all input fields - start empty and populate when fetching
   const defaultForm: FormShape = {
     nome: "",
     nascimento: "",
-    estadoCivil: 0,
+    estadoCivil: "",
     genero: "",
     age: null,
     cpf: "",
@@ -120,15 +261,17 @@ export default function DetailsClientModal({
     celular: "",
     telRecado: "",
     responsavelRecado: "",
-    situacaoBeneficio: 0,
-    beneficioPretendido: 0,
+    situacaoBeneficio: "",
+    beneficioPretendido: "",
     numBeneficiario: "",
     nitPis: "",
     profissao: "",
     ctps: "",
     serie: "",
     senhaInss: "",
-    tempoContribuicao: "",
+    tempoAnos: "",
+    tempoMeses: "",
+    tempoDias: "",
     isento: false,
   };
   const [form, setForm] = useState<FormShape>(defaultForm);
@@ -140,78 +283,30 @@ export default function DetailsClientModal({
   ).length;
   const progress = Math.round((filledFields / totalFields) * 100);
 
-  const computeAgeFromDate = (dateStr?: string | null): number | null => {
-    if (!dateStr) return null;
-    const d = new Date(String(dateStr));
-    if (Number.isNaN(d.getTime())) return null;
-    const now = new Date();
-    let age = now.getFullYear() - d.getFullYear();
-    const m = now.getMonth() - d.getMonth();
-    if (m < 0 || (m === 0 && now.getDate() < d.getDate())) age--;
-    return age;
-  };
+  /**
+   * Idade a partir da data de nascimento.
+   *
+   * Delega para `ageFromBirthDate`, que trata a data como `LocalDate` — texto,
+   * sem fuso. A versão anterior fazia `new Date("1954-08-28")`, que é meia-noite
+   * **UTC**: em UTC-3 vira 27/08 às 21h, e tanto a data exibida quanto a idade
+   * saíam um dia atrás. Era o que o cabeçalho mostrava: 27/08 ao lado de um
+   * campo com 28/08.
+   */
+  const computeAgeFromDate = (dateStr?: string | null): number | null =>
+    dateStr ? ageFromBirthDate(String(dateStr)) : null;
 
-  const findLabelById = (
-    opts: Array<{ id?: number; value?: string; label: string }>,
-    id?: number | string | null,
-  ) => {
-    if (id === undefined || id === null || id === "") return "";
-    // numeric id: prefer explicit id, otherwise use index offset (1-based)
-    if (typeof id === "number") {
-      const byId = opts.find((o) => o.id === id);
-      if (byId) return byId.label;
-      const idx = id - 1;
-      return opts[idx] ? opts[idx].label : "";
-    }
-    // string id: try to match value or label
-    const byValue = opts.find((o) => o.value === id || o.label === id);
-    return byValue ? byValue.label : "";
-  };
-
-  const displayBenefit = findLabelById(
-    IntendedBenefitOptions,
-    form.beneficioPretendido,
+  // Chave -> label PT-BR (o que a API espera receber e devolve).
+  const displayBenefit = getBenefitLabelByKey(
+    form.beneficioPretendido as BenefitKey,
   );
-  const displaySituation = findLabelById(
-    RetirementTypeOptions,
-    form.situacaoBeneficio,
+  const displaySituation = getSituationLabelByKey(
+    form.situacaoBeneficio as SituationKey,
   );
 
   const fetchClient = async () => {
     if (!clientId) return;
     setLoading(true);
     setError("");
-
-    const findOptionIdByLabel = (
-      opts: Array<{ id?: number; value?: string; label: string }>,
-      label?: string | number | null,
-    ) => {
-      if (label === undefined || label === null || label === "") return 0;
-      if (typeof label === "number") return label;
-      const normalize = (s: string) =>
-        s
-          .normalize("NFD")
-          .replace(/\p{Diacritic}/gu, "")
-          .toLowerCase()
-          .trim();
-      const target = normalize(String(label));
-      // try matching by explicit id
-      const byId = opts.find(
-        (o) => o.id !== undefined && String(o.id) === String(label),
-      );
-      if (byId) return byId.id ?? opts.indexOf(byId) + 1;
-      // try matching by value (for option sets that expose a value/key)
-      const byValue = opts.find(
-        (o) =>
-          (o as any).value !== undefined &&
-          String((o as any).value) === String(label),
-      );
-      if (byValue) return byValue.id ?? opts.indexOf(byValue) + 1;
-      // fallback to label match
-      const found = opts.find((o) => normalize(o.label) === target);
-      if (found) return found.id ?? opts.indexOf(found) + 1;
-      return 0;
-    };
 
     try {
       // GET /api/v1/clients/{id} — o service já desembrulha o envelope.
@@ -233,46 +328,27 @@ export default function DetailsClientModal({
         return undefined;
       };
 
-      // resolve marital status (ClientResponse.maritalStatus is a string label/key)
-      const maritalId =
-        findOptionIdByLabel(
-          MaritalStatusOptions,
-          (payload as any)?.maritalStatus ??
-            (payload as any)?.marital_status_name ??
-            (payload as any)?.marital_status_id,
-        ) ?? defaultForm.estadoCivil;
-      // resolve situation: ClientResponse.situation is a string (label or key)
-      let situationId = findOptionIdByLabel(
-        RetirementTypeOptions,
-        (payload as any)?.situation ??
-          (payload as any)?.situation_name ??
-          (payload as any)?.situation_key,
-      );
-      if (!situationId) {
-        const s =
-          (payload as any)?.situation ??
-          (payload as any)?.situation_name ??
-          (payload as any)?.situation_key;
-        if (typeof s === "string" && s.trim() !== "") {
-          const foundInValues = SituationOptions.find(
-            (o) =>
-              String(o.value) === String(s) ||
-              o.label.toLowerCase() === String(s).toLowerCase(),
-          );
-          if (foundInValues)
-            situationId = SituationOptions.indexOf(foundInValues) + 1;
-        }
-      }
-      situationId = situationId ?? defaultForm.situacaoBeneficio;
-      // resolve benefit: ClientResponse.benefit is a label/key
-      const benefitId =
-        findOptionIdByLabel(
-          IntendedBenefitOptions,
-          (payload as any)?.benefit ??
-            (payload as any)?.benefit_type ??
-            (payload as any)?.benefitType ??
-            (payload as any)?.benefit_id,
-        ) ?? defaultForm.beneficioPretendido;
+      const maritalKey =
+        getMaritalStatusKeyByLabel(payload?.maritalStatus) ??
+        MaritalStatusOptions.find((o) => o.value === payload?.maritalStatus)
+          ?.value ??
+        defaultForm.estadoCivil;
+      /**
+       * A API devolve o **label** dos enums (`@JsonValue`). Resolvemos para a
+       * chave; se já vier a chave (contrato aceita as duas formas), aceitamos
+       * direto. Sem `??` em cascata por nomes alternativos: o contrato está
+       * fechado em `Clients.interface.ts`.
+       */
+      const situationKey =
+        getSituationKeyByLabel(payload?.situation) ??
+        SituationOptions.find((o) => o.value === payload?.situation)?.value ??
+        defaultForm.situacaoBeneficio;
+
+      const benefitKey =
+        getBenefitKeyByLabel(payload?.benefit) ??
+        IntendedBenefitOptions.find((o) => o.value === payload?.benefit)
+          ?.value ??
+        defaultForm.beneficioPretendido;
 
       const mapped: FormShape = {
         nome:
@@ -284,9 +360,7 @@ export default function DetailsClientModal({
           (payload?.birthDate as string) ??
           (payload as any).birth_date ??
           defaultForm.nascimento,
-        estadoCivil:
-          // maritalStatus in ClientResponse is a string label; try to resolve it into an id
-          Number(maritalId) || defaultForm.estadoCivil,
+        estadoCivil: maritalKey,
         cpf: (payload?.cpf as string) ?? defaultForm.cpf,
         rg: (payload?.rg as string) ?? defaultForm.rg,
         nomeMae:
@@ -317,10 +391,8 @@ export default function DetailsClientModal({
                     (payload as any).birth_date ??
                     null,
                 ),
-        situacaoBeneficio: Number(situationId) || defaultForm.situacaoBeneficio,
-        beneficioPretendido:
-          // ClientResponse may expose 'benefit' (label) or benefit keys; fall back to previous logic
-          Number(benefitId) || defaultForm.beneficioPretendido,
+        situacaoBeneficio: situationKey,
+        beneficioPretendido: benefitKey,
         numBeneficiario:
           (payload?.beneficiaryNumber as string) ??
           (payload as any).beneficiaryNumber ??
@@ -339,18 +411,16 @@ export default function DetailsClientModal({
           (payload?.ctpsSeries as string) ??
           (payload as any).ctps_series ??
           defaultForm.serie,
-        senhaInss:
-          (payload?.inssPassword as string) ??
-          (payload as any).inss_password ??
-          defaultForm.senhaInss,
-        tempoContribuicao:
-          typeof (payload?.contributionTime as any) !== "undefined" &&
-          (payload?.contributionTime as any) !== null
-            ? String(payload?.contributionTime as any)
-            : typeof (payload as any).contribution_time !== "undefined" &&
-                (payload as any).contribution_time !== null
-              ? String((payload as any).contribution_time)
-              : defaultForm.tempoContribuicao,
+        // A senha do INSS não vem mais na ficha (saiu do GET). O campo nasce
+        // vazio e vazio significa "mantém a que está gravada" — ver
+        // InssPasswordField. Para LER a senha existe a rota auditada.
+        senhaInss: defaultForm.senhaInss,
+        // Tempo de contribuição deixou de ser uma frase e virou três números.
+        // `contributionTime` ainda vem na resposta, mas é só a forma de
+        // exibição derivada - o que se edita e se envia são estes três.
+        tempoAnos: numeroDoPayload(payload, "contributionYears"),
+        tempoMeses: numeroDoPayload(payload, "contributionMonths"),
+        tempoDias: numeroDoPayload(payload, "contributionDays"),
         // O backend expõe `notBillable`; os nomes antigos ficam como fallback.
         isento:
           typeof payload?.notBillable === "boolean"
@@ -369,15 +439,87 @@ export default function DetailsClientModal({
         // GET /api/v1/clients/{id}/situation-history (paginado, 1-based)
         const histEnvelope = await clientSituationHistory(String(clientId), {
           pageNumber: 1,
-          pageSize: 10,
+          pageSize: 50,
         });
-        const items = Array.isArray(histEnvelope?.data)
-          ? histEnvelope.data
-          : [];
-        setSituationHistory(items as never[]);
+        const items = Array.isArray(histEnvelope?.data) ? histEnvelope.data : [];
+        /**
+         * Mais recente primeiro. O backend não garante ordem, e uma linha do
+         * tempo que comece pelo evento mais antigo obriga a rolar até o fim
+         * para ver onde o cliente está hoje — que é o que mais se procura.
+         */
+        setSituationHistory(
+          [...items].sort((a, b) =>
+            (b.changedAt ?? "").localeCompare(a.changedAt ?? ""),
+          ),
+        );
+        setHistoryFailed(false);
       } catch (errHistory) {
         console.debug("Could not load situation history:", errHistory);
+        setSituationHistory([]);
+        setHistoryFailed(true);
       }
+
+      // Endereço em try próprio: cliente sem endereço é caso normal, e um 404
+      // aqui não pode derrubar a ficha inteira.
+      try {
+        const envelope = await listAddresses(String(clientId));
+        const list = envelope?.data ?? [];
+        const primary = list.find((item) => item.isPrimary) ?? list[0];
+        setAddressId(primary?.id ?? null);
+        setAddress({
+          zipCode: primary?.zipCode ?? "",
+          street: primary?.street ?? "",
+          addressNumber: primary?.addressNumber ?? "",
+          complement: primary?.complement ?? "",
+          neighborhood: primary?.neighborhood ?? "",
+          city: primary?.city ?? "",
+          state: primary?.state ?? "",
+        });
+      } catch (errAddress) {
+        console.debug("Could not load addresses:", errAddress);
+        setAddressId(null);
+      }
+
+      /**
+       * Entrevistas e arquivos em `allSettled`: são recursos independentes, e
+       * um 404 de arquivos não pode esconder a entrevista que existe.
+       */
+      const [interviewResult, documentResult, simulationResult] =
+        await Promise.allSettled([
+          listInterviews(String(clientId)),
+          listDocuments(String(clientId)),
+          listSimulations(String(clientId)),
+        ]);
+
+      const interviews =
+        interviewResult.status === "fulfilled"
+          ? (interviewResult.value.data ?? [])
+          : [];
+      setInterviewCount(interviews.length);
+      const latest = [...interviews].sort((a, b) =>
+        (b.occurredAt ?? "").localeCompare(a.occurredAt ?? ""),
+      )[0];
+      setInterviewId(latest?.id ?? null);
+      setInterview({
+        occurredAt: instantToLocalInput(latest?.occurredAt),
+        durationMinutes:
+          latest?.durationMinutes === undefined ||
+          latest?.durationMinutes === null
+            ? ""
+            : String(latest.durationMinutes),
+        content: latest?.content ?? "",
+      });
+
+      setDocuments(
+        documentResult.status === "fulfilled"
+          ? (documentResult.value.data ?? [])
+          : [],
+      );
+      setSimulations(
+        simulationResult.status === "fulfilled"
+          ? (simulationResult.value.data ?? [])
+          : [],
+      );
     } catch (err: unknown) {
       console.error("DetailsClientModal GET error:", err);
       const e = err as {
@@ -385,7 +527,8 @@ export default function DetailsClientModal({
         response?: { data?: { message?: string } };
       };
       setError(
-        e?.message || (e?.response?.data?.message ?? "Erro desconhecido"),
+        e?.message ||
+          (e?.response?.data?.message ?? fallbackMessages.CLIENTS.LOAD_FAILED),
       );
     } finally {
       setLoading(false);
@@ -405,12 +548,16 @@ export default function DetailsClientModal({
       cpf: form.cpf,
       motherName: form.nomeMae,
       mobilePhone: form.celular,
-      inssPassword: form.senhaInss,
+      // Só vai quando o usuário digitou uma senha nova. Mandar o campo vazio
+      // funcionaria (o backend ignora em branco), mas mandar só o que mudou
+      // deixa claro na requisição que ninguém pediu para trocar a senha.
+      ...(form.senhaInss.trim() ? { inssPassword: form.senhaInss } : {}),
       gender: form.genero || undefined,
       benefit: displayBenefit || undefined,
       situation: displaySituation || undefined,
       maritalStatus:
-        findLabelById(MaritalStatusOptions, form.estadoCivil) || undefined,
+        getMaritalStatusLabelByKey(form.estadoCivil as MaritalStatusKey) ||
+        undefined,
       rg: form.rg || undefined,
       email: form.email || undefined,
       referencePhone: form.telRecado || undefined,
@@ -420,8 +567,11 @@ export default function DetailsClientModal({
       profession: form.profissao || undefined,
       ctps: form.ctps || undefined,
       ctpsSeries: form.serie || undefined,
-      // Texto livre no backend (não converter para número).
-      contributionTime: form.tempoContribuicao || undefined,
+      // Em branco tem de sumir do JSON, e não virar 0: os três nulos
+      // significam "não informado", zero significa "não contribuiu".
+      contributionYears: form.tempoAnos ? Number(form.tempoAnos) : undefined,
+      contributionMonths: form.tempoMeses ? Number(form.tempoMeses) : undefined,
+      contributionDays: form.tempoDias ? Number(form.tempoDias) : undefined,
       notBillable: form.isento,
     };
 
@@ -434,6 +584,60 @@ export default function DetailsClientModal({
         String(clientId),
         payload as unknown as ClientUpdateRequest,
       );
+
+      /**
+       * Endereço vai depois, e só quando há o que gravar.
+       *
+       * Depois porque o cliente é o registro principal: se o endereço falhar,
+       * o que a pessoa editou nos dados já está salvo. Antes seria o inverso —
+       * endereço gravado e nome perdido.
+       *
+       * `street` e `city` são `@NotBlank` no backend; mandar um endereço vazio
+       * colheria um 400 em quem só quis corrigir o telefone.
+       */
+      const hasAddress =
+        address.street.trim() !== "" && address.city.trim() !== "";
+      if (hasAddress) {
+        const body = {
+          street: address.street.trim(),
+          city: address.city.trim(),
+          state: address.state.trim(),
+          zipCode: address.zipCode.trim() || undefined,
+          addressNumber: address.addressNumber.trim() || undefined,
+          complement: address.complement.trim() || undefined,
+          neighborhood: address.neighborhood.trim() || undefined,
+          isPrimary: true,
+        };
+        if (addressId) {
+          await updateAddress(String(clientId), addressId, body);
+        } else {
+          const created = await createAddress(String(clientId), body);
+          setAddressId(created?.data?.id ?? null);
+        }
+      }
+
+      /**
+       * Entrevista: só grava quando há conteúdo. `content` é `@NotBlank` no
+       * backend, então salvar uma ficha sem entrevista preenchida colheria um
+       * 400 em quem só quis corrigir o telefone — o mesmo motivo do endereço.
+       */
+      if (interview.content.trim() !== "") {
+        const body = {
+          content: interview.content.trim(),
+          occurredAt: interview.occurredAt
+            ? new Date(interview.occurredAt).toISOString()
+            : undefined,
+          durationMinutes: interview.durationMinutes
+            ? Number(interview.durationMinutes)
+            : undefined,
+        };
+        if (interviewId) {
+          await updateInterview(String(clientId), interviewId, body);
+        } else {
+          await createInterview(String(clientId), body);
+        }
+      }
+
       // reload the client to present updated values
       await fetchClient();
       setIsEditing(false);
@@ -444,12 +648,77 @@ export default function DetailsClientModal({
         response?: { data?: { message?: string } };
       };
       const message =
-        e?.response?.data?.message || e?.message || "Erro ao atualizar cliente";
+        e?.response?.data?.message ||
+        e?.message ||
+        fallbackMessages.CLIENTS.UPDATE_FAILED;
       setError(message);
     } finally {
       setLoading(false);
     }
   };
+  /**
+   * Arquivos sobem na hora, sem esperar o Salvar do cabeçalho.
+   *
+   * No cadastro eles ficam em espera porque ainda não existe `clientId` para a
+   * URL. Aqui existe — segurar o arquivo até outro botão só criaria a chance
+   * de a pessoa fechar a ficha achando que já enviou.
+   */
+  const handleUploadStaged = async () => {
+    if (!clientId) return;
+    if (stagedDocuments.length > 0 && !stagedDocuments.every(isDocumentReady)) {
+      setError("Escolha o tipo de cada documento antes de enviar.");
+      return;
+    }
+
+    setLoading(true);
+    setError("");
+    try {
+      if (stagedDocuments.length > 0) {
+        await uploadDocuments(
+          String(clientId),
+          buildDocumentsFormData(
+            stagedDocuments.map((item) => ({
+              file: item.file,
+              documentType: item.documentType,
+              notes: item.notes,
+            })),
+          ),
+        );
+        setStagedDocuments([]);
+      }
+      if (stagedSimulations.length > 0) {
+        await uploadSimulations(
+          String(clientId),
+          buildSimulationsFormData(
+            stagedSimulations.map((item) => ({
+              file: item.file,
+              simulationDate: item.simulationDate,
+              version: item.version,
+              vinculos: item.vinculos ? Number(item.vinculos) : undefined,
+              notes: item.notes,
+            })),
+          ),
+        );
+        setStagedSimulations([]);
+      }
+      await fetchClient();
+    } catch {
+      setError(fallbackMessages.CLIENTS.UPDATE_FAILED);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteFile = async (_kind: FileKind, fileId: string) => {
+    if (!clientId) return;
+    try {
+      await deleteFile(String(clientId), fileId);
+      await fetchClient();
+    } catch {
+      setError(fallbackMessages.CLIENTS.UPDATE_FAILED);
+    }
+  };
+
   const handleCancelEdit = () => {
     setIsEditing(false);
     // restore last loaded values if available, otherwise fall back to default
@@ -477,24 +746,32 @@ export default function DetailsClientModal({
 
   // ...existing code...
   return (
-    <Modal>
+    <Modal isOpen={isOpen} onOpenChange={(open) => {
+      if (!open) handleClose();
+    }}>
       <Modal.Backdrop
         variant="blur"
-        isOpen={isOpen}
-        onOpenChange={(open) => {
-          if (!open) handleClose();
-        }}
+        className="data-[entering]:duration-400 data-[entering]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[exiting]:duration-200 data-[exiting]:ease-[cubic-bezier(0.7,0,0.84,0)]"
       >
-        <Modal.Container size="cover">
+        <Modal.Container size="cover" className="data-[entering]:animate-in data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[entering]:duration-400 data-[entering]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[exiting]:animate-out data-[exiting]:fade-out-0 data-[exiting]:zoom-out-95 data-[exiting]:duration-200 data-[exiting]:ease-[cubic-bezier(0.7,0,0.84,0)]">
           <Modal.Dialog className="bg-[#F4F4F5] min-h-[80vh] max-w-[1440px]">
         <Modal.Header className="relative mt-6">
           <div className="flex p-4 h-auto w-full bg-primary rounded-2xl gap-24">
             <div className="flex flex-col justify-center">
-              <ProgressCircle
-                className="text-white"
+              {/*
+                `ProgressRing` e não `ProgressCircle` cru: o componente de uso
+                simples do HeroUI tem tamanho fechado em três variantes
+                pequenas e nenhum slot para o número no centro — na prática não
+                desenhava nada visível aqui. O `ProgressRing` é a composição
+                `Root/Track/FillCircle` com o rótulo dentro, feita para este
+                cabeçalho.
+              */}
+              <ProgressRing
                 value={progress}
+                size={88}
+                label="Preenchimento do cadastro"
               />
-              <p className="text-sm text-white font-light">
+              <p className="mt-2 max-w-[110px] text-center text-xs font-light text-white/70">
                 Preenchimento do cadastro
               </p>
             </div>
@@ -506,18 +783,14 @@ export default function DetailsClientModal({
               </h3>
               <div className="flex gap-2 items-center">
                 <Image
-                  src="../../svg/icons/confetti.svg"
+                  src={svgPaths.ICONS.CONFETTI}
                   alt="Logo"
                   height={24}
                   width={24}
                 />
                 <div className="flex gap-4">
-                  <p className="mt-1 text-white font-light">
-                    {form.nascimento
-                      ? new Date(String(form.nascimento)).toLocaleDateString(
-                          "pt-BR",
-                        )
-                      : "—"}
+                  <p className="mt-1 font-light text-white">
+                    {formatDateBR(form.nascimento)}
                   </p>
                   <p className="text-white">---</p>
                   <p className="mt-1 text-white font-light">
@@ -549,7 +822,7 @@ export default function DetailsClientModal({
               <div className="flex flex-col gap-4">
                 <div className="flex gap-1">
                   <Image
-                    src="../../svg/icons/letter.svg"
+                    src={svgPaths.ICONS.LETTER}
                     alt="Logo"
                     height={24}
                     width={24}
@@ -560,7 +833,7 @@ export default function DetailsClientModal({
                 </div>
                 <div className="flex gap-1">
                   <Image
-                    src="../../svg/icons/phone.svg"
+                    src={svgPaths.ICONS.PHONE}
                     alt="Logo"
                     height={24}
                     width={24}
@@ -571,7 +844,7 @@ export default function DetailsClientModal({
                 </div>
                 <div className="flex gap-1">
                   <Image
-                    src="../../svg/icons/phone.svg"
+                    src={svgPaths.ICONS.PHONE}
                     alt="Logo"
                     height={24}
                     width={24}
@@ -583,46 +856,110 @@ export default function DetailsClientModal({
               </div>
               {/* debug block removed */}
             </div>
-            <div className="grid grid-rows-2 items-stretch gap-4 ml-auto">
-              <Button
-                variant="primary"
-                className="font-medium"
-                onPress={() => setShowDeleteModal(true)}
-              >
-                Excluir
-              </Button>
+            {/*
+              Ações do cabeçalho.
 
-              {typeof isEditing !== "undefined" &&
-              typeof setIsEditing === "function" &&
-              typeof handleSave === "function" ? (
-                !isEditing ? (
+              Editar e excluir viram botões de ícone no topo, como no
+              protótipo — e porque `variant="primary"`/`"outline"` pintam texto
+              com `text-primary`, que é exatamente o azul deste cartão: os dois
+              botões estavam ilegíveis, um deles a ponto de parecer um pill
+              vazio.
+
+              Excluir é o único vermelho aqui. Pintar as duas ações de destaque
+              ensina a ignorar o vermelho.
+            */}
+            <div className="ml-auto flex flex-col items-end justify-between">
+              <div className="flex items-center gap-2">
+                {/*
+                  `Tooltip.Content` vem ANTES do `Button`, como irmão — é a
+                  ordem que o `ActionButton` da casa usa. Colocá-lo dentro do
+                  botão, que foi minha primeira tentativa, renderiza o conteúdo
+                  do tooltip como filho do botão e o balão nunca abre.
+                */}
+                {!isEditing && (
+                  <Tooltip delay={0}>
+                    <Tooltip.Content showArrow placement="bottom">
+                      <Tooltip.Arrow />
+                      <p>Editar cadastro</p>
+                    </Tooltip.Content>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      aria-label="Editar cadastro"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary/25 p-0 hover:bg-secondary/40"
+                      onPress={() => setIsEditing(true)}
+                    >
+                      <Image
+                        src={svgPaths.ICONS.EDIT}
+                        alt=""
+                        height={18}
+                        width={18}
+                      />
+                    </Button>
+                  </Tooltip>
+                )}
+
+                {/*
+                  Excluir é de advogado/admin. O backend recusa o atendente com
+                  403 de qualquer jeito; esconder aqui é para ele não esbarrar
+                  num botão que existe só para dizer não.
+                */}
+                {podeDestruir && (
+                  <Tooltip delay={0}>
+                    <Tooltip.Content showArrow placement="bottom">
+                      <Tooltip.Arrow />
+                      <p>Excluir cliente</p>
+                    </Tooltip.Content>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      aria-label="Excluir cliente"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-danger/25 p-0 hover:bg-danger/40"
+                      onPress={() => setShowDeleteModal(true)}
+                    >
+                      <Image
+                        src={svgPaths.ICONS.TRASH}
+                        alt=""
+                        height={18}
+                        width={18}
+                      />
+                    </Button>
+                  </Tooltip>
+                )}
+              </div>
+
+              {/* Salvar/Cancelar no rodapé do cartão, como no protótipo. */}
+              {isEditing && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    className="font-medium text-white/80 hover:bg-white/10 hover:text-white"
+                    onPress={handleCancelEdit}
+                    isDisabled={loading}
+                  >
+                    Cancelar
+                  </Button>
                   <Button
                     variant="outline"
-                    className="font-medium flex place-self-end"
-                    onPress={() => setIsEditing(true)}
+                    className="on-primary-button font-medium"
+                    onPress={handleSave}
+                    isDisabled={loading}
                   >
-                    Editar
+                    {loading ? "Salvando..." : "Salvar"}
                   </Button>
-                ) : (
-                  <div className="flex gap-2 items-end">
-                    <Button
-                      variant="ghost"
-                      className="font-medium text-white"
-                      onPress={handleCancelEdit}
-                    >
-                      Cancelar
-                    </Button>
-                    <Button
-                      variant="primary"
-                      className="font-medium"
-                      onPress={handleSave}
-                    >
-                      Salvar
-                    </Button>
-                  </div>
-                )
-              ) : null}
+                </div>
+              )}
             </div>
+
+            <FileUploadModal
+              isOpen={uploadKind !== null}
+              initialKind={uploadKind ?? "documents"}
+              onClose={() => setUploadKind(null)}
+              onConfirm={({ documents: docs, simulations: sims }) => {
+                setStagedDocuments((current) => [...current, ...docs]);
+                setStagedSimulations((current) => [...current, ...sims]);
+              }}
+            />
 
             {/* Modal de confirmação de exclusão */}
             {showDeleteModal && (
@@ -650,20 +987,27 @@ export default function DetailsClientModal({
             </div>
           ) : (
             <div className="grid grid-cols-[2fr_.8fr] gap-4 py-4">
-              <div className="grid grid-rows-2 gap-2 w-full">
+              {/*
+                Accordion no lugar dos cartões soltos: a ficha tem seis
+                assuntos e nem todo atendimento precisa dos seis abertos. Mesma
+                variante `surface` e mesma classe do cadastro, para as duas
+                telas serem reconhecivelmente a mesma coisa.
+              */}
+              <Accordion
+                variant="surface"
+                className="client-form-accordion w-full"
+                hideSeparator
+                allowsMultipleExpanded
+                defaultExpandedKeys={["dados-pessoais", "dados-profissionais"]}
+              >
                 {/* Dados Pessoais */}
-                <div className="bg-white flex flex-col rounded-2xl">
-                  <div className="flex items-center gap-2 p-4">
-                    <Image
-                      src="../svg/icons/profile.svg"
-                      alt="Logo"
-                      height={24}
-                      width={24}
-                    />
-                    <h3 className="text-xl font-semibold text-secondary">
-                      Dados pessoais
-                    </h3>
-                  </div>
+                <FormSection
+                  id="dados-pessoais"
+                  title="Dados pessoais"
+                  icon={<Image src={svgPaths.ICONS.PROFILE} alt="" height={20} width={20} />}
+                  status="saved"
+                  statusLabel=""
+                >
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full p-4">
                     <Field
                       label="Nome completo"
@@ -693,9 +1037,9 @@ export default function DetailsClientModal({
                       <SelectField
                         label="Estado civil"
                         isDisabled={!isEditing}
-                        options={MaritalStatusOptions.map((o) => ({ id: String(o.id), label: o.label }))}
-                        selectedKey={form.estadoCivil ? String(form.estadoCivil) : null}
-                        onSelectionChange={(key) => setForm((f) => ({ ...f, estadoCivil: Number(key) }))}
+                        options={MaritalStatusOptions.map((o) => ({ id: o.value, label: o.label }))}
+                        selectedKey={form.estadoCivil || null}
+                        onSelectionChange={(key) => setForm((f) => ({ ...f, estadoCivil: key }))}
                       />
                       {/* <div className="flex-1 min-w-[160px]">
                             <SelectField
@@ -780,34 +1124,29 @@ export default function DetailsClientModal({
                       <SelectField
                         label="Benefício pretendido"
                         isDisabled={!isEditing}
-                        options={IntendedBenefitOptions.map((o, i) => ({ id: String(i + 1), label: o.label }))}
-                        selectedKey={form.beneficioPretendido ? String(form.beneficioPretendido) : null}
-                        onSelectionChange={(key) => setForm((f) => ({ ...f, beneficioPretendido: Number(key) }))}
+                        options={IntendedBenefitOptions.map((o) => ({ id: o.value, label: o.label }))}
+                        selectedKey={form.beneficioPretendido || null}
+                        onSelectionChange={(key) => setForm((f) => ({ ...f, beneficioPretendido: key }))}
                       />
                     </div>
                   </div>
-                </div>
-                <div className="bg-white flex flex-col rounded-2xl">
-                  <div className="flex items-center gap-2 p-4">
-                    <Image
-                      src="../svg/icons/user_id.svg"
-                      alt="Logo"
-                      height={24}
-                      width={24}
-                    />
-                    <h3 className="text-xl font-semibold text-secondary">
-                      Dados profissionais
-                    </h3>
-                  </div>
+                </FormSection>
+                <FormSection
+                  id="dados-profissionais"
+                  title="Dados profissionais"
+                  icon={<Image src={svgPaths.ICONS.USER_ID} alt="" height={20} width={20} />}
+                  status="saved"
+                  statusLabel=""
+                >
                   <div className="flex flex-wrap gap-4 p-4 w-full">
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4 w-full">
                       <SelectField
                         label="Benefício pretendido"
                         isDisabled={!isEditing}
-                        options={IntendedBenefitOptions.map((o, i) => ({ id: String(i + 1), label: o.label }))}
-                        selectedKey={form.beneficioPretendido ? String(form.beneficioPretendido) : null}
+                        options={IntendedBenefitOptions.map((o) => ({ id: o.value, label: o.label }))}
+                        selectedKey={form.beneficioPretendido || null}
                         onSelectionChange={(key) =>
-                          setForm((f) => ({ ...f, beneficioPretendido: Number(key) }))
+                          setForm((f) => ({ ...f, beneficioPretendido: key }))
                         }
                       />
                     </div>
@@ -862,51 +1201,244 @@ export default function DetailsClientModal({
                       }
                       className="flex-1 min-w-[180px]"
                     />
+                    <InssPasswordField
+                      clientId={String(clientId ?? "")}
+                      isEditing={isEditing}
+                      novaSenha={form.senhaInss}
+                      onNovaSenhaChange={(valor) =>
+                        setForm((f) => ({ ...f, senhaInss: valor }))
+                      }
+                      className="flex-1 min-w-[180px]"
+                    />
                     <Field
-                      label='Senha "meu inss"'
+                      label="Tempo de contribuição (anos)"
                       isReadOnly={!isEditing}
-                      type="text"
-                      value={form.senhaInss}
+                      maxLength={3}
+                      value={form.tempoAnos}
                       onChange={(e) =>
                         setForm((f) => ({
                           ...f,
-                          senhaInss: e.target.value,
+                          tempoAnos: soDigitos(e.target.value),
                         }))
                       }
                       className="flex-1 min-w-[180px]"
                     />
                     <Field
-                      label="Tempo de contribuição"
+                      label="Meses"
                       isReadOnly={!isEditing}
-                      value={form.tempoContribuicao}
+                      maxLength={2}
+                      value={form.tempoMeses}
                       onChange={(e) =>
                         setForm((f) => ({
                           ...f,
-                          tempoContribuicao: e.target.value,
+                          tempoMeses: soDigitos(e.target.value),
                         }))
                       }
-                      className="flex-1 min-w-[180px]"
+                      className="flex-1 min-w-[120px]"
+                    />
+                    <Field
+                      label="Dias"
+                      isReadOnly={!isEditing}
+                      maxLength={2}
+                      value={form.tempoDias}
+                      onChange={(e) =>
+                        setForm((f) => ({
+                          ...f,
+                          tempoDias: soDigitos(e.target.value),
+                        }))
+                      }
+                      className="flex-1 min-w-[120px]"
                     />
                   </div>
-                </div>
-                <div className="w-full flex flex-1 pl-6 pt-4">
-                  {/* <ExemptFromServiceSwitch
-                        value={!!form.isento}
-                        onChange={(v) => setForm((f) => ({ ...f, isento: v }))}
-                        disabled={!isEditing}
-                        labelClassName={
-                          !isEditing
-                            ? "text-gray-400 font-medium"
-                            : "text-primary font-medium"
+                </FormSection>
+                {/* ── Endereço ── */}
+                <FormSection
+                  id="endereco"
+                  title="Endereço"
+                  icon={<Image src={svgPaths.ICONS.PROFILE} alt="" height={20} width={20} />}
+                  status="saved"
+                  statusLabel=""
+                >
+                  <div className="grid grid-cols-1 gap-4 p-4 md:grid-cols-4">
+                    <Field
+                      label="CEP"
+                      isReadOnly={!isEditing}
+                      value={address.zipCode}
+                      onChange={(e) =>
+                        setAddress((a) => ({ ...a, zipCode: e.target.value }))
+                      }
+                    />
+                    <Field
+                      label="Logradouro"
+                      isReadOnly={!isEditing}
+                      value={address.street}
+                      onChange={(e) =>
+                        setAddress((a) => ({ ...a, street: e.target.value }))
+                      }
+                      className="md:col-span-2"
+                    />
+                    <Field
+                      label="Número"
+                      isReadOnly={!isEditing}
+                      value={address.addressNumber}
+                      onChange={(e) =>
+                        setAddress((a) => ({
+                          ...a,
+                          addressNumber: e.target.value,
+                        }))
+                      }
+                    />
+                    <Field
+                      label="Complemento"
+                      isReadOnly={!isEditing}
+                      value={address.complement}
+                      onChange={(e) =>
+                        setAddress((a) => ({ ...a, complement: e.target.value }))
+                      }
+                    />
+                    <Field
+                      label="Bairro"
+                      isReadOnly={!isEditing}
+                      value={address.neighborhood}
+                      onChange={(e) =>
+                        setAddress((a) => ({
+                          ...a,
+                          neighborhood: e.target.value,
+                        }))
+                      }
+                    />
+                    <Field
+                      label="Cidade"
+                      isReadOnly={!isEditing}
+                      value={address.city}
+                      onChange={(e) =>
+                        setAddress((a) => ({ ...a, city: e.target.value }))
+                      }
+                    />
+                    <Field
+                      label="UF"
+                      isReadOnly={!isEditing}
+                      maxLength={2}
+                      value={address.state}
+                      onChange={(e) =>
+                        setAddress((a) => ({
+                          ...a,
+                          state: e.target.value.toUpperCase(),
+                        }))
+                      }
+                    />
+                  </div>
+                </FormSection>
+
+                {/* ── Entrevista ── */}
+                <FormSection
+                  id="entrevista"
+                  title="Entrevista"
+                  icon={<Image src={svgPaths.ICONS.ARCHIVE} alt="" height={20} width={20} />}
+                  status="saved"
+                  statusLabel={
+                    interviewCount > 1 ? `${interviewCount} registros` : ""
+                  }
+                >
+                  <div className="flex flex-col gap-4 p-4">
+                    {interviewCount > 1 && (
+                      <p className="text-xs text-gray-100">
+                        {interviewCount} entrevistas registradas — esta é a mais
+                        recente.
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                      <DateTimePickerField
+                        label="Data e hora"
+                        value={interview.occurredAt}
+                        onChange={(value) =>
+                          setInterview((i) => ({ ...i, occurredAt: value }))
                         }
-                      /> */}
-                </div>
-              </div>
-              <div className="py-4 px-2 h-32 w-full bg-white rounded-2xl">
-                <div className="flex gap-2 justify-center">
+                        isDisabled={!isEditing}
+                        className="md:col-span-2"
+                      />
+                      <Field
+                        label="Duração (minutos)"
+                        isReadOnly={!isEditing}
+                        value={interview.durationMinutes}
+                        onChange={(e) =>
+                          setInterview((i) => ({
+                            ...i,
+                            durationMinutes: e.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                    <TextAreaField
+                      label="Anotações"
+                      value={interview.content}
+                      onChange={(value) =>
+                        setInterview((i) => ({ ...i, content: value }))
+                      }
+                      rows={5}
+                      isDisabled={!isEditing}
+                      placeholder="Relato do atendimento, documentos combinados, próximos passos..."
+                    />
+                  </div>
+                </FormSection>
+
+                {/* ── Arquivos ── */}
+                <FormSection
+                  id="arquivos"
+                  title="Arquivos"
+                  icon={<Image src={svgPaths.ICONS.ARCHIVE} alt="" height={20} width={20} />}
+                  status="saved"
+                  statusLabel={
+                    documents.length + simulations.length > 0
+                      ? `${documents.length + simulations.length}`
+                      : ""
+                  }
+                >
+                  <div className="flex flex-col gap-3 p-4">
+                    <FilesSection
+                      documents={documents}
+                      simulations={simulations}
+                      stagedDocuments={stagedDocuments}
+                      stagedSimulations={stagedSimulations}
+                      onAddFiles={setUploadKind}
+                      onRemoveStagedDocument={(index) =>
+                        setStagedDocuments((current) =>
+                          current.filter((_, i) => i !== index),
+                        )
+                      }
+                      onRemoveStagedSimulation={(index) =>
+                        setStagedSimulations((current) =>
+                          current.filter((_, i) => i !== index),
+                        )
+                      }
+                      onDelete={isEditing ? handleDeleteFile : undefined}
+                    />
+                    {(stagedDocuments.length > 0 ||
+                      stagedSimulations.length > 0) && (
+                      <div className="flex justify-end">
+                        <Button
+                          type="button"
+                          variant="primary"
+                          onPress={handleUploadStaged}
+                          isDisabled={loading}
+                        >
+                          Enviar arquivos
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </FormSection>
+              </Accordion>
+              {/*
+                Coluna do histórico. `h-fit` e não altura fixa: a lista cresce
+                com o número de mudanças, e o `h-32` anterior cortava tudo
+                depois da segunda linha.
+              */}
+              <div className="h-fit w-full rounded-2xl bg-white px-4 py-4">
+                <div className="flex justify-center gap-2">
                   <Image
-                    src="../svg/icons/archive.svg"
-                    alt="Logo"
+                    src={svgPaths.ICONS.ARCHIVE}
+                    alt=""
                     height={24}
                     width={24}
                   />
@@ -914,37 +1446,16 @@ export default function DetailsClientModal({
                     Histórico
                   </h3>
                 </div>
-                <div className="max-h-48 overflow-auto p-4">
-                  {situationHistory.length === 0 ? (
-                    <p className="text-sm text-gray-500">Sem histórico.</p>
-                  ) : (
-                    <ul className="flex flex-col gap-2">
-                      {situationHistory.map((h, idx) => {
-                        const ts =
-                          h?.createdAt ||
-                          h?.created_at ||
-                          h?.date ||
-                          h?.timestamp;
-                        const text =
-                          h?.description ||
-                          h?.note ||
-                          h?.details ||
-                          JSON.stringify(h);
-                        const dateStr = ts
-                          ? new Date(String(ts)).toLocaleString("pt-BR")
-                          : "-";
-                        return (
-                          <li
-                            key={String(idx)}
-                            className="text-sm text-gray-700"
-                          >
-                            <span className="font-medium mr-2">{dateStr}</span>
-                            <span>{text}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  )}
+                {/*
+                  O teto de altura mantém a coluna do lado das duas colunas de
+                  formulário mesmo num cliente com dezenas de mudanças.
+                */}
+                <div className="mt-4 max-h-[420px] overflow-auto pr-1">
+                  <SituationHistorySection
+                    items={situationHistory}
+                    hasError={historyFailed}
+                    autores={autores}
+                  />
                 </div>
               </div>
             </div>
