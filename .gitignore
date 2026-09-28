@@ -20,6 +20,8 @@
 /playwright/.cache/
 # Sessao gravada pelo auth.setup.ts: contem token valido, nunca vai para o git.
 /e2e/.auth/
+# Credenciais do e2e (modelo versionado em env/e2e.example.env).
+/env/e2e.local.env
 
 # next.js
 /.next/
