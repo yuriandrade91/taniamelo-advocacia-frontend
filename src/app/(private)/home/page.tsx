@@ -3,12 +3,14 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PendingForms from "@/components/home/PendingForms";
+import { PendingLeadsModal } from "@/components/home/PendingLeadsModal";
 import UpcomingRevenues from "@/components/home/UpcomingRevenues";
 import ContributorPipeline, {
   type PipelineCard,
 } from "@/components/home/ContributorPipeline";
 import MonthlyBalance from "@/components/home/MonthlyBalance";
 import PendingDocuments from "@/components/home/PendingDocuments";
+import AppointmentsCard from "@/components/home/appointments/AppointmentsCard";
 import { clients as fetchClients, patchClient } from "@/services/clientService";
 import {
   getSituationKeyByLabel,
@@ -25,6 +27,16 @@ const formatDate = (value?: string) => {
 export default function Home() {
   const router = useRouter();
   const [cards, setCards] = useState<PipelineCard[]>([]);
+  const [isLeadsOpen, setIsLeadsOpen] = useState(false);
+  /**
+   * Quantos formulários estão pendentes.
+   *
+   * Vem da mesma consulta que a modal usa (`situation=FORMULARIO_PREENCHIDO`,
+   * lendo `pagination.totalRecords`). Não é o tamanho da página: é o total do
+   * filtro. Deixar o número fixo aqui faria o cartão dizer 6 e a modal abrir
+   * com outra quantidade — e aí nenhum dos dois teria credibilidade.
+   */
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
 
   // ── Esteira: clientes reais agrupados por situação ──
   useEffect(() => {
@@ -58,6 +70,31 @@ export default function Home() {
     return () => {
       active = false;
     };
+  }, 
+  []);
+
+  // ── Contador do cartão de formulários pendentes ──
+  useEffect(() => {
+    let active = true;
+
+    // `pageSize: 1` porque só interessa o `totalRecords`: uma requisição
+    // mínima em vez de trazer a lista inteira para contar no navegador.
+    fetchClients({
+      situation: ["FORMULARIO_PREENCHIDO"],
+      pageNumber: 1,
+      pageSize: 1,
+    })
+      .then((envelope) => {
+        if (!active) return;
+        setPendingCount(envelope?.pagination?.totalRecords ?? 0);
+      })
+      .catch(() => {
+        /* o axiosService já exibe o toast de erro */
+      });
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   /** Arrastar um card = PATCH /api/v1/clients/{id} { situation }. */
@@ -68,13 +105,16 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="flex flex-col gap-8 pb-12">
+    <div className="flex flex-col gap-4 pb-12">
       {/* ── Formulários pendentes + Próximas receitas ── */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
-        {/* TODO(backend): não há endpoint de métricas — valores ilustrativos. */}
+        {/* TODO(backend): os três indicadores abaixo continuam ilustrativos —
+            não há endpoint de métricas. O contador do topo, não: vem de
+            `GET /clients?situation=FORMULARIO_PREENCHIDO`. */}
         <PendingForms
-          count={6}
+          count={pendingCount ?? "—"}
           period="Novembro"
+          onContact={() => setIsLeadsOpen(true)}
           stats={[
             {
               title: "Formulários preenchidos",
@@ -112,15 +152,8 @@ export default function Home() {
         />
       </section>
 
-      {/* ── Esteira (drag & drop) ── */}
-      <ContributorPipeline
-        cards={cards}
-        onMove={handleMove}
-        onSeeFullFlow={() => router.push(privateRoutes.home)}
-      />
-
-      {/* ── Balanço + pendências ── */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_2fr]">
+      {/* ── Balanço + documentações + agenda ── */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* TODO(backend): derivar de clientPaymentService.
             As cores saem de BALANCE_PALETTE (literais: o Chart.js desenha em
             canvas, onde `var(--…)` não resolve). */}
@@ -135,6 +168,7 @@ export default function Home() {
             { label: "Outros", percentage: 5 },
           ]}
         />
+
         {/* TODO(backend): derivar de clientFileService (documentos faltantes). */}
         <PendingDocuments
           items={[
@@ -147,7 +181,21 @@ export default function Home() {
             { id: "2", name: "Mariana Fontes", issue: "CNIS incompleto" },
           ]}
         />
+
+        <AppointmentsCard />
       </section>
+
+      <PendingLeadsModal
+        isOpen={isLeadsOpen}
+        onClose={() => setIsLeadsOpen(false)}
+      />
+
+      {/* ── Esteira (drag & drop) ── */}
+      <ContributorPipeline
+        cards={cards}
+        onMove={handleMove}
+        onSeeFullFlow={() => router.push(privateRoutes.home)}
+      />
     </div>
   );
 }

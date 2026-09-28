@@ -53,7 +53,9 @@ export default function UpcomingRevenues({
 
       <ul className="mt-5 flex flex-1 flex-col gap-4">
         {items.length === 0 && (
-          <li className="text-sm text-gray-100/60">Nenhuma receita prevista.</li>
+          <li className="text-sm text-gray-100/60">
+            Nenhuma receita prevista.
+          </li>
         )}
 
         {items.map((item) => {

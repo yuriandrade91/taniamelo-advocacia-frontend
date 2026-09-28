@@ -1,5 +1,6 @@
 "use client";
 
+import { formatBRLCompact } from "@/lib/format";
 import React, { useMemo } from "react";
 import { ArcElement, Chart as ChartJS, Legend, Tooltip } from "chart.js";
 import { Doughnut } from "react-chartjs-2";
@@ -35,12 +36,6 @@ export type MonthlyBalanceProps = {
   onChangePeriod?: () => void;
   className?: string;
 };
-
-const formatBRL = (value: number) =>
-  `R$${value.toLocaleString("pt-BR", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  })}`;
 
 /** Balanço mensal — doughnut do Chart.js com total no centro. */
 export default function MonthlyBalance({
@@ -109,7 +104,7 @@ export default function MonthlyBalance({
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
             <span className="text-[10px] text-gray-100/60">Total</span>
             <span className="text-sm font-semibold text-primary">
-              {formatBRL(total)}
+              {formatBRLCompact(total)}
             </span>
           </div>
         </div>

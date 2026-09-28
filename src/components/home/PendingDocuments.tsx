@@ -26,12 +26,8 @@ export default function PendingDocuments({
   className = "",
 }: PendingDocumentsProps) {
   return (
-    <Card className={className}>
+    <Card className={`flex flex-col ${className}`}>
       <SectionTitle>Documentações pendentes</SectionTitle>
-
-      <p className="mt-4 text-sm text-gray-100/70">
-        Lista de clientes com documentos faltando e os documentos faltantes
-      </p>
 
       <ul className="mt-4">
         {items.length === 0 && (
