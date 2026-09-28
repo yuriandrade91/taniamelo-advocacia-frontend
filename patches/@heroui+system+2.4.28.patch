@@ -1,0 +1,18 @@
+*** Begin Patch
+*** Update File: node_modules/.pnpm/@heroui+system@2.4.28_@heroui+theme@2.4.23_tailwindcss@3.4.19__framer-motion@12.23.26_r_a3f31f97be3c344021aedc8c70cbe39a/node_modules/@heroui/system/dist/index.mjs
+@@
+-import {
+-  useLabelPlacement
+-} from "./chunk-2BFF5KFD.mjs";
+-// Backwards-compat alias: some packages import useInputLabelPlacement
+-const useInputLabelPlacement = useLabelPlacement;
+-export { useInputLabelPlacement };
++import {
++  useLabelPlacement
++} from "./chunk-2BFF5KFD.mjs";
++// Backwards-compat alias: some packages import useInputLabelPlacement
++const useInputLabelPlacement = useLabelPlacement;
++export { useInputLabelPlacement };
++// Ensure the named export is present on the ESM module surface for bundlers
++export { useLabelPlacement as useInputLabelPlacement };
+*** End Patch

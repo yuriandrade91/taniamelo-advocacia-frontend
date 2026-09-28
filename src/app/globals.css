@@ -1,28 +1,359 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ─────────────────────────────────────────────────────────────
+ * Tailwind CSS v4 — configuração CSS-first.
+ * A ORDEM IMPORTA: `tailwindcss` primeiro, depois `@heroui/styles`.
+ * O antigo tailwind.config.js foi substituído pelo bloco @theme abaixo.
+ * ───────────────────────────────────────────────────────────── */
+@import "tailwindcss";
+@import "@heroui/styles";
+/* animate.style — usado no navbar (entrada/saída dos itens e da busca).
+   Vem depois do Tailwind para as classes `animate__*` vencerem utilities de
+   transform que possam colidir.
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+   Caminho explícito até o arquivo: o pacote declara `main`/`style` mas NÃO tem
+   campo `exports`, e o resolver de `@import` do Tailwind v4 não cai no
+   fallback do `style` — `@import "animate.css"` falha com "Can't resolve". */
+@import "animate.css/animate.min.css";
+
+/* Fontes personalizadas Jost - todos os estilos */
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-Thin.ttf") format("truetype");
+  font-weight: 100;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-ThinItalic.ttf") format("truetype");
+  font-weight: 100;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-ExtraLight.ttf") format("truetype");
+  font-weight: 200;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-ExtraLightItalic.ttf") format("truetype");
+  font-weight: 200;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-Light.ttf") format("truetype");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-LightItalic.ttf") format("truetype");
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-Medium.ttf") format("truetype");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-MediumItalic.ttf") format("truetype");
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-SemiBold.ttf") format("truetype");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-SemiBoldItalic.ttf") format("truetype");
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-BoldItalic.ttf") format("truetype");
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-ExtraBold.ttf") format("truetype");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-ExtraBoldItalic.ttf") format("truetype");
+  font-weight: 800;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-Black.ttf") format("truetype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Jost";
+  src: url("/fonts/Jost-BlackItalic.ttf") format("truetype");
+  font-weight: 900;
+  font-style: italic;
+  font-display: swap;
 }
 
+/* ─────────────────────────────────────────────────────────────
+ * STYLE GUIDE — fonte única de verdade dos tokens da marca.
+ *
+ * Cada token vira, ao mesmo tempo:
+ *   • CSS custom property  ->  var(--color-primary)
+ *   • utility class        ->  bg-primary, text-primary, border-primary...
+ * ───────────────────────────────────────────────────────────── */
+@theme {
+  /* Tipografia */
+  --font-sans: "Jost", Arial, Helvetica, sans-serif;
+
+  /* Paleta da marca (mesmos valores de antes, agora em OKLCH) */
+  --color-primary: oklch(0.2157 0.1122 269.75); /* #090D4C */
+  --color-secondary: oklch(0.6478 0.1071 74.24); /* #B5843C */
+  --color-success: oklch(0.7459 0.1812 152.33); /* #2ECC71 */
+  --color-danger: oklch(0.646 0.2094 24.4); /* #F34649 */
+  --color-gray-100: oklch(0.4712 0 89.88); /* #5B5B5B */
+
+  /* CORRIGIDO: usada em `bg-light-gray` porém nunca definida no theme antigo */
+  --color-light-gray: oklch(0.9033 0.0059 264.53); /* #DDDFE3 */
+
+  /* Fundo das telas internas — mais claro que `light-gray`, para os cards
+     brancos ganharem contraste. */
+  --color-page: oklch(0.97 0.0029 264.54); /* #F4F5F7 */
+
+  /* Tons translúcidos (alpha é intencional -> mantidos em rgba) */
+  --color-light-secondary: rgba(181, 132, 60, 0.1);
+  --color-light-white: rgba(255, 255, 255, 0.3);
+  /* CORRIGIDO: a chave antiga tinha um espaço no fim ("light-green ") */
+  --color-light-green: rgba(106, 231, 110, 0.25);
+}
+
+/* ── Tema do HeroUI v3 mapeado para a marca ───────────────────
+ * O v3 renomeou `primary` -> `accent`. Sobrescrevendo estas
+ * variáveis, os componentes da lib passam a usar nossa identidade.
+ * ───────────────────────────────────────────────────────────── */
+:root,
+[data-theme="light"] {
+  --accent: var(--color-primary);
+  --accent-foreground: oklch(0.9911 0 0);
+  --success: var(--color-success);
+  --danger: var(--color-danger);
+
+  /* Superfície da aplicação */
+  --background: var(--color-page);
+  --foreground: var(--color-primary);
+
+  /* Dourado da marca como cor semântica própria */
+  --brand-gold: var(--color-secondary);
+}
+
+.dark,
+[data-theme="dark"] {
+  --brand-gold: var(--color-secondary);
+}
+
+/* Ponte para o Tailwind gerar bg-brand-gold / text-brand-gold */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-brand-gold: var(--brand-gold);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ── Gradiente da marca: utilitário, não "cor" ────────────────
+ * Antes estava declarado como cor (`linear-gradient.secondary`),
+ * o que nunca gerou gradiente algum.
+ * ───────────────────────────────────────────────────────────── */
+@utility bg-gradient-brand {
+  background-image: linear-gradient(
+    0deg,
+    rgb(181 132 60) 0%,
+    rgb(89 68 69) 50%,
+    rgb(9 13 76) 100%
+  );
+}
+
+/* ── Tipografia global: Jost em toda a aplicação ──────────────
+ * O HeroUI não declara `font-family` em nenhum componente, então tudo
+ * herda. O único vazamento seriam os controles de formulário
+ * (input/button/select/textarea), que por padrão do user-agent usam a
+ * fonte do sistema em vez de herdar — daí o `font-family: inherit`.
+ * Popovers e modais renderizam em portal sob o <body>, então herdam.
+ * ───────────────────────────────────────────────────────────── */
+html {
+  font-family: var(--font-sans);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-page);
+  color: var(--color-primary);
+  font-family: var(--font-sans);
+}
+
+button,
+input,
+optgroup,
+select,
+textarea {
+  font-family: inherit;
+  box-shadow: none;
+}
+
+.form-border-style {
+  color: var(--color-gray-100);
+  border: 1px;
+  border-style: solid;
+  border-color: color-mix(in oklab, var(--color-black) 10%, transparent);
+  border-radius: calc(var(--radius) * 1.5);
+  box-shadow: none;
+}
+
+/* ==========================================================================
+   Botão sobre o header azul da marca (PageHeader)
+   ==========================================================================
+   `PageHeader` é `bg-primary` com texto branco — um `Button` padrão (fundo
+   claro, texto escuro) some ali. Mesmo contorno branco que a barra de
+   filtros de clientes já usava. Classe global e não string Tailwind
+   repetida: são cinco telas com o mesmo header, e a primeira que
+   divergisse numa classe passaria despercebida. */
+.on-primary-button {
+  @apply bg-white/20 text-white;
+}
+
+.on-primary-button:hover {
+  @apply bg-white/10;
+}
+
+/* ==========================================================================
+   Toast — alinhamento vertical
+   ==========================================================================
+   O `.toast` do HeroUI é `flex flex-row items-start`, e só o `.toast__content`
+   traz `self-center`. Indicador e botão de ação ficam presos no topo: enquanto
+   o toast tem uma linha só isso não aparece, mas em qualquer toast mais alto
+   (com `description`, ou com o botão da janela de desfazer) o ícone da esquerda
+   descola do meio enquanto o texto ao lado está centrado.
+
+   Centramos os dois para que a linha inteira concorde. Vale para todo toast do
+   app, não só os de desfazer — o desalinhamento já existia nos que têm
+   descrição. */
+.toast__indicator,
+.toast__action {
+  align-self: center;
+}
+
+/* O anel da contagem regressiva usa `size="sm"`, que no HeroUI é 20px e estica
+   a altura do toast. 16px iguala o tamanho do ícone indicador
+   (`[data-slot="toast-default-icon"]` é `size-4`), mantendo a linha compacta.
+   A regra mira o track porque é dele que vem a dimensão no HeroUI, não da raiz
+   do `.progress-circle`. */
+.toast__action .progress-circle__track {
+  width: 1rem;
+  height: 1rem;
+}
+
+/* O anel segue a cor do texto do botão. Sem isto ele usa o token `--accent`
+   (cor padrão do ProgressCircle) e destoa dentro de um toast `success`. */
+.toast__action .progress-circle {
+  --progress-circle-stroke: currentColor;
+}
+
+/* ==========================================================================
+   Formulário de cliente — accordions como cartões separados
+   ==========================================================================
+   A variante `surface` do HeroUI desenha **um** cartão para o grupo inteiro,
+   com as seções empilhadas e separadas por um filete. O protótipo pede o
+   contrário: cada seção é um cartão próprio, com respiro entre elas.
+
+   Estas regras ficam FORA de `@layer` de propósito. O CSS do HeroUI mora na
+   camada `components` e as utilitárias do Tailwind na `utilities`; estilo sem
+   camada vence as duas, que é o que garante o override sem depender de
+   especificidade nem de `!important`. */
+.client-form-accordion {
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.client-form-accordion .accordion__item {
+  background: var(--color-white, #fff);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+/* O filete separador do `surface` não faz sentido entre cartões soltos. */
+.client-form-accordion .accordion__item::after {
+  content: none;
+}
+
+/* O `surface` arredonda só o primeiro e o último item do grupo; com cartões
+   independentes, todo gatilho tem os quatro cantos. */
+.client-form-accordion .accordion__item [data-slot="accordion-trigger"] {
+  border-radius: 1rem;
+}
+
+.client-form-accordion .accordion__trigger {
+  padding: 1.125rem 1.5rem;
+}
+
+.client-form-accordion .accordion__body-inner {
+  padding: 0 1.5rem 1.5rem;
+}
+
+/* ==========================================================================
+   RichTextField (TipTap)
+   ==========================================================================
+   O placeholder é decoração pura do TipTap: ele marca o parágrafo vazio com
+   `data-placeholder` e a classe `is-editor-empty`, mas não injeta CSS nenhum
+   — o snippet abaixo é o que a própria doc do `@tiptap/extension-placeholder`
+   pede pra tornar isso visível. */
+.tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--color-gray-400, #9ca3af);
+  float: left;
+  height: 0;
+  pointer-events: none;
 }
