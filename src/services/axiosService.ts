@@ -1,7 +1,6 @@
 "use client";
 
-import httpMessages from "@/constants/messages/httpMessages";
-import { toast } from "@heroui/react";
+import { notificationCenter } from "@/services/notificationService";
 import { getTenantHeaderValue, clearTenant } from "@/lib/tenant";
 import { clearClientsCache } from "@/lib/clientsCache";
 import { publicRoutes } from "@/constants/paths/routes";
@@ -10,11 +9,20 @@ import axios from "axios";
 /**
  * Opções extras suportadas por requisição.
  * - `skipErrorToast`: trata o erro na própria UI, sem toast global.
+ * - `successMessage`: toast de sucesso pra respostas sem corpo (204) — sem
+ *   `body.success` pra inspecionar, `notifyResponse` não tem como saber que
+ *   deu certo sozinho. Sem isso, cai num texto padrão por método HTTP
+ *   (ver `DEFAULT_SUCCESS_MESSAGE_BY_METHOD` em `notificationService`).
+ * - `skipSuccessToast`: a tela já avisou o usuário por conta própria. É o caso
+ *   das ações com janela de desfazer: o toast sai no clique, e a requisição só
+ *   parte 5s depois — sem isto o usuário veria a mesma coisa duas vezes.
  * - `_retry`: controle interno do retry pós-refresh.
  */
 declare module "axios" {
   export interface AxiosRequestConfig {
     skipErrorToast?: boolean;
+    successMessage?: string;
+    skipSuccessToast?: boolean;
     _retry?: boolean;
   }
 }
@@ -47,6 +55,15 @@ const axiosInstance = axios.create({
     "Content-Type": "application/json;charset=utf-8",
   },
   timeout: 10000,
+  /**
+   * Sem isso, o axios serializa `{ year: [2025, 2026] }` como `year[]=2025&year[]=2026`
+   * (seu default pra arrays). O binding do Spring pra `List<T>` via `@RequestParam`
+   * espera o parâmetro repetido SEM colchetes (`year=2025&year=2026`) — é assim
+   * que todo `List<...>` de query param é lido no backend. `indexes: null` é a
+   * opção do axios pra esse formato (documentado em `AxiosURLSearchParams`).
+   * Valores escalares (a maioria dos params hoje) não são afetados.
+   */
+  paramsSerializer: { indexes: null },
 });
 
 /**
@@ -107,22 +124,7 @@ axiosInstance.interceptors.request.use((config) => {
 
 axiosInstance.interceptors.response.use(
   (response) => {
-    const status = response.status;
-    const method = response.config.method;
-    const message = httpMessages[status as keyof typeof httpMessages];
-    if (method === "put") {
-      toast.success(response.data?.message ?? "Cliente atualizado com sucesso!", {
-        description: "Verifique as informações atualizadas.",
-      });
-    } else if (method === "delete") {
-      toast.success(response.data?.message ?? "Cliente excluído com sucesso!", {
-        description: "Verifique a lista de clientes.",
-      });
-    } else if (message) {
-      toast.success(message.title, {
-        description: message.description,
-      });
-    }
+    notificationCenter.notifyResponse(response);
     return response;
   },
   async (error) => {
@@ -157,32 +159,7 @@ axiosInstance.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (error.response) {
-      const apiErrors = error.response.data?.errors;
-      if (Array.isArray(apiErrors) && apiErrors.length > 0) {
-        const first = apiErrors[0];
-        const description = apiErrors
-          .map((e: any) => `${e.message}`)
-          .join("; ");
-        toast.danger(first?.message ?? "Erro de validação", {
-        description: "Dado(s) inválido(s). Verifique o(s) campo(s) e tente novamente.",
-      });
-        return Promise.reject(error);
-      }
-    } else if (error.request) {
-      const target =
-        error.config?.url ||
-        axios.defaults.baseURL ||
-        axiosInstance.defaults.baseURL;
-      toast.danger("Erro de conexão", {
-        description: `Não foi possível conectar-se ao servidor.`,
-      });
-    } else {
-      toast.danger("Erro", {
-        description: error.message ?? "Erro inesperado.",
-      });
-    }
-
+    notificationCenter.notifyError(error);
     return Promise.reject(error);
   },
 );

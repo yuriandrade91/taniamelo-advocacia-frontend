@@ -7,6 +7,7 @@ import type {
 } from "@/interfaces/auth/Auth.interface";
 import { setTenant, clearTenant } from "@/lib/tenant";
 import { clearClientsCache } from "@/lib/clientsCache";
+import { saveSessionUser, clearSessionUser } from "@/lib/sessionUser";
 
 /**
  * Autenticação — espelha AuthController.
@@ -45,13 +46,15 @@ export function clearSession(): void {
   }
   clearTenant();
   clearClientsCache();
+  clearSessionUser();
 }
 
 /** POST /api/v1/auth/login — `login` aceita e-mail OU username. */
 export const login = async (
   body: LoginRequest,
 ): Promise<ApiEnvelope<LoginResponse>> => {
-  // `skipErrorToast`: a tela de login exibe o erro inline; evita toast duplicado.
+  // `skipErrorToast`: a tela de login mostra seu próprio toast (mensagem por
+  // status); evita toast duplicado do interceptor genérico do axiosService.
   const response = await axiosInstance.post<ApiEnvelope<LoginResponse>>(
     endpoints.AUTH.LOGIN,
     body,
@@ -66,6 +69,9 @@ export const login = async (
   if (data?.tenantId || data?.tenantSlug) {
     setTenant(data.tenantId, data.tenantSlug);
   }
+  // Nome/e-mail/perfil só chegam aqui — sem guardar, o menu do usuário não
+  // teria o que mostrar (e decodificar o JWT não é contrato público).
+  if (data) saveSessionUser(data);
 
   return response.data;
 };
@@ -87,6 +93,7 @@ export const refresh = async (): Promise<ApiEnvelope<LoginResponse>> => {
   if (data?.tenantId || data?.tenantSlug) {
     setTenant(data.tenantId, data.tenantSlug);
   }
+  if (data) saveSessionUser(data);
 
   return response.data;
 };

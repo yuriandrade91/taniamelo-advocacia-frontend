@@ -30,6 +30,32 @@ export const createAddress = async (
   return data;
 };
 
+/**
+ * POST /clients/{clientId}/addresses/batch — de 1 a 10 endereços numa
+ * transação só.
+ *
+ * O cadastro permite até três endereços preenchidos de uma vez. Gravá-los com
+ * um POST cada não é a mesma coisa: cada requisição tem transação própria, e
+ * uma falha no segundo deixa a ficha com o primeiro endereço salvo e o resto
+ * perdido — sem nada na tela explicando por que só um sobreviveu. Aqui, ou
+ * entram todos ou não entra nenhum.
+ *
+ * Devolve os criados **na ordem enviada**, o que é o que permite casar cada
+ * resposta com a aba que a originou. Se mais de um item pedir `isPrimary`,
+ * vale o último; a tela já garante um só antes de enviar.
+ */
+export const createAddresses = async (
+  clientId: string,
+  addresses: readonly ClientAddressRequest[],
+): Promise<ApiEnvelope<ClientAddressResponse[]>> => {
+  const { data } = await axiosInstance.post<
+    ApiEnvelope<ClientAddressResponse[]>
+  >(endpoints.CLIENT_ADDRESSES.CREATE_BATCH(clientId), {
+    addresses: [...addresses],
+  });
+  return data;
+};
+
 export const getAddress = async (
   clientId: string,
   addressId: string,

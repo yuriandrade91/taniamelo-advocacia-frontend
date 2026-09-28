@@ -7,21 +7,39 @@
  * ClientCreateRequest…), que usam chaves de enum tipadas.
  *
  * Alinhamentos com o backend:
- * - `contributionTime` era `number`; no backend é texto livre (String).
- *   O campo numérico equivalente é `contributionInMonths`.
+ * - Tempo de contribuição são três números (`contributionYears`,
+ *   `contributionMonths`, `contributionDays`). `contributionTime` e
+ *   `contributionInMonths` são derivados no backend e só vêm na resposta.
  * - Campos que a API pode não retornar viraram opcionais.
  * - Adicionados os campos novos do ClientDetailsDTO.
  */
 
 export interface Clients {
+  /**
+   * Id do cliente.
+   *
+   * ⚠️ A API **não** manda `id` para o recurso cliente: manda `clientId`
+   * (commit `e142a83`, "trocar id por clientId no id próprio do cliente").
+   * Sub-recursos — endereço, entrevista, pagamento, arquivo, histórico —
+   * seguem com `id` próprio; quem mudou foi só o id DO CLIENTE.
+   *
+   * Este `id` continua existindo porque é o que a tela inteira usa. Quem o
+   * preenche é `normalizarCliente`, no `clientService` — a camada que já
+   * traduz contrato em shape de tela.
+   */
   id?: string;
+  /** Como a API chama o campo hoje. Mantido para quem preferir o nome do contrato. */
+  clientId?: string;
   age?: number;
   benefit: string;
   beneficiaryNumber?: string;
   birthDate: string;
-  /** Texto livre no backend (ex.: "10 anos, 2 meses"). */
+  contributionYears?: number;
+  contributionMonths?: number;
+  contributionDays?: number;
+  /** Derivado no backend: "33 anos, 11 meses e 5 dias". Só leitura. */
   contributionTime?: string;
-  /** Campo numérico derivado no backend. */
+  /** Derivado no backend a partir dos três acima. Só leitura. */
   contributionInMonths?: number;
   cpf: string;
   createdAt?: string;
@@ -66,6 +84,7 @@ export interface ClientFilterOptions {
   pageSize?: number;
   benefitType?: string[];
   situation?: string[];
+  clientType?: string[];
   createdFrom?: string;
   createdTo?: string;
 }

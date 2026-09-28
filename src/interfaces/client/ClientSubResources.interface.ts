@@ -109,7 +109,13 @@ export interface ClientPaymentResponse {
 // ─────────────── Dados pessoais ───────────────
 
 export interface ClientPersonalDataResponse {
-  id: string;
+  /**
+   * Id do CLIENTE (a aba não tem id próprio). A API manda `clientId` desde o
+   * rename `e142a83`; `id` fica como opcional para não quebrar quem já lia
+   * assim durante a transição.
+   */
+  clientId: string;
+  id?: string;
   fullName: string;
   birthDate?: string;
   age?: number;
@@ -134,7 +140,8 @@ export interface ClientPersonalDataResponse {
 
 export type ClientPersonalDataRequest = Omit<
   ClientPersonalDataResponse,
-  "id" | "age" | "updatedBy" | "updatedAt" | "gender" | "maritalStatus"
+  // `clientId` vai na URL, não no corpo.
+  "clientId" | "id" | "age" | "updatedBy" | "updatedAt" | "gender" | "maritalStatus"
 > & {
   gender?: GenderInput;
   maritalStatus?: MaritalStatusInput;
@@ -143,23 +150,45 @@ export type ClientPersonalDataRequest = Omit<
 // ─────────────── Dados profissionais ───────────────
 
 export interface ClientProfessionalDataResponse {
-  id: string;
+  /**
+   * Id do CLIENTE (a aba não tem id próprio). A API manda `clientId` desde o
+   * rename `e142a83`; `id` fica como opcional para não quebrar quem já lia
+   * assim durante a transição.
+   */
+  clientId: string;
+  id?: string;
   profession?: string;
   nitPis?: string;
   ctps?: string;
   ctpsSeries?: string;
+  contributionYears?: number;
+  contributionMonths?: number;
+  contributionDays?: number;
+  /** Derivado no backend: "33 anos, 11 meses e 5 dias". Só leitura. */
   contributionTime?: string;
+  /** Derivado no backend a partir dos três acima. Só leitura. */
   contributionInMonths?: number;
   beneficiaryNumber?: string;
-  inssPassword?: string;
+  // `inssPassword` NÃO vem aqui: saiu da resposta junto com o GET da ficha.
+  // Para lê-la, `clientService.revealInssPassword` — que é auditado.
   updatedBy?: string;
   updatedAt?: string;
 }
 
+/**
+ * PUT da aba profissional.
+ *
+ * `inssPassword` volta a existir aqui (some só da RESPOSTA) e é opcional:
+ * ausente significa "mantém a que está gravada". Sem isso, salvar a aba depois
+ * que a senha saiu do GET apagaria o acesso do cliente ao INSS — em silêncio.
+ */
 export type ClientProfessionalDataRequest = Omit<
   ClientProfessionalDataResponse,
-  "id" | "updatedBy" | "updatedAt"
->;
+  // `clientId` vai na URL, não no corpo.
+  "clientId" | "id" | "updatedBy" | "updatedAt"
+> & {
+  inssPassword?: string;
+};
 
 // ─────────────── Arquivos ───────────────
 
