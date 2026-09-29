@@ -1,5 +1,22 @@
 # Especificação — domínio financeiro
 
+> ## ✅ Implementado — 29/09/2026
+>
+> As três partes desta especificação existem no backend. A migration
+> `V18__office_finance.sql` criou `office_expenses` e `office_revenues`; as
+> rotas `/api/v1/payments`, `/api/v1/expenses` e `/api/v1/revenues` estão no
+> ar, todas `@RequerAdmin`, e o frontend consome as três sem mock.
+>
+> O documento **não** virou histórico: as regras abaixo — baldes disjuntos,
+> competência × caixa mutuamente exclusivos, meses zerados na série — são o
+> contrato que o código implementa e o que os testes cobrem. O que mudou são os
+> "Status", marcados parte a parte.
+>
+> Continua em aberto só a **Parte 4, seção 14**: o contrato de honorário
+> (percentual do êxito, parcelamento, o que fazer quando o INSS paga menos que
+> o previsto). `office_revenues` guarda a receita **já apurada**; o contrato que
+> a origina ainda precisa das regras reais do escritório.
+
 > ## ⚠️ Correção de premissa — 04/09/2026
 >
 > Esta especificação foi escrita assumindo que **Pagamentos** eram os
@@ -55,9 +72,9 @@ deve responder **400**, e não escolher um por conta própria.
 
 ## `GET /api/v1/payments` (recebimentos consolidados)
 
-- **Status:** especificado, **não implementado**. A tela `/pagamentos` no
-  frontend já consome este contrato e mostra estado vazio explícito enquanto a
-  rota não existe.
+- **Status:** **implementado** (`PaymentController`, somente leitura). A lista
+  aninhada `/clients/{clientId}/payments` passou a usar os mesmos filtros e a
+  mesma consulta — o que muda entre as duas é só a projeção.
 - **Motivação:** hoje pagamento só é acessível por cliente
   (`/clients/{clientId}/payments`). A pergunta "quanto está atrasado no
   escritório" não tem como ser respondida sem abrir cliente por cliente.
@@ -218,21 +235,24 @@ WHERE deleted_at IS NULL;
 
 ## 5. Fora de escopo
 
-**Despesas do escritório.** Não existe tabela, DTO nem service — seria o
-domínio `financial` do ADR-0003, com migration própria. Esta especificação
-cobre só recebimentos, que é o que o dado de hoje permite responder.
+**Despesas do escritório.** Saíram do "fora de escopo" — viraram a Parte 2
+deste documento e a tabela `office_expenses` na V18. Esta seção fala só das
+rotas de `/payments`.
 
 **Criar/editar pagamento por aqui.** Continua em
-`/clients/{clientId}/payments`: um pagamento pertence a um cliente, e a rota
+`/clients/{clientId}/payments`: uma parcela pertence a um cliente, e a rota
 agregada é de leitura. A tela consolidada leva para a ficha do cliente quando
-for preciso editar.
+for preciso editar. Desde 29/09 as duas listas compartilham a consulta
+(`FiltrosDePagamento`), então a aba da ficha aceita os mesmos filtros; o
+`clientId` sai da URL e mandá-lo também na query com outro valor responde 400.
 
 
 ---
 
 # Parte 2 — Despesas do escritório (`/api/v1/expenses`)
 
-- **Status:** **nada existe.** Nem tabela, nem migration, nem DTO, nem service.
+- **Status:** **implementado.** Tabela `office_expenses` (migration V18),
+  `OfficeExpenseController` com CRUD, `/summary` e `/timeline`.
   É o domínio `financial` que o ADR-0003 previa.
 - A tela `/carteira` já consome este contrato e mostra explicitamente que a
   metade das saídas não tem servidor — em vez de exibir saldo zero. Zero é um
@@ -273,8 +293,9 @@ resumo da Carteira varre a tabela toda todo mês.
 
 ## 7. Enum de categoria
 
-Não existe no Java. O vocabulário proposto está em
-`src/enums/expenseCategory/ExpenseCategory.ts`, no mesmo formato dos demais
+Existe no Java (`ExpenseCategory` + `ExpenseCategoryConverter`), idêntico ao
+vocabulário de `src/enums/expenseCategory/ExpenseCategory.ts`, no mesmo formato
+dos demais
 (`@JsonValue` no label, `@JsonCreator` aceitando nome ou label):
 
 `ALUGUEL`, `PESSOAL`, `CUSTAS_PROCESSUAIS`, `SOFTWARE`, `MARKETING`,
@@ -394,8 +415,9 @@ o cliente tipado não consegue descrever sem união discriminada.
 
 # Parte 4 — Receita do escritório (`/api/v1/revenues`)
 
-**Nada disto existe.** É a metade que faltava da Carteira, ao lado das
-despesas.
+- **Status:** **implementado.** Tabela `office_revenues` (migration V18),
+  `OfficeRevenueController` com CRUD, `/summary` e `/timeline`. É a metade das
+  entradas da Carteira, ao lado das despesas.
 
 ## 12. Por que não reaproveitar `client_payments`
 
@@ -409,7 +431,7 @@ com o tipo errado, contamina os dois relatórios ao mesmo tempo.
 Tabela separada torna a confusão impossível por construção, que é o único
 nível de garantia que vale em dado financeiro.
 
-## 13. Migration sugerida
+## 13. Migration
 
 ```sql
 CREATE TABLE office_revenues (
