@@ -10,11 +10,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  */
 
 vi.mock("@/services/axiosService", () => ({
-  default: { get: vi.fn() },
+  default: { get: vi.fn(), put: vi.fn(), patch: vi.fn() },
 }));
 
 import axiosInstance from "@/services/axiosService";
-import { indexarPorId, listUsers, nomeDoAutor } from "./userService";
+import {
+  alterarMinhaSenha,
+  atualizarMeuPerfil,
+  indexarPorId,
+  listUsers,
+  meuPerfil,
+  nomeDoAutor,
+} from "./userService";
 import type { UserSummary } from "@/interfaces/user/User.interface";
 
 const usuarios: UserSummary[] = [
@@ -89,5 +96,61 @@ describe("listUsers", () => {
       // funciona sem ela, e o toast faria parecer que a ficha falhou.
       skipErrorToast: true,
     });
+  });
+});
+
+
+describe("/me", () => {
+  const get = vi.mocked(axiosInstance.get);
+  const put = vi.mocked(axiosInstance.put);
+  const patch = vi.mocked(axiosInstance.patch);
+
+  beforeEach(() => {
+    get.mockResolvedValue({ data: { success: true, data: {} } });
+    put.mockResolvedValue({ data: { success: true, data: {} } });
+    patch.mockResolvedValue({ data: { success: true } });
+  });
+
+  it("não leva id na URL — o servidor lê a pessoa do token", async () => {
+    await meuPerfil();
+    const url = get.mock.calls[0][0];
+    expect(url).toMatch(/\/users\/me$/);
+  });
+
+  it("ler o próprio cadastro NÃO silencia erro, ao contrário da lista", async () => {
+    // A lista é enfeite (resolver nome de autoria); esta tela inteira depende
+    // da resposta. Formulário em branco sem aviso convida a salvar por cima.
+    await meuPerfil();
+    // Sem config nenhuma também serve — o que não pode é pedir silêncio.
+    const config = get.mock.calls[0][1] ?? {};
+    expect(config).not.toHaveProperty("skipErrorToast", true);
+  });
+
+  it("a lista continua silenciando — atendente recebe 403 e a ficha funciona sem", async () => {
+    await listUsers();
+    expect(get.mock.calls[0][1]).toMatchObject({ skipErrorToast: true });
+  });
+
+  it("atualizar manda só nome e e-mail — username e papel não se editam daqui", async () => {
+    await atualizarMeuPerfil({ fullName: "Ana", email: "ana@x.com" });
+    expect(put.mock.calls[0][1]).toEqual({
+      fullName: "Ana",
+      email: "ana@x.com",
+    });
+  });
+
+  it("trocar senha silencia o toast: o erro pertence a um campo", async () => {
+    await alterarMinhaSenha({ currentPassword: "a", newPassword: "b" });
+    expect(patch.mock.calls[0][0]).toMatch(/\/users\/me\/password$/);
+    expect(patch.mock.calls[0][2]).toMatchObject({ skipErrorToast: true });
+  });
+
+  it("a senha vai no corpo, nunca na URL", async () => {
+    await alterarMinhaSenha({
+      currentPassword: "segredo",
+      newPassword: "outroSegredo",
+    });
+    expect(patch.mock.calls[0][0]).not.toContain("segredo");
+    expect(patch.mock.calls[0][2]).not.toHaveProperty("params");
   });
 });

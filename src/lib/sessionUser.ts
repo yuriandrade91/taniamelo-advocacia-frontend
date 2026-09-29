@@ -66,6 +66,27 @@ export function getSessionUser(): SessionUser | null {
   }
 }
 
+/**
+ * Atualiza só o que mudou, mantendo o resto.
+ *
+ * Existe porque "Meus dados" salva nome e e-mail sem passar por um login novo:
+ * sem isto o menu continuaria com o nome antigo até a pessoa sair e entrar, e
+ * a tela pareceria não ter salvado.
+ */
+export function patchSessionUser(partial: Partial<SessionUser>): void {
+  if (typeof window === "undefined") return;
+  const atual = getSessionUser();
+  if (!atual) return;
+  try {
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ ...atual, ...partial }),
+    );
+  } catch {
+    /* mesmo caso do save: seguir sem persistir */
+  }
+}
+
 export function clearSessionUser(): void {
   if (typeof window === "undefined") return;
   try {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { logout as authLogout } from "@/services/authService";
@@ -152,15 +153,17 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
 
           {/* ── Ações ── */}
           <div className="py-1">
-            <button
-              type="button"
+            {/* Link, e não botão com router.push: assim abre em nova aba com
+                o meio do mouse e o navegador mostra o destino ao passar. */}
+            <Link
+              href="/perfil"
               role="menuitem"
               onClick={() => setIsOpen(false)}
               className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-primary hover:bg-light-gray/50 cursor-pointer"
             >
               <UserIcon className="h-4 w-4 text-gray-100/60" />
               Meus dados
-            </button>
+            </Link>
 
             <button
               type="button"

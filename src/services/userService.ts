@@ -2,6 +2,9 @@ import endpoints from "@/constants/endpoints/paths";
 import axiosInstance from "@/services/axiosService";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type {
+  ChangePasswordRequest,
+  MyProfile,
+  MyProfileUpdateRequest,
   UserListRequest,
   UserSummary,
 } from "@/interfaces/user/User.interface";
@@ -9,9 +12,10 @@ import type {
 /**
  * Usuários do escritório — UserController. Base: /api/v1/users
  *
- * Um propósito só: traduzir em nome os ids de autoria que os outros recursos
- * devolvem. Não é cadastro de usuário (não existe rota de escrita) nem
- * diretório de contatos (o backend não devolve e-mail).
+ * Dois propósitos, e só dois: traduzir em nome os ids de autoria que os outros
+ * recursos devolvem, e deixar a pessoa mexer no próprio cadastro (`/me`).
+ * Não é cadastro de usuário — criar, desativar ou mudar papel de outra pessoa
+ * não tem rota, e a lista nem devolve e-mail.
  *
  * Restrita a ADMIN/LAWYER. Para atendente o backend responde 403 — daí o
  * `skipErrorToast`: a resolução de nome é enfeite de uma tela que funciona sem
@@ -64,4 +68,50 @@ export const nomeDoAutor = (
 ): string | undefined => {
   if (!userId) return undefined;
   return indice[userId];
+};
+
+/**
+ * GET /api/v1/users/me — os dados de quem está logado.
+ *
+ * Não leva id: o servidor lê o usuário do token. É o que torna a rota aberta a
+ * qualquer papel sem virar leitura do cadastro alheio — não existe forma de
+ * pedir "me" de outra pessoa.
+ *
+ * **Não** silencia erro, ao contrário da lista: aqui a tela inteira depende da
+ * resposta, e formulário em branco sem aviso convida a pessoa a preencher tudo
+ * de novo e salvar por cima do que não carregou.
+ */
+export const meuPerfil = async (): Promise<ApiEnvelope<MyProfile>> => {
+  const { data } = await axiosInstance.get<ApiEnvelope<MyProfile>>(
+    endpoints.USERS.ME,
+  );
+  return data;
+};
+
+/** PUT /api/v1/users/me — nome e e-mail. Username e papel não se editam daqui. */
+export const atualizarMeuPerfil = async (
+  body: MyProfileUpdateRequest,
+): Promise<ApiEnvelope<MyProfile>> => {
+  const { data } = await axiosInstance.put<ApiEnvelope<MyProfile>>(
+    endpoints.USERS.ME,
+    body,
+    { successMessage: "Dados atualizados." },
+  );
+  return data;
+};
+
+/**
+ * PATCH /api/v1/users/me/password.
+ *
+ * `skipErrorToast`: os erros aqui são de campo — senha atual errada, nova
+ * senha igual à atual — e pertencem ao campo, não a um toast vermelho no canto
+ * que não diz qual dos dois errou. A tela trata.
+ */
+export const alterarMinhaSenha = async (
+  body: ChangePasswordRequest,
+): Promise<void> => {
+  await axiosInstance.patch(endpoints.USERS.ME_PASSWORD, body, {
+    skipErrorToast: true,
+    successMessage: "Senha alterada.",
+  });
 };

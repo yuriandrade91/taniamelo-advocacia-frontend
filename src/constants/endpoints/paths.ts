@@ -47,6 +47,12 @@ const endpoints = {
   USERS: {
     /** GET ?includeInactive= — lista completa, ordenada por nome, sem paginação. */
     LIST: `${API_V1}/users`,
+    /**
+     * Os dados de quem está logado. Não aceita id: o servidor lê o usuário do
+     * token. Rota aberta a qualquer papel — é a própria pessoa.
+     */
+    ME: `${API_V1}/users/me`,
+    ME_PASSWORD: `${API_V1}/users/me/password`,
   },
 
   /** /api/v1/clients */
