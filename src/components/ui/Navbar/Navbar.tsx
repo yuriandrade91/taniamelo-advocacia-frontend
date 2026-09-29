@@ -51,6 +51,12 @@ const MENU_ITEMS = [
   // { label: "Documentos", href: "#documentos" },
   { label: "Pagamentos", href: "/pagamentos", somenteAdmin: true },
   { label: "Carteira", href: "/carteira", somenteAdmin: true },
+  /**
+   * `somenteDestruidor`: restaurar é do mesmo perfil que exclui (ADMIN e
+   * LAWYER). Não cabe em `somenteAdmin` — advogado exclui e precisa poder
+   * desfazer, mas não vê dinheiro.
+   */
+  { label: "Lixeira", href: "/lixeira", somenteDestruidor: true },
 ];
 
 /**
@@ -86,7 +92,7 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { podeVerFinanceiro } = usePermissoes();
+  const { podeVerFinanceiro, podeDestruir } = usePermissoes();
   /**
    * Enquanto as permissões não chegam do storage, `podeVerFinanceiro` é
    * `false` e os itens de dinheiro ficam de fora. Para um ADMIN isso é um
@@ -94,7 +100,9 @@ export default function Navbar() {
    * segundo é bem mais estranho de ver.
    */
   const itensVisiveis = MENU_ITEMS.filter(
-    (item) => !item.somenteAdmin || podeVerFinanceiro,
+    (item) =>
+      (!item.somenteAdmin || podeVerFinanceiro) &&
+      (!item.somenteDestruidor || podeDestruir),
   );
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);

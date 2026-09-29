@@ -170,6 +170,44 @@ export const patchClient = async (
  * Nesse fluxo passe `{ silent: true }`: o toast já foi mostrado com o botão
  * "Desfazer", e um segundo toast de sucesso ao final soaria como nova ação.
  */
+/**
+ * GET /api/v1/clients/deleted — a lixeira.
+ *
+ * Existe porque, sem ela, restaurar só era possível para quem tivesse anotado
+ * o UUID antes de excluir: a rota de restaurar estava na API e não era
+ * alcançável por ninguém. Cada item traz `deletedAt`.
+ *
+ * Restrita a ADMIN/LAWYER — o mesmo papel que exclui.
+ */
+export const listDeletedClients = async (
+  params?: Pick<ClientListRequest, "pageNumber" | "pageSize">,
+): Promise<ApiEnvelope<Clients[]>> => {
+  const response = await axiosInstance.get<ApiEnvelope<Clients[]>>(
+    endpoints.CLIENTS.DELETED,
+    { params },
+  );
+  return {
+    ...response.data,
+    data: (response.data?.data ?? []).map(normalizarCliente),
+  };
+};
+
+/** PATCH /api/v1/clients/{id}/restore — devolve o cliente à lista. */
+export const restoreClient = async (
+  clientId: string,
+  options?: SilenceableRequest,
+): Promise<ApiEnvelope<ClientPatchResponse>> => {
+  const response = await axiosInstance.patch<ApiEnvelope<ClientPatchResponse>>(
+    endpoints.CLIENTS.RESTORE(exigirId(clientId, "restoreClient")),
+    {},
+    {
+      successMessage: "Cliente restaurado.",
+      skipSuccessToast: options?.silent,
+    },
+  );
+  return response.data;
+};
+
 export const deleteClient = async (
   clientId: string,
   options?: SilenceableRequest,

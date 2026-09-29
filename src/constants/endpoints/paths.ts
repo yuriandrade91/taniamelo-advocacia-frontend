@@ -65,6 +65,15 @@ const endpoints = {
     UPDATE: (clientId: string) => `${API_V1}/clients/${clientId}`, // PUT
     PATCH: (clientId: string) => `${API_V1}/clients/${clientId}`, // PATCH
     DELETE: (clientId: string) => `${API_V1}/clients/${clientId}`, // DELETE
+    /**
+     * A lixeira. Existe porque, sem ela, restaurar só era possível para quem
+     * tivesse anotado o UUID antes de excluir — desfazer estava na API e não
+     * era alcançável por ninguém.
+     *
+     * ADMIN/LAWYER: é o mesmo papel que exclui.
+     */
+    DELETED: `${API_V1}/clients/deleted`,
+    RESTORE: (clientId: string) => `${API_V1}/clients/${clientId}/restore`,
     SITUATION_HISTORY: (clientId: string) =>
       `${API_V1}/clients/${clientId}/situation-history`, // GET (paginado)
     /**
@@ -226,6 +235,10 @@ const endpoints = {
       `${API_V1}/appointments/${appointmentId}/complete`,
     /** DELETE — soft delete (204 sem corpo). */
     DELETE: (appointmentId: string) => `${API_V1}/appointments/${appointmentId}`,
+    /** Lixeira da agenda — mesmo par de rotas dos clientes. */
+    DELETED: `${API_V1}/appointments/deleted`,
+    RESTORE: (appointmentId: string) =>
+      `${API_V1}/appointments/${appointmentId}/restore`,
     /** GET — paginado, mais recente primeiro. */
     HISTORY: (appointmentId: string) =>
       `${API_V1}/appointments/${appointmentId}/history`,

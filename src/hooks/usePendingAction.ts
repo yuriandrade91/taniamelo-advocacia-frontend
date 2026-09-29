@@ -8,11 +8,16 @@ import type { PendingKind, PendingMap } from "@/lib/pendingActions";
 /**
  * Janela de desfazer para ações destrutivas.
  *
- * A API da agenda não tem como reverter concluir/cancelar/excluir: o
- * `AppointmentRequestDTO` não carrega `status` (logo o PUT não volta um
- * compromisso para "Agendado") e o delete é soft delete sem rota de restore —
- * depois dele todo endpoint responde 404 para aquele id. Um "Desfazer" que
- * chamasse a API depois do fato só poderia falhar.
+ * A API da agenda não tem como reverter concluir nem cancelar: o
+ * `AppointmentRequestDTO` não carrega `status`, então o PUT não volta um
+ * compromisso para "Agendado". Um "Desfazer" que chamasse a API depois do fato
+ * só poderia falhar.
+ *
+ * Excluir tem volta — `PATCH /appointments/{id}/restore`, que a Lixeira usa —,
+ * mas por outro caminho e com outro tempo: lá é a decisão de amanhã, com
+ * confirmação. Aqui é o clique errado de cinco segundos atrás, e trocar isto
+ * por "vá até a Lixeira" seria devolver ao usuário o trabalho de consertar o
+ * que ele acabou de fazer sem querer.
  *
  * Então a ordem se inverte: a tela muda na hora, a requisição espera. Durante
  * a janela nada foi enviado — desfazer é só cancelar um `setTimeout`. É o

@@ -49,6 +49,11 @@ export interface Clients {
   email?: string;
   firstName?: string;
   fullName: string;
+  /**
+   * Preenchido só na lixeira (`GET /clients/deleted`). A lista normal nunca
+   * traz cliente excluído — o backend filtra por `@SQLRestriction`.
+   */
+  deletedAt?: string | null;
   gender: string;
   inssPassword?: string;
   lastName?: string;

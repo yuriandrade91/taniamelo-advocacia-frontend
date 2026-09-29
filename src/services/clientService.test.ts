@@ -29,6 +29,8 @@ import {
   clientSituationHistory,
   createClient,
   deleteClient,
+  listDeletedClients,
+  restoreClient,
   revealInssPassword,
   updateClient,
 } from "./clientService";
@@ -159,5 +161,31 @@ describe("clientId da API vira id da tela", () => {
     await expect(clientById(String(item?.id))).rejects.toThrow(
       /id de cliente ausente/i,
     );
+  });
+});
+
+describe("lixeira", () => {
+  const get = vi.mocked(axiosInstance.get);
+  const patch = vi.mocked(axiosInstance.patch);
+
+  beforeEach(() => {
+    get.mockResolvedValue({ data: { success: true, data: [] } });
+    patch.mockResolvedValue({ data: { success: true, data: {} } });
+  });
+
+  it("lista os excluídos numa rota própria, não na lista com filtro", async () => {
+    await listDeletedClients();
+    expect(get.mock.calls[0][0]).toMatch(/\/clients\/deleted$/);
+  });
+
+  it("restaurar é PATCH com corpo vazio — não manda o cliente de volta inteiro", async () => {
+    await restoreClient("c-1");
+    expect(patch.mock.calls[0][0]).toMatch(/\/clients\/c-1\/restore$/);
+    expect(patch.mock.calls[0][1]).toEqual({});
+  });
+
+  it("restaurar sem id falha antes da requisição", async () => {
+    await expect(restoreClient("")).rejects.toThrow();
+    expect(patch).not.toHaveBeenCalled();
   });
 });

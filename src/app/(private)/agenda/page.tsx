@@ -69,10 +69,15 @@ import { AppointmentStatusLabelByKey } from "@/enums/appointment/Appointment";
  * ## Janela de desfazer
  *
  * Concluir e excluir passam pelo `usePendingAction`: a tela muda na hora e a
- * requisição sai 5s depois. Não é preciosismo — a API da agenda **não tem como
- * reverter** nenhuma das duas (o `AppointmentRequestDTO` não carrega `status`,
- * e o delete é soft delete sem rota de restore), então desfazer só é possível
- * antes de enviar.
+ * requisição sai 5s depois. Concluir não tem volta pela API — o
+ * `AppointmentRequestDTO` não carrega `status`, então nada devolve um
+ * compromisso para "Agendado". Excluir tem: a Lixeira restaura pelo
+ * `PATCH /appointments/{id}/restore`.
+ *
+ * A janela continua aqui mesmo assim. Ela resolve o clique errado de cinco
+ * segundos atrás; a Lixeira resolve o arrependimento de amanhã. Mandar quem
+ * errou o clique até outra tela seria devolver a ele o trabalho de consertar o
+ * que fez sem querer.
  */
 
 const PAGE_SIZE = 100;
