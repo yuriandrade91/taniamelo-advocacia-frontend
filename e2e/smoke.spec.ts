@@ -14,7 +14,15 @@ test.describe("guarda de rota", () => {
   // Sem storageState: este bloco precisa de um navegador anônimo.
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  for (const rota of ["/home", "/clientes", "/agenda", "/pagamentos", "/carteira"]) {
+  for (const rota of [
+    "/home",
+    "/clientes",
+    "/agenda",
+    "/pagamentos",
+    "/carteira",
+    "/perfil",
+    "/lixeira",
+  ]) {
     test(`sem sessão, ${rota} manda para o login`, async ({ page }) => {
       await page.goto(rota);
       await expect(page).toHaveURL(/\/login/);
@@ -28,6 +36,8 @@ test.describe("páginas principais carregam autenticadas", () => {
     { rota: "/agenda", titulo: "Agenda" },
     { rota: "/pagamentos", titulo: "Pagamentos" },
     { rota: "/carteira", titulo: "Carteira" },
+    { rota: "/perfil", titulo: "Meus dados" },
+    { rota: "/lixeira", titulo: "Lixeira" },
   ];
 
   for (const { rota, titulo } of paginas) {

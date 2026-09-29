@@ -276,17 +276,14 @@ export function EntryFormModal({
 
         {isIncome ? (
           <>
-            <div
-              role="status"
-              className="rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3 text-sm text-primary"
-            >
-              <p className="font-medium">Ainda sem servidor</p>
-              <p className="mt-1 text-gray-100">
-                Honorário depende de <code>/api/v1/revenues</code>, que ainda
-                não existe no backend. E não é o mesmo que o cliente receber do
-                INSS — isso fica em Pagamentos, e é dinheiro dele.
-              </p>
-            </div>
+            {/* Entrada aqui é honorário: dinheiro do escritório. O que o
+                cliente recebe do INSS fica em Pagamentos e não passa por este
+                caixa — as duas coisas têm o mesmo formato, e é por isso que o
+                aviso vale a linha que ocupa. */}
+            <p className="text-sm text-gray-100">
+              Honorário, parecer avulso, reembolso. Não é o que o cliente recebe
+              do INSS — isso fica em Pagamentos, e é dinheiro dele.
+            </p>
 
             {/* Opcional: nem toda receita vem de cliente (parecer avulso,
                 reembolso, rendimento). */}
@@ -314,16 +311,20 @@ export function EntryFormModal({
                 }}
                 allowsCustomValue
                 allowsEmptyCollection
-                isRequired
                 isInvalid={!!errorOf("clientName")}
                 isDisabled={isSubmitting}
               >
+                {/* Sem asterisco: o cliente É opcional, e `validateIncomeForm`
+                    concorda — nem toda receita vem de cliente (parecer avulso,
+                    reembolso). O `isRequired` que estava aqui vinha de quando
+                    isto gravava em `client_payments`, onde a FK obrigava. Um
+                    asterisco que a validação não cobra ensina a desconfiar de
+                    todos os outros. */}
                 <Label
                   className="text-secondary"
-                  isRequired
                   isInvalid={!!errorOf("clientName")}
                 >
-                  Cliente
+                  Cliente (opcional)
                 </Label>
                 <ComboBox.InputGroup>
                   <Input
@@ -360,18 +361,6 @@ export function EntryFormModal({
           </>
         ) : (
           <>
-            <div
-              role="status"
-              className="rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3 text-sm text-primary"
-            >
-              <p className="font-medium">Ainda sem servidor</p>
-              <p className="mt-1 text-gray-100">
-                A saída depende de <code>/api/v1/expenses</code>, que ainda não
-                existe no backend. O formulário está pronto; o envio vai falhar
-                até a rota subir.
-              </p>
-            </div>
-
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <SelectField
                 label="Categoria"
