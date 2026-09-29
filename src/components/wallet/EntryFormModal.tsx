@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ComboBox, Input, Label, ListBox } from "@heroui/react";
 
 import FormModal from "@/components/ui/modals/FormModal/FormModal";
@@ -8,14 +8,21 @@ import { Field, SelectField } from "@/components/ui/form/Field";
 import { toSelectOptions } from "@/components/ui/form/options";
 import { useClientSearch } from "@/hooks/useClientSearch";
 import { ExpenseCategoryOptions } from "@/enums/expenseCategory/ExpenseCategory";
-import { createOfficeExpense } from "@/services/officeExpenseService";
-import { createOfficeRevenue } from "@/services/officeRevenueService";
+import {
+  createOfficeExpense,
+  updateOfficeExpense,
+} from "@/services/officeExpenseService";
+import {
+  createOfficeRevenue,
+  updateOfficeRevenue,
+} from "@/services/officeRevenueService";
 
 import { SharedEntryFields } from "./SharedEntryFields";
 import {
   carryShared,
   emptyExpenseForm,
   emptyIncomeForm,
+  estaCancelado,
   hasErrors,
   toExpenseRequest,
   toRevenueRequest,
@@ -68,6 +75,16 @@ export type EntryFormModalProps = {
    * opção que não pertence àquela tela convidaria a lançar no lugar errado.
    */
   lockedKind?: EntryKind;
+  /**
+   * Lançamento em edição. Presente, o modal vira "Editar" e faz PUT no id em
+   * vez de POST; ausente, é cadastro novo.
+   *
+   * O tipo vem junto porque receita e despesa moram em rotas diferentes e o
+   * id sozinho não diz em qual. Durante a edição o seletor some: mudar
+   * "entrada" para "saída" num registro existente não é editar, é apagar de
+   * uma tabela e criar na outra — e o botão não diz isso.
+   */
+  editing?: { kind: EntryKind; id: string; values: SharedValues } | null;
 };
 
 const KINDS: { id: EntryKind; label: string; hint: string }[] = [
@@ -81,12 +98,33 @@ export function EntryFormModal({
   onSaved,
   initialKind = "entrada",
   lockedKind,
+  editing = null,
 }: EntryFormModalProps) {
+  const isEditing = editing !== null;
   const [kind, setKind] = useState<EntryKind>(lockedKind ?? initialKind);
   const [income, setIncome] = useState<IncomeFormValues>(emptyIncomeForm);
   const [expense, setExpense] = useState<ExpenseFormValues>(emptyExpenseForm);
   const [revealed, setRevealed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  /**
+   * Carrega o registro quando a edição abre.
+   *
+   * Depende do id, e não do objeto: quem chama monta `editing` a cada render,
+   * e depender da referência sobrescreveria o que a pessoa está digitando a
+   * cada re-render da página.
+   */
+  useEffect(() => {
+    if (!editing) return;
+    setKind(editing.kind);
+    setRevealed(false);
+    if (editing.kind === "entrada") {
+      setIncome(editing.values as IncomeFormValues);
+    } else {
+      setExpense(editing.values as ExpenseFormValues);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.id, editing?.kind]);
 
   const isIncome = kind === "entrada";
   const values: SharedValues = isIncome ? income : expense;
@@ -137,8 +175,17 @@ export function EntryFormModal({
 
     setIsSubmitting(true);
     try {
-      if (isIncome) await createOfficeRevenue(toRevenueRequest(income));
-      else await createOfficeExpense(toExpenseRequest(expense));
+      if (isEditing) {
+        if (isIncome) {
+          await updateOfficeRevenue(editing.id, toRevenueRequest(income));
+        } else {
+          await updateOfficeExpense(editing.id, toExpenseRequest(expense));
+        }
+      } else if (isIncome) {
+        await createOfficeRevenue(toRevenueRequest(income));
+      } else {
+        await createOfficeExpense(toExpenseRequest(expense));
+      }
       onSaved();
       close();
     } catch {
@@ -152,14 +199,26 @@ export function EntryFormModal({
     <FormModal
       isOpen={isOpen}
       onOpenChange={(open) => (open ? onOpenChange(true) : close())}
-      title={lockedKind === "entrada" ? "Lançar cobrança" : "Novo lançamento"}
+      title={
+        isEditing
+          ? isIncome
+            ? "Editar entrada"
+            : "Editar saída"
+          : lockedKind === "entrada"
+            ? "Lançar cobrança"
+            : "Novo lançamento"
+      }
       description={
-        lockedKind === "entrada"
-          ? "Uma parcela de honorários. Nasce a vencer, a menos que já tenha sido recebida."
-          : "O caixa do mês conta pelo que foi efetivamente pago ou recebido."
+        isEditing
+          ? "O registro é substituído pelo que estiver aqui ao salvar."
+          : lockedKind === "entrada"
+            ? "Uma parcela de honorários. Nasce a vencer, a menos que já tenha sido recebida."
+            : "O caixa do mês conta pelo que foi efetivamente pago ou recebido."
       }
       size="lg"
-      confirmLabel={isIncome ? "Lançar receita" : "Lançar saída"}
+      confirmLabel={
+        isEditing ? "Salvar" : isIncome ? "Lançar receita" : "Lançar saída"
+      }
       onConfirm={handleConfirm}
       isSubmitting={isSubmitting}
     >
@@ -172,7 +231,20 @@ export function EntryFormModal({
           Com `lockedKind` ele some — não fica desabilitado. Um controle
           travado ainda ocupa espaço e sugere que existe uma escolha ali.
         */}
-        {!lockedKind && (
+        {/* Cancelado não tem caixa que o represente, e o PUT substitui o
+            registro inteiro: sem dizer isto, quem só vem corrigir a descrição
+            não descobre que pode reabrir o lançamento marcando "já foi pago". */}
+        {isEditing && estaCancelado(values) && (
+          <p
+            role="status"
+            className="rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3 text-sm text-primary"
+          >
+            Este lançamento está <strong>cancelado</strong>. Salvar mantém o
+            cancelamento; marcar que já foi liquidado o reabre como pago.
+          </p>
+        )}
+
+        {!lockedKind && !isEditing && (
         <div
           role="radiogroup"
           aria-label="Tipo de lançamento"

@@ -3,6 +3,8 @@
 import { Skeleton, Table } from "@heroui/react";
 import { StatusBadge } from "@/components/ui/feedback/Badges";
 import { BUCKET_BADGE, bucketOf } from "@/components/payments/paymentBuckets";
+import ActionButton from "@/components/ui/table/ActionButton";
+import { PencilIcon, TrashIcon } from "@/components/ui/icons/actions";
 import { buildSkeletonRows } from "@/lib/pagination";
 import { formatBRL, formatDateBR } from "@/lib/format";
 import type { OfficeExpenseResponse } from "@/interfaces/finance/OfficeExpense.interface";
@@ -24,6 +26,7 @@ const COLUMNS = [
   { id: "paidDate", name: "Pagamento" },
   { id: "amount", name: "Valor" },
   { id: "status", name: "Status" },
+  { id: "actions", name: "Ações" },
 ];
 
 const SKELETON_ROWS = buildSkeletonRows(6);
@@ -32,12 +35,20 @@ export type ExpensesTableProps = {
   items: OfficeExpenseResponse[];
   isLoading: boolean;
   emptyMessage: string;
+  onEdit: (item: OfficeExpenseResponse) => void;
+  /**
+   * Ausente, a lixeira não aparece na linha. É como a tela esconde a exclusão
+   * de quem o backend recusaria — sem prometer um botão que responde 403.
+   */
+  onDelete?: (item: OfficeExpenseResponse) => void;
 };
 
 export function ExpensesTable({
   items,
   isLoading,
   emptyMessage,
+  onEdit,
+  onDelete,
 }: ExpensesTableProps) {
   return (
     <Table variant="secondary" className="text-gray-100">
@@ -106,6 +117,26 @@ export function ExpensesTable({
                       <div className="flex justify-center">
                         <StatusBadge label={badge.label} tone={badge.tone} />
                       </div>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <span className="flex items-center justify-end gap-1">
+                        <ActionButton
+                          label="Editar despesa"
+                          tone="secondary"
+                          onClick={() => onEdit(item)}
+                        >
+                          <PencilIcon />
+                        </ActionButton>
+                        {onDelete && (
+                          <ActionButton
+                            label="Excluir despesa"
+                            tone="danger"
+                            onClick={() => onDelete(item)}
+                          >
+                            <TrashIcon />
+                          </ActionButton>
+                        )}
+                      </span>
                     </Table.Cell>
                   </Table.Row>
                 );

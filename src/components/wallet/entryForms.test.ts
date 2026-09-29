@@ -3,6 +3,11 @@ import {
   carryShared,
   emptyExpenseForm,
   emptyIncomeForm,
+  estaCancelado,
+  expenseFormFrom,
+  formatAmountInput,
+  incomeFormFrom,
+  statusDoLancamento,
   toExpenseRequest,
   toRevenueRequest,
   validateAmount,
@@ -12,6 +17,8 @@ import {
   validatePaidDate,
   type IncomeFormValues,
 } from "./entryForms";
+import { parseAmountBRL } from "@/lib/format";
+import type { OfficeRevenueResponse } from "@/interfaces/finance/OfficeRevenue.interface";
 
 const TODAY = "2026-09-03";
 
@@ -234,5 +241,172 @@ describe("carryShared", () => {
     const devolta = carryShared(income, saida);
     expect(devolta.clientId).toBe("c-1");
     expect(devolta.installmentNumber).toBe("2");
+  });
+});
+
+// ───────────── Edição: o que o PUT apagaria se ninguém cuidasse ─────────────
+
+describe("statusDoLancamento", () => {
+  const base = { ...emptyExpenseForm() };
+
+  it("não liquidado vira Pendente", () => {
+    expect(statusDoLancamento({ ...base, isSettled: false })).toBe("Pendente");
+  });
+
+  it("liquidado vira Pago", () => {
+    expect(statusDoLancamento({ ...base, isSettled: true })).toBe("Pago");
+  });
+
+  it("cancelado continua cancelado — o PUT substitui o registro inteiro", () => {
+    // Sem isto, corrigir a descrição de um lançamento cancelado o devolveria
+    // para "a pagar" e ele voltaria a somar no total do mês.
+    expect(
+      statusDoLancamento({ ...base, status: "Cancelado", isSettled: false }),
+    ).toBe("Cancelado");
+  });
+
+  it("marcar liquidado num cancelado reabre como Pago — é decisão explícita", () => {
+    expect(
+      statusDoLancamento({ ...base, status: "Cancelado", isSettled: true }),
+    ).toBe("Pago");
+  });
+
+  it("um Pago que perde a marcação volta a Pendente, não fica Pago", () => {
+    expect(
+      statusDoLancamento({ ...base, status: "Pago", isSettled: false }),
+    ).toBe("Pendente");
+  });
+});
+
+describe("o status vai no corpo das duas rotas", () => {
+  it("receita leva status — omiti-lo faz o servidor voltar para Pendente", () => {
+    const body = toRevenueRequest({
+      ...emptyIncomeForm(),
+      description: "Honorário",
+      amount: "1.200,00",
+      dueDate: "2026-03-10",
+      status: "Cancelado",
+    });
+    expect(body.status).toBe("Cancelado");
+  });
+
+  it("despesa idem", () => {
+    const body = toExpenseRequest({
+      ...emptyExpenseForm(),
+      description: "Aluguel",
+      amount: "3.000,00",
+      dueDate: "2026-03-05",
+      isSettled: true,
+      paidDate: "2026-03-05",
+    });
+    expect(body.status).toBe("Pago");
+  });
+});
+
+describe("incomeFormFrom", () => {
+  const receita: OfficeRevenueResponse = {
+    id: "r-1",
+    description: "Honorário de êxito",
+    amount: 1234.5,
+    status: "Pago",
+    paymentMethod: "Pix",
+    dueDate: "2026-03-10",
+    paidDate: "2026-03-12",
+    overdue: false,
+    clientId: "c-1",
+    clientName: "Maria Silva",
+    notes: "30% dos atrasados",
+  };
+
+  it("traz o registro para o formulário sem perder nada editável", () => {
+    expect(incomeFormFrom(receita)).toMatchObject({
+      description: "Honorário de êxito",
+      amount: "1234,50",
+      dueDate: "2026-03-10",
+      paidDate: "2026-03-12",
+      paymentMethod: "Pix",
+      notes: "30% dos atrasados",
+      status: "Pago",
+      clientId: "c-1",
+      clientName: "Maria Silva",
+    });
+  });
+
+  it("isSettled sai do status, não da data de pagamento", () => {
+    // Cancelado com data de pagamento antiga é real: cancelou-se depois de
+    // registrar. Ler a data faria a edição reabri-lo como pago.
+    const cancelado = { ...receita, status: "Cancelado" as const };
+    expect(incomeFormFrom(cancelado).isSettled).toBe(false);
+    expect(incomeFormFrom(receita).isSettled).toBe(true);
+  });
+
+  it("campos ausentes viram string vazia, nunca undefined", () => {
+    const magro: OfficeRevenueResponse = {
+      id: "r-2",
+      description: "Parecer",
+      amount: 500,
+      dueDate: "2026-04-01",
+      overdue: false,
+    };
+    const form = incomeFormFrom(magro);
+    expect(form.clientId).toBe("");
+    expect(form.clientName).toBe("");
+    expect(form.paidDate).toBe("");
+    expect(form.paymentMethod).toBe("");
+    expect(form.notes).toBe("");
+  });
+});
+
+describe("expenseFormFrom", () => {
+  it("traz fornecedor e categoria, que são o que a saída tem de seu", () => {
+    const form = expenseFormFrom({
+      id: "e-1",
+      description: "Aluguel",
+      amount: 3000,
+      category: "Aluguel e condomínio",
+      status: "Pendente",
+      dueDate: "2026-03-05",
+      overdue: true,
+      supplier: "Imobiliária X",
+    });
+    expect(form).toMatchObject({
+      supplier: "Imobiliária X",
+      category: "Aluguel e condomínio",
+      status: "Pendente",
+      isSettled: false,
+      amount: "3000,00",
+    });
+  });
+});
+
+describe("formatAmountInput", () => {
+  it("usa vírgula decimal, que é o que o AmountField lê de volta", () => {
+    expect(formatAmountInput(1234.5)).toBe("1234,50");
+  });
+
+  it("não põe separador de milhar — o parse devolveria 1234 no lugar de 1234,56", () => {
+    expect(formatAmountInput(1234.56)).not.toContain(".");
+  });
+
+  it("ida e volta preserva o valor", () => {
+    for (const valor of [0.01, 99.9, 1234.56, 1000000]) {
+      expect(parseAmountBRL(formatAmountInput(valor))).toBeCloseTo(valor, 2);
+    }
+  });
+
+  it("ausente vira vazio, não 'NaN' nem '0,00'", () => {
+    expect(formatAmountInput(undefined)).toBe("");
+    expect(formatAmountInput(null)).toBe("");
+    expect(formatAmountInput(Number.NaN)).toBe("");
+  });
+});
+
+describe("estaCancelado", () => {
+  it("só o rótulo Cancelado conta", () => {
+    expect(estaCancelado({ ...emptyExpenseForm(), status: "Cancelado" })).toBe(
+      true,
+    );
+    expect(estaCancelado({ ...emptyExpenseForm(), status: "Pago" })).toBe(false);
+    expect(estaCancelado(emptyExpenseForm())).toBe(false);
   });
 });

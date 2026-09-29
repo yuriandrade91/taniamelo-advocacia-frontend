@@ -12,6 +12,13 @@ import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { SemAcessoFinanceiro } from "@/components/ui/feedback/SemAcessoFinanceiro";
 import { usePermissoes } from "@/hooks/usePermissoes";
 import { EntryFormModal } from "@/components/wallet/EntryFormModal";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import {
+  expenseFormFrom,
+  incomeFormFrom,
+  type EntryKind,
+  type SharedValues,
+} from "@/components/wallet/entryForms";
 import { WalletSummary } from "@/components/wallet/WalletSummary";
 import {
   buildFlowTimeline,
@@ -26,11 +33,13 @@ import {
   type MonthRef,
 } from "@/lib/period";
 import {
+  deleteOfficeExpense,
   getOfficeExpenseSummary,
   getOfficeExpenseTimeline,
   listOfficeExpenses,
 } from "@/services/officeExpenseService";
 import {
+  deleteOfficeRevenue,
   getOfficeRevenueSummary,
   getOfficeRevenueTimeline,
   listOfficeRevenues,
@@ -103,6 +112,18 @@ export default function WalletPage() {
   const [flow, setFlow] = useState<FlowTimelinePoint[]>([]);
   const [state, setState] = useState<LoadState>("loading");
   const [isEntryFormOpen, setIsEntryFormOpen] = useState(false);
+  const [editing, setEditing] = useState<{
+    kind: EntryKind;
+    id: string;
+    values: SharedValues;
+    descricao: string;
+  } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    kind: EntryKind;
+    id: string;
+    descricao: string;
+  } | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const range = useMemo(() => monthRange(month), [month]);
 
@@ -194,6 +215,29 @@ export default function WalletPage() {
     () => toBalanceSlices(expenses?.byCategory ?? []),
     [expenses],
   );
+
+  /**
+   * Excluir é soft delete e não tem rota de restaurar nestas duas tabelas —
+   * por isso o caminho é confirmar antes, e não a janela de desfazer que a
+   * agenda usa. Desfazer depois do fato só poderia falhar.
+   */
+  const confirmarExclusao = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      if (deleteTarget.kind === "entrada") {
+        await deleteOfficeRevenue(deleteTarget.id);
+      } else {
+        await deleteOfficeExpense(deleteTarget.id);
+      }
+      setDeleteTarget(null);
+      await load();
+    } catch {
+      // O axiosService já mostrou o erro; o alvo fica para nova tentativa.
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const isLoading = state === "loading";
   /**
@@ -289,6 +333,25 @@ export default function WalletPage() {
             items={expenseItems}
             isLoading={isLoading}
             emptyMessage="Nenhuma despesa com vencimento neste mês."
+            onEdit={(item) =>
+              setEditing({
+                kind: "saida",
+                id: item.id,
+                values: expenseFormFrom(item),
+                descricao: item.description,
+              })
+            }
+            /* Sem guarda extra: chegar aqui já exige podeVerFinanceiro, que é
+               só ADMIN — o mesmo papel que o @RequerAdmin do DELETE exige.
+               Um `podeDestruir` (ADMIN|LAWYER) aqui seria sempre verdadeiro e
+               sugeriria um corte que não existe nesta tela. */
+            onDelete={(item) =>
+              setDeleteTarget({
+                kind: "saida",
+                id: item.id,
+                descricao: item.description,
+              })
+            }
           />
         </div>
       </section>
@@ -302,6 +365,21 @@ export default function WalletPage() {
           items={revenueItems}
           isLoading={isLoading}
           emptyMessage="Nenhuma receita com vencimento neste mês."
+          onEdit={(item) =>
+            setEditing({
+              kind: "entrada",
+              id: item.id,
+              values: incomeFormFrom(item),
+              descricao: item.description,
+            })
+          }
+          onDelete={(item) =>
+            setDeleteTarget({
+              kind: "entrada",
+              id: item.id,
+              descricao: item.description,
+            })
+          }
         />
         <p className="mt-3 text-sm text-gray-100">
           Entrada aqui é honorário, parecer avulso, reembolso — dinheiro do
@@ -321,6 +399,43 @@ export default function WalletPage() {
         isOpen={isEntryFormOpen}
         onOpenChange={setIsEntryFormOpen}
         onSaved={() => void load()}
+      />
+
+      {/* Modal separado do de cadastro, e montado só com alvo: um modal só,
+          reaproveitado, precisaria limpar o estado da edição anterior ao
+          fechar — e o dia em que esquecesse abriria "novo" já preenchido. */}
+      {editing && (
+        <EntryFormModal
+          isOpen
+          onOpenChange={(open) => {
+            if (!open) setEditing(null);
+          }}
+          onSaved={() => void load()}
+          editing={editing}
+        />
+      )}
+
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        onClose={() => {
+          if (!isDeleting) setDeleteTarget(null);
+        }}
+        tone="danger"
+        heading={
+          deleteTarget?.kind === "entrada" ? "Excluir entrada?" : "Excluir saída?"
+        }
+        confirmLabel="Excluir"
+        cancelLabel="Manter"
+        description={
+          deleteTarget ? (
+            <>
+              <span className="font-medium">{deleteTarget.descricao}</span> sai
+              da Carteira e deixa de contar no saldo do mês. Não há como
+              restaurar por aqui.
+            </>
+          ) : null
+        }
+        onConfirm={() => void confirmarExclusao()}
       />
     </div>
   );

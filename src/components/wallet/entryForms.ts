@@ -50,9 +50,19 @@
 import { parseAmountBRL } from "@/lib/format";
 import { todayIso } from "@/lib/period";
 import { validatePaidDate } from "@/lib/validators/validators";
-import type { OfficeExpenseRequest } from "@/interfaces/finance/OfficeExpense.interface";
-import type { OfficeRevenueRequest } from "@/interfaces/finance/OfficeRevenue.interface";
-import type { PaymentMethodInput } from "@/enums/payment/Payment";
+import type {
+  OfficeExpenseRequest,
+  OfficeExpenseResponse,
+} from "@/interfaces/finance/OfficeExpense.interface";
+import type {
+  OfficeRevenueRequest,
+  OfficeRevenueResponse,
+} from "@/interfaces/finance/OfficeRevenue.interface";
+import {
+  PaymentStatusLabelByKey,
+  type PaymentMethodInput,
+  type PaymentStatusInput,
+} from "@/enums/payment/Payment";
 import type { ExpenseCategoryInput } from "@/enums/expenseCategory/ExpenseCategory";
 
 // ─────────────────────────── Valores ───────────────────────────
@@ -74,6 +84,16 @@ export type SharedValues = {
   paidDate: string;
   paymentMethod: string;
   notes: string;
+  /**
+   * Situação atual, em rótulo ("Pendente" | "Pago" | "Cancelado"). Vazia em
+   * lançamento novo.
+   *
+   * Existe por causa da edição. O PUT das duas rotas **substitui o registro
+   * inteiro**: omitir o status faz o servidor voltar para Pendente. Sem
+   * guardar o que era, corrigir a descrição de uma despesa cancelada a
+   * ressuscitaria como despesa a pagar, silenciosamente, no total do mês.
+   */
+  status: string;
 };
 
 export type IncomeFormValues = SharedValues & {
@@ -96,6 +116,7 @@ const emptyShared = (): SharedValues => ({
   paidDate: "",
   paymentMethod: "",
   notes: "",
+  status: "",
 });
 
 export const emptyIncomeForm = (): IncomeFormValues => ({
@@ -131,6 +152,7 @@ export const carryShared = <T extends SharedValues>(
   paidDate: source.paidDate,
   paymentMethod: source.paymentMethod,
   notes: source.notes,
+  status: source.status,
 });
 
 // ─────────────────────────── Regras ───────────────────────────
@@ -267,6 +289,7 @@ export function toRevenueRequest(values: IncomeFormValues): OfficeRevenueRequest
     description: values.description.trim(),
     amount: parseAmountBRL(values.amount) ?? 0,
     dueDate: values.dueDate,
+    status: statusDoLancamento(values),
     paidDate: values.isSettled ? values.paidDate || todayIso() : undefined,
     paymentMethod: optional(values.paymentMethod) as
       | PaymentMethodInput
@@ -276,12 +299,13 @@ export function toRevenueRequest(values: IncomeFormValues): OfficeRevenueRequest
   };
 }
 
-/** Corpo do `POST /api/v1/expenses` — a rota que ainda não existe. */
+/** Corpo do `PUT`/`POST` de `/api/v1/expenses`. */
 export function toExpenseRequest(values: ExpenseFormValues): OfficeExpenseRequest {
   return {
     description: values.description.trim(),
     amount: parseAmountBRL(values.amount) ?? 0,
     dueDate: values.dueDate,
+    status: statusDoLancamento(values),
     paidDate: values.isSettled ? values.paidDate || todayIso() : undefined,
     category: optional(values.category) as ExpenseCategoryInput | undefined,
     paymentMethod: optional(values.paymentMethod) as
@@ -298,3 +322,87 @@ export function toExpenseRequest(values: ExpenseFormValues): OfficeExpenseReques
  * `payments` importando de `wallet` seria dependência na direção errada.
  */
 export { todayIso, validatePaidDate };
+
+
+// ───────────────────── Situação, e o cuidado com o PUT ─────────────────────
+
+/**
+ * Qual situação mandar no corpo.
+ *
+ * A caixa "já foi recebido/pago" é a fonte da verdade para Pendente × Pago:
+ * ela é o que a pessoa acabou de decidir na tela. **Cancelado é a exceção** —
+ * não tem caixa que o represente, e o PUT substitui o registro inteiro; sem
+ * preservá-lo, editar a descrição de um lançamento cancelado o devolveria para
+ * "a pagar" e ele voltaria a somar no total do mês sem ninguém ter pedido.
+ *
+ * Marcar "já foi liquidado" num cancelado é uma decisão explícita e ganha:
+ * quem marcou está dizendo que o dinheiro se moveu.
+ */
+export function statusDoLancamento(values: SharedValues): PaymentStatusInput {
+  if (values.isSettled) return PaymentStatusLabelByKey.PAGO;
+  if (values.status === PaymentStatusLabelByKey.CANCELADO) {
+    return PaymentStatusLabelByKey.CANCELADO;
+  }
+  return PaymentStatusLabelByKey.PENDENTE;
+}
+
+/** Um lançamento cancelado não volta sozinho — a tela avisa em vez de esconder. */
+export const estaCancelado = (values: SharedValues): boolean =>
+  values.status === PaymentStatusLabelByKey.CANCELADO;
+
+// ───────────────────── Da resposta para o formulário ─────────────────────
+
+/**
+ * Preenche o formulário a partir do que o servidor devolveu.
+ *
+ * `isSettled` sai do **status**, não da presença de `paidDate`: um lançamento
+ * cancelado pode ter data de pagamento de antes do cancelamento, e ler a data
+ * faria a edição reabri-lo como pago.
+ */
+export function incomeFormFrom(
+  revenue: OfficeRevenueResponse,
+): IncomeFormValues {
+  return {
+    ...emptyIncomeForm(),
+    description: revenue.description ?? "",
+    amount: formatAmountInput(revenue.amount),
+    dueDate: revenue.dueDate ?? "",
+    isSettled: revenue.status === PaymentStatusLabelByKey.PAGO,
+    paidDate: revenue.paidDate ?? "",
+    paymentMethod: revenue.paymentMethod ?? "",
+    notes: revenue.notes ?? "",
+    status: revenue.status ?? "",
+    clientId: revenue.clientId ?? "",
+    clientName: revenue.clientName ?? "",
+  };
+}
+
+export function expenseFormFrom(
+  expense: OfficeExpenseResponse,
+): ExpenseFormValues {
+  return {
+    ...emptyExpenseForm(),
+    description: expense.description ?? "",
+    amount: formatAmountInput(expense.amount),
+    dueDate: expense.dueDate ?? "",
+    isSettled: expense.status === PaymentStatusLabelByKey.PAGO,
+    paidDate: expense.paidDate ?? "",
+    paymentMethod: expense.paymentMethod ?? "",
+    notes: expense.notes ?? "",
+    status: expense.status ?? "",
+    supplier: expense.supplier ?? "",
+    category: expense.category ?? "",
+  };
+}
+
+/**
+ * Número do servidor para o texto do campo de valor.
+ *
+ * Vírgula decimal e sem separador de milhar: é o que o `AmountField` lê de
+ * volta com `parseAmountBRL`. Formatar como "1.234,56" aqui faria o campo
+ * mostrar certo e o `parse` devolver 1234 na hora de salvar.
+ */
+export function formatAmountInput(amount: number | undefined | null): string {
+  if (amount === undefined || amount === null || Number.isNaN(amount)) return "";
+  return amount.toFixed(2).replace(".", ",");
+}

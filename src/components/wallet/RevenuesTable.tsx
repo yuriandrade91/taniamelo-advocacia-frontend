@@ -4,6 +4,8 @@ import { Skeleton, Table } from "@heroui/react";
 import { StatusBadge } from "@/components/ui/feedback/Badges";
 import { bucketOf, type PaymentBucket } from "@/components/payments/paymentBuckets";
 import type { BadgeTone } from "@/components/ui/feedback/Badges";
+import ActionButton from "@/components/ui/table/ActionButton";
+import { PencilIcon, TrashIcon } from "@/components/ui/icons/actions";
 import { buildSkeletonRows } from "@/lib/pagination";
 import { formatBRL, formatDateBR } from "@/lib/format";
 import type { OfficeRevenueResponse } from "@/interfaces/finance/OfficeRevenue.interface";
@@ -32,6 +34,7 @@ const COLUMNS = [
   { id: "paidDate", name: "Recebimento" },
   { id: "amount", name: "Valor" },
   { id: "status", name: "Status" },
+  { id: "actions", name: "Ações" },
 ];
 
 const SKELETON_ROWS = buildSkeletonRows(6);
@@ -40,12 +43,20 @@ export type RevenuesTableProps = {
   items: OfficeRevenueResponse[];
   isLoading: boolean;
   emptyMessage: string;
+  onEdit: (item: OfficeRevenueResponse) => void;
+  /**
+   * Ausente, a lixeira não aparece na linha. É como a tela esconde a exclusão
+   * de quem o backend recusaria — sem prometer um botão que responde 403.
+   */
+  onDelete?: (item: OfficeRevenueResponse) => void;
 };
 
 export function RevenuesTable({
   items,
   isLoading,
   emptyMessage,
+  onEdit,
+  onDelete,
 }: RevenuesTableProps) {
   return (
     <Table variant="secondary" className="text-gray-100">
@@ -113,6 +124,26 @@ export function RevenuesTable({
                       <div className="flex justify-center">
                         <StatusBadge label={badge.label} tone={badge.tone} />
                       </div>
+                    </Table.Cell>
+                    <Table.Cell>
+                      <span className="flex items-center justify-end gap-1">
+                        <ActionButton
+                          label="Editar receita"
+                          tone="secondary"
+                          onClick={() => onEdit(item)}
+                        >
+                          <PencilIcon />
+                        </ActionButton>
+                        {onDelete && (
+                          <ActionButton
+                            label="Excluir receita"
+                            tone="danger"
+                            onClick={() => onDelete(item)}
+                          >
+                            <TrashIcon />
+                          </ActionButton>
+                        )}
+                      </span>
                     </Table.Cell>
                   </Table.Row>
                 );
