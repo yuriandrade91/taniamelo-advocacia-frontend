@@ -123,18 +123,8 @@ const endpoints = {
   },
 
   /**
-   * /api/v1/payments — recebimentos consolidados do escritório.
-   *
-   * ⚠️ Ainda NÃO implementado no backend. Ver
-   * `docs/ESPEC_FINANCEIRO.md`. Tenant-scoped como todo o resto (o
-   * `X-Tenant-Id` vai pelo axiosService); não fica sob /clients porque a visão
-   * é do escritório, não de um cliente.
-   */
-  /**
-   * /api/v1/expenses — despesas do escritório.
-   *
-   * ⚠️ NÃO existe no backend: nem tabela, nem migration, nem DTO. É o domínio
-   * `financial` do ADR-0003. Contrato em `docs/ESPEC_FINANCEIRO.md`.
+   * /api/v1/expenses — despesas do escritório (`OfficeExpenseController`,
+   * tabela `office_expenses`). Metade das saídas da Carteira.
    */
   EXPENSES: {
     BASE: `${API_V1}/expenses`,
@@ -148,11 +138,11 @@ const endpoints = {
   },
 
   /**
-   * Receita do escritório — honorários.
+   * Receita do escritório — honorários (`OfficeRevenueController`).
    *
-   * ⚠️ Não existe no backend. E não é `PAYMENTS`: aquele agrega
-   * `client_payments`, que guarda o que o **INSS paga ao cliente**. Honorário
-   * é dinheiro do escritório e precisa de tabela própria.
+   * Não confundir com `PAYMENTS`: aquele agrega `client_payments`, que guarda
+   * o que o **INSS paga ao cliente**. Honorário é dinheiro do escritório e tem
+   * tabela própria (`office_revenues`).
    */
   REVENUES: {
     BASE: `${API_V1}/revenues`,
@@ -165,6 +155,13 @@ const endpoints = {
     DELETE: (revenueId: string) => `${API_V1}/revenues/${revenueId}`,
   },
 
+  /**
+   * /api/v1/payments — o que os clientes têm a receber do INSS, consolidado.
+   *
+   * Somente leitura: criar e editar é `CLIENT_PAYMENTS`, porque uma parcela
+   * pertence a um cliente. Não fica sob /clients porque a pergunta é do
+   * escritório. **Não é receita** — ver `REVENUES`.
+   */
   PAYMENTS: {
     BASE: `${API_V1}/payments`,
     /** GET — paginado, filtros por status, método, vencimento e cliente. */

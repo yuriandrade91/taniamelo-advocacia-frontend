@@ -10,17 +10,14 @@ import type {
 } from "@/interfaces/finance/OfficeExpense.interface";
 
 /**
- * Despesas do escritório.
+ * Despesas do escritório — `OfficeExpenseController`, tabela `office_expenses`.
  *
- * ⚠️ **O backend não tem nada disto ainda** — nem a tabela. Enquanto não
- * tiver, as leituras respondem 404 e a Carteira mostra isso explicitamente em
- * vez de fingir saldo zero. Saldo zero é um número, e número errado numa tela
- * financeira é pior que tela vazia.
+ * Nenhuma leitura silencia erro. Silenciar fazia sentido enquanto as rotas não
+ * existiam e o 404 era esperado; agora um erro aqui é erro de verdade, e uma
+ * tela financeira que falha em silêncio mostra saldo zero — que é um número, e
+ * número errado é pior que tela vazia.
  *
- * `skipErrorToast` nas leituras pelo mesmo motivo da área de pagamentos: o 404
- * é esperado hoje e um toast vermelho por carregamento seria ruído. As
- * escritas **não** silenciam: se alguém tentar lançar uma despesa, precisa
- * saber que não foi.
+ * Todas as rotas são ADMIN (`@RequerAdmin`).
  */
 
 export const listOfficeExpenses = async (
@@ -28,7 +25,7 @@ export const listOfficeExpenses = async (
 ): Promise<ApiEnvelope<OfficeExpenseResponse[]>> => {
   const { data } = await axiosInstance.get<ApiEnvelope<OfficeExpenseResponse[]>>(
     endpoints.EXPENSES.LIST,
-    { params, skipErrorToast: true },
+    { params },
   );
   return data;
 };
@@ -41,7 +38,7 @@ export const getOfficeExpenseSummary = async (
 ): Promise<ApiEnvelope<OfficeExpenseSummary>> => {
   const { data } = await axiosInstance.get<ApiEnvelope<OfficeExpenseSummary>>(
     endpoints.EXPENSES.SUMMARY,
-    { params, skipErrorToast: true },
+    { params },
   );
   return data;
 };
@@ -83,7 +80,7 @@ export const getOfficeExpenseTimeline = async (params: {
 }): Promise<ApiEnvelope<ExpenseTimelinePoint[]>> => {
   const { data } = await axiosInstance.get<ApiEnvelope<ExpenseTimelinePoint[]>>(
     endpoints.EXPENSES.TIMELINE,
-    { params, skipErrorToast: true },
+    { params },
   );
   return data;
 };

@@ -8,14 +8,17 @@ import type {
   PaymentStatusInput,
   PaymentStatusLabel,
 } from "@/enums/payment/Payment";
+import type {
+  FinancePeriodFilter,
+  FinanceSummary,
+  FinanceTimelinePoint,
+} from "@/interfaces/finance/Finance.interface";
 
 /**
- * Despesas do escritório — a metade que falta para existir "carteira".
+ * Despesas do escritório — a metade das saídas da Carteira.
  *
- * ⚠️ **Não existe absolutamente nada disto no backend**: nem tabela, nem
- * migration, nem DTO. É o domínio `financial` que o ADR-0003 já previa. O
- * contrato está escrito aqui para a tela poder ser construída e para a
- * implementação em Java não precisar adivinhar o formato.
+ * Atende `GET/POST/PUT/DELETE /api/v1/expenses` (`OfficeExpenseController`,
+ * tabela `office_expenses`, migration V18).
  *
  * Reaproveita os enums de `payment` para status e forma de pagamento: uma
  * despesa também está Pendente/Paga/Cancelada e também sai por Pix ou boleto.
@@ -49,22 +52,19 @@ export interface OfficeExpenseRequest {
   paymentMethod?: PaymentMethodInput;
   dueDate: string;
   paidDate?: string;
+  /** Omitido, nasce Pendente. Enviar "Pago" sem `paidDate` assume hoje no servidor. */
+  status?: PaymentStatusInput;
   supplier?: string;
   notes?: string;
 }
 
-export interface OfficeExpenseListRequest {
+export interface OfficeExpenseListRequest extends FinancePeriodFilter {
   pageNumber?: number;
   pageSize?: number;
   searchTerm?: string;
   category?: ExpenseCategoryInput[];
   status?: PaymentStatusInput[];
-  /** Recorte por **vencimento** — a pergunta "o que vence". */
-  dueFrom?: string;
-  dueTo?: string;
-  /** Recorte por **pagamento** — a pergunta "o que saiu do caixa". */
-  paidFrom?: string;
-  paidTo?: string;
+  paymentMethod?: PaymentMethodInput[];
 }
 
 /** Uma fatia do balanço por categoria, no formato que o `MonthlyBalance` já usa. */
@@ -73,14 +73,7 @@ export interface ExpenseCategoryTotal {
   amount: number;
 }
 
-export interface OfficeExpenseSummary {
-  overdueAmount: number;
-  overdueCount: number;
-  upcomingAmount: number;
-  upcomingCount: number;
-  paidAmount: number;
-  paidCount: number;
-  totalAmount: number;
+export interface OfficeExpenseSummary extends FinanceSummary {
   /** Só das despesas **pagas** no período — é o que compõe o gráfico. */
   byCategory: ExpenseCategoryTotal[];
 }
@@ -114,13 +107,7 @@ export interface WalletOverview {
 }
 
 /** Um mês da linha do tempo de despesas — `GET /api/v1/expenses/timeline`. */
-export interface ExpenseTimelinePoint {
-  /** `yyyy-MM`. */
-  month: string;
-  overdueAmount: number;
-  upcomingAmount: number;
-  paidAmount: number;
-}
+export type ExpenseTimelinePoint = FinanceTimelinePoint;
 
 /** Entradas × saídas por mês, composto no front a partir das duas linhas. */
 export interface FlowTimelinePoint {

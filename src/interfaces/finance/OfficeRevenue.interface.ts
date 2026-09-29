@@ -1,9 +1,20 @@
-import type { PaymentMethodInput } from "@/enums/payment/Payment";
+import type {
+  PaymentMethodInput,
+  PaymentMethodLabel,
+  PaymentStatusInput,
+  PaymentStatusLabel,
+} from "@/enums/payment/Payment";
+import type {
+  FinancePeriodFilter,
+  FinanceSummary,
+  FinanceTimelinePoint,
+} from "@/interfaces/finance/Finance.interface";
 
 /**
- * Receita do escritório — honorário.
+ * Receita do escritório — honorário, parecer avulso, reembolso.
  *
- * ⚠️ Contrato proposto; **não existe no backend**.
+ * Atende `GET/POST/PUT/DELETE /api/v1/revenues` (`OfficeRevenueController`,
+ * tabela `office_revenues`, migration V18).
  *
  * ## Por que não reaproveita `ClientPaymentRequest`
  *
@@ -27,6 +38,8 @@ export interface OfficeRevenueRequest {
   /** "yyyy-MM-dd". */
   dueDate: string;
   paidDate?: string;
+  /** Omitido, nasce Pendente. Enviar "Pago" sem `paidDate` assume hoje no servidor. */
+  status?: PaymentStatusInput;
   paymentMethod?: PaymentMethodInput;
   /** Cliente de quem veio o honorário. Opcional: nem toda receita é de cliente. */
   clientId?: string;
@@ -37,3 +50,46 @@ export interface OfficeRevenueRequest {
   sourcePaymentId?: string;
   notes?: string;
 }
+
+export interface OfficeRevenueResponse {
+  id: string;
+  description: string;
+  amount: number;
+  /** Labels (@JsonValue), como no resto da API. */
+  status?: PaymentStatusLabel;
+  paymentMethod?: PaymentMethodLabel;
+  dueDate: string;
+  paidDate?: string;
+  /** Calculado no servidor a cada leitura, nunca persistido. */
+  overdue: boolean;
+  clientId?: string;
+  /**
+   * Desnormalizado, como em `PaymentListItem`: sem ele a tabela precisaria de
+   * uma consulta por linha só para mostrar de quem veio o dinheiro.
+   */
+  clientName?: string;
+  sourcePaymentId?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface OfficeRevenueListRequest extends FinancePeriodFilter {
+  pageNumber?: number;
+  pageSize?: number;
+  searchTerm?: string;
+  status?: PaymentStatusInput[];
+  paymentMethod?: PaymentMethodInput[];
+  /** Todas as receitas vindas de um cliente. */
+  clientId?: string;
+}
+
+/**
+ * Totais do período. Sem `byCategory`: categoria é coisa de despesa — receita
+ * de escritório de advocacia se classifica por cliente e por origem, não por
+ * rubrica de custo.
+ */
+export type OfficeRevenueSummary = FinanceSummary;
+
+/** Um mês da linha do tempo de receitas — `GET /api/v1/revenues/timeline`. */
+export type RevenueTimelinePoint = FinanceTimelinePoint;

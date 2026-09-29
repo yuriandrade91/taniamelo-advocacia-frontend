@@ -9,16 +9,16 @@ import type {
 } from "@/interfaces/payment/OfficePayment.interface";
 
 /**
- * Recebimentos do escritório — visão consolidada.
+ * O que os clientes têm a receber do INSS, visto pelo escritório —
+ * `PaymentController`, somente leitura.
  *
- * ⚠️ **O backend ainda não tem estas rotas.** Enquanto não tiver, as chamadas
- * respondem 404 e a tela mostra estado vazio. É deliberado: o contrato fica
- * escrito e tipado de um lado só, e o dia em que o Java subir a tela funciona
- * sem alteração. Ver `docs/ESPEC_FINANCEIRO.md`.
+ * **Não é faturamento.** São atrasados da concessão, benefício, parcela de
+ * acordo: dinheiro do cliente, que não passa pelo caixa. A receita do
+ * escritório é `officeRevenueService`. Somar um como se fosse o outro já fez a
+ * Carteira mostrar saldo plausível, positivo e falso.
  *
- * `skipErrorToast` nas duas: enquanto a rota não existe, o 404 é esperado e um
- * toast vermelho a cada carregamento seria ruído, não informação. A tela
- * comunica o estado por conta própria.
+ * Criar e editar continuam em `clientPaymentService`: uma parcela pertence a
+ * um cliente, e esta rota é consulta.
  */
 
 export const listOfficePayments = async (
@@ -26,7 +26,7 @@ export const listOfficePayments = async (
 ): Promise<ApiEnvelope<OfficePaymentResponse[]>> => {
   const { data } = await axiosInstance.get<ApiEnvelope<OfficePaymentResponse[]>>(
     endpoints.PAYMENTS.LIST,
-    { params, skipErrorToast: true },
+    { params },
   );
   return data;
 };
@@ -44,7 +44,7 @@ export const getOfficePaymentSummary = async (
 ): Promise<ApiEnvelope<OfficePaymentSummary>> => {
   const { data } = await axiosInstance.get<ApiEnvelope<OfficePaymentSummary>>(
     endpoints.PAYMENTS.SUMMARY,
-    { params, skipErrorToast: true },
+    { params },
   );
   return data;
 };
@@ -60,7 +60,7 @@ export const getOfficePaymentTimeline = async (params: {
 }): Promise<ApiEnvelope<PaymentTimelinePoint[]>> => {
   const { data } = await axiosInstance.get<ApiEnvelope<PaymentTimelinePoint[]>>(
     endpoints.PAYMENTS.TIMELINE,
-    { params, skipErrorToast: true },
+    { params },
   );
   return data;
 };
