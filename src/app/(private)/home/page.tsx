@@ -17,6 +17,16 @@ import {
   type SituationKey,
 } from "@/enums/situation/Situation";
 import { privateRoutes } from "@/constants/paths/routes";
+import { usePermissoes } from "@/hooks/usePermissoes";
+import { listOfficePayments } from "@/services/officePaymentService";
+import { getOfficeExpenseSummary } from "@/services/officeExpenseService";
+import { toRevenueItems } from "@/components/home/proximasReceitas";
+import {
+  toBalanceSlices,
+  type BalanceSlice,
+} from "@/components/wallet/walletOverview";
+import { currentMonth, monthName, monthRange } from "@/lib/period";
+import type { RevenueItem } from "@/components/home/UpcomingRevenues";
 
 const formatDate = (value?: string) => {
   if (!value) return "-";
@@ -37,6 +47,47 @@ export default function Home() {
    * com outra quantidade — e aí nenhum dos dois teria credibilidade.
    */
   const [pendingCount, setPendingCount] = useState<number | null>(null);
+
+  /** D3: dinheiro é só de quem administra. Sem isso, o cartão pede 403. */
+  const { podeVerFinanceiro } = usePermissoes();
+  const [proximasReceitas, setProximasReceitas] = useState<RevenueItem[]>([]);
+  const [saidasDoMes, setSaidasDoMes] = useState<{
+    total: number;
+    slices: BalanceSlice[];
+  }>({ total: 0, slices: [] });
+
+  useEffect(() => {
+    if (!podeVerFinanceiro) return;
+    let ativo = true;
+    const { from, to } = monthRange(currentMonth());
+
+    /**
+     * `allSettled`: são dois cartões independentes no meio de uma tela que
+     * não é financeira. Com `all`, uma falha num deles apagaria o outro — e a
+     * Home não pode ficar pela metade por causa de um cartão.
+     */
+    void Promise.allSettled([
+      // Ordenada por vencimento no servidor: "próximas" é literal.
+      listOfficePayments({ pageNumber: 1, pageSize: 10 }),
+      getOfficeExpenseSummary({ paidFrom: from, paidTo: to }),
+    ]).then(([recebimentos, despesas]) => {
+      if (!ativo) return;
+      if (recebimentos.status === "fulfilled") {
+        setProximasReceitas(toRevenueItems(recebimentos.value.data ?? []));
+      }
+      if (despesas.status === "fulfilled") {
+        const resumo = despesas.value.data;
+        setSaidasDoMes({
+          total: resumo?.paidAmount ?? 0,
+          slices: toBalanceSlices(resumo?.byCategory ?? []),
+        });
+      }
+    });
+
+    return () => {
+      ativo = false;
+    };
+  }, [podeVerFinanceiro]);
 
   // ── Esteira: clientes reais agrupados por situação ──
   useEffect(() => {
@@ -141,33 +192,29 @@ export default function Home() {
           ]}
         />
 
-        {/* TODO(backend): agregar de clientPaymentService quando houver endpoint. */}
-        <UpcomingRevenues
-          items={[
-            { id: "1", name: "Yuri Andrade", date: "28/12/2024", status: "ATRASADO" },
-            { id: "2", name: "Anderson Reis", date: "28/12/2024", status: "ATRASADO" },
-            { id: "3", name: "Eumazaro Reis", date: "10/02/2025", status: "PENDENTE" },
-            { id: "4", name: "Tania Melo", date: "03/04/2024", status: "PAGO" },
-          ]}
-        />
+        {/* Só quem vê dinheiro (D3). O backend responde 403 para os demais, e
+            um cartão que se carrega com erro seria um retângulo vazio sem
+            explicação no meio da Home. */}
+        {podeVerFinanceiro && (
+          <UpcomingRevenues
+            items={proximasReceitas}
+            onSeeAll={() => router.push("/pagamentos")}
+          />
+        )}
       </section>
 
       {/* ── Balanço + documentações + agenda ── */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* TODO(backend): derivar de clientPaymentService.
+        {/* Despesas pagas no mês, por categoria — o mesmo resumo da Carteira.
             As cores saem de BALANCE_PALETTE (literais: o Chart.js desenha em
             canvas, onde `var(--…)` não resolve). */}
-        <MonthlyBalance
-          total={2684}
-          period="Novembro"
-          slices={[
-            { label: "Honorários", percentage: 46 },
-            { label: "Custas", percentage: 25 },
-            { label: "Acordos", percentage: 16 },
-            { label: "Consultas", percentage: 8 },
-            { label: "Outros", percentage: 5 },
-          ]}
-        />
+        {podeVerFinanceiro && (
+          <MonthlyBalance
+            total={saidasDoMes.total}
+            period={monthName(currentMonth())}
+            slices={saidasDoMes.slices}
+          />
+        )}
 
         {/* TODO(backend): derivar de clientFileService (documentos faltantes). */}
         <PendingDocuments
