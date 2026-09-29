@@ -6,6 +6,7 @@ import { Button } from "@heroui/react";
 
 import MonthlyBalance from "@/components/home/MonthlyBalance";
 import { ExpensesTable } from "@/components/wallet/ExpensesTable";
+import { RevenuesTable } from "@/components/wallet/RevenuesTable";
 import { MonthPicker } from "@/components/ui/MonthPicker";
 import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { SemAcessoFinanceiro } from "@/components/ui/feedback/SemAcessoFinanceiro";
@@ -29,14 +30,22 @@ import {
   getOfficeExpenseTimeline,
   listOfficeExpenses,
 } from "@/services/officeExpenseService";
+import {
+  getOfficeRevenueSummary,
+  getOfficeRevenueTimeline,
+  listOfficeRevenues,
+} from "@/services/officeRevenueService";
 import { WalletFlowChart } from "@/components/wallet/WalletFlowChart";
 import { WalletBalanceChart } from "@/components/wallet/WalletBalanceChart";
-import { sampleFlowTimeline } from "@/components/charts/sampleData";
 import type {
   FlowTimelinePoint,
   OfficeExpenseResponse,
   OfficeExpenseSummary,
 } from "@/interfaces/finance/OfficeExpense.interface";
+import type {
+  OfficeRevenueResponse,
+  OfficeRevenueSummary,
+} from "@/interfaces/finance/OfficeRevenue.interface";
 
 /**
  * Carteira — o financeiro do escritório.
@@ -48,41 +57,47 @@ import type {
  *
  * | | Pagamentos | Carteira |
  * |---|---|---|
- * | pergunta | "o que os clientes devem" | "como está o caixa" |
+ * | pergunta | "o que os clientes têm a receber" | "como está o caixa" |
  * | recorte | vencimento (`dueDate`) | pagamento (`paidDate`) |
- * | escopo | só entradas | entradas **e** saídas |
+ * | escopo | só entradas do cliente | entradas **e** saídas do escritório |
  *
  * Somar recebimento por vencimento e chamar de "entrou" conta dinheiro que
  * não chegou — o erro mais comum em tela financeira, e silencioso, porque os
  * números parecem plausíveis.
  *
- * ## Estado do backend
+ * ## O que é entrada aqui, e o que não é
  *
- * **Nenhuma das duas metades tem servidor.**
+ * Entrada é `office_revenues`: honorário, parecer avulso, reembolso. **Não é**
+ * `client_payments` — aquilo é o que o INSS paga ao cliente (atrasados,
+ * benefício), dinheiro dele, que não passa por este caixa. Esta tela chegou a
+ * somar aquele total como faturamento, e o resultado era plausível, positivo e
+ * falso, inflado por um fator que dependia só do tamanho dos atrasados. Por
+ * isso as duas metades vêm de serviços diferentes e nunca se encontram aqui.
  *
- * - **Receita** é o honorário do escritório, e ele não tem tabela. Não é
- *   `client_payments`: aquela guarda o que o **INSS paga ao cliente**
- *   (atrasados, benefício), que é assunto de Pagamentos. Esta tela chegou a
- *   somar aquele total como faturamento, o que mostrava o dinheiro dos
- *   clientes como receita do escritório — plausível, positivo e falso.
- * - **Despesa** não existe nem como tabela.
+ * ## Por que `allSettled` e não `all`
  *
- * Os dois são o domínio `financial` do ADR-0003. Enquanto não subirem, a tela
- * diz o que falta em vez de mostrar saldo zero: zero é um número, e número
- * errado em tela financeira é pior que tela vazia.
+ * Receita e despesa são dois recursos independentes: um 500 na despesa não é
+ * motivo para esconder a receita que respondeu. Com `all`, uma falha derruba a
+ * tela inteira; com `allSettled`, a tela mostra a metade que tem e diz que a
+ * outra falhou — que é informação, não ruído.
  */
 
-type LoadState = "loading" | "ready" | "partial" | "missing" | "error";
+type LoadState = "loading" | "ready" | "partial" | "error";
+
+/** Quantas linhas as duas tabelas do mês trazem antes de pedir a próxima página. */
+const LINHAS_DO_MES = 50;
 
 export default function WalletPage() {
   /**
-   * Mesmo corte de Pagamentos (D3): honorário é dinheiro do escritório, e
-   * quem vê é quem administra. Aqui a guarda é só da tela — as rotas de
-   * receita e despesa ainda não existem no backend, então não há 403 para
-   * confirmar a regra do outro lado. Quando existirem, nascem `@RequerAdmin`.
+   * Mesmo corte de Pagamentos (D3): dinheiro do escritório é de quem
+   * administra. A guarda aqui é só da tela — as rotas são `@RequerAdmin` e
+   * respondem 403 por conta própria, então esconder o menu é conveniência, não
+   * a regra.
    */
   const { podeVerFinanceiro } = usePermissoes();
   const [month, setMonth] = useState<MonthRef>(() => currentMonth());
+  const [revenues, setRevenues] = useState<OfficeRevenueSummary | null>(null);
+  const [revenueItems, setRevenueItems] = useState<OfficeRevenueResponse[]>([]);
   const [expenses, setExpenses] = useState<OfficeExpenseSummary | null>(null);
   const [expenseItems, setExpenseItems] = useState<OfficeExpenseResponse[]>([]);
   const [flow, setFlow] = useState<FlowTimelinePoint[]>([]);
@@ -107,50 +122,63 @@ export default function WalletPage() {
   const load = useCallback(async () => {
     setState("loading");
 
-    /**
-     * `allSettled` e não `all`: as duas metades têm disponibilidade diferente
-     * hoje (pagamentos está especificado, despesa não existe nem no banco).
-     * Com `all`, a que falta derrubaria a que existe e a tela não mostraria
-     * nada — quando poderia mostrar metade e dizer qual metade falta.
-     */
-    const [expensesResult, itemsResult] = await Promise.allSettled([
-      getOfficeExpenseSummary({ paidFrom: range.from, paidTo: range.to }),
-      // A tabela usa VENCIMENTO: a pergunta ali é "o que há para pagar no
-      // mês", que inclui o que ainda não foi pago.
-      listOfficeExpenses({
-        dueFrom: range.from,
-        dueTo: range.to,
-        pageSize: 50,
-      }),
-    ]);
+    const [revenueSummary, expenseSummary, revenueList, expenseList] =
+      await Promise.allSettled([
+        // Os cards são CAIXA: recorte por data de pagamento nos dois lados, com
+        // o mesmo par de datas. Misturar os recortes é o que dá saldo falso.
+        getOfficeRevenueSummary({ paidFrom: range.from, paidTo: range.to }),
+        getOfficeExpenseSummary({ paidFrom: range.from, paidTo: range.to }),
+        // As tabelas usam VENCIMENTO: ali a pergunta é "o que há no mês",
+        // que inclui o que ainda não foi pago.
+        listOfficeRevenues({
+          dueFrom: range.from,
+          dueTo: range.to,
+          pageSize: LINHAS_DO_MES,
+        }),
+        listOfficeExpenses({
+          dueFrom: range.from,
+          dueTo: range.to,
+          pageSize: LINHAS_DO_MES,
+        }),
+      ]);
 
+    const nextRevenues =
+      revenueSummary.status === "fulfilled"
+        ? (revenueSummary.value.data ?? null)
+        : null;
     const nextExpenses =
-      expensesResult.status === "fulfilled"
-        ? (expensesResult.value.data ?? null)
+      expenseSummary.status === "fulfilled"
+        ? (expenseSummary.value.data ?? null)
         : null;
 
-    // Série de 6 meses, em regime de caixa como os cards. A metade das
-    // receitas vai vazia: não há rota de honorário para consultar.
-    const [expenseSeries] = await Promise.allSettled([
+    // Série de 6 meses, em regime de caixa como os cards.
+    const [revenueSeries, expenseSeries] = await Promise.allSettled([
+      getOfficeRevenueTimeline({ ...flowRange, basis: "paid" }),
       getOfficeExpenseTimeline({ ...flowRange, basis: "paid" }),
     ]);
     setFlow(
       buildFlowTimeline(
-        [],
+        revenueSeries.status === "fulfilled"
+          ? (revenueSeries.value.data ?? [])
+          : [],
         expenseSeries.status === "fulfilled"
           ? (expenseSeries.value.data ?? [])
           : [],
       ),
     );
 
+    setRevenues(nextRevenues);
     setExpenses(nextExpenses);
+    setRevenueItems(
+      revenueList.status === "fulfilled" ? (revenueList.value.data ?? []) : [],
+    );
     setExpenseItems(
-      itemsResult.status === "fulfilled" ? (itemsResult.value.data ?? []) : [],
+      expenseList.status === "fulfilled" ? (expenseList.value.data ?? []) : [],
     );
 
-    // Nunca "ready": a metade das receitas não tem fonte. "partial" quando ao
-    // menos as despesas responderam.
-    setState(nextExpenses ? "partial" : "missing");
+    if (nextRevenues && nextExpenses) setState("ready");
+    else if (nextRevenues || nextExpenses) setState("partial");
+    else setState("error");
   }, [range, flowRange]);
 
   useEffect(() => {
@@ -158,39 +186,23 @@ export default function WalletPage() {
   }, [load]);
 
   const overview = useMemo(
-    // `null` nas receitas: honorário não tem tabela nem rota hoje. Passar o
-    // resumo de `client_payments` aqui — como esta tela fazia — somava o
-    // dinheiro que o INSS paga aos clientes como faturamento do escritório.
-    () => buildWalletOverview(null, expenses),
-    [expenses],
+    () => buildWalletOverview(revenues, expenses),
+    [revenues, expenses],
   );
 
-  /**
-   * Sem as rotas de série, os gráficos caem no exemplo — com o selo "dados de
-   * exemplo" no card. Dois retângulos vazios não deixam avaliar escala nem
-   * legibilidade, que é o que interessa antes de o backend subir.
-   */
-  const isSampleChart = flow.length === 0;
-  const flowPoints = isSampleChart ? sampleFlowTimeline() : flow;
-
-  const realSlices = useMemo(
+  const slices = useMemo(
     () => toBalanceSlices(expenses?.byCategory ?? []),
     [expenses],
   );
 
-  /** Composição de exemplo enquanto não há despesa cadastrada. */
-  const SAMPLE_SLICES = [
-    { label: "Aluguel e condomínio", percentage: 34 },
-    { label: "Salários e encargos", percentage: 28 },
-    { label: "Software e assinaturas", percentage: 14 },
-    { label: "Contabilidade e jurídico", percentage: 12 },
-    { label: "Marketing e captação", percentage: 8 },
-    { label: "Outros", percentage: 4 },
-  ];
-  const slices = realSlices.length > 0 ? realSlices : SAMPLE_SLICES;
-  const isSampleSlices = realSlices.length === 0;
-
   const isLoading = state === "loading";
+  /**
+   * A série vem preenchida mês a mês pelo servidor, inclusive os meses sem
+   * movimento. Vazia só acontece quando as duas chamadas falharam — e aí o
+   * gráfico fica vazio de propósito. Não existe mais dado de exemplo nesta
+   * tela: número plausível sem fonte é como ele acaba repetido em reunião.
+   */
+  const semSerie = !isLoading && flow.length === 0;
 
   if (!podeVerFinanceiro) {
     return <SemAcessoFinanceiro titulo="Carteira" />;
@@ -227,40 +239,29 @@ export default function WalletPage() {
       <WalletSummary overview={overview} isLoading={isLoading} />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <WalletFlowChart points={flowPoints} isSample={isSampleChart} />
-        <WalletBalanceChart points={flowPoints} isSample={isSampleChart} />
+        <WalletFlowChart points={flow} />
+        <WalletBalanceChart points={flow} />
       </div>
 
-      {(state === "missing" || state === "partial") && (
+      {(state === "partial" || state === "error" || semSerie) && (
         <div
           role="status"
           className="rounded-2xl border border-secondary/40 bg-light-secondary px-5 py-4 text-sm text-primary"
         >
           <p className="font-medium">
-            {state === "missing"
-              ? "Aguardando o servidor"
-              : "Dados parciais"}
+            {state === "error" ? "Não foi possível carregar" : "Dados parciais"}
           </p>
           <p className="mt-1 text-gray-100">
-            {state === "missing" ? (
+            {state === "error" ? (
               <>
-                Esta área depende do domínio financeiro do escritório — receita
-                de honorários e despesas —, que ainda não existe no backend.
-                Nada aqui é dado de exemplo: os valores ficam zerados até as
-                rotas subirem.
+                Nem as receitas nem as despesas responderam. Os valores estão
+                zerados por falta de resposta, não por falta de movimento —
+                recarregue a página antes de tirar qualquer conclusão deles.
               </>
             ) : (
               <>
-                As <strong>entradas estão zeradas por falta de fonte</strong>,
-                não por falta de receita: honorário do escritório ainda não tem
-                tabela. Os valores que os clientes recebem do INSS ficam em{" "}
-                <Link
-                  href="/pagamentos"
-                  className="font-medium text-secondary underline underline-offset-2"
-                >
-                  Pagamentos
-                </Link>{" "}
-                e não entram aqui — são dinheiro deles, não do escritório.
+                Uma das metades não respondeu, então o saldo acima está
+                incompleto. Ele soma só o que chegou.
               </>
             )}
           </p>
@@ -268,11 +269,9 @@ export default function WalletPage() {
       )}
 
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* O `MonthlyBalance` não tem selo próprio; com dado de exemplo o
-            período diz "exemplo" para o número do centro não passar por real. */}
         <MonthlyBalance
-          total={isSampleSlices ? 27400 : overview.outflowAmount}
-          period={isSampleSlices ? "exemplo" : monthName(month)}
+          total={overview.outflowAmount}
+          period={monthName(month)}
           slices={slices}
         />
 
@@ -289,34 +288,32 @@ export default function WalletPage() {
           <ExpensesTable
             items={expenseItems}
             isLoading={isLoading}
-            emptyMessage={
-              state === "missing" || state === "partial"
-                ? "O lançamento de despesas ainda não existe no servidor."
-                : "Nenhuma despesa com vencimento neste mês."
-            }
+            emptyMessage="Nenhuma despesa com vencimento neste mês."
           />
         </div>
       </section>
 
-      <section className="rounded-2xl border border-black/5 bg-white p-5">
-        <h2 className="text-lg font-medium text-primary">Entradas do mês</h2>
-        <p className="mt-1 text-sm text-gray-100">
-          A entrada do escritório é o honorário. Ele ainda não tem onde ser
-          registrado — e como os contratos variam (percentual do êxito, valor
-          fixo, parcelado), o modelo precisa ser desenhado antes de a tela
-          existir. A especificação está em{" "}
-          <code>docs/ESPEC_FINANCEIRO.md</code>.
-        </p>
-        <p className="mt-2 text-sm text-gray-100">
-          Não confunda com{" "}
+      <section>
+        <div className="mb-3 flex items-baseline justify-between gap-4">
+          <h2 className="text-lg font-medium text-primary">Entradas do mês</h2>
+          <span className="text-xs text-gray-100">por vencimento</span>
+        </div>
+        <RevenuesTable
+          items={revenueItems}
+          isLoading={isLoading}
+          emptyMessage="Nenhuma receita com vencimento neste mês."
+        />
+        <p className="mt-3 text-sm text-gray-100">
+          Entrada aqui é honorário, parecer avulso, reembolso — dinheiro do
+          escritório. Não confunda com{" "}
           <Link
             href="/pagamentos"
             className="font-medium text-secondary underline underline-offset-2"
           >
             Pagamentos
           </Link>
-          : lá é o que o INSS paga ao cliente. Esse dinheiro é do cliente e não
-          passa pelo caixa daqui.
+          : lá é o que o INSS paga ao cliente, e esse dinheiro não passa pelo
+          caixa daqui.
         </p>
       </section>
 

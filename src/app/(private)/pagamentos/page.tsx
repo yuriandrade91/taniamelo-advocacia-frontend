@@ -29,7 +29,6 @@ import {
 } from "@/services/officePaymentService";
 import { PaymentsTimelineChart } from "@/components/payments/PaymentsTimelineChart";
 import { PaymentsTrendChart } from "@/components/payments/PaymentsTrendChart";
-import { samplePaymentTimeline } from "@/components/charts/sampleData";
 import { currentMonth, monthRange, shiftMonth } from "@/lib/period";
 import type {
   OfficePaymentResponse,
@@ -215,8 +214,11 @@ export default function PaymentsPage() {
    * "dados de exemplo". A alternativa (dois retângulos vazios) não permite
    * avaliar escala, rótulo nem legibilidade, que é o que se quer ver agora.
    */
-  const isSampleChart = timeline.length === 0;
-  const chartPoints = isSampleChart ? samplePaymentTimeline() : timeline;
+  // A série vem preenchida mês a mês pelo servidor, inclusive os meses sem
+  // movimento; vazia só quando a chamada falhou. Gráfico vazio é a resposta
+  // certa nesse caso — dado de exemplo numa tela financeira acaba repetido em
+  // reunião como se fosse real.
+  const chartPoints = timeline;
 
   const { start: rangeStart, end: rangeEnd } = pageRange(
     pageNumber,
@@ -348,8 +350,8 @@ export default function PaymentsPage() {
       </section>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <PaymentsTimelineChart points={chartPoints} isSample={isSampleChart} />
-        <PaymentsTrendChart points={chartPoints} isSample={isSampleChart} />
+        <PaymentsTimelineChart points={chartPoints} />
+        <PaymentsTrendChart points={chartPoints} />
       </div>
 
       {state === "missing-endpoint" && (
