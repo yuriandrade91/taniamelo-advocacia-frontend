@@ -6,6 +6,7 @@ import { buildSkeletonRows } from "@/lib/pagination";
 import { formatBRL, formatDateBR, formatInstallment } from "@/lib/format";
 import type { OfficePaymentResponse } from "@/interfaces/payment/OfficePayment.interface";
 import ActionButton from "@/components/ui/table/ActionButton";
+import { PencilIcon, TrashIcon } from "@/components/ui/icons/actions";
 import { BUCKET_BADGE, bucketOf } from "./paymentBuckets";
 
 /** Recebimento só se registra no que está atrasado ou a vencer. */
@@ -72,6 +73,10 @@ export type PaymentsTableProps = {
    * some — a tabela continua servindo como visão somente-leitura.
    */
   onRegisterReceipt?: (payment: OfficePaymentResponse) => void;
+  /** Abrir a parcela para edição (valor, vencimento, parcela). */
+  onEdit?: (payment: OfficePaymentResponse) => void;
+  /** Excluir. Ausente, a lixeira não aparece — nem promete o que dá 403. */
+  onDelete?: (payment: OfficePaymentResponse) => void;
 };
 
 export function PaymentsTable({
@@ -79,6 +84,8 @@ export function PaymentsTable({
   isLoading,
   emptyMessage,
   onRegisterReceipt,
+  onEdit,
+  onDelete,
 }: PaymentsTableProps) {
   /**
    * A coluna vazia do cabeçalho só faz sentido se houver ação. Filtrar aqui,
@@ -86,7 +93,8 @@ export function PaymentsTable({
    * React Aria monta a linha pela coleção de colunas, e a divergência quebra
    * o alinhamento inteiro.
    */
-  const columns = onRegisterReceipt
+  const temAcao = Boolean(onRegisterReceipt || onEdit || onDelete);
+  const columns = temAcao
     ? COLUMNS
     : COLUMNS.filter((column) => column.id !== "actions");
 
@@ -167,16 +175,17 @@ export function PaymentsTable({
                         <StatusBadge label={badge.label} tone={badge.tone} />
                       </div>
                     </Table.Cell>
-                    {onRegisterReceipt && (
+                    {temAcao && (
                       <Table.Cell>
-                        <div className="flex justify-center">
+                        <span className="flex items-center justify-end gap-1">
                           {/*
-                            Só o que ainda não foi pago nem cancelado. Oferecer
-                            "registrar recebimento" numa parcela já paga
+                            Registrar recebimento só no que ainda não foi pago
+                            nem cancelado. Oferecê-lo numa parcela já paga
                             convidaria a sobrescrever a data que está certa —
-                            e o caixa do mês é somado por ela.
+                            e o caixa do mês é somado por ela. Editar continua
+                            disponível: é lá que se corrige a data errada.
                           */}
-                          {canRegister(item) ? (
+                          {onRegisterReceipt && canRegister(item) && (
                             <ActionButton
                               label="Registrar recebimento"
                               tone="success"
@@ -184,10 +193,26 @@ export function PaymentsTable({
                             >
                               <CheckIcon />
                             </ActionButton>
-                          ) : (
-                            <span className="text-xs text-gray-100/40">—</span>
                           )}
-                        </div>
+                          {onEdit && (
+                            <ActionButton
+                              label="Editar parcela"
+                              tone="secondary"
+                              onClick={() => onEdit(item)}
+                            >
+                              <PencilIcon />
+                            </ActionButton>
+                          )}
+                          {onDelete && (
+                            <ActionButton
+                              label="Excluir parcela"
+                              tone="danger"
+                              onClick={() => onDelete(item)}
+                            >
+                              <TrashIcon />
+                            </ActionButton>
+                          )}
+                        </span>
                       </Table.Cell>
                     )}
                   </Table.Row>

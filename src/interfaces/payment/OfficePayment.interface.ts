@@ -4,15 +4,15 @@ import type { PaymentMethodInput, PaymentStatusInput } from "@/enums/payment/Pay
 /**
  * Recebimentos do escritório — visão consolidada de `client_payments`.
  *
- * ⚠️ **Este contrato ainda não existe no backend.** Hoje pagamento só é
- * acessível por cliente (`/clients/{clientId}/payments`); não há rota agregada.
- * A alternativa — listar os clientes e pedir os pagamentos de cada um — seria
- * N+1 sobre HTTP (126 requisições para 125 clientes) e piora a cada cadastro
- * novo, então a tela é construída contra este contrato e mostra estado vazio
- * até ele subir.
+ * Atende `GET /api/v1/payments` (`PaymentController`, somente leitura).
  *
- * A especificação para implementar em Java está em
- * `docs/ESPEC_FINANCEIRO.md`.
+ * Existe porque pagamento só era alcançável por cliente: "quanto está atrasado
+ * no escritório" exigia listar os clientes e pedir as parcelas de cada um —
+ * 126 requisições para 125 clientes, piorando a cada cadastro novo.
+ *
+ * Criar, editar e excluir continuam em `/clients/{clientId}/payments`: uma
+ * parcela pertence a um cliente. Desde 29/09 as duas listas compartilham a
+ * consulta no backend, então os filtros daqui valem lá também.
  */
 
 /** Uma linha da lista: o pagamento mais o cliente a que pertence. */

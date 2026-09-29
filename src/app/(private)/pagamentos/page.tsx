@@ -15,6 +15,9 @@ import { SemAcessoFinanceiro } from "@/components/ui/feedback/SemAcessoFinanceir
 import { usePermissoes } from "@/hooks/usePermissoes";
 import { PaymentsTable } from "@/components/payments/PaymentsTable";
 import { RegisterReceiptModal } from "@/components/payments/RegisterReceiptModal";
+import { EditPaymentModal } from "@/components/payments/EditPaymentModal";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import { deletePayment } from "@/services/clientPaymentService";
 import { BenefitPaymentModal } from "@/components/payments/BenefitPaymentModal";
 import {
   ELLIPSIS,
@@ -159,6 +162,12 @@ export default function PaymentsPage() {
   /** Lançar um novo valor a receber do INSS. */
   const [isChargeFormOpen, setIsChargeFormOpen] = useState(false);
   /** Parcela cujo crédito está sendo confirmado. */
+  const [editTarget, setEditTarget] = useState<OfficePaymentResponse | null>(
+    null,
+  );
+  const [deleteTarget, setDeleteTarget] =
+    useState<OfficePaymentResponse | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [receiptTarget, setReceiptTarget] =
     useState<OfficePaymentResponse | null>(null);
 
@@ -228,9 +237,23 @@ export default function PaymentsPage() {
 
   const goToPage = (next: number) => setPageNumber(clampPage(next, totalPages));
 
+  const confirmarExclusao = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await deletePayment(deleteTarget.clientId, deleteTarget.id);
+      setDeleteTarget(null);
+      await load();
+    } catch {
+      // O axiosService já mostrou o erro; o alvo fica para nova tentativa.
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const emptyMessage =
     state === "missing-endpoint"
-      ? "A consolidação de pagamentos ainda não está disponível no servidor."
+      ? "A lista respondeu 404 — confira se o servidor está atualizado."
       : state === "error"
         ? "Não foi possível carregar os valores. Tente novamente."
         : "Nenhum recebimento encontrado para os filtros escolhidos.";
@@ -288,6 +311,8 @@ export default function PaymentsPage() {
           isLoading={state === "loading"}
           emptyMessage={emptyMessage}
           onRegisterReceipt={setReceiptTarget}
+          onEdit={setEditTarget}
+          onDelete={setDeleteTarget}
         />
 
         {totalPages > 1 && (
@@ -357,25 +382,14 @@ export default function PaymentsPage() {
       {state === "missing-endpoint" && (
         <div
           role="status"
-          className="rounded-2xl border border-secondary/40 bg-light-secondary px-5 py-4 text-sm text-primary"
+          className="rounded-2xl border border-danger/40 bg-danger/5 px-5 py-4 text-sm text-primary"
         >
-          <p className="font-medium">Aguardando o servidor</p>
+          <p className="font-medium">A lista respondeu 404</p>
           <p className="mt-1 text-gray-100">
-            A <strong>lista</strong> consulta <code>/api/v1/payments</code>, que
-            ainda não existe no backend — por isso ela e os totais estão vazios.
-            Nada aqui é dado de exemplo.
-          </p>
-          {/*
-            Sem esta segunda frase, "aguardando o servidor" leria como "nada
-            nesta tela funciona", e o botão de lançar cobrança — que grava de
-            verdade — pareceria enfeite.
-          */}
-          <p className="mt-2 text-gray-100">
-            <strong>Lançar valor a receber funciona.</strong> Vai para{" "}
-            <code>/clients/{"{id}"}/payments</code>, que existe, e fica visível
-            na ficha do cliente. O que só aparece aqui depois da rota agregada é
-            a listagem — e é nela que fica o botão de confirmar o crédito de
-            cada parcela.
+            <code>/api/v1/payments</code> existe desde a V18, então um 404 aqui
+            é sinal de servidor desatualizado ou de proxy apontando para outro
+            lugar — não de recurso que falta. Os totais estão vazios por falta
+            de resposta, não por falta de movimento.
           </p>
         </div>
       )}
@@ -390,6 +404,36 @@ export default function PaymentsPage() {
         payment={receiptTarget}
         onClose={() => setReceiptTarget(null)}
         onSaved={() => void load()}
+      />
+
+      <EditPaymentModal
+        payment={editTarget}
+        onClose={() => setEditTarget(null)}
+        onSaved={() => void load()}
+      />
+
+      {/* Confirmar antes, e não a janela de desfazer da agenda: a exclusão é
+          soft delete sem rota de restaurar, então um "Desfazer" depois do fato
+          só poderia falhar. */}
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        onClose={() => {
+          if (!isDeleting) setDeleteTarget(null);
+        }}
+        tone="danger"
+        heading="Excluir parcela?"
+        confirmLabel="Excluir"
+        cancelLabel="Manter"
+        description={
+          deleteTarget ? (
+            <>
+              <span className="font-medium">{deleteTarget.description}</span> de{" "}
+              <span className="font-medium">{deleteTarget.clientName}</span> sai
+              da lista e dos totais. Não há como restaurar por aqui.
+            </>
+          ) : null
+        }
+        onConfirm={() => void confirmarExclusao()}
       />
     </div>
   );
