@@ -161,53 +161,17 @@ export const patchClient = async (
  * histórico junto. Hoje o backend marca `deleted_at`, tira o registro de toda
  * consulta e libera o CPF para novo cadastro; os sub-recursos continuam lá.
  *
- * Existe volta: `GET /clients/deleted` lista os excluídos e
- * `PATCH /clients/{id}/restore` traz o cliente de volta inteiro. **Nenhuma das
- * duas está ligada na tela ainda** — enquanto não estiver, a única forma de
- * desfazer continua sendo a janela de desfazer antes do envio, então
- * `usePendingAction` segue valendo e não é mera cerimônia.
+ * O backend tem `GET /clients/deleted` e `PATCH /clients/{id}/restore`, e
+ * **nenhuma das duas é exposta na interface, por decisão**: o registro apagado
+ * existe para auditoria — provar o que havia e quem apagou —, não para voltar.
+ * Não se trata de tela que falta.
+ *
+ * A consequência prática: depois do envio não há desfazer. Por isso a janela do
+ * `usePendingAction` é a única volta que existe, e não é cerimônia.
  *
  * Nesse fluxo passe `{ silent: true }`: o toast já foi mostrado com o botão
  * "Desfazer", e um segundo toast de sucesso ao final soaria como nova ação.
  */
-/**
- * GET /api/v1/clients/deleted — a lixeira.
- *
- * Existe porque, sem ela, restaurar só era possível para quem tivesse anotado
- * o UUID antes de excluir: a rota de restaurar estava na API e não era
- * alcançável por ninguém. Cada item traz `deletedAt`.
- *
- * Restrita a ADMIN/LAWYER — o mesmo papel que exclui.
- */
-export const listDeletedClients = async (
-  params?: Pick<ClientListRequest, "pageNumber" | "pageSize">,
-): Promise<ApiEnvelope<Clients[]>> => {
-  const response = await axiosInstance.get<ApiEnvelope<Clients[]>>(
-    endpoints.CLIENTS.DELETED,
-    { params },
-  );
-  return {
-    ...response.data,
-    data: (response.data?.data ?? []).map(normalizarCliente),
-  };
-};
-
-/** PATCH /api/v1/clients/{id}/restore — devolve o cliente à lista. */
-export const restoreClient = async (
-  clientId: string,
-  options?: SilenceableRequest,
-): Promise<ApiEnvelope<ClientPatchResponse>> => {
-  const response = await axiosInstance.patch<ApiEnvelope<ClientPatchResponse>>(
-    endpoints.CLIENTS.RESTORE(exigirId(clientId, "restoreClient")),
-    {},
-    {
-      successMessage: "Cliente restaurado.",
-      skipSuccessToast: options?.silent,
-    },
-  );
-  return response.data;
-};
-
 export const deleteClient = async (
   clientId: string,
   options?: SilenceableRequest,

@@ -45,7 +45,7 @@ export type RevenuesTableProps = {
   emptyMessage: string;
   onEdit: (item: OfficeRevenueResponse) => void;
   /**
-   * Ausente, a lixeira não aparece na linha. É como a tela esconde a exclusão
+   * Ausente, o botão de excluir não aparece na linha. É como a tela esconde a exclusão
    * de quem o backend recusaria — sem prometer um botão que responde 403.
    */
   onDelete?: (item: OfficeRevenueResponse) => void;

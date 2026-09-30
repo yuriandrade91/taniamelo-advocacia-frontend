@@ -170,39 +170,6 @@ export const deleteAppointment = async (
   });
 };
 
-/**
- * GET /api/v1/appointments/deleted — a lixeira da agenda.
- *
- * O `usePendingAction` cobre o clique errado com a janela de 5 segundos, mas
- * não cobre o arrependimento de amanhã. Esta rota cobre — e sem ela a de
- * restaurar era inalcançável, porque ninguém anota UUID antes de excluir.
- */
-export const listDeletedAppointments = async (
-  params?: { pageNumber?: number; pageSize?: number },
-): Promise<ApiEnvelope<AppointmentResponse[]>> => {
-  const response = await axiosInstance.get<ApiEnvelope<AppointmentResponse[]>>(
-    endpoints.APPOINTMENTS.DELETED,
-    { params },
-  );
-  return response.data;
-};
-
-/** PATCH /api/v1/appointments/{id}/restore — devolve o compromisso à agenda. */
-export const restoreAppointment = async (
-  appointmentId: string,
-  options?: SilenceableRequest,
-): Promise<ApiEnvelope<AppointmentResponse>> => {
-  const response = await axiosInstance.patch<ApiEnvelope<AppointmentResponse>>(
-    endpoints.APPOINTMENTS.RESTORE(appointmentId),
-    {},
-    {
-      successMessage: "Compromisso restaurado.",
-      skipSuccessToast: options?.silent,
-    },
-  );
-  return response.data;
-};
-
 /** GET /appointments/{id}/history — paginado, mais recente primeiro. */
 export const listAppointmentHistory = async (
   appointmentId: string,

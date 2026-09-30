@@ -157,16 +157,12 @@ test("excluir pela lista, com confirmação que nomeia o cliente", async ({
 
   // Buscar de novo, do zero. "Sumiu da tabela" também acontece por filtro que
   // casou ou por remoção otimista antes da resposta.
+  //
+  // A exclusão é lógica no banco e o registro fica para auditoria, mas isso
+  // **não** tem superfície na interface — não existe tela de restaurar, então
+  // não há o que afirmar depois daqui.
   await buscar(page, NOME_EDITADO);
   await expect(linha(page, NOME_EDITADO)).toHaveCount(0);
-});
-
-test("e ele está na lixeira, não perdido", async ({ page }) => {
-  // O par da exclusão lógica: o registro não sumiu do banco, foi para a
-  // lixeira. Sem esta asserção, "excluir" e "apagar para sempre" ficariam
-  // indistinguíveis na suíte.
-  await page.goto("/lixeira");
-  await expect(linha(page, NOME_EDITADO).first()).toBeVisible();
 });
 
 test.afterAll(async () => {

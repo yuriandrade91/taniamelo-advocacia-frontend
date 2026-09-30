@@ -75,7 +75,7 @@ export type PaymentsTableProps = {
   onRegisterReceipt?: (payment: OfficePaymentResponse) => void;
   /** Abrir a parcela para edição (valor, vencimento, parcela). */
   onEdit?: (payment: OfficePaymentResponse) => void;
-  /** Excluir. Ausente, a lixeira não aparece — nem promete o que dá 403. */
+  /** Excluir. Ausente, o botão não aparece — nem promete o que dá 403. */
   onDelete?: (payment: OfficePaymentResponse) => void;
 };
 
