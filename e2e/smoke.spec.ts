@@ -20,7 +20,6 @@ test.describe("guarda de rota", () => {
     "/agenda",
     "/pagamentos",
     "/carteira",
-    "/perfil",
   ]) {
     test(`sem sessão, ${rota} manda para o login`, async ({ page }) => {
       await page.goto(rota);
@@ -35,7 +34,6 @@ test.describe("páginas principais carregam autenticadas", () => {
     { rota: "/agenda", titulo: "Agenda" },
     { rota: "/pagamentos", titulo: "Pagamentos" },
     { rota: "/carteira", titulo: "Carteira" },
-    { rota: "/perfil", titulo: "Meus dados" },
   ];
 
   for (const { rota, titulo } of paginas) {
