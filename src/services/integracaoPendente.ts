@@ -36,8 +36,38 @@ import type { FinanceSummary } from "@/interfaces/finance/Finance.interface";
  * verde, formulário fechando, nada no banco. Então escrita avisa e estoura.
  */
 
-/** Ligue de volta apagando a linha que chama isto na função do serviço. */
-const MOTIVO = "ainda não está no ar no servidor de desenvolvimento";
+const MOTIVO = "ainda não está no ar neste ambiente";
+
+/**
+ * Quais integrações estão em pausa — **por ambiente**, não no código.
+ *
+ * A primeira versão disto era um `return` incondicional no topo de cada função,
+ * e estava errado do jeito mais caro: o `pnpm dev` aponta para o backend
+ * LOCAL, que tem as rotas, e o atalho desligava integração que funcionava ali.
+ * Quem desenvolve perdia telas por causa do estado de um servidor remoto.
+ *
+ * Agora quem decide é `NEXT_PUBLIC_INTEGRACOES_PENDENTES`, lista separada por
+ * vírgula em `env/*.env`. Vazia — que é o padrão — significa tudo ligado: um
+ * ambiente novo nasce com o front inteiro, e só desliga o que ele comprovadamente
+ * não serve. O contrário (nascer desligado) faria uma integração ficar pausada
+ * em produção porque alguém esqueceu de listar.
+ */
+const PAUSADAS: ReadonlySet<string> = new Set(
+  (process.env.NEXT_PUBLIC_INTEGRACOES_PENDENTES ?? "")
+    .split(",")
+    .map((nome) => nome.trim().toLowerCase())
+    .filter(Boolean),
+);
+
+/**
+ * Este grupo de rotas está pausado neste ambiente?
+ *
+ * Grupos, e não rotas uma a uma: `/revenues`, `/revenues/summary` e
+ * `/revenues/timeline` sobem juntas — vêm do mesmo controller. Listar as três
+ * separadamente só criaria a chance de pausar duas e esquecer a terceira.
+ */
+export const integracaoPendente = (grupo: string): boolean =>
+  PAUSADAS.has(grupo.toLowerCase());
 
 /**
  * Erro com o formato de envelope da API.

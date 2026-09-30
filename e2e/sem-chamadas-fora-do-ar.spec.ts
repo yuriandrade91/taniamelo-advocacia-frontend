@@ -36,8 +36,11 @@ for (const tela of [
         falhas.push(`${r.status()} ${new URL(r.url()).pathname}`);
     });
 
-    await page.goto(tela);
-    await page.waitForTimeout(3000);
+    // `networkidle` e não um sleep fixo: em dev, a primeira visita a uma rota
+    // espera o Turbopack compilá-la — já passou de 40s aqui — e um sleep de 3s
+    // terminaria a escuta antes de a página sequer montar, dando verde falso.
+    await page.goto(tela, { waitUntil: "networkidle" });
+    await page.waitForTimeout(1500);
 
     expect(proibidas, `${tela} chamou rota removida`).toEqual([]);
     expect(falhas, `${tela} teve resposta de erro da API`).toEqual([]);

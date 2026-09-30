@@ -32,18 +32,15 @@ beforeEach(() => {
 });
 
 /**
- * ⏸ Em pausa enquanto a rota não está no ar.
+ * Estes testes voltaram a valer.
  *
- * O serviço abre com o atalho de `integracaoPendente` e não chega a chamar o
- * axios, então estas asserções — que são sobre a requisição — falhariam por
- * causa do atalho, não por defeito. Ficam como `skip` de propósito: são o
- * contrato que precisa valer de novo no dia em que a rota subir, e apagá-las
- * significaria reescrevê-las de memória.
- *
- * Para religar: apague o atalho no serviço e troque `describe.skip` por
- * `describe`.
+ * A pausa é por ambiente (`NEXT_PUBLIC_INTEGRACOES_PENDENTES`), e o Vitest roda
+ * sem ela — então o serviço chama o axios como sempre chamou, e a asserção é
+ * sobre a requisição de verdade. É o comportamento que se quer: o contrato
+ * continua verificado em toda execução, mesmo com a rota pausada em algum
+ * servidor.
  */
-describe.skip("a rota", () => {
+describe("a rota", () => {
   it("é /revenues, e nunca /payments — aquela é o dinheiro do cliente", async () => {
     await listOfficeRevenues();
     await getOfficeRevenueSummary();
@@ -70,7 +67,7 @@ describe.skip("a rota", () => {
   });
 });
 
-describe.skip("os filtros", () => {
+describe("os filtros", () => {
   it("repassa o recorte de caixa como veio — quem escolhe competência ou caixa é a tela", async () => {
     await getOfficeRevenueSummary({
       paidFrom: "2026-03-01",
@@ -88,7 +85,7 @@ describe.skip("os filtros", () => {
   });
 });
 
-describe.skip("erro de leitura", () => {
+describe("erro de leitura", () => {
   it("não é silenciado: saldo zerado sem aviso é pior que erro na tela", async () => {
     await listOfficeRevenues();
     await getOfficeRevenueSummary();
