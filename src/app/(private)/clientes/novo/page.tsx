@@ -21,7 +21,6 @@ import {
   hasAddressInput,
   type AddressValues,
 } from "@/components/clients/form/sections/AddressSection";
-import { CnisSection } from "@/components/clients/form/sections/cnis/CnisSection";
 import { FilesSection } from "@/components/clients/form/sections/files/FilesSection";
 import FileUploadModal from "@/components/clients/form/sections/files/FileUploadModal";
 import type {
@@ -130,7 +129,6 @@ const SECTION_KEYS = {
   professional: "dados-profissionais",
   interview: "entrevista",
   documents: "documentos",
-  cnis: "cnis",
 } as const;
 
 /** Ícone genérico de seção — o mesmo do print, um cartão com linhas. */
@@ -877,27 +875,6 @@ export default function NewClientPage() {
           />
         </FormSection>
 
-        {/*
-          Fica por último de propósito: é análise, não cadastro. As seções
-          acima descrevem o cliente e vão para o servidor; esta lê um documento
-          e devolve uma leitura na tela — nada dela é enviado, porque o backend
-          ainda não tem onde guardar uma análise de CNIS.
-
-          Por isso também não entra em `computeProgress` nem ganha selo de
-          "Pronto": não há o que salvar, e um selo sugeriria que há.
-        */}
-        <FormSection
-          id={SECTION_KEYS.cnis}
-          title="Análise do CNIS"
-          icon={<SectionIcon />}
-          status="pending"
-          statusLabel="Ferramenta"
-        >
-          <CnisSection
-            birthDate={personal.values.birthDate}
-            gender={personal.values.gender}
-          />
-        </FormSection>
       </Accordion>
 
       <PrimaryAddressPicker
