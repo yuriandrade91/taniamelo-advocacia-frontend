@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { logout as authLogout } from "@/services/authService";
@@ -10,7 +11,7 @@ import {
   type SessionUser,
 } from "@/lib/sessionUser";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
-import { LogoutIcon } from "./icons";
+import { LogoutIcon, UserIcon } from "./icons";
 
 /**
  * Avatar + painel com os dados do usuário logado.
@@ -152,20 +153,17 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
 
           {/* ── Ações ── */}
           <div className="py-1">
-            {/*
-              "Meus dados" saiu do menu.
-              ─────────────────────────
-              A tela /perfil dependia inteira de GET /api/v1/users/me, que a
-              instância de desenvolvimento ainda não serve. Um item de menu que
-              leva a uma tela que só erra é pior que item ausente: a pessoa
-              clica, não entende, e volta achando que quebrou.
-
-              Foi removido o item e a página — não o serviço: `meuPerfil`,
-              `atualizarMeuPerfil` e `alterarMinhaSenha` continuam em
-              `userService`, com 6 testes, e as regras do formulário em
-              `components/profile/profileForm.ts`, com 27. Religar é o
-              `git revert` do commit que removeu isto.
-            */}
+            {/* Link, e não botão com router.push: assim abre em nova aba com
+                o meio do mouse e o navegador mostra o destino ao passar. */}
+            <Link
+              href="/perfil"
+              role="menuitem"
+              onClick={() => setIsOpen(false)}
+              className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-primary hover:bg-light-gray/50 cursor-pointer"
+            >
+              <UserIcon className="h-4 w-4 text-gray-100/60" />
+              Meus dados
+            </Link>
 
             <button
               type="button"

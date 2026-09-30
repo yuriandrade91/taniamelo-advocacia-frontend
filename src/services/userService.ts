@@ -1,5 +1,9 @@
 import endpoints from "@/constants/endpoints/paths";
 import axiosInstance from "@/services/axiosService";
+import {
+  escritaPendente,
+  leituraPendente,
+} from "@/services/integracaoPendente";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type {
   ChangePasswordRequest,
@@ -21,6 +25,13 @@ import type {
  * `skipErrorToast`: a resolução de nome é enfeite de uma tela que funciona sem
  * ela, e um toast vermelho ao abrir a ficha faria parecer que a ficha falhou.
  * Quem chama trata a lista vazia mostrando o que já mostrava antes.
+ *
+ * ## O `return` antes do código de verdade
+ *
+ * Cada função abre com um atalho de `integracaoPendente` e o código real fica
+ * logo abaixo, inalcançável. É deliberado: a chamada não sai para a rede
+ * enquanto a rota não está no ar, e religar é apagar **duas linhas** — sem
+ * reescrever nada e sem que ninguém precise lembrar como a função era.
  */
 
 /** GET /api/v1/users — lista completa, ordenada por nome, sem paginação. */
@@ -82,6 +93,8 @@ export const nomeDoAutor = (
  * de novo e salvar por cima do que não carregou.
  */
 export const meuPerfil = async (): Promise<ApiEnvelope<MyProfile>> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return leituraPendente("GET /api/v1/users/me");
   const { data } = await axiosInstance.get<ApiEnvelope<MyProfile>>(
     endpoints.USERS.ME,
   );
@@ -92,6 +105,8 @@ export const meuPerfil = async (): Promise<ApiEnvelope<MyProfile>> => {
 export const atualizarMeuPerfil = async (
   body: MyProfileUpdateRequest,
 ): Promise<ApiEnvelope<MyProfile>> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return escritaPendente("PUT /api/v1/users/me");
   const { data } = await axiosInstance.put<ApiEnvelope<MyProfile>>(
     endpoints.USERS.ME,
     body,
@@ -110,6 +125,10 @@ export const atualizarMeuPerfil = async (
 export const alterarMinhaSenha = async (
   body: ChangePasswordRequest,
 ): Promise<void> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return escritaPendente("PATCH /api/v1/users/me/password", {
+    silent: true,
+  });
   await axiosInstance.patch(endpoints.USERS.ME_PASSWORD, body, {
     skipErrorToast: true,
     successMessage: "Senha alterada.",

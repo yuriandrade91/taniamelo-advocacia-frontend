@@ -12,6 +12,37 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
 const API_V1 = `${API_BASE_URL}/api/v1`;
 
+/** Recurso de primeiro nível: `/api/v1/{name}` e `/api/v1/{name}/{id}`. */
+const resource = (name: string) => {
+  const base = `${API_V1}/${name}`;
+  return { base, byId: (id: string) => `${base}/${id}` };
+};
+
+const auth = resource("auth");
+const tenants = resource("tenants");
+const users = resource("users");
+const clients = resource("clients");
+const expenses = resource("expenses");
+const revenues = resource("revenues");
+const payments = resource("payments");
+const appointments = resource("appointments");
+
+/** Sub-recurso de um cliente: `/clients/{clientId}/{name}` e `.../{id}`. */
+const clientResource = (name: string) => {
+  const base = (clientId: string) => `${clients.byId(clientId)}/${name}`;
+  return {
+    base,
+    byId: (clientId: string, id: string) => `${base(clientId)}/${id}`,
+  };
+};
+
+const addresses = clientResource("addresses");
+const interviews = clientResource("interviews");
+const clientPayments = clientResource("payments");
+const files = clientResource("files");
+const documents = clientResource("files/documents");
+const simulations = clientResource("files/simulations");
+
 const endpoints = {
   /**
    * Autenticação. Exige `X-Tenant-Id` inclusive no login.
@@ -19,19 +50,19 @@ const endpoints = {
    */
   AUTH: {
     /** POST — body `{ login, password }`. `login` aceita e-mail OU username. */
-    LOGIN: `${API_V1}/auth/login`,
+    LOGIN: auth.byId("login"),
     /** POST — rotaciona o refresh token e devolve novo access token. */
-    REFRESH: `${API_V1}/auth/refresh`,
+    REFRESH: auth.byId("refresh"),
     /** POST — revoga o refresh token e limpa o cookie. */
-    LOGOUT: `${API_V1}/auth/logout`,
+    LOGOUT: auth.byId("logout"),
   },
 
   /** /api/v1/tenants — resolução de escritório (multi-tenancy). */
   TENANTS: {
     /** GET ?slug=tania — público. Traduz slug em tenantId (UUID). */
-    RESOLVE: `${API_V1}/tenants/resolve`,
+    RESOLVE: tenants.byId("resolve"),
     /** GET — dados do escritório da sessão atual. */
-    CURRENT: `${API_V1}/tenants/current`,
+    CURRENT: tenants.byId("current"),
   },
 
   /**
@@ -46,36 +77,27 @@ const endpoints = {
    */
   USERS: {
     /** GET ?includeInactive= — lista completa, ordenada por nome, sem paginação. */
-    LIST: `${API_V1}/users`,
+    LIST: users.base,
     /**
      * Os dados de quem está logado. Não aceita id: o servidor lê o usuário do
      * token. Rota aberta a qualquer papel — é a própria pessoa.
      */
-    ME: `${API_V1}/users/me`,
-    ME_PASSWORD: `${API_V1}/users/me/password`,
+    ME: users.byId("me"),
+    ME_PASSWORD: `${users.byId("me")}/password`,
   },
 
   /** /api/v1/clients */
   CLIENTS: {
-    BASE: `${API_V1}/clients`,
-    CREATE: `${API_V1}/clients`, // POST
+    BASE: clients.base,
+    CREATE: clients.base, // POST
     /** GET — paginado. Filtros: searchTerm, benefitType[], situation[], createdFrom, createdTo */
-    LIST: `${API_V1}/clients`,
-    BY_ID: (clientId: string) => `${API_V1}/clients/${clientId}`, // GET
-    UPDATE: (clientId: string) => `${API_V1}/clients/${clientId}`, // PUT
-    PATCH: (clientId: string) => `${API_V1}/clients/${clientId}`, // PATCH
-    DELETE: (clientId: string) => `${API_V1}/clients/${clientId}`, // DELETE
-    /**
-     * A lixeira. Existe porque, sem ela, restaurar só era possível para quem
-     * tivesse anotado o UUID antes de excluir — desfazer estava na API e não
-     * era alcançável por ninguém.
-     *
-     * ADMIN/LAWYER: é o mesmo papel que exclui.
-     */
-    DELETED: `${API_V1}/clients/deleted`,
-    RESTORE: (clientId: string) => `${API_V1}/clients/${clientId}/restore`,
-    SITUATION_HISTORY: (clientId: string) =>
-      `${API_V1}/clients/${clientId}/situation-history`, // GET (paginado)
+    LIST: clients.base,
+    BY_ID: clients.byId, // GET
+    UPDATE: clients.byId, // PUT
+    PATCH: clients.byId, // PATCH
+    DELETE: clients.byId, // DELETE
+    /** GET (paginado) */
+    SITUATION_HISTORY: clientResource("situation-history").base,
     /**
      * GET — a senha do INSS do cliente. Rota separada de propósito: a senha
      * saiu de `GET /clients/{id}` porque voltar em toda abertura de ficha a
@@ -84,28 +106,25 @@ const endpoints = {
      * Restrita a ADMIN/LAWYER e **auditada**: cada chamada grava quem consultou
      * e quando. Chame só quando o usuário pedir, nunca ao montar a tela.
      */
-    INSS_PASSWORD: (clientId: string) =>
-      `${API_V1}/clients/${clientId}/inss-password`,
+    INSS_PASSWORD: clientResource("inss-password").base,
   },
 
   /** /api/v1/clients/{clientId}/personal-data */
   CLIENT_PERSONAL_DATA: {
-    GET: (clientId: string) => `${API_V1}/clients/${clientId}/personal-data`,
-    UPDATE: (clientId: string) => `${API_V1}/clients/${clientId}/personal-data`,
+    GET: clientResource("personal-data").base,
+    UPDATE: clientResource("personal-data").base,
   },
 
   /** /api/v1/clients/{clientId}/professional-data */
   CLIENT_PROFESSIONAL_DATA: {
-    GET: (clientId: string) =>
-      `${API_V1}/clients/${clientId}/professional-data`,
-    UPDATE: (clientId: string) =>
-      `${API_V1}/clients/${clientId}/professional-data`,
+    GET: clientResource("professional-data").base,
+    UPDATE: clientResource("professional-data").base,
   },
 
   /** /api/v1/clients/{clientId}/addresses */
   CLIENT_ADDRESSES: {
-    LIST: (clientId: string) => `${API_V1}/clients/${clientId}/addresses`,
-    CREATE: (clientId: string) => `${API_V1}/clients/${clientId}/addresses`,
+    LIST: addresses.base,
+    CREATE: addresses.base,
     /**
      * POST — de 1 a 10 endereços numa transação só: se um falhar, nenhum é
      * gravado. É o caminho do cadastro, onde a pessoa preenche até três abas
@@ -115,26 +134,19 @@ const endpoints = {
      * Devolve os criados na ordem enviada. Se mais de um item pedir
      * `isPrimary`, vale o último — a ordem da lista decide.
      */
-    CREATE_BATCH: (clientId: string) =>
-      `${API_V1}/clients/${clientId}/addresses/batch`,
-    BY_ID: (clientId: string, addressId: string) =>
-      `${API_V1}/clients/${clientId}/addresses/${addressId}`,
-    UPDATE: (clientId: string, addressId: string) =>
-      `${API_V1}/clients/${clientId}/addresses/${addressId}`,
-    DELETE: (clientId: string, addressId: string) =>
-      `${API_V1}/clients/${clientId}/addresses/${addressId}`,
+    CREATE_BATCH: (clientId: string) => `${addresses.base(clientId)}/batch`,
+    BY_ID: addresses.byId,
+    UPDATE: addresses.byId,
+    DELETE: addresses.byId,
   },
 
   /** /api/v1/clients/{clientId}/interviews */
   CLIENT_INTERVIEWS: {
-    LIST: (clientId: string) => `${API_V1}/clients/${clientId}/interviews`,
-    CREATE: (clientId: string) => `${API_V1}/clients/${clientId}/interviews`,
-    BY_ID: (clientId: string, interviewId: string) =>
-      `${API_V1}/clients/${clientId}/interviews/${interviewId}`,
-    UPDATE: (clientId: string, interviewId: string) =>
-      `${API_V1}/clients/${clientId}/interviews/${interviewId}`,
-    DELETE: (clientId: string, interviewId: string) =>
-      `${API_V1}/clients/${clientId}/interviews/${interviewId}`,
+    LIST: interviews.base,
+    CREATE: interviews.base,
+    BY_ID: interviews.byId,
+    UPDATE: interviews.byId,
+    DELETE: interviews.byId,
   },
 
   /**
@@ -142,14 +154,13 @@ const endpoints = {
    * tabela `office_expenses`). Metade das saídas da Carteira.
    */
   EXPENSES: {
-    BASE: `${API_V1}/expenses`,
-    LIST: `${API_V1}/expenses`,
-    CREATE: `${API_V1}/expenses`,
-    SUMMARY: `${API_V1}/expenses/summary`,
-    TIMELINE: `${API_V1}/expenses/timeline`,
-    BY_ID: (expenseId: string) => `${API_V1}/expenses/${expenseId}`,
-    UPDATE: (expenseId: string) => `${API_V1}/expenses/${expenseId}`,
-    DELETE: (expenseId: string) => `${API_V1}/expenses/${expenseId}`,
+    LIST: expenses.base,
+    CREATE: expenses.base,
+    SUMMARY: expenses.byId("summary"),
+    TIMELINE: expenses.byId("timeline"),
+    BY_ID: expenses.byId,
+    UPDATE: expenses.byId,
+    DELETE: expenses.byId,
   },
 
   /**
@@ -160,14 +171,13 @@ const endpoints = {
    * tabela própria (`office_revenues`).
    */
   REVENUES: {
-    BASE: `${API_V1}/revenues`,
-    LIST: `${API_V1}/revenues`,
-    CREATE: `${API_V1}/revenues`,
-    SUMMARY: `${API_V1}/revenues/summary`,
-    TIMELINE: `${API_V1}/revenues/timeline`,
-    BY_ID: (revenueId: string) => `${API_V1}/revenues/${revenueId}`,
-    UPDATE: (revenueId: string) => `${API_V1}/revenues/${revenueId}`,
-    DELETE: (revenueId: string) => `${API_V1}/revenues/${revenueId}`,
+    LIST: revenues.base,
+    CREATE: revenues.base,
+    SUMMARY: revenues.byId("summary"),
+    TIMELINE: revenues.byId("timeline"),
+    BY_ID: revenues.byId,
+    UPDATE: revenues.byId,
+    DELETE: revenues.byId,
   },
 
   /**
@@ -178,25 +188,21 @@ const endpoints = {
    * escritório. **Não é receita** — ver `REVENUES`.
    */
   PAYMENTS: {
-    BASE: `${API_V1}/payments`,
     /** GET — paginado, filtros por status, método, vencimento e cliente. */
-    LIST: `${API_V1}/payments`,
+    LIST: payments.base,
     /** GET — totais do período (não dá para somar página paginada). */
-    SUMMARY: `${API_V1}/payments/summary`,
+    SUMMARY: payments.byId("summary"),
     /** GET — série mensal, para o gráfico de pipeline. */
-    TIMELINE: `${API_V1}/payments/timeline`,
+    TIMELINE: payments.byId("timeline"),
   },
 
   /** /api/v1/clients/{clientId}/payments */
   CLIENT_PAYMENTS: {
-    LIST: (clientId: string) => `${API_V1}/clients/${clientId}/payments`,
-    CREATE: (clientId: string) => `${API_V1}/clients/${clientId}/payments`,
-    BY_ID: (clientId: string, paymentId: string) =>
-      `${API_V1}/clients/${clientId}/payments/${paymentId}`,
-    PATCH: (clientId: string, paymentId: string) =>
-      `${API_V1}/clients/${clientId}/payments/${paymentId}`,
-    DELETE: (clientId: string, paymentId: string) =>
-      `${API_V1}/clients/${clientId}/payments/${paymentId}`,
+    LIST: clientPayments.base,
+    CREATE: clientPayments.base,
+    BY_ID: clientPayments.byId,
+    PATCH: clientPayments.byId,
+    DELETE: clientPayments.byId,
   },
 
   /**
@@ -205,25 +211,24 @@ const endpoints = {
    * compromisso tem `clientId`.
    */
   APPOINTMENTS: {
-    BASE: `${API_V1}/appointments`,
     /** POST — nasce com status "Agendado". */
-    CREATE: `${API_V1}/appointments`,
+    CREATE: appointments.base,
     /** GET — paginado, ordenado por início (asc). Filtros em AppointmentListRequest. */
-    LIST: `${API_V1}/appointments`,
+    LIST: appointments.base,
     /** GET ?year= — contagem por mês (exclui cancelados); alimenta as abas. */
-    SUMMARY: `${API_V1}/appointments/summary`,
+    SUMMARY: appointments.byId("summary"),
     /**
      * GET ?startAt=&endAt=&excludeId= — compromissos agendados que ocupam a
      * mesma faixa. **Avisa, não bloqueia**: o POST e o PUT não recusam por
      * conflito.
      */
-    CONFLICTS: `${API_V1}/appointments/conflicts`,
-    BY_ID: (appointmentId: string) => `${API_V1}/appointments/${appointmentId}`,
+    CONFLICTS: appointments.byId("conflicts"),
+    BY_ID: appointments.byId,
     /** PUT — substituição completa; exige `justification`. */
-    UPDATE: (appointmentId: string) => `${API_V1}/appointments/${appointmentId}`,
+    UPDATE: appointments.byId,
     /** PATCH — exige `justification`. */
     CANCEL: (appointmentId: string) =>
-      `${API_V1}/appointments/${appointmentId}/cancel`,
+      `${appointments.byId(appointmentId)}/cancel`,
     /**
      * PATCH — corpo opcional `{ earlyCompletionAcknowledged }`.
      *
@@ -232,64 +237,33 @@ const endpoints = {
      * confirmação. Para compromisso já iniciado o corpo é dispensável.
      */
     COMPLETE: (appointmentId: string) =>
-      `${API_V1}/appointments/${appointmentId}/complete`,
+      `${appointments.byId(appointmentId)}/complete`,
     /** DELETE — soft delete (204 sem corpo). */
-    DELETE: (appointmentId: string) => `${API_V1}/appointments/${appointmentId}`,
-    /** Lixeira da agenda — mesmo par de rotas dos clientes. */
-    DELETED: `${API_V1}/appointments/deleted`,
-    RESTORE: (appointmentId: string) =>
-      `${API_V1}/appointments/${appointmentId}/restore`,
+    DELETE: appointments.byId,
     /** GET — paginado, mais recente primeiro. */
     HISTORY: (appointmentId: string) =>
-      `${API_V1}/appointments/${appointmentId}/history`,
+      `${appointments.byId(appointmentId)}/history`,
   },
 
   /** /api/v1/clients/{clientId}/files — documentos e simulações (multipart) */
   CLIENT_FILES: {
-    UPLOAD_DOCUMENTS: (clientId: string) =>
-      `${API_V1}/clients/${clientId}/files/documents`,
-    LIST_DOCUMENTS: (clientId: string) =>
-      `${API_V1}/clients/${clientId}/files/documents`,
-    GET_DOCUMENT: (clientId: string, fileId: string) =>
-      `${API_V1}/clients/${clientId}/files/documents/${fileId}`,
-    UPDATE_DOCUMENT: (clientId: string, fileId: string) =>
-      `${API_V1}/clients/${clientId}/files/documents/${fileId}`,
+    UPLOAD_DOCUMENTS: documents.base,
+    LIST_DOCUMENTS: documents.base,
+    GET_DOCUMENT: documents.byId,
+    UPDATE_DOCUMENT: documents.byId,
 
-    UPLOAD_SIMULATIONS: (clientId: string) =>
-      `${API_V1}/clients/${clientId}/files/simulations`,
-    LIST_SIMULATIONS: (clientId: string) =>
-      `${API_V1}/clients/${clientId}/files/simulations`,
-    GET_SIMULATION: (clientId: string, fileId: string) =>
-      `${API_V1}/clients/${clientId}/files/simulations/${fileId}`,
-    UPDATE_SIMULATION: (clientId: string, fileId: string) =>
-      `${API_V1}/clients/${clientId}/files/simulations/${fileId}`,
+    UPLOAD_SIMULATIONS: simulations.base,
+    LIST_SIMULATIONS: simulations.base,
+    GET_SIMULATION: simulations.byId,
+    UPDATE_SIMULATION: simulations.byId,
     SET_SIMULATION_PRINCIPAL: (clientId: string, fileId: string) =>
-      `${API_V1}/clients/${clientId}/files/simulations/${fileId}/principal`,
+      `${simulations.byId(clientId, fileId)}/principal`,
 
     DOWNLOAD: (clientId: string, fileId: string) =>
-      `${API_V1}/clients/${clientId}/files/${fileId}/download`,
-    DELETE: (clientId: string, fileId: string) =>
-      `${API_V1}/clients/${clientId}/files/${fileId}`,
+      `${files.byId(clientId, fileId)}/download`,
+    DELETE: files.byId,
   },
 } as const;
 
-/**
- * Aliases de compatibilidade com o código legado (`URL_CLIENTS`, `AUTH.POST_LOGIN`),
- * já apontando para os paths corretos (com `/api` e `/situation-history`).
- * TODO: migrar consumidores para `endpoints.CLIENTS` / `endpoints.AUTH.LOGIN`.
- */
-const endpointsWithLegacy = {
-  ...endpoints,
-  AUTH: {
-    ...endpoints.AUTH,
-    POST_LOGIN: endpoints.AUTH.LOGIN,
-  },
-  URL_CLIENTS: {
-    CLIENT: endpoints.CLIENTS.BASE,
-    BY_ID: endpoints.CLIENTS.BY_ID,
-    SITUATION_HISTORY: endpoints.CLIENTS.SITUATION_HISTORY,
-  },
-};
-
 export { API_BASE_URL, API_V1 };
-export default endpointsWithLegacy;
+export default endpoints;

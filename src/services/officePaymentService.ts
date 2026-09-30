@@ -1,5 +1,10 @@
 import endpoints from "@/constants/endpoints/paths";
 import axiosInstance from "@/services/axiosService";
+import {
+  leituraPendente,
+  listaVaziaPendente,
+  serieVaziaPendente,
+} from "@/services/integracaoPendente";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type {
   OfficePaymentListRequest,
@@ -19,11 +24,20 @@ import type {
  *
  * Criar e editar continuam em `clientPaymentService`: uma parcela pertence a
  * um cliente, e esta rota é consulta.
+ *
+ * ## O `return` antes do código de verdade
+ *
+ * Cada função abre com um atalho de `integracaoPendente` e o código real fica
+ * logo abaixo, inalcançável. É deliberado: a chamada não sai para a rede
+ * enquanto a rota não está no ar, e religar é apagar **duas linhas** — sem
+ * reescrever nada e sem que ninguém precise lembrar como a função era.
  */
 
 export const listOfficePayments = async (
   params?: OfficePaymentListRequest,
 ): Promise<ApiEnvelope<OfficePaymentResponse[]>> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return listaVaziaPendente();
   const { data } = await axiosInstance.get<ApiEnvelope<OfficePaymentResponse[]>>(
     endpoints.PAYMENTS.LIST,
     { params },
@@ -42,6 +56,8 @@ export const getOfficePaymentSummary = async (
     "dueFrom" | "dueTo" | "paidFrom" | "paidTo" | "clientId"
   >,
 ): Promise<ApiEnvelope<OfficePaymentSummary>> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return leituraPendente("GET /api/v1/payments/summary");
   const { data } = await axiosInstance.get<ApiEnvelope<OfficePaymentSummary>>(
     endpoints.PAYMENTS.SUMMARY,
     { params },
@@ -58,6 +74,8 @@ export const getOfficePaymentTimeline = async (params: {
   to: string;
   basis?: "due" | "paid";
 }): Promise<ApiEnvelope<PaymentTimelinePoint[]>> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return serieVaziaPendente();
   const { data } = await axiosInstance.get<ApiEnvelope<PaymentTimelinePoint[]>>(
     endpoints.PAYMENTS.TIMELINE,
     { params },

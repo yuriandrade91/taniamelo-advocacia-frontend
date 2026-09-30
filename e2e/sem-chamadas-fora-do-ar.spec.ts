@@ -14,7 +14,14 @@ const ROTAS_FORA = [
   "/api/v1/revenues",
 ];
 
-for (const tela of ["/home", "/clientes", "/agenda", "/pagamentos", "/carteira"]) {
+for (const tela of [
+  "/home",
+  "/clientes",
+  "/agenda",
+  "/pagamentos",
+  "/carteira",
+  "/perfil",
+]) {
   test(`${tela} não chama rota fora do ar`, async ({ page }) => {
     const proibidas: string[] = [];
     const falhas: string[] = [];

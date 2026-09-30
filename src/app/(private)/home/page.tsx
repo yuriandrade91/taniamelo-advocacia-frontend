@@ -4,9 +4,11 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import PendingForms from "@/components/home/PendingForms";
 import { PendingLeadsModal } from "@/components/home/PendingLeadsModal";
+import UpcomingRevenues from "@/components/home/UpcomingRevenues";
 import ContributorPipeline, {
   type PipelineCard,
 } from "@/components/home/ContributorPipeline";
+import MonthlyBalance from "@/components/home/MonthlyBalance";
 import PendingDocuments from "@/components/home/PendingDocuments";
 import AppointmentsCard from "@/components/home/appointments/AppointmentsCard";
 import { clients as fetchClients, patchClient } from "@/services/clientService";
@@ -15,6 +17,16 @@ import {
   type SituationKey,
 } from "@/enums/situation/Situation";
 import { privateRoutes } from "@/constants/paths/routes";
+import { usePermissoes } from "@/hooks/usePermissoes";
+import { listOfficePayments } from "@/services/officePaymentService";
+import { getOfficeExpenseSummary } from "@/services/officeExpenseService";
+import { toRevenueItems } from "@/components/home/proximasReceitas";
+import {
+  toBalanceSlices,
+  type BalanceSlice,
+} from "@/components/wallet/walletOverview";
+import { currentMonth, monthName, monthRange } from "@/lib/period";
+import type { RevenueItem } from "@/components/home/UpcomingRevenues";
 
 const formatDate = (value?: string) => {
   if (!value) return "-";
@@ -35,6 +47,47 @@ export default function Home() {
    * com outra quantidade — e aí nenhum dos dois teria credibilidade.
    */
   const [pendingCount, setPendingCount] = useState<number | null>(null);
+
+  /** D3: dinheiro é só de quem administra. Sem isso, o cartão pede 403. */
+  const { podeVerFinanceiro } = usePermissoes();
+  const [proximasReceitas, setProximasReceitas] = useState<RevenueItem[]>([]);
+  const [saidasDoMes, setSaidasDoMes] = useState<{
+    total: number;
+    slices: BalanceSlice[];
+  }>({ total: 0, slices: [] });
+
+  useEffect(() => {
+    if (!podeVerFinanceiro) return;
+    let ativo = true;
+    const { from, to } = monthRange(currentMonth());
+
+    /**
+     * `allSettled`: são dois cartões independentes no meio de uma tela que
+     * não é financeira. Com `all`, uma falha num deles apagaria o outro — e a
+     * Home não pode ficar pela metade por causa de um cartão.
+     */
+    void Promise.allSettled([
+      // Ordenada por vencimento no servidor: "próximas" é literal.
+      listOfficePayments({ pageNumber: 1, pageSize: 10 }),
+      getOfficeExpenseSummary({ paidFrom: from, paidTo: to }),
+    ]).then(([recebimentos, despesas]) => {
+      if (!ativo) return;
+      if (recebimentos.status === "fulfilled") {
+        setProximasReceitas(toRevenueItems(recebimentos.value.data ?? []));
+      }
+      if (despesas.status === "fulfilled") {
+        const resumo = despesas.value.data;
+        setSaidasDoMes({
+          total: resumo?.paidAmount ?? 0,
+          slices: toBalanceSlices(resumo?.byCategory ?? []),
+        });
+      }
+    });
+
+    return () => {
+      ativo = false;
+    };
+  }, [podeVerFinanceiro]);
 
   // ── Esteira: clientes reais agrupados por situação ──
   useEffect(() => {
@@ -105,7 +158,7 @@ export default function Home() {
   return (
     <div className="flex flex-col gap-4 pb-12">
       {/* ── Formulários pendentes + Próximas receitas ── */}
-      <section className="grid grid-cols-1 gap-4">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         {/* TODO(backend): os três indicadores abaixo continuam ilustrativos —
             não há endpoint de métricas. O contador do topo, não: vem de
             `GET /clients?situation=FORMULARIO_PREENCHIDO`. */}
@@ -139,26 +192,30 @@ export default function Home() {
           ]}
         />
 
-        {/*
-          "Próximas receitas" saiu daqui.
-          ─────────────────────────────
-          O cartão consultava `GET /api/v1/payments`, que a instância de
-          desenvolvimento ainda não serve. Um cartão que erra a cada
-          carregamento é pior que um cartão que não existe: ocupa o lugar,
-          não informa, e treina a pessoa a ignorar o canto da tela.
-
-          Para religar: `git revert` do commit que removeu isto. O
-          `proximasReceitas.ts` e seus testes continuam no repositório, com o
-          contrato pronto — falta só a rota responder.
-        */}
+        {/* Só quem vê dinheiro (D3). O backend responde 403 para os demais, e
+            um cartão que se carrega com erro seria um retângulo vazio sem
+            explicação no meio da Home. */}
+        {podeVerFinanceiro && (
+          <UpcomingRevenues
+            items={proximasReceitas}
+            onSeeAll={() => router.push("/pagamentos")}
+          />
+        )}
       </section>
 
       {/* ── Balanço + documentações + agenda ── */}
-      {/* "Balanço do mês" saiu daqui pelo mesmo motivo — dependia de
-          `GET /api/v1/expenses/summary`. Ver o comentário acima. A grade caiu
-          de três para duas colunas: coluna sobrando lê como defeito, não como
-          ausência deliberada. */}
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Despesas pagas no mês, por categoria — o mesmo resumo da Carteira.
+            As cores saem de BALANCE_PALETTE (literais: o Chart.js desenha em
+            canvas, onde `var(--…)` não resolve). */}
+        {podeVerFinanceiro && (
+          <MonthlyBalance
+            total={saidasDoMes.total}
+            period={monthName(currentMonth())}
+            slices={saidasDoMes.slices}
+          />
+        )}
+
         {/* TODO(backend): derivar de clientFileService (documentos faltantes). */}
         <PendingDocuments
           items={[

@@ -1,5 +1,11 @@
 import endpoints from "@/constants/endpoints/paths";
 import axiosInstance from "@/services/axiosService";
+import {
+  escritaPendente,
+  leituraPendente,
+  listaVaziaPendente,
+  serieVaziaPendente,
+} from "@/services/integracaoPendente";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type {
   OfficeRevenueListRequest,
@@ -21,11 +27,20 @@ import type {
  *
  * Todas as rotas são ADMIN (`@RequerAdmin`): o 403 aqui é a regra funcionando,
  * não defeito, e é a tela que decide se mostra a área.
+ *
+ * ## O `return` antes do código de verdade
+ *
+ * Cada função abre com um atalho de `integracaoPendente` e o código real fica
+ * logo abaixo, inalcançável. É deliberado: a chamada não sai para a rede
+ * enquanto a rota não está no ar, e religar é apagar **duas linhas** — sem
+ * reescrever nada e sem que ninguém precise lembrar como a função era.
  */
 
 export const listOfficeRevenues = async (
   params?: OfficeRevenueListRequest,
 ): Promise<ApiEnvelope<OfficeRevenueResponse[]>> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return listaVaziaPendente();
   const { data } = await axiosInstance.get<ApiEnvelope<OfficeRevenueResponse[]>>(
     endpoints.REVENUES.LIST,
     { params },
@@ -36,6 +51,8 @@ export const listOfficeRevenues = async (
 export const getOfficeRevenue = async (
   revenueId: string,
 ): Promise<ApiEnvelope<OfficeRevenueResponse>> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return leituraPendente("GET /api/v1/revenues/{id}");
   const { data } = await axiosInstance.get<ApiEnvelope<OfficeRevenueResponse>>(
     endpoints.REVENUES.BY_ID(revenueId),
   );
@@ -54,6 +71,8 @@ export const getOfficeRevenueSummary = async (
     "dueFrom" | "dueTo" | "paidFrom" | "paidTo" | "clientId"
   >,
 ): Promise<ApiEnvelope<OfficeRevenueSummary>> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return leituraPendente("GET /api/v1/revenues/summary");
   const { data } = await axiosInstance.get<ApiEnvelope<OfficeRevenueSummary>>(
     endpoints.REVENUES.SUMMARY,
     { params },
@@ -67,6 +86,8 @@ export const getOfficeRevenueTimeline = async (params: {
   to: string;
   basis?: "due" | "paid";
 }): Promise<ApiEnvelope<RevenueTimelinePoint[]>> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return serieVaziaPendente();
   const { data } = await axiosInstance.get<ApiEnvelope<RevenueTimelinePoint[]>>(
     endpoints.REVENUES.TIMELINE,
     { params },
@@ -77,6 +98,8 @@ export const getOfficeRevenueTimeline = async (params: {
 export const createOfficeRevenue = async (
   body: OfficeRevenueRequest,
 ): Promise<ApiEnvelope<OfficeRevenueResponse>> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return escritaPendente("POST /api/v1/revenues");
   const { data } = await axiosInstance.post<ApiEnvelope<OfficeRevenueResponse>>(
     endpoints.REVENUES.CREATE,
     body,
@@ -89,6 +112,8 @@ export const updateOfficeRevenue = async (
   revenueId: string,
   body: OfficeRevenueRequest,
 ): Promise<ApiEnvelope<OfficeRevenueResponse>> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return escritaPendente("PUT /api/v1/revenues/{id}");
   const { data } = await axiosInstance.put<ApiEnvelope<OfficeRevenueResponse>>(
     endpoints.REVENUES.UPDATE(revenueId),
     body,
@@ -98,6 +123,8 @@ export const updateOfficeRevenue = async (
 };
 
 export const deleteOfficeRevenue = async (revenueId: string): Promise<void> => {
+  // INTEGRAÇÃO PENDENTE — apague esta linha quando a rota subir.
+  return escritaPendente("DELETE /api/v1/revenues/{id}");
   await axiosInstance.delete(endpoints.REVENUES.DELETE(revenueId), {
     successMessage: "Receita excluída.",
   });
