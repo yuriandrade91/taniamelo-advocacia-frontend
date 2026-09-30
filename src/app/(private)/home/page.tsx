@@ -192,29 +192,41 @@ export default function Home() {
           ]}
         />
 
-        {/* Só quem vê dinheiro (D3). O backend responde 403 para os demais, e
-            um cartão que se carrega com erro seria um retângulo vazio sem
-            explicação no meio da Home. */}
-        {podeVerFinanceiro && (
-          <UpcomingRevenues
-            items={proximasReceitas}
-            onSeeAll={() => router.push("/pagamentos")}
-          />
-        )}
+        {/*
+          O cartão fica na tela para todo mundo; o que depende de papel é o
+          **dado**, não a moldura.
+
+          Eu tinha escondido o cartão inteiro atrás de `podeVerFinanceiro`, e
+          isso fazia duas coisas ruins de uma vez: abria um buraco na grade
+          (que é fixa em `[2fr_1fr]`) e fazia a Home mudar de forma conforme
+          quem entrava — o que lê como defeito, não como regra. Pior: o
+          `usePermissoes` começa tudo `false` e só lê o storage no `useEffect`,
+          então o cartão sumia e reaparecia em toda visita, inclusive para
+          ADMIN.
+
+          A regra D3 continua valendo no lugar certo: sem permissão a Home não
+          CONSULTA (ver o `useEffect` acima), então não há 403 e não há valor
+          nenhum para vazar — o cartão mostra o vazio que ele já sabe mostrar.
+        */}
+        <UpcomingRevenues
+          items={proximasReceitas}
+          onSeeAll={() => router.push("/pagamentos")}
+        />
       </section>
 
       {/* ── Balanço + documentações + agenda ── */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Despesas pagas no mês, por categoria — o mesmo resumo da Carteira.
+            Presente para todo mundo pelo mesmo motivo do cartão acima; sem
+            permissão não há consulta, e ele desenha o próprio vazio.
+
             As cores saem de BALANCE_PALETTE (literais: o Chart.js desenha em
             canvas, onde `var(--…)` não resolve). */}
-        {podeVerFinanceiro && (
-          <MonthlyBalance
-            total={saidasDoMes.total}
-            period={monthName(currentMonth())}
-            slices={saidasDoMes.slices}
-          />
-        )}
+        <MonthlyBalance
+          total={saidasDoMes.total}
+          period={monthName(currentMonth())}
+          slices={saidasDoMes.slices}
+        />
 
         {/* TODO(backend): derivar de clientFileService (documentos faltantes). */}
         <PendingDocuments

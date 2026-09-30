@@ -96,6 +96,17 @@ export default function MonthlyBalance({
         {period && <MonthPill label={period} onClick={onChangePeriod} />}
       </header>
 
+      {/*
+        Sem fatias o Chart.js desenha um anel fantasma — um círculo cinza com
+        "R$ 0,00" no meio, que lê como "o mês fechou zerado" quando na verdade
+        é "não há dado". São afirmações diferentes, e num cartão de dinheiro a
+        diferença importa.
+      */}
+      {colored.length === 0 ? (
+        <p className="mt-6 text-sm text-gray-100/70">
+          Sem despesas pagas para compor o balanço deste mês.
+        </p>
+      ) : (
       <div className="mt-6 flex items-center gap-6">
         <div className="relative h-36 w-36 shrink-0">
           <Doughnut data={data} options={options} />
@@ -130,6 +141,7 @@ export default function MonthlyBalance({
           ))}
         </ul>
       </div>
+      )}
     </Card>
   );
 }
