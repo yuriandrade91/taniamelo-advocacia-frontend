@@ -11,6 +11,7 @@ describe("papéis", () => {
   it("são os três do backend, com esta grafia", () => {
     expect(ROLE_ENTRIES.map(([chave]) => chave)).toEqual([
       "ADMIN",
+      "SUPPORT",
       "LAWYER",
       "STAFF",
     ]);
@@ -18,7 +19,9 @@ describe("papéis", () => {
 
   it("cada um tem rótulo em português para exibição", () => {
     expect(getRoleLabel("ADMIN")).toBe("Administrador");
-    expect(getRoleLabel("LAWYER")).toBe("Advogado");
+    expect(getRoleLabel("SUPPORT")).toBe("Suporte");
+    // O nome antigo mostra o mesmo rótulo: é o mesmo papel.
+    expect(getRoleLabel("LAWYER")).toBe("Suporte");
     expect(getRoleLabel("STAFF")).toBe("Atendente");
   });
 

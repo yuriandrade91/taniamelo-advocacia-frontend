@@ -7,7 +7,7 @@
  *
  * O corte real é entre **operar e destruir**: STAFF faz o dia a dia inteiro
  * (cadastra e edita cliente, marca, cancela e conclui compromisso); excluir,
- * restaurar e ler a senha do INSS exigem ADMIN ou LAWYER. O financeiro tem
+ * restaurar e ler a senha do INSS exigem ADMIN ou SUPPORT. O financeiro tem
  * corte próprio e mais estrito, só ADMIN. Quem impõe isso é o backend; quem
  * decide o que a tela oferece é `lib/permissions.ts`.
  *
@@ -16,9 +16,22 @@
  * abaixo existe só para exibição.
  */
 
+/**
+ * `LAWYER` **e** `SUPPORT` convivem aqui de propósito.
+ *
+ * O backend renomeou o papel na migration V19, mas a renomeação chega a cada
+ * ambiente no seu próprio tempo: enquanto uma instância já grava `SUPPORT`,
+ * outra ainda devolve `LAWYER`. Um front que conhecesse só um dos dois
+ * quebraria em metade dos ambientes — e o sintoma seria botão sumindo da
+ * tela, não um erro que alguém liga à causa.
+ *
+ * `LAWYER` sai daqui quando nenhuma instância devolvê-lo. Até lá, os dois
+ * valem e significam a mesma coisa.
+ */
 export const ROLE_ENTRIES = [
   ["ADMIN", "Administrador"],
-  ["LAWYER", "Advogado"],
+  ["SUPPORT", "Suporte"],
+  ["LAWYER", "Suporte"],
   ["STAFF", "Atendente"],
 ] as const;
 

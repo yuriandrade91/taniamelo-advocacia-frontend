@@ -25,14 +25,21 @@ import { getSessionUser } from "@/lib/sessionUser";
  * para mais custa um clique que toma 403 na cara do usuário.
  */
 
-/** Papéis do backend (enum Role). O backend devolve o nome da constante. */
-export const PAPEIS_QUE_DESTROEM = ["ADMIN", "LAWYER"] as const;
+/**
+ * Papéis do backend (enum Role). O backend devolve o nome da constante.
+ *
+ * `LAWYER` e `SUPPORT` são o mesmo papel: a V19 renomeou, e cada ambiente
+ * recebe a migration no seu tempo. Enquanto houver instância devolvendo o
+ * nome antigo, os dois precisam valer — senão a pessoa perde o botão de
+ * excluir em um ambiente e não em outro, sem nada explicando por quê.
+ */
+export const PAPEIS_QUE_DESTROEM = ["ADMIN", "SUPPORT", "LAWYER"] as const;
 
 function papelAtual(): string {
   return (getSessionUser()?.role ?? "").trim().toUpperCase();
 }
 
-/** ADMIN ou LAWYER: pode excluir, restaurar e ler dado sensível. */
+/** ADMIN ou SUPPORT: pode excluir, restaurar e ler dado sensível. */
 export function podeDestruir(): boolean {
   return (PAPEIS_QUE_DESTROEM as readonly string[]).includes(papelAtual());
 }

@@ -282,7 +282,24 @@ export default function WalletPage() {
 
       <WalletSummary overview={overview} isLoading={isLoading} />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      {/*
+        Três gráficos na mesma linha, a rosca primeiro.
+        ────────────────────────────────────────────
+        A ordem é de leitura: a rosca responde "no que o dinheiro foi" (a
+        composição do mês), e as duas da direita respondem "como isso andou"
+        (o fluxo mês a mês e o acumulado). Composição antes de série é a
+        pergunta que se faz primeiro ao abrir a tela.
+
+        `lg:` e não `md:`: três gráficos lado a lado num tablet deixam cada um
+        com menos de 250px, e uma rosca com legenda de cinco linhas nesse
+        espaço vira ilegível. Abaixo de `lg` eles empilham.
+      */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <MonthlyBalance
+          total={overview.outflowAmount}
+          period={monthName(month)}
+          slices={slices}
+        />
         <WalletFlowChart points={flow} />
         <WalletBalanceChart points={flow} />
       </div>
@@ -312,14 +329,10 @@ export default function WalletPage() {
         </div>
       )}
 
-      <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <MonthlyBalance
-          total={overview.outflowAmount}
-          period={monthName(month)}
-          slices={slices}
-        />
-
-        <div className="lg:col-span-2">
+      {/* A tabela ocupa a linha inteira: a rosca subiu para junto dos
+          gráficos, e manter a grade de 3 colunas deixaria um terço vazio. */}
+      <section>
+        <div>
           <div className="mb-3 flex items-baseline justify-between gap-4">
             <h2 className="text-lg font-medium text-primary">
               Despesas do mês

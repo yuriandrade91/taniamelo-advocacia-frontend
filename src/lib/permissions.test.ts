@@ -18,8 +18,10 @@ function comPapel(role: string | null) {
 afterEach(() => vi.restoreAllMocks());
 
 describe("quem pode destruir", () => {
-  it("ADMIN e LAWYER podem", () => {
-    for (const papel of ["ADMIN", "LAWYER"]) {
+  it("ADMIN, SUPPORT e o LAWYER legado podem", () => {
+    // Os três durante a transição da V19: enquanto houver instância devolvendo
+    // o nome antigo, aceitar só um dos dois tira o botão de quem tem direito.
+    for (const papel of ["ADMIN", "SUPPORT", "LAWYER"]) {
       comPapel(papel);
       expect(podeDestruir(), papel).toBe(true);
     }
