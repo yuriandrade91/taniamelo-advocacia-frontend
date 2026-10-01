@@ -92,6 +92,19 @@ export function factor(
   return Math.round(ratio * 100) / 100;
 }
 
+/**
+ * `2010-01-01` → `01/01/2010`.
+ *
+ * Exige o formato inteiro antes de reordenar. Separando por "-" sem conferir,
+ * `"nao-e-data"` virava `"data/e/nao"` — lixo com cara de data, que é pior que
+ * lixo com cara de lixo: numa tela, ninguém olha duas vezes para algo separado
+ * por barras. O que não casa volta intacto.
+ */
+export function formatDateBR(iso: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : iso;
+}
+
 /** O fator formatado como a tabela escreve: "1,50". */
 export function formatFactor(value: number): string {
   return value.toFixed(2).replace(".", ",");
@@ -165,6 +178,18 @@ export type ConversionLine = {
   days: number;
   factor: number;
   convertedDays: number;
+  /** `YYYY-MM-DD` */
+  startedOn: string;
+  /**
+   * `YYYY-MM-DD` — o fim que ENTROU na conta.
+   *
+   * Num intervalo em aberto é o `today` recebido, não `null`: a linha existe
+   * para mostrar de onde saiu o número de dias, e "até hoje" sem dizer que dia
+   * é hoje deixaria a conta sem conferência.
+   */
+  endedOn: string;
+  /** Se o intervalo não tem data de cessação — a tela escreve "até hoje". */
+  ongoing: boolean;
 };
 
 export type ConversionResult = {
@@ -205,6 +230,9 @@ export function convertIntervals(
       days,
       factor: factor(interval.grade, to, basis),
       convertedDays: convertDays(days, interval.grade, to, basis),
+      startedOn: interval.startedOn,
+      endedOn: end,
+      ongoing: !interval.endedOn,
     };
   });
 

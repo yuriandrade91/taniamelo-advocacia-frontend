@@ -27,6 +27,10 @@ export type DisabilityConversionLine = {
   days: number;
   factor: number;
   convertedDays: number;
+  startedOn: string;
+  /** O fim que entrou na conta; num intervalo em aberto, hoje no fuso do escritório. */
+  endedOn: string;
+  ongoing: boolean;
 };
 
 export type DisabilityConversionResponse = {

@@ -21,6 +21,7 @@ import {
 import {
   type ConvertibleInterval,
   daysBetween,
+  formatDateBR,
 } from "@/lib/disabilityTime";
 
 export type DisabilityPeriodDraft = {
@@ -140,7 +141,7 @@ export function validateDisabilityPeriods(
       if (sobrepoe) {
         result[atual.key] = {
           ...result[atual.key],
-          startedOn: `Este intervalo se sobrepõe ao que começa em ${formatBR(anterior.startedOn)}.`,
+          startedOn: `Este intervalo se sobrepõe ao que começa em ${formatDateBR(anterior.startedOn)}.`,
         };
         break;
       }
@@ -148,12 +149,6 @@ export function validateDisabilityPeriods(
   }
 
   return result;
-}
-
-/** `2010-01-01` → `01/01/2010`, para a mensagem de erro falar como a tela. */
-function formatBR(iso: string): string {
-  const [year, month, day] = iso.split("-");
-  return day && month && year ? `${day}/${month}/${year}` : iso;
 }
 
 /**

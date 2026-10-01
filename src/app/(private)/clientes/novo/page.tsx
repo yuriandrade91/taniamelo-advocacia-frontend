@@ -930,6 +930,50 @@ export default function NewClientPage() {
           </div>
         </FormSection>
 
+        {/*
+          A seção aparece só quando faz diferença: aposentadoria por deficiência
+          é a hipótese em que o grau e o tempo em cada grau mudam o
+          requerimento. A chave "pessoa com deficiência" de Dados pessoais
+          também a traz, porque quem marcou aquela chave tem a informação em
+          mãos — e perdê-la agora significa pedir de novo depois.
+
+          Em qualquer outro caso seria mais um campo para ignorar no meio de um
+          formulário que já é longo.
+        */}
+        {mostrarDeficiencia && (
+          <FormSection
+            id={SECTION_KEYS.disability}
+            title="Períodos de deficiência"
+            icon={<SectionIcon />}
+            {...toSectionProps(
+              statusOf(
+                SECTION_KEYS.disability,
+                Object.keys(
+                  validateDisabilityPeriods(disabilityPeriods, today),
+                ).length === 0,
+              ),
+            )}
+          >
+            <div className="flex flex-col gap-4">
+              <DisabilitySection
+                periods={disabilityPeriods}
+                errors={disabilityErrors}
+                gender={personal.values.gender}
+                today={today}
+                onChange={updateDisabilityPeriod}
+                onAdd={addDisabilityPeriod}
+                onRemove={removeDisabilityPeriod}
+              />
+              <SectionActions
+                isVisible={isCreated}
+                onSave={handleSaveDisability}
+                label="Salvar períodos de deficiência"
+              />
+            </div>
+          </FormSection>
+        )}
+
+
         <FormSection
           id={SECTION_KEYS.personal}
           title="Dados pessoais"
@@ -1007,49 +1051,6 @@ export default function NewClientPage() {
             }}
           />
         </FormSection>
-
-        {/*
-          A seção aparece só quando faz diferença: aposentadoria por deficiência
-          é a hipótese em que o grau e o tempo em cada grau mudam o
-          requerimento. A chave "pessoa com deficiência" de Dados pessoais
-          também a traz, porque quem marcou aquela chave tem a informação em
-          mãos — e perdê-la agora significa pedir de novo depois.
-
-          Em qualquer outro caso seria mais um campo para ignorar no meio de um
-          formulário que já é longo.
-        */}
-        {mostrarDeficiencia && (
-          <FormSection
-            id={SECTION_KEYS.disability}
-            title="Períodos de deficiência"
-            icon={<SectionIcon />}
-            {...toSectionProps(
-              statusOf(
-                SECTION_KEYS.disability,
-                Object.keys(
-                  validateDisabilityPeriods(disabilityPeriods, today),
-                ).length === 0,
-              ),
-            )}
-          >
-            <div className="flex flex-col gap-4">
-              <DisabilitySection
-                periods={disabilityPeriods}
-                errors={disabilityErrors}
-                gender={personal.values.gender}
-                today={today}
-                onChange={updateDisabilityPeriod}
-                onAdd={addDisabilityPeriod}
-                onRemove={removeDisabilityPeriod}
-              />
-              <SectionActions
-                isVisible={isCreated}
-                onSave={handleSaveDisability}
-                label="Salvar períodos de deficiência"
-              />
-            </div>
-          </FormSection>
-        )}
 
         <FormSection
           id={SECTION_KEYS.interview}

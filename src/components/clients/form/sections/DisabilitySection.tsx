@@ -14,6 +14,7 @@ import {
 import {
   basisFromGender,
   convertIntervals,
+  formatDateBR,
   formatFactor,
 } from "@/lib/disabilityTime";
 import {
@@ -217,7 +218,21 @@ function DisabilityConversion({
             </span>
             <span className="text-xs">({line.gradeYears} anos)</span>
             <span>
-              {line.days} dias × {formatFactor(line.factor)} ={" "}
+              {line.days} dias{" "}
+              {/*
+                As datas do intervalo ao lado dos dias. Sem elas, três linhas
+                de "1093 dias", "2198 dias", "2207 dias" não dizem a QUAL
+                intervalo cada uma pertence — e é justamente conferindo o
+                período que alguém descobre que digitou o ano errado.
+              */}
+              <span className="text-xs text-gray-100">
+                ({formatDateBR(line.startedOn)} a{" "}
+                {line.ongoing
+                  ? `hoje, ${formatDateBR(line.endedOn)}`
+                  : formatDateBR(line.endedOn)}
+                )
+              </span>{" "}
+              × {formatFactor(line.factor)} ={" "}
               <strong>{line.convertedDays} dias</strong>
             </span>
           </li>

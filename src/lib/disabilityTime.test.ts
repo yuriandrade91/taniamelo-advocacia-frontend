@@ -6,6 +6,7 @@ import {
   convertIntervals,
   daysBetween,
   factor,
+  formatDateBR,
   formatFactor,
   timeLabel,
 } from "./disabilityTime";
@@ -76,6 +77,14 @@ describe("a tabela de multiplicadores", () => {
     // continuariam coerentes entre si e o cliente perderia tempo.
     expect(factor("GRAVE", "SEM_DEFICIENCIA", "FEMININO")).toBeGreaterThan(1);
     expect(factor("SEM_DEFICIENCIA", "GRAVE", "FEMININO")).toBeLessThan(1);
+  });
+
+  it("formata a data como a tela escreve", () => {
+    expect(formatDateBR("2010-01-01")).toBe("01/01/2010");
+    expect(formatDateBR("2026-12-31")).toBe("31/12/2026");
+    // Entrada inesperada volta intacta em vez de virar "undefined/undefined/".
+    expect(formatDateBR("")).toBe("");
+    expect(formatDateBR("nao-e-data")).toBe("nao-e-data");
   });
 
   it("formata como a tabela escreve", () => {
@@ -197,6 +206,35 @@ describe("o total convertido", () => {
     expect(
       convertDays(somaCrua, "LEVE", "SEM_DEFICIENCIA", "FEMININO"),
     ).toBeLessThan(result.total.totalDays);
+  });
+
+  it("cada linha traz as datas que originaram os dias", () => {
+    // Três linhas de "2192 dias", "7579 dias" não dizem a QUAL intervalo cada
+    // uma pertence — e é conferindo o período que alguém nota o ano errado.
+    const result = convertIntervals(
+      intervals,
+      "SEM_DEFICIENCIA",
+      "FEMININO",
+      "2026-08-27",
+    );
+    expect(result.lines[0].startedOn).toBe("1990-01-01");
+    expect(result.lines[0].endedOn).toBe("2009-12-31");
+    expect(result.lines[0].ongoing).toBe(false);
+  });
+
+  it("no intervalo em aberto, o fim da linha é o dia informado, não null", () => {
+    // "até hoje" sem dizer que dia é hoje deixa a conta irreproduzível amanhã.
+    const result = convertIntervals(
+      intervals,
+      "SEM_DEFICIENCIA",
+      "FEMININO",
+      "2026-08-27",
+    );
+    expect(result.lines[1].ongoing).toBe(true);
+    expect(result.lines[1].endedOn).toBe("2026-08-27");
+    expect(result.lines[1].days).toBe(
+      daysBetween("2010-01-01", "2026-08-27"),
+    );
   });
 
   it("sem intervalo nenhum, o total é zero", () => {
