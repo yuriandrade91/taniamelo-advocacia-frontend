@@ -206,7 +206,7 @@ export function SelectField({
   return (
     <div className={className}>
       <Select
-        className={`form-border-style`}
+        className="w-full"
         value={selectedKey || null}
         onChange={(key) => onSelectionChange(key == null ? "" : String(key))}
         isRequired={isRequired}
@@ -221,7 +221,20 @@ export function SelectField({
           selects, e `getByLabel("Tipo")` não encontrava nada.
         */}
         <Label className="text-secondary">{label}</Label>
-        <Select.Trigger className="text-gray-100">
+        {/*
+          A borda fica no TRIGGER, não no `Select`.
+
+          No `Select` ela envolvia também o `Label`, e a caixa saía ~30px mais
+          alta e começando mais acima que a de um `Field` na mesma linha da
+          grade — "Tipo de endereço" flutuando sobre "CEP", "Gênero" sobre
+          "Órgão emissor". Não era espaçamento a acertar: era a borda em volta
+          de conteúdo diferente. `Field` já desenhava no `Input` e
+          `MultiSelectField` no trigger; este era o único fora do padrão.
+
+          O `Label` continua DENTRO do `Select` (ver acima) — a correção é de
+          onde a borda é pintada, não de onde o rótulo mora.
+        */}
+        <Select.Trigger className="form-border-style w-full text-gray-100">
           <Select.Value>
             {({ isPlaceholder, selectedText }) =>
               isPlaceholder ? placeholder : selectedText
@@ -519,7 +532,14 @@ export function DatePickerField({
 
   return (
     <div className={className}>
+      {/*
+        `w-full`: o `DatePicker` não ocupa a largura do container sozinho, e o
+        `fullWidth` do `DateField.Group` estica o grupo dentro de um pai que
+        continuava do tamanho do conteúdo. O campo ficava com metade da coluna
+        — "Data de nascimento" parando no meio do espaço de "Idade".
+      */}
       <DatePicker
+        className="w-full"
         value={calendarValue}
         onChange={(next) => onChange(next ? next.toString() : "")}
         // Ninguém nasce no futuro — trava direto no calendário, não só no
@@ -625,7 +645,9 @@ export function DateTimePickerField({
   return (
     <div className={className}>
       <I18nProvider locale="pt-BR">
+        {/* `w-full` pelo mesmo motivo do DatePickerField — ver lá. */}
         <DatePicker
+          className="w-full"
           value={calendarValue}
           onChange={(next) => onChange(next ? next.toString() : "")}
           granularity="minute"
