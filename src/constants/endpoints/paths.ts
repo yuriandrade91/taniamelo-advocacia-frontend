@@ -37,6 +37,7 @@ const clientResource = (name: string) => {
 };
 
 const addresses = clientResource("addresses");
+const disabilityPeriods = clientResource("disability-periods");
 const interviews = clientResource("interviews");
 const clientPayments = clientResource("payments");
 const files = clientResource("files");
@@ -138,6 +139,29 @@ const endpoints = {
     BY_ID: addresses.byId,
     UPDATE: addresses.byId,
     DELETE: addresses.byId,
+  },
+
+  /** /api/v1/clients/{clientId}/disability-periods */
+  CLIENT_DISABILITY_PERIODS: {
+    /**
+     * GET — todos os intervalos, do mais antigo para o mais recente.
+     *
+     * **Sem paginação**, ao contrário de `/addresses`: o cálculo da LC
+     * 142/2013 soma a carreira inteira, e uma página daria um total errado com
+     * cara de certo.
+     */
+    LIST: disabilityPeriods.base,
+    CREATE: disabilityPeriods.base,
+    /**
+     * GET — o tempo convertido para uma base, com a conta aberta (um fator e um
+     * resultado por intervalo). `?to=` escolhe o destino; o padrão é
+     * `Sem deficiência`, a regra geral.
+     */
+    CONVERSION: (clientId: string) =>
+      `${disabilityPeriods.base(clientId)}/conversion`,
+    BY_ID: disabilityPeriods.byId,
+    UPDATE: disabilityPeriods.byId,
+    DELETE: disabilityPeriods.byId,
   },
 
   /** /api/v1/clients/{clientId}/interviews */

@@ -7,6 +7,19 @@ import { useMemo, useState } from "react";
 import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { ProgressRing } from "@/components/clients/form/ProgressRing";
 import { FormSection } from "@/components/clients/form/FormSection";
+import { DisabilitySection } from "@/components/clients/form/sections/DisabilitySection";
+import {
+  hasAnyDisabilityInput,
+  hasDisabilityInput,
+  newDisabilityPeriod,
+  toDisabilityPeriodRequest,
+  validateDisabilityPeriods,
+  type DisabilityPeriodDraft,
+} from "@/components/clients/form/disabilityPeriods";
+import {
+  createDisabilityPeriod,
+  updateDisabilityPeriod as updateDisabilityPeriodRequest,
+} from "@/services/clientDisabilityPeriodService";
 import {
   REQUIRED_CREATE_KEYS,
   computeProgress,
@@ -127,6 +140,7 @@ const SECTION_KEYS = {
   personal: "dados-pessoais",
   address: "endereco",
   professional: "dados-profissionais",
+  disability: "deficiencia",
   interview: "entrevista",
   documents: "documentos",
 } as const;
@@ -335,6 +349,62 @@ export default function NewClientPage() {
     setSelectedAddressKey(`address-${nextIndex}`);
   };
 
+  /**
+   * Intervalos de deficiência.
+   *
+   * Array de estado, e não um `useSectionForm` por item como nos endereços: a
+   * lista não tem limite fixo, e hook não nasce dentro de loop. As regras vivem
+   * em `disabilityPeriods.ts` como funções puras sobre o array.
+   */
+  const [disabilityPeriods, setDisabilityPeriods] = useState<
+    DisabilityPeriodDraft[]
+  >(() => [newDisabilityPeriod()]);
+  const [disabilityRevealed, setDisabilityRevealed] = useState(false);
+
+  /**
+   * O "hoje" do cálculo, fixo por montagem da tela.
+   *
+   * Um só valor para a validação e para a conversão: lendo o relógio em cada
+   * lugar, uma tela aberta à meia-noite poderia validar contra um dia e
+   * converter contra outro.
+   */
+  const today = useMemo(() => new Date().toISOString().slice(0, 10), []);
+
+  const disabilityErrors = useMemo(
+    () =>
+      disabilityRevealed
+        ? validateDisabilityPeriods(disabilityPeriods, today)
+        : {},
+    [disabilityPeriods, disabilityRevealed, today],
+  );
+
+  const updateDisabilityPeriod = (
+    key: string,
+    patch: Partial<DisabilityPeriodDraft>,
+  ) =>
+    setDisabilityPeriods((current) =>
+      current.map((period) =>
+        period.key === key ? { ...period, ...patch } : period,
+      ),
+    );
+
+  const addDisabilityPeriod = () =>
+    setDisabilityPeriods((current) => [...current, newDisabilityPeriod()]);
+
+  /**
+   * Remove da tela e, se já estava gravado, do servidor.
+   *
+   * A última linha não é removida, é esvaziada: uma seção sem nenhum intervalo
+   * não teria onde a pessoa clicar para começar de novo a não ser no botão de
+   * adicionar, que some junto com o contexto.
+   */
+  const removeDisabilityPeriod = (key: string) =>
+    setDisabilityPeriods((current) =>
+      current.length === 1
+        ? [newDisabilityPeriod()]
+        : current.filter((period) => period.key !== key),
+    );
+
   const interview = useSectionForm<InterviewValues>({
     initial: interviewInitial,
     rules: interviewRules,
@@ -366,6 +436,11 @@ export default function NewClientPage() {
   );
 
   const isCreated = clientId !== null;
+
+  /** Ver o comentário na seção, no accordion abaixo. */
+  const mostrarDeficiencia =
+    service.values.benefit === "APOSENTADORIA_POR_DEFICIENCIA" ||
+    personal.values.hasDisability === true;
 
   const progress = useMemo(
     () =>
@@ -419,17 +494,28 @@ export default function NewClientPage() {
       hasAddressInput(slot.form.values),
     );
     const interviewTouched = hasInterviewInput(interview.values);
+    const disabilityTouched = hasAnyDisabilityInput(disabilityPeriods);
     const documentsTouched =
       stagedDocuments.length > 0 || stagedSimulations.length > 0;
 
+    let disabilityOk = true;
+    if (disabilityTouched) {
+      setDisabilityRevealed(true);
+      disabilityOk =
+        Object.keys(validateDisabilityPeriods(disabilityPeriods, today))
+          .length === 0;
+    }
+
     const optionalOk =
       filledAddresses.every((slot) => slot.form.revealErrors()) &&
-      (!interviewTouched || interview.revealErrors());
+      (!interviewTouched || interview.revealErrors()) &&
+      disabilityOk;
 
     if (!requiredOk || !optionalOk) {
       notificationCenter.warning("Revise os campos destacados.", {
         description: "Há campos obrigatórios pendentes.",
       });
+      if (!disabilityOk) setExpandedKeys(new Set([SECTION_KEYS.disability]));
       return;
     }
 
@@ -519,6 +605,46 @@ export default function NewClientPage() {
           console.error("Erro ao salvar endereços:", error);
           failed.push(
             filledAddresses.length > 1 ? "endereços" : "endereço",
+          );
+        }
+      }
+
+      /**
+       * Os intervalos de deficiência vão num POST cada: não há rota de lote,
+       * e aqui isso não é perda. Um intervalo é independente dos outros — o
+       * segundo falhar não torna o primeiro inválido, ao contrário dos
+       * endereços, onde o conjunto é que define qual é o principal.
+       *
+       * Guardamos o id de cada um que entrou, para que um reenvio pelo botão da
+       * seção vire PUT em vez de duplicar o intervalo.
+       */
+      if (disabilityTouched) {
+        const porGravar = disabilityPeriods.filter(hasDisabilityInput);
+        let gravados = 0;
+        for (const period of porGravar) {
+          try {
+            const saved = await createDisabilityPeriod(
+              newId,
+              toDisabilityPeriodRequest(period),
+            );
+            const savedId = saved?.data?.id;
+            if (savedId) {
+              gravados += 1;
+              // O id vai para o rascunho: um reenvio pelo botão da seção
+              // precisa virar PUT, senão duplica o intervalo.
+              updateDisabilityPeriod(period.key, { id: savedId });
+            }
+          } catch (error) {
+            console.error("Erro ao salvar período de deficiência:", error);
+          }
+        }
+        if (gravados === porGravar.length) {
+          markSaved(SECTION_KEYS.disability);
+        } else {
+          failed.push(
+            porGravar.length > 1
+              ? "períodos de deficiência"
+              : "período de deficiência",
           );
         }
       }
@@ -659,6 +785,56 @@ export default function NewClientPage() {
       markSaved(SECTION_KEYS.address);
     } catch (error) {
       console.error("Erro ao salvar endereço:", error);
+    }
+  };
+
+  /**
+   * Salvamento da seção depois de o cliente existir.
+   *
+   * Cada intervalo já gravado vira PUT (tem `id`), os novos viram POST. Sem
+   * essa distinção, clicar em salvar duas vezes criaria intervalos duplicados —
+   * e dois intervalos iguais se sobrepõem, então o segundo clique passaria a
+   * devolver 400 sem a pessoa entender o que mudou.
+   */
+  const handleSaveDisability = async () => {
+    if (!clientId) return;
+    const porGravar = disabilityPeriods.filter(hasDisabilityInput);
+    if (porGravar.length === 0) {
+      notificationCenter.info("Nenhum período de deficiência preenchido.");
+      return;
+    }
+
+    setDisabilityRevealed(true);
+    if (
+      Object.keys(validateDisabilityPeriods(disabilityPeriods, today)).length > 0
+    ) {
+      return;
+    }
+
+    let falhas = 0;
+    for (const period of porGravar) {
+      try {
+        const body = toDisabilityPeriodRequest(period);
+        const saved = period.id
+          ? await updateDisabilityPeriodRequest(clientId, period.id, body)
+          : await createDisabilityPeriod(clientId, body);
+        const savedId = saved?.data?.id;
+        if (savedId && !period.id) {
+          updateDisabilityPeriod(period.key, { id: savedId });
+        }
+      } catch (error) {
+        console.error("Erro ao salvar período de deficiência:", error);
+        falhas += 1;
+      }
+    }
+
+    if (falhas === 0) {
+      markSaved(SECTION_KEYS.disability);
+      notificationCenter.success(
+        porGravar.length > 1
+          ? "Períodos de deficiência salvos."
+          : "Período de deficiência salvo.",
+      );
     }
   };
 
@@ -831,6 +1007,49 @@ export default function NewClientPage() {
             }}
           />
         </FormSection>
+
+        {/*
+          A seção aparece só quando faz diferença: aposentadoria por deficiência
+          é a hipótese em que o grau e o tempo em cada grau mudam o
+          requerimento. A chave "pessoa com deficiência" de Dados pessoais
+          também a traz, porque quem marcou aquela chave tem a informação em
+          mãos — e perdê-la agora significa pedir de novo depois.
+
+          Em qualquer outro caso seria mais um campo para ignorar no meio de um
+          formulário que já é longo.
+        */}
+        {mostrarDeficiencia && (
+          <FormSection
+            id={SECTION_KEYS.disability}
+            title="Períodos de deficiência"
+            icon={<SectionIcon />}
+            {...toSectionProps(
+              statusOf(
+                SECTION_KEYS.disability,
+                Object.keys(
+                  validateDisabilityPeriods(disabilityPeriods, today),
+                ).length === 0,
+              ),
+            )}
+          >
+            <div className="flex flex-col gap-4">
+              <DisabilitySection
+                periods={disabilityPeriods}
+                errors={disabilityErrors}
+                gender={personal.values.gender}
+                today={today}
+                onChange={updateDisabilityPeriod}
+                onAdd={addDisabilityPeriod}
+                onRemove={removeDisabilityPeriod}
+              />
+              <SectionActions
+                isVisible={isCreated}
+                onSave={handleSaveDisability}
+                label="Salvar períodos de deficiência"
+              />
+            </div>
+          </FormSection>
+        )}
 
         <FormSection
           id={SECTION_KEYS.interview}

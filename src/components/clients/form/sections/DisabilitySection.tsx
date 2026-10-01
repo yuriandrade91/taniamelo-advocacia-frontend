@@ -1,0 +1,240 @@
+"use client";
+
+import {
+  DatePickerField,
+  SelectField,
+  SwitchField,
+} from "@/components/ui/form/Field";
+import { toSelectOptions } from "@/components/ui/form/options";
+import { PlusIcon } from "@/components/ui/icons/actions";
+import {
+  DisabilityGradeOptions,
+  getDisabilityGradeLabelByKey,
+} from "@/enums/disabilityGrade/DisabilityGrade";
+import {
+  basisFromGender,
+  convertIntervals,
+  formatFactor,
+} from "@/lib/disabilityTime";
+import {
+  convertibleIntervals,
+  type DisabilityPeriodDraft,
+  type DisabilityPeriodErrors,
+} from "../disabilityPeriods";
+import { FormGrid } from "../FormSection";
+
+/**
+ * "Períodos de deficiência" — os intervalos e o tempo convertido (LC 142/2013).
+ *
+ * Aparece apenas quando o benefício pretendido é aposentadoria por deficiência:
+ * é a única hipótese em que o grau e o tempo em cada grau mudam o requerimento.
+ * Em qualquer outro benefício, a seção seria um campo a mais para ignorar.
+ *
+ * Como as outras seções, é apresentacional: não chama service, não valida. Quem
+ * faz as duas coisas é a página — e é isso que permite reaproveitá-la na ficha
+ * de edição sem arrastar a orquestração do cadastro.
+ */
+
+/** `{ id, label }` do SelectField — o `id` é a chave do enum, não um índice. */
+const GRADE_OPTIONS = toSelectOptions(DisabilityGradeOptions);
+
+export type DisabilitySectionProps = {
+  periods: readonly DisabilityPeriodDraft[];
+  errors: Record<string, DisabilityPeriodErrors>;
+  /** Rótulo de sexo como a API devolve ("Feminino"/"Masculino"). */
+  gender?: string;
+  /** `YYYY-MM-DD` — o fim de um intervalo em aberto. */
+  today: string;
+  onChange: (key: string, patch: Partial<DisabilityPeriodDraft>) => void;
+  onAdd: () => void;
+  onRemove: (key: string) => void;
+};
+
+export function DisabilitySection({
+  periods,
+  errors,
+  gender,
+  today,
+  onChange,
+  onAdd,
+  onRemove,
+}: DisabilitySectionProps) {
+  const basis = basisFromGender(gender);
+  const convertible = convertibleIntervals(periods, today);
+  const conversion =
+    basis && convertible.length > 0
+      ? convertIntervals(convertible, "SEM_DEFICIENCIA", basis, today)
+      : null;
+
+  return (
+    <div className="flex flex-col gap-6">
+      {periods.map((period, index) => {
+        const fieldErrors = errors[period.key] ?? {};
+        return (
+          <div
+            key={period.key}
+            className="rounded-lg border border-light-gray p-4"
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-sm font-medium text-secondary">
+                {periods.length === 1
+                  ? "Período de deficiência"
+                  : `Período ${index + 1}`}
+              </span>
+              {periods.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => onRemove(period.key)}
+                  className="text-xs font-medium text-danger hover:underline"
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+
+            <FormGrid>
+              <SelectField
+                label="Grau da deficiência"
+                isRequired
+                options={GRADE_OPTIONS}
+                selectedKey={period.grade || null}
+                onSelectionChange={(key) =>
+                  onChange(period.key, {
+                    grade: (key ?? "") as DisabilityPeriodDraft["grade"],
+                  })
+                }
+                isInvalid={!!fieldErrors.grade}
+                errorMessage={fieldErrors.grade}
+              />
+              <DatePickerField
+                label="Data de início"
+                isRequired
+                value={period.startedOn}
+                onChange={(value) => onChange(period.key, { startedOn: value })}
+                isInvalid={!!fieldErrors.startedOn}
+                errorMessage={fieldErrors.startedOn}
+              />
+              <DatePickerField
+                label="Data de cessação"
+                value={period.ongoing ? "" : period.endedOn}
+                onChange={(value) => onChange(period.key, { endedOn: value })}
+                // Desabilitado, e não escondido: a pessoa precisa ver que o
+                // campo existe para entender o que a chave ao lado controla.
+                isDisabled={period.ongoing}
+                isInvalid={!!fieldErrors.endedOn}
+                errorMessage={fieldErrors.endedOn}
+              />
+              <SwitchField
+                className="sm:col-span-2 lg:col-span-4"
+                label="Esta deficiência se mantém até a presente data (não há data de cessação)"
+                value={period.ongoing}
+                onChange={(value) =>
+                  // Ligar a chave limpa a data: senão um intervalo "em aberto"
+                  // seguiria carregando uma cessação que a tela não mostra.
+                  onChange(period.key, {
+                    ongoing: value,
+                    ...(value ? { endedOn: "" } : {}),
+                  })
+                }
+              />
+            </FormGrid>
+          </div>
+        );
+      })}
+
+      <div>
+        <button
+          type="button"
+          onClick={onAdd}
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-secondary/50 px-3 py-1.5 text-xs font-medium text-secondary hover:bg-light-secondary"
+        >
+          <PlusIcon className="h-3.5 w-3.5" />
+          Adicionar novo intervalo de deficiência
+        </button>
+      </div>
+
+      <DisabilityConversion
+        conversion={conversion}
+        gender={gender}
+        hasBasis={!!basis}
+        hasPeriods={periods.length > 0}
+      />
+    </div>
+  );
+}
+
+/**
+ * O tempo convertido, com a conta aberta.
+ *
+ * Aberta de propósito: este número vai para dentro de um requerimento, e quem o
+ * defende precisa poder mostrar de onde saiu. Só o total obrigaria o escritório
+ * a refazer a conta à mão para conferir — e aí a tela seria um palpite a mais
+ * em vez de ferramenta.
+ */
+function DisabilityConversion({
+  conversion,
+  gender,
+  hasBasis,
+  hasPeriods,
+}: {
+  conversion: ReturnType<typeof convertIntervals> | null;
+  gender?: string;
+  hasBasis: boolean;
+  hasPeriods: boolean;
+}) {
+  if (!hasBasis) {
+    // Sem coluna na lei, não há conversão a oferecer. Dizer isso é melhor que
+    // esconder a seção: a pessoa preencheu os intervalos e precisa saber por
+    // que o total não aparece.
+    return (
+      <p className="rounded-lg bg-light-gray/50 p-3 text-sm text-gray-100">
+        {gender
+          ? `A conversão de tempo da LC 142/2013 tem tabela apenas para os sexos masculino e feminino — o deste cliente está como "${gender}". Os intervalos são gravados normalmente.`
+          : "Informe o sexo do cliente em Dados pessoais para calcular o tempo convertido."}
+      </p>
+    );
+  }
+
+  if (!conversion) {
+    return hasPeriods ? (
+      <p className="rounded-lg bg-light-gray/50 p-3 text-sm text-gray-100">
+        Preencha o grau e a data de início para ver o tempo convertido.
+      </p>
+    ) : null;
+  }
+
+  return (
+    <div className="rounded-lg bg-light-secondary/40 p-4">
+      <p className="mb-3 text-sm font-medium text-secondary">
+        Tempo convertido para a regra geral ({conversion.targetYears} anos)
+      </p>
+
+      <ul className="mb-3 flex flex-col gap-1 text-sm text-gray-100">
+        {conversion.lines.map((line, index) => (
+          <li key={index} className="flex flex-wrap items-baseline gap-x-2">
+            <span className="font-medium">
+              {getDisabilityGradeLabelByKey(line.grade)}
+            </span>
+            <span className="text-xs">({line.gradeYears} anos)</span>
+            <span>
+              {line.days} dias × {formatFactor(line.factor)} ={" "}
+              <strong>{line.convertedDays} dias</strong>
+            </span>
+          </li>
+        ))}
+      </ul>
+
+      <p className="text-base font-medium text-secondary">
+        Total: {conversion.total.label}
+        <span className="ml-2 text-xs font-normal text-gray-100">
+          ({conversion.total.totalDays} dias)
+        </span>
+      </p>
+      <p className="mt-2 text-xs text-gray-100">
+        O multiplicador é o tempo exigido no destino dividido pelo exigido na
+        origem (art. 3º da LC 142/2013). Cada intervalo converte pelo seu próprio
+        grau antes de entrar na soma. O cálculo é conferido no servidor ao salvar.
+      </p>
+    </div>
+  );
+}
