@@ -21,7 +21,19 @@ import { test, expect } from "@playwright/test";
 // Sem sessão: esta é a tela de quem ainda não entrou.
 test.use({ storageState: { cookies: [], origins: [] } });
 
-test("com 429 e Retry-After, a tela diz QUANDO tentar de novo", async ({ page }) => {
+test("com 429 e Retry-After, a tela diz QUANDO tentar de novo", async ({ page }, info) => {
+  /*
+    A origem sai do baseURL em vez de ser escrita à mão.
+
+    Estava fixa em `http://localhost:3001`. Rodando a suíte em qualquer outra
+    porta — `E2E_BASE_URL` existe justamente para isso — o navegador barrava a
+    resposta fabricada por CORS, o `Retry-After` nunca chegava ao JavaScript e o
+    teste reprovava apontando para a tela, que estava certa. Um teste que falha
+    por causa da porta em que ele mesmo roda não diz nada sobre o produto.
+  */
+  const origem = new URL(info.project.use.baseURL ?? "http://localhost:3001")
+    .origin;
+
   await page.route("**/api/v1/auth/login", (rota) =>
     rota.fulfill({
       status: 429,
@@ -32,7 +44,7 @@ test("com 429 e Retry-After, a tela diz QUANDO tentar de novo", async ({ page })
         // jeito: sem `expose-headers`, o `Retry-After` chega e some antes do
         // JavaScript. Repetir aqui o que o backend manda é o que faz este teste
         // exercitar o mesmo caminho da vida real, em vez de um caminho mais fácil.
-        "access-control-allow-origin": "http://localhost:3001",
+        "access-control-allow-origin": origem,
         "access-control-allow-credentials": "true",
         "access-control-expose-headers": "Retry-After",
       },
