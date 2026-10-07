@@ -43,11 +43,6 @@ export const RoleLabelByKey = Object.fromEntries(ROLE_ENTRIES) as Record<
   RoleLabel
 >;
 
-export const RoleOptions = ROLE_ENTRIES.map(([value, label]) => ({
-  value,
-  label,
-}));
-
 /**
  * Rótulo de exibição. Papel desconhecido volta como veio, em vez de virar
  * "—": se o backend ganhar um papel novo, a tela mostra o nome cru e alguém

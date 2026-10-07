@@ -1,7 +1,8 @@
 "use client";
 
 import React from "react";
-import { Card, SectionTitle, StatusBadge } from "./ui";
+import { Card, SectionTitle } from "@/components/ui/layout/Card";
+import { StatusBadge } from "@/components/ui/feedback/Badges";
 
 export type PendingDocumentItem = {
   id: string;

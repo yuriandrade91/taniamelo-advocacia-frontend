@@ -16,8 +16,6 @@ export type AddressTypeLabel = (typeof ADDRESS_TYPE_ENTRIES)[number][1];
 export type AddressTypeInput = AddressTypeKey | AddressTypeLabel;
 
 export const AddressTypeOptions = addressType.optionsWithId;
-export const AddressTypeLabelByKey = addressType.labelByKey;
 export const getAddressTypeKeyByLabel = addressType.getKeyByLabel;
-export const getAddressTypeLabelByKey = addressType.getLabelByKey;
 
 export { ADDRESS_TYPE_ENTRIES };

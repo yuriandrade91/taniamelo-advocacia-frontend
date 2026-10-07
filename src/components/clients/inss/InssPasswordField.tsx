@@ -1,7 +1,15 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Field } from "@/components/ui/form/Field";
+import { LoadingCircle } from "@/components/ui/feedback/Loading";
+import {
+  copiarSenha,
+  CopyIcon,
+  EyeIcon,
+  EyeOffIcon,
+  Field,
+  FIELD_ICON_BUTTON_CLASS,
+} from "@/components/ui/form/Field";
 import { usePermissoes } from "@/hooks/usePermissoes";
 import { revealInssPassword } from "@/services/clientService";
 
@@ -20,7 +28,15 @@ import { revealInssPassword } from "@/services/clientService";
  * março?", que é a pergunta pela qual ela existe.
  *
  * Revelada, reesconde sozinha depois de {@link SEGUNDOS_VISIVEL}s: senha aberta
- * numa aba esquecida é a mesma exposição que tirá-la do GET evitou.
+ * numa aba esquecida é a mesma exposição que tirá-la do GET evitou. A contagem
+ * aparece andando, e não parada em "20s": o número congelado parecia enfeite,
+ * e quem ia copiar a senha não tinha como saber se tinha quinze segundos ou
+ * um. Com ela andando, o copiar ao lado deixa de ser corrida contra o
+ * desconhecido.
+ *
+ * O copiar só existe com a senha à vista. Copiar atrás da máscara poria no
+ * clipboard um valor que ninguém conferiu — e é justamente a conferência que
+ * leva alguém a revelar a senha.
  *
  * Em edição o campo começa VAZIO e o que for digitado é a senha nova. Deixar em
  * branco mantém a que está gravada — é o contrato do backend, e é o que impede
@@ -50,6 +66,8 @@ export function InssPasswordField({
 }: Props) {
   const { podeVerSenhaDoInss } = usePermissoes();
   const [revelada, setRevelada] = useState<string | null>(null);
+  /** Instante em que a senha se esconde — a contagem lê daqui. */
+  const [prazo, setPrazo] = useState(0);
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -58,6 +76,7 @@ export function InssPasswordField({
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     setRevelada(null);
+    setPrazo(0);
   }, []);
 
   // Desmontar com a senha na tela (fechar o modal, trocar de cliente) não pode
@@ -76,6 +95,10 @@ export function InssPasswordField({
     try {
       const senha = await revealInssPassword(clientId);
       setRevelada(senha);
+      // Quem esconde é este `setTimeout`, não a contagem na tela: se o
+      // intervalo do contador for estrangulado numa aba em segundo plano, a
+      // senha sai da tela na hora certa do mesmo jeito.
+      setPrazo(Date.now() + SEGUNDOS_VISIVEL * 1000);
       timer.current = setTimeout(esconder, SEGUNDOS_VISIVEL * 1000);
     } catch (e: unknown) {
       const status = (e as { response?: { status?: number } })?.response?.status;
@@ -107,44 +130,94 @@ export function InssPasswordField({
   return (
     <div className={className} data-testid="inss-password-field">
       {/*
-        O botão fica AO LADO do campo, não embaixo. Embaixo ele encostava na
-        borda do accordion e o cabeçalho da seção seguinte cobria o clique — um
-        controle que só funciona se a pessoa rolar a tela até a posição certa.
+        Os botões ficam DENTRO do campo, à direita. Embaixo, o antigo link
+        "Revelar senha" encostava na borda do accordion e o cabeçalho da seção
+        seguinte cobria o clique — um controle que só funcionava se a pessoa
+        rolasse a tela até a posição certa. Dentro do campo eles acompanham o
+        campo onde ele estiver, e são os mesmos dois ícones do `PasswordField`.
       */}
-      <div className="flex items-end gap-2">
-        <Field
-          label='Senha "meu inss"'
-          isReadOnly
-          type="text"
-          value={revelada ?? MASCARA}
-          onChange={() => {}}
-          isInvalid={!!erro}
-          errorMessage={erro}
-          className="flex-1"
-        />
-        {podeVerSenhaDoInss && (
-          <button
-            type="button"
-            onClick={revelada ? esconder : revelar}
-            disabled={carregando}
-            data-testid="inss-password-toggle"
-            className="mb-2 shrink-0 whitespace-nowrap text-xs text-secondary underline underline-offset-2 disabled:opacity-60"
-          >
-            {carregando
-              ? "Consultando…"
-              : revelada
-                ? "Esconder"
-                : "Revelar senha"}
-          </button>
-        )}
-      </div>
-      {revelada && (
+      <Field
+        label='Senha "meu inss"'
+        isReadOnly
+        type="text"
+        value={revelada ?? MASCARA}
+        onChange={() => {}}
+        isInvalid={!!erro}
+        errorMessage={erro}
+        trailing={
+          podeVerSenhaDoInss ? (
+            <>
+              {revelada && (
+                <button
+                  type="button"
+                  onClick={() => void copiarSenha(revelada)}
+                  aria-label="Copiar senha"
+                  data-testid="inss-password-copy"
+                  className={FIELD_ICON_BUTTON_CLASS}
+                >
+                  <CopyIcon />
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={revelada ? esconder : revelar}
+                disabled={carregando}
+                aria-label={revelada ? "Esconder senha" : "Revelar senha"}
+                data-testid="inss-password-toggle"
+                className={FIELD_ICON_BUTTON_CLASS}
+              >
+                {carregando ? (
+                  <LoadingCircle size={16} label="Consultando a senha" />
+                ) : revelada ? (
+                  <EyeOffIcon />
+                ) : (
+                  <EyeIcon />
+                )}
+              </button>
+            </>
+          ) : undefined
+        }
+      />
+      {revelada && prazo > 0 && (
         // Dizer que vai sumir sozinha evita o susto de "sumiu, perdi?" e avisa
         // que o valor não fica na tela para quem passar depois.
-        <p className="mt-1 text-xs text-secondary/70">
-          Some sozinha em {SEGUNDOS_VISIVEL}s. Esta consulta ficou registrada.
-        </p>
+        <SomeEm key={prazo} prazo={prazo} />
       )}
     </div>
+  );
+}
+
+/** Quantos segundos inteiros faltam até `prazo` — nunca negativo. */
+const segundosAte = (prazo: number) =>
+  Math.ceil(Math.max(0, prazo - Date.now()) / 1000);
+
+/**
+ * O aviso de que a senha se esconde, com a contagem andando.
+ *
+ * É só apresentação (ver `revelar`), e o `prazo` é um instante absoluto, não
+ * uma duração: remontar no meio retoma de onde estava em vez de reiniciar a
+ * contagem.
+ *
+ * O tique é mais curto que um segundo porque o número vem de um
+ * arredondamento para cima: a um tique por segundo, a conta e o relógio saem
+ * de fase e o contador fica visivelmente parado num número e depois pula dois.
+ */
+const TIQUE_MS = 250;
+
+function SomeEm({ prazo }: { prazo: number }) {
+  const [segundos, setSegundos] = useState(() => segundosAte(prazo));
+
+  // Sem acerto inicial aqui: quem monta passa `key={prazo}`, então um prazo
+  // novo é um componente novo e o valor inicial já vem do próprio prazo.
+  useEffect(() => {
+    const id = setInterval(() => setSegundos(segundosAte(prazo)), TIQUE_MS);
+    return () => clearInterval(id);
+  }, [prazo]);
+
+  return (
+    <p className="mt-1 text-xs text-secondary/70">
+      Some sozinha em <span className="tabular-nums">{segundos}</span>s. Esta
+      consulta ficou registrada.
+    </p>
   );
 }

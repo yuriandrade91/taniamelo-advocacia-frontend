@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useResetOnOpen } from "@/hooks/useResetOnOpen";
+import {useState} from "react";
 import { Button, Modal, WarningIcon } from "@heroui/react";
 
 /**
@@ -53,9 +54,7 @@ export default function PrimaryAddressPicker({
   // Repõe a pré-seleção a cada abertura: reaproveitar a escolha da vez
   // anterior faria o diálogo abrir apontando para uma aba que pode nem existir
   // mais depois da remoção passada.
-  useEffect(() => {
-    if (isOpen) setSelected(options[0]?.index ?? null);
-  }, [isOpen, options]);
+  useResetOnOpen(isOpen, () => setSelected(options[0]?.index ?? null));
 
   return (
     <Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>

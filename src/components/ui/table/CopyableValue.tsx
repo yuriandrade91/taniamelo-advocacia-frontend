@@ -1,18 +1,22 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { Button, Popover } from "@heroui/react";
+import { Button } from "@heroui/react";
+import { notificationCenter } from "@/services/notificationService";
 
 /**
- * Valor de célula com botão de copiar e confirmação em popover.
+ * Valor de célula com botão de copiar — a confirmação sai em toast.
  *
- * Estava declarado dentro de `clientes/page.tsx`, mas não tem nada de
- * específico de cliente: serve para qualquer identificador que a pessoa vá
- * colar em outro lugar (CPF, NIT/PIS, nº do benefício, protocolo).
+ * Serve para qualquer identificador que a pessoa vá colar em outro lugar
+ * (CPF, NIT/PIS, nº do benefício, protocolo).
+ *
+ * ## Por que toast, e não o popover ao lado do botão
+ *
+ * O popover precisava de estado, de timer para sumir e de limpar esse timer
+ * quando a linha desmontava (trocar de página da tabela). E aparecia colado
+ * na célula, cobrindo a linha de baixo. O toast é o canal de confirmação do
+ * resto da aplicação: some sozinho, não cobre dado e não deixa estado para
+ * trás no componente — que volta a ser só apresentação.
  */
-
-/** Tempo que a confirmação "copiado" fica na tela. */
-const CONFIRMATION_MS = 1500;
 
 function CopyIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
@@ -32,6 +36,25 @@ function CopyIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
+/**
+ * Copia e avisa. Exportada para quem precisar do mesmo comportamento sem o
+ * botão desta célula.
+ *
+ * `navigator.clipboard` só existe em contexto seguro (https ou localhost): em
+ * HTTP na rede local ele falta, e antes o botão simplesmente não fazia nada.
+ * Agora a pessoa sabe que precisa copiar à mão.
+ */
+export async function copyToClipboard(label: string, value: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+    notificationCenter.success(`${label} copiado`, { description: value });
+  } catch {
+    notificationCenter.danger(`Não foi possível copiar o ${label}`, {
+      description: "O navegador bloqueou a área de transferência. Selecione e copie o valor manualmente.",
+    });
+  }
+}
+
 export type CopyableValueProps = {
   /** Nome do dado, usado no `aria-label` e na confirmação ("CPF copiado"). */
   label: string;
@@ -39,50 +62,21 @@ export type CopyableValueProps = {
 };
 
 export default function CopyableValue({ label, value }: CopyableValueProps) {
-  const [copied, setCopied] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // O timer precisa morrer com o componente: trocar de página da tabela
-  // desmonta a linha, e o `setState` cairia num componente já desmontado.
-  useEffect(
-    () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    },
-    [],
-  );
-
-  if (!value || value.trim() === "") return <>-</>;
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(value);
-    } catch {
-      // `navigator.clipboard` exige contexto seguro (https ou localhost).
-      // Em HTTP na rede local o botão simplesmente não confirma.
-      return;
-    }
-    setCopied(true);
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => setCopied(false), CONFIRMATION_MS);
-  };
+  // Mesmo traço de campo vazio do resto das listagens ("—", não "-").
+  if (!value || value.trim() === "") return <>—</>;
 
   return (
     <span className="inline-flex items-center justify-center gap-1.5">
       {value}
-      <Popover isOpen={copied} onOpenChange={setCopied}>
-        <Button
-          isIconOnly
-          variant="ghost"
-          aria-label={`Copiar ${label} ${value}`}
-          onPress={handleCopy}
-          className="h-5 w-5 min-w-5 shrink-0 text-gray-100/60 hover:text-secondary"
-        >
-          <CopyIcon />
-        </Button>
-        <Popover.Content placement="bottom">
-          <span className="px-1 text-sm">{label} copiado</span>
-        </Popover.Content>
-      </Popover>
+      <Button
+        isIconOnly
+        variant="ghost"
+        aria-label={`Copiar ${label} ${value}`}
+        onPress={() => void copyToClipboard(label, value)}
+        className="h-5 w-5 min-w-5 shrink-0 text-gray-100/60 hover:text-secondary"
+      >
+        <CopyIcon />
+      </Button>
     </span>
   );
 }

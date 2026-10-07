@@ -1,47 +1,69 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Button, Pagination } from "@heroui/react";
+import dynamic from "next/dynamic";
+import { Button } from "@heroui/react";
 
-import {
-  PaymentsFilters,
-  EMPTY_FILTERS,
-  type PaymentsFiltersValue,
-} from "@/components/payments/PaymentsFilters";
-import { PaymentsSummary } from "@/components/payments/PaymentsSummary";
 import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { SemAcessoFinanceiro } from "@/components/ui/feedback/SemAcessoFinanceiro";
-import { usePermissoes } from "@/hooks/usePermissoes";
-import { PaymentsTable } from "@/components/payments/PaymentsTable";
-import { RegisterReceiptModal } from "@/components/payments/RegisterReceiptModal";
-import { EditPaymentModal } from "@/components/payments/EditPaymentModal";
+import { TablePagination } from "@/components/ui/table/TablePagination";
 import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import type { PaymentDetailsTarget } from "@/components/payments/PaymentDetailsDrawer";
+import { PaymentsBoard } from "@/components/payments/list/PaymentsBoard";
+import type { PaymentsLoadState } from "@/components/payments/list/types";
+import { paymentFilters } from "@/components/payments/paymentFilters";
+import {
+  bucketQuery,
+  type PaymentBucket,
+} from "@/components/payments/paymentBuckets";
+import { editWarning } from "@/components/payments/editWarning";
+import { useEditConfirmation } from "@/components/payments/useEditConfirmation";
+import { invalidateInstallmentTrail } from "@/components/payments/installmentTrail";
+import { useFilters } from "@/hooks/useFilters";
+import { usePagedList } from "@/hooks/usePagedList";
+import { usePermissoes } from "@/hooks/usePermissoes";
+import { todayIso } from "@/lib/period";
 import { deletePayment } from "@/services/clientPaymentService";
-import { BenefitPaymentModal } from "@/components/payments/BenefitPaymentModal";
-import {
-  ELLIPSIS,
-  buildPageList,
-  clampPage,
-  pageRange,
-} from "@/lib/pagination";
-import {
-  getOfficePaymentSummary,
-  getOfficePaymentTimeline,
-  listOfficePayments,
-} from "@/services/officePaymentService";
-import { PaymentsTimelineChart } from "@/components/payments/PaymentsTimelineChart";
-import { PaymentsTrendChart } from "@/components/payments/PaymentsTrendChart";
-import { currentMonth, monthRange, shiftMonth } from "@/lib/period";
-import type {
-  OfficePaymentResponse,
-  OfficePaymentSummary,
-  PaymentTimelinePoint,
-} from "@/interfaces/payment/OfficePayment.interface";
-import type {
-  PaymentMethodInput,
-  PaymentStatusInput,
-} from "@/enums/payment/Payment";
+import { listOfficePayments } from "@/services/officePaymentService";
+import type { OfficePaymentResponse } from "@/interfaces/payment/OfficePayment.interface";
+import type { PaymentMethodInput } from "@/enums/payment/Payment";
+
+/** Ficha, painel e formulários só existem depois do clique: fora do JS inicial da tela. */
+const ClientDetailsModal = dynamic(
+  () => import("@/components/clients/details/ClientDetailsModal"),
+  { ssr: false },
+);
+const PaymentDetailsDrawer = dynamic(
+  () =>
+    import("@/components/payments/PaymentDetailsDrawer").then(
+      (m) => m.PaymentDetailsDrawer,
+    ),
+  { ssr: false },
+);
+const BenefitPaymentModal = dynamic(
+  () =>
+    import("@/components/payments/BenefitPaymentModal").then(
+      (m) => m.BenefitPaymentModal,
+    ),
+  { ssr: false },
+);
+const RegisterReceiptModal = dynamic(
+  () =>
+    import("@/components/payments/RegisterReceiptModal").then(
+      (m) => m.RegisterReceiptModal,
+    ),
+  { ssr: false },
+);
+const EditPaymentModal = dynamic(
+  () =>
+    import("@/components/payments/EditPaymentModal").then(
+      (m) => m.EditPaymentModal,
+    ),
+  {
+    ssr: false,
+  },
+);
 
 /**
  * Valores que os clientes têm a receber **do INSS** — visão consolidada de
@@ -77,165 +99,92 @@ import type {
  * são 126 requisições para 125 clientes, e piora a cada cadastro.
  */
 
-const PAGE_SIZE = 10;
-const SEARCH_DEBOUNCE_MS = 400;
+/** 12 por página fecham as linhas de 2, 3 e 4 cartões. */
+const PAGE_SIZE = 12;
 
-/** Estado de carregamento que distingue "sem dado" de "sem rota". */
-type LoadState = "loading" | "ready" | "missing-endpoint" | "error";
+const statusOf = (reason: unknown) =>
+  (reason as { response?: { status?: number } })?.response?.status;
 
 export default function PaymentsPage() {
   /**
-   * D3: dinheiro é só do administrador. O backend impõe (`@RequerAdmin` na
-   * classe do `ClientPaymentController`), e sem esta guarda a tela carregava,
-   * tomava 403 em silêncio e exibia uma lista vazia — que se lê como "não há
-   * pagamentos", não como "você não tem acesso".
+   * D3: dinheiro é só do administrador. O backend impõe (`@RequerAdmin`), e
+   * sem esta guarda a tela tomava 403 em silêncio e mostrava lista vazia —
+   * que se lê como "não há pagamentos", não como "você não tem acesso".
    */
   const { podeVerFinanceiro } = usePermissoes();
-  const [filters, setFilters] = useState<PaymentsFiltersValue>(EMPTY_FILTERS);
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [pageNumber, setPageNumber] = useState(1);
+  const filters = useFilters(paymentFilters);
+  const { bucket, period, paymentMethod } = filters.values;
 
-  const [items, setItems] = useState<OfficePaymentResponse[]>([]);
-  const [summary, setSummary] = useState<OfficePaymentSummary | null>(null);
-  const [timeline, setTimeline] = useState<PaymentTimelinePoint[]>([]);
-  const [total, setTotal] = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
-  const [state, setState] = useState<LoadState>("loading");
-
-  // Busca só dispara depois que o usuário para de digitar — sem isso é uma
-  // requisição por tecla.
-  useEffect(() => {
-    const timer = setTimeout(
-      () => setDebouncedSearch(filters.searchTerm.trim()),
-      SEARCH_DEBOUNCE_MS,
+  /**
+   * Filtros → consulta. O balde vira status + corte de vencimento
+   * (`bucketQuery`); `null` quando a interseção é vazia ("Atrasado" com "vence
+   * de" no futuro): lista vazia sem perguntar ao servidor. Listas e datas só
+   * entram com valor.
+   */
+  const params = useMemo(() => {
+    const query = bucketQuery(
+      bucket as PaymentBucket | "",
+      { dueFrom: period.from || undefined, dueTo: period.to || undefined },
+      todayIso(),
     );
-    return () => clearTimeout(timer);
-  }, [filters.searchTerm]);
-
-  /**
-   * Filtros aplicados, sem o texto cru — memoizado para não refazer a busca a
-   * cada render. `dueFrom`/`dueTo`/arrays entram só quando têm valor: mandar
-   * `status=[]` na query seria filtrar por nada e o backend teria que saber
-   * ignorar.
-   */
-  const query = useMemo(
-    () => ({
-      searchTerm: debouncedSearch || undefined,
-      dueFrom: filters.dueFrom || undefined,
-      dueTo: filters.dueTo || undefined,
-      status: filters.status.length
-        ? (filters.status as PaymentStatusInput[])
-        : undefined,
-      paymentMethod: filters.paymentMethod.length
-        ? (filters.paymentMethod as PaymentMethodInput[])
-        : undefined,
-    }),
-    [
-      debouncedSearch,
-      filters.dueFrom,
-      filters.dueTo,
-      filters.status,
-      filters.paymentMethod,
-    ],
-  );
-
-  // Mudou o filtro, a página volta para a primeira: manter a 7 depois de
-  // filtrar mostraria "nenhum resultado" num conjunto que tem resultado.
-  useEffect(() => {
-    setPageNumber(1);
-  }, [query]);
-
-  /**
-   * O gráfico olha uma janela fixa de 6 meses terminando no mês atual, e não o
-   * filtro da tabela: o filtro serve para achar uma cobrança específica, o
-   * gráfico serve para ver a tendência. Amarrar os dois faria o gráfico sumir
-   * toda vez que alguém buscasse por um nome.
-   */
-  const chartRange = useMemo(() => {
-    const now = currentMonth();
+    if (query.empty) return null;
     return {
-      from: monthRange(shiftMonth(now, -5)).from,
-      to: monthRange(now).to,
+      searchTerm: filters.search || undefined,
+      paymentMethod: paymentMethod.length
+        ? (paymentMethod as PaymentMethodInput[])
+        : undefined,
+      status: query.status,
+      dueFrom: query.dueFrom,
+      dueTo: query.dueTo,
     };
-  }, []);
+  }, [filters.search, bucket, period, paymentMethod]);
 
-  /** Lançar um novo valor a receber do INSS. */
+  const list = usePagedList({
+    enabled: podeVerFinanceiro,
+    params,
+    fetchPage: (query: NonNullable<typeof params>, page) =>
+      listOfficePayments({
+        ...query,
+        pageNumber: page,
+        pageSize: PAGE_SIZE,
+      }).then((envelope) => ({
+        items: envelope?.data ?? [],
+        total: envelope?.pagination?.totalRecords ?? 0,
+        totalPages: envelope?.pagination?.totalPages ?? 0,
+      })),
+  });
+  /** 404 não é "não achei pagamento", é "a rota não existe": a tela diz isso, em vez de mentir. */
+  const state: PaymentsLoadState = list.isLoading
+    ? "loading"
+    : list.failed
+      ? statusOf(list.failureReason) === 404
+        ? "missing-endpoint"
+        : "error"
+      : "ready";
+
+  /** Depois de gravar ou excluir: a lista e as parcelas de cada acordo podem ter mudado. */
+  const reload = () => {
+    invalidateInstallmentTrail();
+    list.invalidate();
+  };
+
   const [isChargeFormOpen, setIsChargeFormOpen] = useState(false);
-  /** Parcela cujo crédito está sendo confirmado. */
   const [editTarget, setEditTarget] = useState<OfficePaymentResponse | null>(
     null,
   );
+  const [receiptTarget, setReceiptTarget] =
+    useState<OfficePaymentResponse | null>(null);
+  const [detailsTarget, setDetailsTarget] =
+    useState<PaymentDetailsTarget | null>(null);
+  const [clientTarget, setClientTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const [deleteTarget, setDeleteTarget] =
     useState<OfficePaymentResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [receiptTarget, setReceiptTarget] =
-    useState<OfficePaymentResponse | null>(null);
-
-  const load = useCallback(async () => {
-    setState("loading");
-    try {
-      const [list, totals] = await Promise.all([
-        listOfficePayments({ ...query, pageNumber, pageSize: PAGE_SIZE }),
-        getOfficePaymentSummary({
-          dueFrom: query.dueFrom,
-          dueTo: query.dueTo,
-        }),
-      ]);
-
-      setItems(list.data ?? []);
-      setTotal(list.pagination?.totalRecords ?? 0);
-      setTotalPages(list.pagination?.totalPages ?? 0);
-      setSummary(totals.data ?? null);
-
-      // Falha do gráfico não derruba a tabela: são perguntas independentes.
-      try {
-        const series = await getOfficePaymentTimeline({
-          from: chartRange.from,
-          to: chartRange.to,
-          basis: "due",
-        });
-        setTimeline(series.data ?? []);
-      } catch {
-        setTimeline([]);
-      }
-
-      setState("ready");
-    } catch (error) {
-      // 404 aqui não é "não achei pagamento" — é "a rota não existe ainda".
-      // Distinguir os dois é o que impede a tela de mentir.
-      const status = (error as { response?: { status?: number } })?.response
-        ?.status;
-      setItems([]);
-      setSummary(null);
-      setTotal(0);
-      setTotalPages(0);
-      setTimeline([]);
-      setState(status === 404 ? "missing-endpoint" : "error");
-    }
-  }, [query, pageNumber, chartRange]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  /**
-   * Sem a rota, os gráficos caem no exemplo — e o card passa a exibir o selo
-   * "dados de exemplo". A alternativa (dois retângulos vazios) não permite
-   * avaliar escala, rótulo nem legibilidade, que é o que se quer ver agora.
-   */
-  // A série vem preenchida mês a mês pelo servidor, inclusive os meses sem
-  // movimento; vazia só quando a chamada falhou. Gráfico vazio é a resposta
-  // certa nesse caso — dado de exemplo numa tela financeira acaba repetido em
-  // reunião como se fosse real.
-  const chartPoints = timeline;
-
-  const { start: rangeStart, end: rangeEnd } = pageRange(
-    pageNumber,
-    PAGE_SIZE,
-    total,
-  );
-
-  const goToPage = (next: number) => setPageNumber(clampPage(next, totalPages));
+  /** Recebido ou cancelado: confirma antes de abrir a edição. */
+  const confirmEdit = useEditConfirmation();
 
   const confirmarExclusao = async () => {
     if (!deleteTarget) return;
@@ -243,7 +192,7 @@ export default function PaymentsPage() {
     try {
       await deletePayment(deleteTarget.clientId, deleteTarget.id);
       setDeleteTarget(null);
-      await load();
+      reload();
     } catch {
       // O axiosService já mostrou o erro; o alvo fica para nova tentativa.
     } finally {
@@ -251,16 +200,15 @@ export default function PaymentsPage() {
     }
   };
 
+  if (!podeVerFinanceiro)
+    return <SemAcessoFinanceiro titulo="Pagamentos aos clientes" />;
+
   const emptyMessage =
     state === "missing-endpoint"
       ? "A lista respondeu 404 — confira se o servidor está atualizado."
       : state === "error"
         ? "Não foi possível carregar os valores. Tente novamente."
         : "Nenhum recebimento encontrado para os filtros escolhidos.";
-
-  if (!podeVerFinanceiro) {
-    return <SemAcessoFinanceiro titulo="Pagamentos aos clientes" />;
-  }
 
   return (
     <div className="flex flex-col gap-5 pb-16">
@@ -277,19 +225,21 @@ export default function PaymentsPage() {
             >
               Carteira
             </Link>
+            ; para a evolução mês a mês,{" "}
+            <Link
+              href="/relatorios"
+              className="font-medium text-secondary underline underline-offset-2"
+            >
+              Relatórios
+            </Link>
             .
           </>
         }
         actions={
-          /*
-            Lançar funciona hoje: vai para `POST /clients/{id}/payments`, que
-            existe. Quem some enquanto o agregado não sobe é a **lista** — o
-            lançamento é gravado e aparece na ficha do cliente.
-          */
           <Button
             type="button"
             variant="ghost"
-            className="on-primary-button"
+            className="on-primary-button bg-secondary"
             onPress={() => setIsChargeFormOpen(true)}
           >
             Lançar valor a receber
@@ -297,87 +247,39 @@ export default function PaymentsPage() {
         }
       />
 
-      <PaymentsSummary summary={summary} isLoading={state === "loading"} />
-
-      <section>
-        <PaymentsFilters
-          value={filters}
-          onChange={setFilters}
-          onClear={() => setFilters(EMPTY_FILTERS)}
-        />
-
-        <PaymentsTable
-          items={items}
-          isLoading={state === "loading"}
-          emptyMessage={emptyMessage}
-          onRegisterReceipt={setReceiptTarget}
-          onEdit={setEditTarget}
-          onDelete={setDeleteTarget}
-        />
-
-        {totalPages > 1 && (
-          <div className="mt-4 flex justify-end">
-            <Pagination size="sm" className="text-gray-100">
-              <Pagination.Summary className="text-sm text-gray-100">
-                {total === 0
-                  ? "Nenhum recebimento"
-                  : `${rangeStart} a ${rangeEnd} de ${total} recebimento${total === 1 ? "" : "s"}`}
-              </Pagination.Summary>
-
-              <Pagination.Content>
-                <Pagination.Item>
-                  <Pagination.Previous
-                    className="text-sm text-gray-100"
-                    isDisabled={pageNumber <= 1}
-                    onPress={() => goToPage(pageNumber - 1)}
-                  >
-                    <Pagination.PreviousIcon />
-                    Anterior
-                  </Pagination.Previous>
-                </Pagination.Item>
-
-                {buildPageList(pageNumber, totalPages).map((entry, index) =>
-                  entry === ELLIPSIS ? (
-                    <Pagination.Item key={`gap-${index}`}>
-                      <Pagination.Ellipsis className="text-sm text-gray-100" />
-                    </Pagination.Item>
-                  ) : (
-                    <Pagination.Item key={entry}>
-                      <Pagination.Link
-                        isActive={entry === pageNumber}
-                        onPress={() => goToPage(entry)}
-                        className={`text-sm ${
-                          entry === pageNumber
-                            ? "bg-gray-100 text-white"
-                            : "text-gray-100"
-                        }`}
-                      >
-                        {entry}
-                      </Pagination.Link>
-                    </Pagination.Item>
-                  ),
-                )}
-
-                <Pagination.Item>
-                  <Pagination.Next
-                    className="text-sm text-gray-100"
-                    isDisabled={pageNumber >= totalPages}
-                    onPress={() => goToPage(pageNumber + 1)}
-                  >
-                    Próxima
-                    <Pagination.NextIcon />
-                  </Pagination.Next>
-                </Pagination.Item>
-              </Pagination.Content>
-            </Pagination>
-          </div>
-        )}
-      </section>
-
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <PaymentsTimelineChart points={chartPoints} />
-        <PaymentsTrendChart points={chartPoints} />
-      </div>
+      <PaymentsBoard
+        items={list.items}
+        state={state}
+        emptyMessage={emptyMessage}
+        filters={filters}
+        pagination={
+          <TablePagination
+            pageNumber={list.page}
+            pageSize={PAGE_SIZE}
+            total={list.total}
+            totalPages={list.totalPages}
+            onPageChange={list.setPage}
+            noun={["recebimento", "recebimentos"]}
+          />
+        }
+        actions={{
+          onView: (item) =>
+            setDetailsTarget({
+              clientId: item.clientId,
+              id: item.id,
+              clientName: item.clientName,
+              descricao: item.description,
+            }),
+          onRegisterReceipt: setReceiptTarget,
+          onEdit: (item) =>
+            confirmEdit.request(editWarning(item, "recebido"), () =>
+              setEditTarget(item),
+            ),
+          onDelete: setDeleteTarget,
+          onViewClient: (item) =>
+            setClientTarget({ id: item.clientId, name: item.clientName }),
+        }}
+      />
 
       {state === "missing-endpoint" && (
         <div
@@ -388,50 +290,77 @@ export default function PaymentsPage() {
           <p className="mt-1 text-gray-100">
             <code>/api/v1/payments</code> existe desde a V18, então um 404 aqui
             é sinal de servidor desatualizado ou de proxy apontando para outro
-            lugar — não de recurso que falta. Os totais estão vazios por falta
-            de resposta, não por falta de movimento.
+            lugar — não de recurso que falta.
           </p>
         </div>
       )}
 
-      <BenefitPaymentModal
-        isOpen={isChargeFormOpen}
-        onOpenChange={setIsChargeFormOpen}
-        onSaved={() => void load()}
-      />
+      {detailsTarget && (
+        <PaymentDetailsDrawer
+          // `key`: abrir outra parcela remonta o painel, com estado limpo.
+          key={`${detailsTarget.clientId}-${detailsTarget.id}`}
+          target={detailsTarget}
+          onClose={() => setDetailsTarget(null)}
+          onSaved={reload}
+          onViewClient={() =>
+            setClientTarget({
+              id: detailsTarget.clientId,
+              name: detailsTarget.clientName,
+            })
+          }
+        />
+      )}
 
-      <RegisterReceiptModal
-        payment={receiptTarget}
-        onClose={() => setReceiptTarget(null)}
-        onSaved={() => void load()}
-      />
+      {/* Montada só com alvo; ao salvar, a lista recarrega — o nome na linha pode ter mudado. */}
+      {clientTarget && (
+        <ClientDetailsModal
+          isOpen
+          clientId={clientTarget.id}
+          clientName={clientTarget.name}
+          onClose={() => setClientTarget(null)}
+          onConfirm={reload}
+        />
+      )}
 
-      <EditPaymentModal
-        payment={editTarget}
-        onClose={() => setEditTarget(null)}
-        onSaved={() => void load()}
-      />
+      {isChargeFormOpen && (
+        <BenefitPaymentModal
+          isOpen
+          onOpenChange={setIsChargeFormOpen}
+          onSaved={reload}
+        />
+      )}
+      {receiptTarget && (
+        <RegisterReceiptModal
+          payment={receiptTarget}
+          onClose={() => setReceiptTarget(null)}
+          onSaved={reload}
+        />
+      )}
+      {editTarget && (
+        <EditPaymentModal
+          payment={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={reload}
+        />
+      )}
+      {confirmEdit.dialog}
 
-      {/* Confirmar antes, e não a janela de desfazer da agenda: a exclusão é
-          soft delete sem rota de restaurar, então um "Desfazer" depois do fato
-          só poderia falhar. */}
+      {/* Confirmar antes, e não desfazer depois: soft delete sem rota de restaurar. */}
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        onClose={() => {
-          if (!isDeleting) setDeleteTarget(null);
-        }}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
         tone="danger"
         heading="Excluir parcela?"
         confirmLabel="Excluir"
         cancelLabel="Manter"
         description={
-          deleteTarget ? (
+          deleteTarget && (
             <>
               <span className="font-medium">{deleteTarget.description}</span> de{" "}
               <span className="font-medium">{deleteTarget.clientName}</span> sai
               da lista e dos totais. Não há como restaurar por aqui.
             </>
-          ) : null
+          )
         }
         onConfirm={() => void confirmarExclusao()}
       />

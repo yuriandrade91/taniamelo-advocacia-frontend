@@ -1,3 +1,4 @@
+import { integracaoPausada } from "./apiHelper";
 import { test, expect } from "@playwright/test";
 
 /**
@@ -20,21 +21,8 @@ import { test, expect } from "@playwright/test";
  */
 
 test.describe.configure({ mode: "serial" });
-/**
- * ⏸ Em pausa enquanto a rota não está no ar.
- *
- * A tela e os componentes continuam montados — o corte é no serviço
- * (`services/integracaoPendente`), então nenhuma requisição sai e estes fluxos
- * não têm o que exercitar. O arquivo fica: é o roteiro que precisa passar no dia
- * em que a rota subir, e reescrevê-lo de memória seria pior.
- *
- * Para religar: apague o atalho no serviço e a linha `test.skip` abaixo.
- */
-test.skip(true, "integração pendente — ver services/integracaoPendente.ts");
-
-
-const cartao = (page: import("@playwright/test").Page, titulo: RegExp) =>
-  page.locator("section, div").filter({ has: page.getByRole("heading", { name: titulo }) });
+/** Sem `/users/me` neste ambiente, não há fluxo para exercitar. */
+test.skip(integracaoPausada("users-me"), "rota de perfil em pausa neste ambiente");
 
 test("o menu do usuário leva para Meus dados", async ({ page }) => {
   await page.goto("/home");
@@ -134,7 +122,7 @@ test.describe("senha", () => {
     });
 
     await page.getByLabel("Senha atual").fill("qualquer-coisa-1");
-    await page.getByLabel("Nova senha").fill("umaSenhaNova123");
+    await page.getByLabel("Nova senha", { exact: true }).fill("umaSenhaNova123");
     await page.getByLabel("Repita a nova senha").fill("outraCoisaQualquer");
     await page.getByRole("button", { name: "Alterar senha" }).click();
 
@@ -151,7 +139,7 @@ test.describe("senha", () => {
     });
 
     await page.getByLabel("Senha atual").fill("qualquer-coisa-1");
-    await page.getByLabel("Nova senha").fill("curta1");
+    await page.getByLabel("Nova senha", { exact: true }).fill("curta1");
     await page.getByLabel("Repita a nova senha").fill("curta1");
     await page.getByRole("button", { name: "Alterar senha" }).click();
 
@@ -165,7 +153,7 @@ test.describe("senha", () => {
     await page.goto("/perfil");
 
     await page.getByLabel("Senha atual").fill("essa-senha-nao-e-a-minha-1");
-    await page.getByLabel("Nova senha").fill("outraSenhaValida123");
+    await page.getByLabel("Nova senha", { exact: true }).fill("outraSenhaValida123");
     await page.getByLabel("Repita a nova senha").fill("outraSenhaValida123");
 
     const tentativa = page.waitForResponse(
@@ -182,8 +170,10 @@ test.describe("senha", () => {
 
     // A mensagem pertence à caixa que errou. Num toast no canto, a pessoa
     // adivinha qual das três está errada.
-    const campo = page.getByLabel("Senha atual");
-    const descricao = await campo.getAttribute("aria-describedby");
-    expect(descricao, "o erro deveria estar ligado ao campo").toBeTruthy();
+    // Espera o render: a resposta chega antes de o erro ser desenhado.
+    await expect(page.getByLabel("Senha atual"), "o erro deveria estar ligado ao campo").toHaveAttribute(
+      "aria-describedby",
+      /\S/,
+    );
   });
 });

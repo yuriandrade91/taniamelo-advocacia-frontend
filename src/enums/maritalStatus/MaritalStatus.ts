@@ -28,11 +28,8 @@ export const MaritalStatusOptions: {
   label: string;
 }[] = maritalStatus.optionsWithId;
 
-export const MaritalStatusLabelByKey = maritalStatus.labelByKey;
 export const getMaritalStatusKeyByLabel = maritalStatus.getKeyByLabel;
 export const getMaritalStatusLabelByKey = maritalStatus.getLabelByKey;
 
-/** @deprecated Use `MaritalStatusLabelByKey`. Mantido para compatibilidade. */
-export const MaritalStatusText = MaritalStatusLabelByKey;
 
 export { MARITAL_STATUS_ENTRIES };

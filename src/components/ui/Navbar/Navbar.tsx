@@ -47,10 +47,12 @@ import { usePermissoes } from "@/hooks/usePermissoes";
 const MENU_ITEMS = [
   { label: "Início", href: "/home" },
   { label: "Clientes", href: "/clientes" },
-  { label: "Agenda", href: "/agenda" },
-  // { label: "Documentos", href: "#documentos" },
   { label: "Pagamentos", href: "/pagamentos", somenteAdmin: true },
+  { label: "Agenda", href: "/agenda" },
   { label: "Carteira", href: "/carteira", somenteAdmin: true },
+  // Para todos: clientes e agenda são de todo mundo; a página esconde sozinha
+  // as seções de dinheiro de quem não é ADMIN.
+  { label: "Relatórios", href: "/relatorios" },
 ];
 
 /**

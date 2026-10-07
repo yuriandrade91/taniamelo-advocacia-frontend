@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { ELLIPSIS, buildPageList, clampPage, pageRange } from "./pagination";
+import {
+  ELLIPSIS,
+  buildPageList,
+  clampPage,
+  pageRange,
+  slicePage,
+} from "./pagination";
 
 describe("buildPageList", () => {
   it("lista todas as páginas quando cabem sem reticências", () => {
@@ -78,5 +84,22 @@ describe("clampPage", () => {
 
   it("devolve 1 quando não há páginas", () => {
     expect(clampPage(3, 0)).toBe(1);
+  });
+});
+
+describe("slicePage", () => {
+  const list = Array.from({ length: 23 }, (_, i) => i + 1);
+
+  it("fatia a página pedida", () => {
+    expect(slicePage(list, 2, 10)).toEqual({ current: 2, totalPages: 3, slice: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20] });
+  });
+
+  it("página fora do intervalo cai na mais próxima", () => {
+    expect(slicePage(list, 9, 10).current).toBe(3);
+    expect(slicePage(list, 0, 10).current).toBe(1);
+  });
+
+  it("lista vazia tem uma página, vazia", () => {
+    expect(slicePage([], 1, 10)).toEqual({ current: 1, totalPages: 1, slice: [] });
   });
 });

@@ -37,10 +37,18 @@ export type ProgressRingProps = {
   size?: number;
   /** Descrição para leitor de tela — o número visível é `aria-hidden`. */
   label: string;
+  /**
+   * Palavra sob a porcentagem ("completo") — o anel grande do painel lateral
+   * da ficha, onde o número sozinho no meio de um aro de 128px fica sem
+   * assunto. No tamanho do cabeçalho não entra: não caberia.
+   */
+  caption?: string;
 };
 
-export function ProgressRing({ value, size = 72, label }: ProgressRingProps) {
+export function ProgressRing({ value, size = 72, label, caption }: ProgressRingProps) {
   const percent = Math.max(0, Math.min(100, Math.round(value)));
+  // O número acompanha o aro: `text-base` dentro de 128px vira uma legenda.
+  const numberClass = size >= 96 ? "text-3xl" : size >= 80 ? "text-xl" : "text-base";
 
   return (
     <ProgressCircle.Root
@@ -63,9 +71,12 @@ export function ProgressRing({ value, size = 72, label }: ProgressRingProps) {
 
       <span
         aria-hidden="true"
-        className="absolute text-base font-semibold tabular-nums text-white"
+        className="absolute flex flex-col items-center leading-none text-white"
       >
-        {percent}%
+        <span className={`font-semibold tabular-nums ${numberClass}`}>{percent}%</span>
+        {caption && (
+          <span className="mt-1 text-[10px] tracking-wider uppercase opacity-75">{caption}</span>
+        )}
       </span>
     </ProgressCircle.Root>
   );

@@ -68,6 +68,13 @@ export type DrawerProps = {
   /** Esconde o rodapé — útil quando o drawer é só de leitura. */
   hideFooter?: boolean;
   className?: string;
+  /**
+   * Classes do **painel** (`Drawer.Dialog`) — é aqui que vai a largura.
+   * `className` cai no `Drawer.Content`, que é a camada de tela inteira que
+   * alinha o painel na borda: dar largura a ela encolhe a camada e arrasta o
+   * painel para longe da borda.
+   */
+  dialogClassName?: string;
 };
 
 export default function Drawer({
@@ -86,6 +93,7 @@ export default function Drawer({
   onRequestClose,
   hideFooter = false,
   className = "",
+  dialogClassName = "",
 }: DrawerProps) {
   /**
    * Intercepta o fechamento (backdrop, Esc, botão de fechar). Abrir passa
@@ -113,7 +121,7 @@ export default function Drawer({
     <HeroDrawer isOpen={isOpen} onOpenChange={handleOpenChange}>
       <HeroDrawer.Backdrop>
         <HeroDrawer.Content placement={placement} className={className}>
-          <HeroDrawer.Dialog>
+          <HeroDrawer.Dialog className={dialogClassName}>
             <form onSubmit={handleSubmit} className="flex h-full flex-col">
               <HeroDrawer.Header>
                 <HeroDrawer.Heading>{title}</HeroDrawer.Heading>

@@ -1,5 +1,4 @@
 import type {
-  AppointmentAction,
   AppointmentModalityInput,
   AppointmentModalityLabel,
   AppointmentStatusInput,
@@ -87,13 +86,20 @@ export interface AppointmentSummary {
   count: number;
 }
 
-/** GET /appointments/{id}/history. */
-export interface AppointmentHistory {
-  id: string;
-  action: AppointmentAction | string;
-  justification?: string | null;
-  changedAt: string;
-  changedByUserId?: string | null;
+/**
+ * GET /appointments/timeline?from=&to= — um mês da série do relatório.
+ *
+ * Diferente do `AppointmentSummary`, que conta só os pendentes: aqui entram os
+ * três status, e `totalCount` é a soma deles (derivado no backend, sempre
+ * fecha). Meses sem compromisso vêm no array, zerados.
+ */
+export interface AppointmentTimelinePoint {
+  /** `YYYY-MM`. */
+  month: string;
+  totalCount: number;
+  scheduledCount: number;
+  completedCount: number;
+  cancelledCount: number;
 }
 
 /** PATCH /appointments/{id}/cancel — justificativa obrigatória (`@NotBlank`). */

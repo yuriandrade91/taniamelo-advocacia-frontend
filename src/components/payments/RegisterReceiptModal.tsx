@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useFieldErrors } from "@/hooks/useFieldErrors";
 
 import FormModal from "@/components/ui/modals/FormModal/FormModal";
 import { DatePickerField, TextAreaField } from "@/components/ui/form/Field";
+import { FieldGrid } from "@/components/ui/form/FieldGrid";
 import { patchPayment } from "@/services/clientPaymentService";
 import { notificationCenter } from "@/services/notificationService";
 import { formatBRL, formatDateBR, formatInstallment } from "@/lib/format";
 import { todayIso } from "@/lib/period";
-import { validatePaidDate } from "@/lib/validators/validators";
+import { validatePaidDate } from "@/lib/validators";
 import type { OfficePaymentResponse } from "@/interfaces/payment/OfficePayment.interface";
 
 /**
@@ -47,30 +49,28 @@ export function RegisterReceiptModal({
 }: RegisterReceiptModalProps) {
   const [paidDate, setPaidDate] = useState("");
   const [notes, setNotes] = useState("");
-  const [revealed, setRevealed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fieldErrors = useFieldErrors({ paidDate: validatePaidDate(paidDate, true) ?? undefined });
+  const dateError = fieldErrors.errorOf("paidDate");
 
   /**
-   * Semeia a cada parcela aberta. Hoje é o padrão certo — é o caso comum — mas
-   * o campo continua editável, que é o ponto todo do modal.
+   * Semeia a cada parcela aberta (no render: o modal já abre preenchido). Hoje
+   * é o padrão certo — é o caso comum —, mas o campo continua editável.
    *
    * O PATCH não toca em `paymentMethod`: crédito do INSS cai em conta, e as
    * opções do enum (Pix, boleto, cartão) são formas de alguém pagar. Reenviar
    * o valor que já estava lá só criaria a chance de sobrescrevê-lo por engano.
    */
-  useEffect(() => {
-    if (!payment) return;
+  const [seededFor, setSeededFor] = useState<string | null>(null);
+  if ((payment?.id ?? null) !== seededFor) {
+    setSeededFor(payment?.id ?? null);
     setPaidDate(todayIso());
     setNotes("");
-    setRevealed(false);
-  }, [payment]);
-
-  const dateError = validatePaidDate(paidDate, true);
-  const errorOf = (message: string | null) => (revealed ? message ?? undefined : undefined);
+    fieldErrors.reset();
+  }
 
   const handleConfirm = async () => {
-    setRevealed(true);
-    if (!payment || dateError) return;
+    if (!fieldErrors.revealAll() || !payment) return;
 
     setIsSubmitting(true);
     try {
@@ -94,6 +94,8 @@ export function RegisterReceiptModal({
       isOpen={payment !== null}
       onOpenChange={(open) => !open && onClose()}
       title="Confirmar crédito"
+      // O rodapé em cápsula da Carteira, como as outras modais de lançamento.
+      actions="pill"
       confirmLabel="Confirmar"
       onConfirm={handleConfirm}
       isSubmitting={isSubmitting}
@@ -129,26 +131,31 @@ export function RegisterReceiptModal({
           </div>
         )}
 
-        <div>
+        {/* O resumo acima fica fora da grade: ela é só dos campos, como na
+            Carteira. Com dois campos, a modal é de uma coluna (`compact`). */}
+        <FieldGrid compact>
           <DatePickerField
             label="Data do crédito"
             value={paidDate}
-            onChange={setPaidDate}
+            onChange={(next) => {
+              setPaidDate(next);
+              fieldErrors.touch("paidDate");
+            }}
             isRequired
             isDisabled={isSubmitting}
-            isInvalid={!!errorOf(dateError)}
-            errorMessage={errorOf(dateError)}
+            isInvalid={!!dateError}
+            errorMessage={dateError}
           />
-        </div>
 
-        <TextAreaField
-          label="Observações"
-          value={notes}
-          onChange={setNotes}
-          rows={3}
-          placeholder="Nº do benefício, valor divergente do previsto..."
-          isDisabled={isSubmitting}
-        />
+          <TextAreaField
+            label="Observações"
+            value={notes}
+            onChange={setNotes}
+            rows={3}
+            placeholder="Nº do benefício, valor divergente do previsto..."
+            isDisabled={isSubmitting}
+          />
+        </FieldGrid>
       </div>
     </FormModal>
   );

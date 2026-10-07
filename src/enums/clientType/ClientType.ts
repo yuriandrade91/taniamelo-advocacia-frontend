@@ -15,8 +15,6 @@ export type ClientTypeLabel = (typeof CLIENT_TYPE_ENTRIES)[number][1];
 export type ClientTypeInput = ClientTypeKey | ClientTypeLabel;
 
 export const ClientTypeOptions = clientType.optionsWithId;
-export const ClientTypeLabelByKey = clientType.labelByKey;
 export const getClientTypeKeyByLabel = clientType.getKeyByLabel;
-export const getClientTypeLabelByKey = clientType.getLabelByKey;
 
 export { CLIENT_TYPE_ENTRIES };

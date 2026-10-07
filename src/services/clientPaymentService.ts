@@ -7,19 +7,6 @@ import type {
   ClientPaymentResponse,
 } from "@/interfaces/client/ClientSubResources.interface";
 
-/** Pagamentos — ClientPaymentController. Base: /clients/{clientId}/payments */
-
-export const listPayments = async (
-  clientId: string,
-  params?: { pageNumber?: number; pageSize?: number },
-): Promise<ApiEnvelope<ClientPaymentResponse[]>> => {
-  const { data } = await axiosInstance.get<ApiEnvelope<ClientPaymentResponse[]>>(
-    endpoints.CLIENT_PAYMENTS.LIST(clientId),
-    { params },
-  );
-  return data;
-};
-
 export const createPayment = async (
   clientId: string,
   body: ClientPaymentRequest,

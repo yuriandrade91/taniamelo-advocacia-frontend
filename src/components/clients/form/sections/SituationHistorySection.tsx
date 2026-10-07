@@ -3,6 +3,7 @@
 import { Skeleton } from "@heroui/react";
 
 import {
+  getSituationKeyByLabel,
   getSituationLabelByKey,
   type SituationKey,
 } from "@/enums/situation/Situation";
@@ -33,6 +34,12 @@ import type { ClientSituationHistory } from "@/interfaces/client/Client.interfac
  * seção passa um índice `id -> nome` em `autores`; sem índice — atendente não
  * tem acesso à rota — a linha fica sem autoria, como sempre foi. O que não
  * acontece em nenhum caso é mostrar o UUID cru.
+ *
+ * ## O desenho
+ *
+ * Uma linha do tempo: cada mudança é um nó num trilho vertical, da mais
+ * recente para a mais antiga. A atual ganha destaque (cartão creme e nó
+ * maior); as outras são linhas leves — etapa, de onde veio, quando e por quem.
  */
 
 export type SituationHistorySectionProps = {
@@ -67,16 +74,35 @@ const situationLabel = (value?: string): string => {
  * etapa mudar de cor conforme o que veio depois.
  */
 const DOT_COLOR: Record<SituationKey, string> = {
-  FORMULARIO_PREENCHIDO: "bg-gray-100/50",
-  ANALISE_DOCUMENTAL: "bg-secondary",
-  PLANEJAMENTO_EM_EXECUCAO: "bg-secondary",
-  PLANEJAMENTO_CONCLUIDO: "bg-success",
-  BENEFICIO_FUTURO: "bg-secondary",
-  BENEFICIO_CONCLUIDO: "bg-success",
+  FORMULARIO_PREENCHIDO: "bg-gray-100/50 ring-gray-100/15",
+  ANALISE_DOCUMENTAL: "bg-secondary ring-secondary/20",
+  PLANEJAMENTO_EM_EXECUCAO: "bg-secondary ring-secondary/20",
+  PLANEJAMENTO_CONCLUIDO: "bg-success ring-success/20",
+  BENEFICIO_FUTURO: "bg-secondary ring-secondary/20",
+  BENEFICIO_CONCLUIDO: "bg-success ring-success/20",
 };
 
-const dotColor = (value?: string): string =>
-  DOT_COLOR[value as SituationKey] ?? "bg-gray-100/50";
+/** A API manda o rótulo ("Benefício concluído"); a cor é pela chave. */
+const dotColor = (value?: string): string => {
+  const key = (value && getSituationKeyByLabel(value)) || (value as SituationKey);
+  return DOT_COLOR[key] ?? "bg-gray-100/50 ring-gray-100/15";
+};
+
+function PersonGlyph() {
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      aria-hidden="true"
+      className="h-3.5 w-3.5 shrink-0"
+    >
+      <circle cx="8" cy="5.5" r="2.5" />
+      <path d="M3 13.5c.8-2.3 2.7-3.5 5-3.5s4.2 1.2 5 3.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 function CalendarGlyph() {
   return (
@@ -138,54 +164,74 @@ export function SituationHistorySection({
   }
 
   return (
-    <ul className="flex flex-col gap-3.5">
+    <ol className="flex flex-col">
       {items.map((entry, index) => {
         const autor = autores[entry.changedByUserId ?? ""];
+        const isCurrent = index === 0;
+        const isLast = index === items.length - 1;
         return (
-          <li key={entry.id} className="flex flex-col gap-0.5">
-            <div className="flex items-center gap-2.5">
+          <li key={entry.id} className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-3">
+            {/* O trilho: o nó da etapa e a linha até a mudança anterior. */}
+            <div className="flex flex-col items-center">
               <span
                 aria-hidden="true"
-                className={`h-2 w-2 shrink-0 rounded-full ${dotColor(entry.currentSituation)}`}
+                className={`mt-4 shrink-0 rounded-full ring-4 ${dotColor(entry.currentSituation)} ${
+                  isCurrent ? "h-3.5 w-3.5" : "h-2.5 w-2.5"
+                }`}
               />
-              <span className="min-w-0 flex-1 truncate text-sm text-primary">
-                {situationLabel(entry.currentSituation)}
-              </span>
-              {entry.retrocesso && (
-                <span
-                  title="Esta mudança voltou uma etapa no funil."
-                  className="shrink-0 rounded-full bg-warning/15 px-1.5 py-0.5 text-[10px] text-warning"
-                >
-                  voltou
-                </span>
-              )}
-              {index === 0 && (
-                <span className="shrink-0 rounded-full bg-light-secondary px-1.5 py-0.5 text-[10px] text-secondary">
-                  atual
-                </span>
-              )}
-              <span className="flex shrink-0 items-center gap-1 text-xs whitespace-nowrap text-gray-100">
-                <CalendarGlyph />
-                {formatShortDate(entry.changedAt)}
-              </span>
+              {!isLast && <span aria-hidden="true" className="mt-1 w-px flex-1 bg-light-gray" />}
             </div>
-            {/*
-              Segunda linha só quando há o que dizer. Uma linha fixa com "—"
-              em toda entrada dobraria a altura da coluna para não informar
-              nada — e a primeira mudança de um cliente nunca tem anterior.
-            */}
-            {(entry.previousSituation || autor) && (
-              <p className="pl-[18px] text-xs text-gray-100">
-                {entry.previousSituation
-                  ? `de ${situationLabel(entry.previousSituation)}`
-                  : null}
-                {entry.previousSituation && autor ? " · " : null}
-                {autor ? `por ${autor}` : null}
+
+            <div
+              className={`mb-2 flex min-w-0 flex-col gap-1.5 rounded-2xl px-3.5 py-3 ${
+                isCurrent ? "bg-floral ring-1 ring-secondary/15" : ""
+              }`}
+            >
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span
+                  className={`min-w-0 text-sm text-primary ${isCurrent ? "font-semibold" : "font-medium"}`}
+                >
+                  {situationLabel(entry.currentSituation)}
+                </span>
+                {isCurrent && (
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-white">
+                    atual
+                  </span>
+                )}
+                {entry.retrocesso && (
+                  <span
+                    title="Esta mudança voltou uma etapa no funil."
+                    className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-warning"
+                  >
+                    voltou
+                  </span>
+                )}
+              </div>
+              {/*
+                "de …" só quando há anterior: a primeira mudança de um cliente
+                nunca tem, e uma linha fixa com "—" não informaria nada.
+              */}
+              {entry.previousSituation && (
+                <p className="text-xs text-gray-100">
+                  de {situationLabel(entry.previousSituation)}
+                </p>
+              )}
+              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-100/80">
+                <span className="flex items-center gap-1 whitespace-nowrap">
+                  <CalendarGlyph />
+                  {formatShortDate(entry.changedAt)}
+                </span>
+                {autor && (
+                  <span className="flex min-w-0 items-center gap-1">
+                    <PersonGlyph />
+                    <span className="truncate">por {autor}</span>
+                  </span>
+                )}
               </p>
-            )}
+            </div>
           </li>
         );
       })}
-    </ul>
+    </ol>
   );
 }

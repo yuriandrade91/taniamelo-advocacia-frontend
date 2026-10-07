@@ -23,7 +23,10 @@
 
 import { parseAmountBRL } from "@/lib/format";
 import { todayIso } from "@/lib/period";
-import { validatePaidDate } from "@/lib/validators/validators";
+import { validatePaidDate } from "@/lib/validators";
+// A regra do par parcela/total é a mesma aqui e na Carteira — e é a regra dos
+// dois campos, não da tela. Estava escrita duas vezes, palavra por palavra.
+import { validateInstallment } from "@/components/wallet/entryForms";
 import type {
   ClientPaymentRequest,
   ClientPaymentUpdateRequest,
@@ -104,32 +107,6 @@ export function validateBenefitPayment(
   if (received) errors.receivedDate = received;
 
   return errors;
-}
-
-/**
- * Parcela: os dois campos andam juntos ou nenhum. Atrasados costumam vir
- * parcelados, e `3/2` é o erro que passa despercebido — parece plausível na
- * tabela.
- */
-export function validateInstallment(
-  current: string,
-  total: string,
-): string | null {
-  const hasCurrent = current.trim() !== "";
-  const hasTotal = total.trim() !== "";
-  if (!hasCurrent && !hasTotal) return null;
-  if (!hasCurrent || !hasTotal) return "Preencha parcela e total.";
-
-  const currentNumber = Number(current);
-  const totalNumber = Number(total);
-  if (!Number.isInteger(currentNumber) || !Number.isInteger(totalNumber)) {
-    return "Use números inteiros.";
-  }
-  if (currentNumber < 1 || totalNumber < 1) return "A parcela começa em 1.";
-  if (currentNumber > totalNumber) {
-    return "A parcela não pode ser maior que o total.";
-  }
-  return null;
 }
 
 export const hasErrors = (errors: object): boolean =>

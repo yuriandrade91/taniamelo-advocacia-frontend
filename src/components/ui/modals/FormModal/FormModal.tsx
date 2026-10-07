@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Button, Modal } from "@heroui/react";
+import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 
 /**
  * Modal de formulário.
@@ -60,6 +61,14 @@ export type FormModalProps = {
   onRequestClose?: () => void;
 
   hideFooter?: boolean;
+  /**
+   * O rodapé em cápsula (`ActionGroup`), o modelo de botões do painel de
+   * detalhes. É o que as modais de lançamento usam — Carteira, Pagamentos e
+   * Agenda. O padrão continua sendo os botões do HeroUI, para as modais que
+   * não são formulário de lançamento (decisão de conflito, formulários
+   * pendentes) não mudarem sem que ninguém tenha pedido.
+   */
+  actions?: "buttons" | "pill";
   className?: string;
 };
 
@@ -84,6 +93,7 @@ export default function FormModal({
   confirmClose = false,
   onRequestClose,
   hideFooter = false,
+  actions = "buttons",
   className = "",
 }: FormModalProps) {
   const handleOpenChange = (open: boolean) => {
@@ -137,20 +147,43 @@ export default function FormModal({
 
               {!hideFooter && (
                 <Modal.Footer className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onPress={() => handleOpenChange(false)}
-                    isDisabled={isSubmitting}
-                  >
-                    {cancelLabel}
-                  </Button>
-                  <Button
-                    type="submit"
-                    isDisabled={isConfirmDisabled || isSubmitting}
-                  >
-                    {isSubmitting ? "Salvando..." : confirmLabel}
-                  </Button>
+                  {actions === "pill" ? (
+                    // Sair à esquerda, em cinza, e a ação principal em azul,
+                    // dentro do mesmo grupo.
+                    <ActionGroup shape="pill">
+                      <ActionButton
+                        tone="neutral"
+                        onClick={() => handleOpenChange(false)}
+                        disabled={isSubmitting}
+                      >
+                        {cancelLabel}
+                      </ActionButton>
+                      <ActionButton
+                        tone="primary"
+                        isSubmit
+                        disabled={isConfirmDisabled || isSubmitting}
+                      >
+                        {isSubmitting ? "Salvando..." : confirmLabel}
+                      </ActionButton>
+                    </ActionGroup>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onPress={() => handleOpenChange(false)}
+                        isDisabled={isSubmitting}
+                      >
+                        {cancelLabel}
+                      </Button>
+                      <Button
+                        type="submit"
+                        isDisabled={isConfirmDisabled || isSubmitting}
+                      >
+                        {isSubmitting ? "Salvando..." : confirmLabel}
+                      </Button>
+                    </>
+                  )}
                 </Modal.Footer>
               )}
             </form>

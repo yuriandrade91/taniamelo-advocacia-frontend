@@ -56,16 +56,6 @@ export const createAddresses = async (
   return data;
 };
 
-export const getAddress = async (
-  clientId: string,
-  addressId: string,
-): Promise<ApiEnvelope<ClientAddressResponse>> => {
-  const { data } = await axiosInstance.get<ApiEnvelope<ClientAddressResponse>>(
-    endpoints.CLIENT_ADDRESSES.BY_ID(clientId, addressId),
-  );
-  return data;
-};
-
 export const updateAddress = async (
   clientId: string,
   addressId: string,

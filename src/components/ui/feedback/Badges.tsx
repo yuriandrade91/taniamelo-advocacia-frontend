@@ -30,10 +30,13 @@ export function DeltaBadge({ value }: { value: number }) {
   );
 }
 
-export type BadgeTone = "danger" | "success" | "neutral";
+export type BadgeTone = "danger" | "warning" | "success" | "neutral";
 
 const TONE_CLASSES: Record<BadgeTone, string> = {
   danger: "bg-danger/10 text-danger",
+  // Previsto: ainda dentro do prazo. Cor no token `previsto` (globals.css),
+  // com o mesmo tom a 10% no fundo.
+  warning: "bg-previsto/10 text-previsto",
   success: "bg-light-green text-[#238C26]",
   neutral: "bg-light-gray text-gray-100/70",
 };

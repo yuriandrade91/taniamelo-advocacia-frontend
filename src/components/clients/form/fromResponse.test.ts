@@ -88,10 +88,35 @@ describe("campos ausentes", () => {
 describe("dados profissionais", () => {
   it("lê do ClientDetails quando o sub-recurso não foi buscado", () => {
     const values = toProfessionalValues(
-      client({ profession: "Costureira", nitPis: "123" }),
+      client({ profession: "Costureira", nitPis: "12345678901" }),
     );
     expect(values.profession).toBe("Costureira");
-    expect(values.nitPis).toBe("123");
+    expect(values.nitPis).toBe("123.45678.90-1");
+  });
+
+  it("CTPS não é mascarada na carga: a máscara corta no 8º dígito", () => {
+    // Registro antigo com número, série e UF no mesmo campo chega inteiro — a
+    // ficha abre o que está gravado, não uma versão truncada dele.
+    const values = toProfessionalValues(client({ ctps: "1234567/00123 MG" }));
+    expect(values.ctps).toBe("1234567/00123 MG");
+  });
+});
+
+describe("máscaras na carga", () => {
+  it("o que vem cru da API abre com a máscara do campo", () => {
+    const values = toPersonalValues(
+      client({ cpf: "48670715791", rg: "123456789", mobilePhone: "31999990000" }),
+    );
+    expect(values.cpf).toBe("486.707.157-91");
+    expect(values.rg).toBe("12.345.678-9");
+    expect(values.mobilePhone).toBe("(31) 99999-0000");
+  });
+
+  it("telefone gravado com DDI fica como está", () => {
+    // `+5531999990000` é aceito pelo backend; a máscara brasileira o leria
+    // como DDD 55 e gravaria de volta um telefone que ninguém digitou.
+    const values = toPersonalValues(client({ mobilePhone: "+5531999990000" }));
+    expect(values.mobilePhone).toBe("+5531999990000");
   });
 });
 

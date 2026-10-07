@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 
 /**
  * A seção "Períodos de deficiência" do cadastro, de ponta a ponta.
@@ -10,29 +10,82 @@ import { test, expect } from "@playwright/test";
  * chegam ao banco pelo salvamento único.
  */
 
-const CPF_BASE = Date.now().toString().slice(-9);
-const cpf = `${CPF_BASE.slice(0, 3)}.${CPF_BASE.slice(3, 6)}.${CPF_BASE.slice(6, 9)}-00`;
-const NOME = `Teste Deficiência ${CPF_BASE}`;
-
 test.describe.configure({ mode: "serial" });
+
+const abaDeficiencia = (page: Page) =>
+  page.getByRole("tab", { name: /^Períodos de deficiência \(/ });
+
+const perguntaSexo = (page: Page) =>
+  page.getByRole("dialog", { name: /Qual o sexo do cliente/i });
+
+/**
+ * Escolhe a aposentadoria por deficiência e responde a pergunta de sexo que
+ * ela abre — com `sexo`, ou "Agora não" quando omitido.
+ */
+async function escolherBeneficioDeficiencia(
+  page: Page,
+  sexo?: "Feminino" | "Masculino",
+) {
+  await page.getByLabel("Benefício pretendido").click();
+  await page.getByRole("option", { name: "Aposentadoria por deficiência" }).click();
+  const pergunta = perguntaSexo(page);
+  await expect(pergunta).toBeVisible();
+  await pergunta
+    .getByRole("button", { name: sexo ? new RegExp(`^${sexo}`) : "Agora não" })
+    .click();
+  await expect(pergunta).toBeHidden();
+}
 
 test("a seção só aparece quando o benefício é por deficiência", async ({ page }) => {
   await page.goto("/clientes/novo", { waitUntil: "networkidle" });
 
-  const secao = page.getByRole("button", { name: /Períodos de deficiência/i });
-  await expect(secao).toHaveCount(0);
+  await expect(abaDeficiencia(page)).toHaveCount(0);
+  await escolherBeneficioDeficiencia(page);
+  await expect(abaDeficiencia(page)).toBeVisible();
+});
 
+test("escolher o benefício por deficiência pergunta o sexo e marca em Dados pessoais", async ({ page }) => {
+  await page.goto("/clientes/novo", { waitUntil: "networkidle" });
+
+  await escolherBeneficioDeficiencia(page, "Masculino");
+
+  await page.getByRole("tab", { name: /^Dados pessoais \(/ }).click();
+  await expect(page.getByRole("button", { name: /Gênero/ })).toContainText(
+    "Masculino",
+  );
+});
+
+test("a pergunta só volta ao trocar de novo para deficiência, com a resposta marcada", async ({ page }) => {
+  await page.goto("/clientes/novo", { waitUntil: "networkidle" });
+  await escolherBeneficioDeficiencia(page, "Feminino");
+
+  // Outro benefício: nada a perguntar.
+  await page.getByLabel("Benefício pretendido").click();
+  await page.getByRole("option", { name: "Aposentadoria por idade" }).click();
+  // A lista some com animação; reabrir o select antes disso casa o rótulo
+  // com três elementos (gatilho, popover saindo e a lista).
+  await expect(page.getByRole("listbox")).toHaveCount(0);
+  await expect(perguntaSexo(page)).toHaveCount(0);
+
+  // De volta à deficiência: pergunta de novo, já com Feminino marcado.
   await page.getByLabel("Benefício pretendido").click();
   await page.getByRole("option", { name: "Aposentadoria por deficiência" }).click();
+  await expect(
+    perguntaSexo(page).getByRole("button", { pressed: true }),
+  ).toContainText("Feminino");
+  await perguntaSexo(page).getByRole("button", { name: "Agora não" }).click();
 
-  await expect(secao).toBeVisible();
+  // "Agora não" não apaga o que já estava escolhido.
+  await page.getByRole("tab", { name: /^Dados pessoais \(/ }).click();
+  await expect(page.getByRole("button", { name: /Gênero/ })).toContainText(
+    "Feminino",
+  );
 });
 
 test("a chave de \"se mantém\" governa a data de cessação", async ({ page }) => {
   await page.goto("/clientes/novo", { waitUntil: "networkidle" });
-  await page.getByLabel("Benefício pretendido").click();
-  await page.getByRole("option", { name: "Aposentadoria por deficiência" }).click();
-  await page.getByRole("button", { name: /Períodos de deficiência/i }).click();
+  await escolherBeneficioDeficiencia(page);
+  await abaDeficiencia(page).click();
 
   // Começa em aberto: o campo de cessação existe, mas desabilitado — a pessoa
   // precisa VER que ele está ali para entender o que a chave ao lado controla.
@@ -59,9 +112,8 @@ test("a chave de \"se mantém\" governa a data de cessação", async ({ page }) 
 
 test("adicionar intervalo cria uma segunda linha", async ({ page }) => {
   await page.goto("/clientes/novo", { waitUntil: "networkidle" });
-  await page.getByLabel("Benefício pretendido").click();
-  await page.getByRole("option", { name: "Aposentadoria por deficiência" }).click();
-  await page.getByRole("button", { name: /Períodos de deficiência/i }).click();
+  await escolherBeneficioDeficiencia(page);
+  await abaDeficiencia(page).click();
 
   await expect(page.getByText(/^Período de deficiência$/)).toBeVisible();
   await page
@@ -75,19 +127,13 @@ test("adicionar intervalo cria uma segunda linha", async ({ page }) => {
 test("o tempo convertido aparece na tela ao preencher o intervalo", async ({ page }) => {
   await page.goto("/clientes/novo", { waitUntil: "networkidle" });
 
-  await page.getByLabel("Benefício pretendido").click();
-  await page.getByRole("option", { name: "Aposentadoria por deficiência" }).click();
+  // Sexo é o que escolhe a coluna da LC 142/2013 — respondido na pergunta
+  // que o próprio benefício abre.
+  await escolherBeneficioDeficiencia(page, "Feminino");
   await page.getByLabel("Situação").click();
   await page.getByRole("option").first().click();
 
-  // Sexo é o que escolhe a coluna da LC 142/2013. "Dados pessoais" já nasce
-  // expandida (ver `expandedKeys`) — clicar no cabeçalho a FECHARIA.
-  const genero = page.getByLabel("Gênero");
-  await genero.scrollIntoViewIfNeeded();
-  await genero.click();
-  await page.getByRole("option", { name: "Feminino" }).click();
-
-  await page.getByRole("button", { name: /Períodos de deficiência/i }).click();
+  await abaDeficiencia(page).click();
   await page.getByLabel("Grau da deficiência").click();
   await page.getByRole("option", { name: "Grave" }).click();
   await preencheData(page, "Data de início", "01/01/2010");

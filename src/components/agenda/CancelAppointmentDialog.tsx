@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useResetOnOpen } from "@/hooks/useResetOnOpen";
+import {useState} from "react";
 import { Button, Modal, WarningIcon } from "@heroui/react";
 import { TextAreaField } from "@/components/ui/form/Field";
 
@@ -34,21 +35,19 @@ export default function CancelAppointmentDialog({
   const [touched, setTouched] = useState(false);
 
   // Limpa a cada abertura: reaproveitar o texto da vez anterior gravaria a
-  // justificativa de um compromisso na trilha de outro.
-  useEffect(() => {
-    if (isOpen) {
-      setJustification("");
-      setTouched(false);
-    }
-  }, [isOpen]);
+  // justificativa de um compromisso na trilha de outro. Ajuste no render (e
+  // não num efeito): o diálogo já abre limpo, sem um quadro com o texto velho.
+  useResetOnOpen(isOpen, () => {
+    setJustification("");
+    setTouched(false);
+  });
 
   const trimmed = justification.trim();
-  const error =
-    !trimmed
-      ? "Informe a justificativa."
-      : trimmed.length < MIN_CANCEL_JUSTIFICATION_LENGTH
-        ? `A justificativa precisa ter pelo menos ${MIN_CANCEL_JUSTIFICATION_LENGTH} caracteres.`
-        : undefined;
+  const error = !trimmed
+    ? "Informe a justificativa."
+    : trimmed.length < MIN_CANCEL_JUSTIFICATION_LENGTH
+      ? `A justificativa precisa ter pelo menos ${MIN_CANCEL_JUSTIFICATION_LENGTH} caracteres.`
+      : undefined;
 
   return (
     <Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>

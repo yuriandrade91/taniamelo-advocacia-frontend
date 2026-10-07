@@ -2,7 +2,7 @@
 
 import { notificationCenter } from "@/services/notificationService";
 import { getTenantHeaderValue, clearTenant } from "@/lib/tenant";
-import { clearClientsCache } from "@/lib/clientsCache";
+import { clearSessionCaches } from "@/lib/requestCache";
 import { publicRoutes } from "@/constants/paths/routes";
 import axios from "axios";
 
@@ -39,7 +39,7 @@ function endSessionAndRedirect(): void {
   if (typeof window === "undefined") return;
   document.cookie = "token=; path=/; max-age=0";
   clearTenant();
-  clearClientsCache();
+  clearSessionCaches();
   if (window.location.pathname !== publicRoutes.login) {
     window.location.assign(publicRoutes.login);
   }

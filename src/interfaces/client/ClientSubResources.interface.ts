@@ -14,7 +14,6 @@ import type {
 } from "@/enums/maritalStatus/MaritalStatus";
 import type {
   DocumentTypeLabel,
-  DocumentTypeInput,
 } from "@/enums/documentType/DocumentType";
 import type {
   PaymentMethodLabel,
@@ -207,11 +206,6 @@ export interface ClientFileDocumentResponse {
   downloadUrl?: string;
 }
 
-export interface ClientFileDocumentUpdateRequest {
-  documentType?: DocumentTypeInput;
-  notes?: string;
-}
-
 export interface ClientFileSimulationResponse {
   id: string;
   originalFilename: string;
@@ -230,16 +224,3 @@ export interface ClientFileSimulationResponse {
   downloadUrl?: string;
 }
 
-export interface ClientFileSimulationUpdateRequest {
-  simulationDate?: string;
-  version?: string;
-  vinculos?: number;
-  isPrincipal?: boolean;
-  notes?: string;
-}
-
-/** Limites de upload do backend (spring.servlet.multipart). */
-export const UPLOAD_LIMITS = {
-  MAX_FILE_BYTES: 10 * 1024 * 1024, // 10MB por arquivo
-  MAX_REQUEST_BYTES: 60 * 1024 * 1024, // 60MB por requisição (lote)
-} as const;

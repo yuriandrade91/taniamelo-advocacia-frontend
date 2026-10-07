@@ -45,6 +45,17 @@ export const listOfficeExpenses = async (
   return data;
 };
 
+/** GET /expenses/{id} — o mesmo contrato de `getOfficeRevenue`. */
+export const getOfficeExpense = async (
+  expenseId: string,
+): Promise<ApiEnvelope<OfficeExpenseResponse>> => {
+  if (integracaoPendente("expenses")) return leituraPendente("GET /api/v1/expenses/{id}");
+  const { data } = await axiosInstance.get<ApiEnvelope<OfficeExpenseResponse>>(
+    endpoints.EXPENSES.BY_ID(expenseId),
+  );
+  return data;
+};
+
 export const getOfficeExpenseSummary = async (
   params?: Pick<
     OfficeExpenseListRequest,

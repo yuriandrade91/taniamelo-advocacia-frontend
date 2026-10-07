@@ -20,12 +20,7 @@ const documentType = createEnum(DOCUMENT_TYPE_ENTRIES);
 export type DocumentTypeKey = (typeof DOCUMENT_TYPE_ENTRIES)[number][0];
 /** Label PT-BR — valor devolvido pela API (@JsonValue). */
 export type DocumentTypeLabel = (typeof DOCUMENT_TYPE_ENTRIES)[number][1];
-/** Aceito em requisições (nome do enum OU label). */
-export type DocumentTypeInput = DocumentTypeKey | DocumentTypeLabel;
-
 export const DocumentTypeOptions = documentType.optionsWithId;
 export const DocumentTypeLabelByKey = documentType.labelByKey;
-export const getDocumentTypeKeyByLabel = documentType.getKeyByLabel;
-export const getDocumentTypeLabelByKey = documentType.getLabelByKey;
 
 export { DOCUMENT_TYPE_ENTRIES };

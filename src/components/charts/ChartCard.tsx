@@ -1,6 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Skeleton } from "@heroui/react";
+import { SectionTitle } from "@/components/ui/layout/Card";
 
 /**
  * Moldura de gráfico: título, legenda e a área de desenho.
@@ -33,6 +35,8 @@ export type ChartCardProps = {
    * quando as rotas subirem ele desaparece sozinho junto com o mock.
    */
   isSample?: boolean;
+  /** Carregando: título e legenda ficam; subtítulo e área do gráfico viram skeleton. */
+  isLoading?: boolean;
   children: ReactNode;
 };
 
@@ -44,25 +48,31 @@ export function ChartCard({
   emptyMessage = "Sem dados para o período.",
   isEmpty = false,
   isSample = false,
+  isLoading = false,
   children,
 }: ChartCardProps) {
-  const showLegend = !isEmpty && legend && legend.length >= 2;
+  const showLegend = (isLoading || !isEmpty) && legend && legend.length >= 2;
 
   return (
     <section className="rounded-2xl border border-black/5 bg-white p-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <span className="flex flex-wrap items-center gap-2">
-            <h2 className="text-[13px] font-medium text-primary">{title}</h2>
+          {/* O mesmo título dos cartões da Home (`SectionTitle`, como no
+              Balanço): os gráficos dividem a linha com a rosca, e dois
+              tamanhos de título lado a lado liam como hierarquias diferentes.
+              O sublinhado dourado vem junto. */}
+          <span className="flex flex-wrap items-start gap-2">
+            <SectionTitle>{title}</SectionTitle>
             {isSample && (
-              <span className="rounded-full bg-secondary/15 px-2 py-0.5 text-[10px] font-medium tracking-wide text-secondary uppercase">
+              <span className="mt-1 rounded-full bg-secondary/15 px-2 py-0.5 text-[10px] font-medium tracking-wide text-secondary uppercase">
                 dados de exemplo
               </span>
             )}
           </span>
-          <span className="mt-1 block h-[2px] w-8 rounded-full bg-secondary/70" />
-          {subtitle && (
-            <p className="mt-2 text-xs text-gray-100">{subtitle}</p>
+          {isLoading ? (
+            <Skeleton className="mt-2 h-3 w-48 rounded-md" />
+          ) : (
+            subtitle && <p className="mt-2 text-xs text-gray-100">{subtitle}</p>
           )}
         </div>
 
@@ -86,7 +96,9 @@ export function ChartCard({
       </header>
 
       <div className="mt-4" style={{ height }}>
-        {isEmpty ? (
+        {isLoading ? (
+          <Skeleton className="h-full w-full rounded-xl" />
+        ) : isEmpty ? (
           <div className="flex h-full items-center justify-center rounded-xl bg-page/60 text-sm text-gray-100/70">
             {emptyMessage}
           </div>

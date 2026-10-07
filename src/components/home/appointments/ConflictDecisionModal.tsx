@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button, Checkbox } from "@heroui/react";
 
 import FormModal from "@/components/ui/modals/FormModal/FormModal";
@@ -50,16 +50,16 @@ export function ConflictDecisionModal({
   onConfirm,
   isSubmitting = false,
 }: ConflictDecisionModalProps) {
-  const [selected, setSelected] = useState<string[]>([]);
-
   /**
-   * Zera a cada abertura. Sem isto, marcar um compromisso, desistir e abrir de
-   * novo traria a marcação anterior — e a segunda confirmação cancelaria algo
-   * que a pessoa não escolheu desta vez.
+   * A marcação vale para esta abertura e esta lista de conflitos: abrir de
+   * novo (ou a lista mudar) começa sem nada marcado — senão a segunda
+   * confirmação cancelaria algo que a pessoa não escolheu desta vez.
    */
-  useEffect(() => {
-    if (isOpen) setSelected([]);
-  }, [isOpen, conflicts]);
+  const session = isOpen ? conflicts.map((c) => c.id).join(",") : "";
+  const [marked, setMarked] = useState<{ session: string; ids: string[] }>({ session: "", ids: [] });
+  const selected = marked.session === session ? marked.ids : [];
+  const setSelected = (update: (current: string[]) => string[]) =>
+    setMarked({ session, ids: update(selected) });
 
   const toggle = (id: string) =>
     setSelected((current) =>

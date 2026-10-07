@@ -25,8 +25,6 @@ const grade = createEnum(DISABILITY_GRADE_ENTRIES);
 export type DisabilityGradeKey = (typeof DISABILITY_GRADE_ENTRIES)[number][0];
 /** Label PT-BR — é ESTE valor que a API devolve (`@JsonValue` no backend). */
 export type DisabilityGradeLabel = (typeof DISABILITY_GRADE_ENTRIES)[number][1];
-export type DisabilityGradeInput = DisabilityGradeKey | DisabilityGradeLabel;
-
 /**
  * Anos exigidos por grau: `[mulher, homem]`.
  *
@@ -44,13 +42,6 @@ export const REQUIRED_YEARS: Readonly<
   SEM_DEFICIENCIA: [30, 35],
 };
 
-/** Só os três que podem ser gravados num intervalo. */
-export const DISABILITY_GRADES_FOR_PERIOD = [
-  "GRAVE",
-  "MODERADA",
-  "LEVE",
-] as const satisfies readonly DisabilityGradeKey[];
-
 /**
  * Opções do select do cadastro — na ordem em que a tela pede (leve, moderada,
  * grave), que é a da deficiência menos severa para a mais severa.
@@ -61,10 +52,7 @@ export const DisabilityGradeOptions = [
   { value: "GRAVE", label: "Grave" },
 ] as const;
 
-/** Todas as quatro, incluindo a base "Sem deficiência" — para o destino da conversão. */
-export const DisabilityBasisOptions = grade.options;
 
-export const DisabilityGradeLabelByKey = grade.labelByKey;
 export const getDisabilityGradeKeyByLabel = grade.getKeyByLabel;
 export const getDisabilityGradeLabelByKey = grade.getLabelByKey;
 

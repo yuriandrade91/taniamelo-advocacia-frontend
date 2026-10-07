@@ -56,6 +56,7 @@ export interface Clients {
   mobilePhone: string;
   motherName: string;
   nitPis?: string;
+  /** Isento do serviço (sem arrecadação). A listagem também traz. */
   notBillable?: boolean;
   profession?: string;
   referencePhone?: string;
@@ -77,14 +78,3 @@ export interface Clients {
   updatedBy?: string;
 }
 
-/** Filtros da listagem — espelha os @RequestParam de GET /api/v1/clients. */
-export interface ClientFilterOptions {
-  searchTerm?: string;
-  pageNumber?: number;
-  pageSize?: number;
-  benefitType?: string[];
-  situation?: string[];
-  clientType?: string[];
-  createdFrom?: string;
-  createdTo?: string;
-}

@@ -28,16 +28,6 @@ export const createInterview = async (
   return data;
 };
 
-export const getInterview = async (
-  clientId: string,
-  interviewId: string,
-): Promise<ApiEnvelope<ClientInterviewResponse>> => {
-  const { data } = await axiosInstance.get<ApiEnvelope<ClientInterviewResponse>>(
-    endpoints.CLIENT_INTERVIEWS.BY_ID(clientId, interviewId),
-  );
-  return data;
-};
-
 export const updateInterview = async (
   clientId: string,
   interviewId: string,
@@ -50,12 +40,3 @@ export const updateInterview = async (
   return data;
 };
 
-/** DELETE — backend responde 204 sem corpo. */
-export const deleteInterview = async (
-  clientId: string,
-  interviewId: string,
-): Promise<void> => {
-  await axiosInstance.delete(
-    endpoints.CLIENT_INTERVIEWS.DELETE(clientId, interviewId),
-  );
-};

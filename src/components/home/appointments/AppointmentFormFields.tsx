@@ -1,26 +1,20 @@
 "use client";
 
 import React from "react";
-import type { CalendarDateTime } from "@internationalized/date";
+import { parseDateTime, type CalendarDateTime } from "@internationalized/date";
+import { Alert, Checkbox } from "@heroui/react";
 import {
-  Alert,
-  Calendar,
-  Checkbox,
-  ComboBox,
-  DateField,
-  DatePicker,
-  I18nProvider,
-  Input,
-  Label,
-  ListBox,
-  TextArea,
-} from "@heroui/react";
-import { Field, SelectField } from "@/components/ui/form/Field";
+  DateTimePickerField,
+  Field,
+  SelectField,
+  TextAreaField,
+} from "@/components/ui/form/Field";
+import { FieldGrid } from "@/components/ui/form/FieldGrid";
 import {
   AppointmentModalityOptions,
   AppointmentTypeOptions,
 } from "@/enums/appointment/Appointment";
-import { useClientSearch } from "@/hooks/useClientSearch";
+import { ClientSearchField } from "@/components/ui/form/ClientSearchField";
 // Mesma formatação de hora da lista da agenda — já testada em agendaGrouping.test.
 import { localTimeOf } from "@/components/agenda/agendaGrouping";
 import type {
@@ -33,6 +27,15 @@ import { isStartInPast } from "./appointmentForm";
 /**
  * Campos do compromisso. Só renderiza — validação e conversão vivem em
  * `appointmentForm.ts`, e o estado é do componente pai.
+ *
+ * O desenho é o da Carteira: os campos numa `FieldGrid`, que põe o rótulo
+ * dentro da moldura e deixa só início e término dividindo a linha. `compact`
+ * empilha tudo numa coluna, para o painel lateral da Home — dois campos lado
+ * a lado ali espremeriam os dois.
+ *
+ * Os avisos (conflito de horário, data no passado) são filhos diretos da
+ * grade ocupando a linha inteira: ficam onde pertencem, logo abaixo das
+ * datas que os provocaram, e a grade só desenha quem tem caixa de campo.
  *
  * Os campos marcados com `isRequired` são os que o backend valida
  * (`@NotBlank`/`@NotNull`), mais `justification` na edição e `clientName`
@@ -61,87 +64,13 @@ export type AppointmentFormFieldsProps = {
   /** Move o novo compromisso para depois deste conflito, mantendo a duração. */
   onShiftAfter?: (conflict: AppointmentResponse) => void;
   isDisabled?: boolean;
+  /** Uma coluna só — o painel lateral da Home. */
+  compact?: boolean;
 };
 
-/**
- * Data + hora (heroui.com/.../date-picker) — composição manual: `DateField`
- * pros segmentos editáveis inline e `Calendar` no popover pra escolher visual.
- * `granularity="minute"` faz os segmentos incluírem hora/minuto junto com a
- * data, sem precisar de um `TimeField` separado.
- */
-function AppointmentDateTimeField({
-  label,
-  value,
-  onChange,
-  isDisabled,
-  isInvalid,
-  errorMessage,
-}: {
-  label: string;
-  value: CalendarDateTime | null;
-  onChange: (value: CalendarDateTime | null) => void;
-  isDisabled?: boolean;
-  isInvalid?: boolean;
-  errorMessage?: string;
-}) {
-  return (
-    <div>
-      {/* heroui.com/.../date-picker#international-calendar — `I18nProvider`
-      troca o locale só dentro dele (nomes de mês/dia, formato, 1º dia da
-      semana), sem afetar o resto do app. */}
-      <I18nProvider locale="pt-BR">
-        <DatePicker
-          value={value}
-          onChange={onChange}
-          granularity="minute"
-          hourCycle={24}
-          isDisabled={isDisabled}
-          isInvalid={isInvalid}
-          isRequired
-        >
-          <Label className="text-secondary">{label}</Label>
-          <DateField.Group fullWidth className={`form-border-style`}>
-            <DateField.Input>
-              {(segment) => <DateField.Segment segment={segment} />}
-            </DateField.Input>
-            <DateField.Suffix>
-              <DatePicker.Trigger>
-                <DatePicker.TriggerIndicator />
-              </DatePicker.Trigger>
-            </DateField.Suffix>
-          </DateField.Group>
-          <DatePicker.Popover>
-            <Calendar aria-label={label} className="text-gray-100">
-              <Calendar.Header>
-                <Calendar.Heading />
-                <Calendar.NavButton
-                  slot="previous"
-                  className="text-gray-100"
-                />
-                <Calendar.NavButton slot="next" className="text-gray-100" />
-              </Calendar.Header>
-              <Calendar.Grid>
-                <Calendar.GridHeader>
-                  {(day) => (
-                    <Calendar.HeaderCell className="text-secondary">
-                      {day}
-                    </Calendar.HeaderCell>
-                  )}
-                </Calendar.GridHeader>
-                <Calendar.GridBody>
-                  {(date) => <Calendar.Cell date={date} />}
-                </Calendar.GridBody>
-              </Calendar.Grid>
-            </Calendar>
-          </DatePicker.Popover>
-        </DatePicker>
-      </I18nProvider>
-      {isInvalid && errorMessage ? (
-        <p className="mt-1 text-sm text-danger">{errorMessage}</p>
-      ) : null}
-    </div>
-  );
-}
+/** O campo guarda `CalendarDateTime`; o `DateTimePickerField` da casa fala texto ISO local. */
+const toText = (value: CalendarDateTime | null) => value?.toString() ?? "";
+const fromText = (text: string) => (text ? parseDateTime(text) : null);
 
 export default function AppointmentFormFields({
   values,
@@ -151,26 +80,17 @@ export default function AppointmentFormFields({
   conflicts = [],
   onShiftAfter,
   isDisabled = false,
+  compact = false,
 }: AppointmentFormFieldsProps) {
   const showPastWarning = isStartInPast(values);
   // Modalidade online é a única em que a URL da reunião faz sentido.
   const isOnline = values.modality === "ONLINE";
 
-  /**
-   * Sugestões de cliente conforme digita. O I/O vive no hook — este componente
-   * continua sendo só apresentação, e o mesmo hook serve qualquer outro
-   * formulário que precise vincular um cliente.
-   */
-  const { suggestions: clientSuggestions } = useClientSearch({
-    query: values.clientName,
-    linkedClientId: values.clientId,
-    enabled: !isDisabled,
-  });
-
   return (
-    <div className="flex flex-col gap-4">
+    <FieldGrid compact={compact}>
       <Field
         label="Título"
+        className="col-span-full"
         value={values.title}
         onChange={(e) => onChange("title", e.target.value)}
         placeholder="Entrevista com Yuri Andrade"
@@ -182,6 +102,7 @@ export default function AppointmentFormFields({
 
       <SelectField
         label="Tipo"
+        className="col-span-full"
         options={AppointmentTypeOptions.map((o) => ({
           id: o.value,
           label: o.label,
@@ -196,25 +117,25 @@ export default function AppointmentFormFields({
         errorMessage={errors.type}
       />
 
-      {/* ── Início / término ── */}
-      <div className="grid grid-cols-2 gap-3 ">
-        <AppointmentDateTimeField
-          label="Início"
-          value={values.startAt}
-          onChange={(value) => onChange("startAt", value)}
-          isDisabled={isDisabled}
-          isInvalid={!!errors.startAt}
-          errorMessage={errors.startAt}
-        />
-        <AppointmentDateTimeField
-          label="Término"
-          value={values.endAt}
-          onChange={(value) => onChange("endAt", value)}
-          isDisabled={isDisabled}
-          isInvalid={!!errors.endAt}
-          errorMessage={errors.endAt}
-        />
-      </div>
+      {/* ── Início / término: o único par que divide a linha ── */}
+      <DateTimePickerField
+        label="Início"
+        isRequired
+        value={toText(values.startAt)}
+        onChange={(text) => onChange("startAt", fromText(text))}
+        isDisabled={isDisabled}
+        isInvalid={!!errors.startAt}
+        errorMessage={errors.startAt}
+      />
+      <DateTimePickerField
+        label="Término"
+        isRequired
+        value={toText(values.endAt)}
+        onChange={(text) => onChange("endAt", fromText(text))}
+        isDisabled={isDisabled}
+        isInvalid={!!errors.endAt}
+        errorMessage={errors.endAt}
+      />
 
       {/*
         Conflito de horário — dourado, não vermelho.
@@ -227,7 +148,7 @@ export default function AppointmentFormFields({
       {conflicts.length > 0 && (
         <div
           role="status"
-          className="rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3"
+          className="col-span-full rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3"
         >
           <p className="text-sm font-medium text-primary">
             {conflicts.length === 1
@@ -280,7 +201,7 @@ export default function AppointmentFormFields({
 
       {/* Data no passado: o backend recusa com 422 sem esta confirmação. */}
       {showPastWarning && (
-        <div className="flex flex-col gap-2 border-2 border-solid rounded-3xl border-danger">
+        <div className="col-span-full flex flex-col gap-2 rounded-3xl border-2 border-solid border-danger">
           <Alert status="warning">
             <Alert.Indicator className="text-danger" />
             <Alert.Content>
@@ -313,6 +234,7 @@ export default function AppointmentFormFields({
 
       <SelectField
         label="Modalidade"
+        className="col-span-full"
         options={AppointmentModalityOptions.map((o) => ({
           id: o.value,
           label: o.label,
@@ -327,6 +249,7 @@ export default function AppointmentFormFields({
       {isOnline ? (
         <Field
           label="Link da reunião"
+          className="col-span-full"
           value={values.meetingUrl}
           onChange={(e) => onChange("meetingUrl", e.target.value)}
           placeholder="https://meet.google.com/xxx-yyyy-zzz"
@@ -337,6 +260,7 @@ export default function AppointmentFormFields({
       ) : (
         <Field
           label="Local"
+          className="col-span-full"
           value={values.location}
           onChange={(e) => onChange("location", e.target.value)}
           placeholder="Escritório — sala 2"
@@ -350,88 +274,34 @@ export default function AppointmentFormFields({
         dois juntos. Digitar de novo depois de selecionado solta o vínculo
         (`clientId` volta a "") e passa a valer só o texto livre.
       */}
-      <div>
-        <ComboBox
-          aria-label="Cliente"
-          inputValue={values.clientName}
-          onInputChange={(text) => {
-            onChange("clientName", text);
-            if (values.clientId) onChange("clientId", "");
-          }}
-          selectedKey={values.clientId || null}
-          onSelectionChange={(key) => {
-            if (key == null) return;
-            const match = clientSuggestions.find((c) => c.id === String(key));
-            if (match?.id) {
-              onChange("clientId", match.id);
-              onChange("clientName", match.fullName);
-            }
-          }}
-          allowsCustomValue
-          allowsEmptyCollection
-          isRequired
-          isInvalid={!!errors.clientName}
-          isDisabled={isDisabled}
-        >
-          <Label
-            className="text-secondary"
-            isRequired
-            isInvalid={!!errors.clientName}
-          >
-            Cliente
-          </Label>
-          <ComboBox.InputGroup>
-            <Input placeholder="Nome da pessoa" className="form-border-style" />
-          </ComboBox.InputGroup>
-          <ComboBox.Popover>
-            <ListBox
-              renderEmptyState={() => (
-                <div className="px-3 py-2 text-sm text-gray-100/60">
-                  Nenhum cliente cadastrado com esse nome.
-                </div>
-              )}
-            >
-              {clientSuggestions.map((client) => (
-                <ListBox.Item
-                  key={client.id}
-                  id={client.id ?? ""}
-                  textValue={client.fullName}
-                >
-                  {client.fullName}
-                </ListBox.Item>
-              ))}
-            </ListBox>
-          </ComboBox.Popover>
-        </ComboBox>
-        {errors.clientName ? (
-          <p className="mt-1 text-sm text-danger">{errors.clientName}</p>
-        ) : null}
-      </div>
+      <ClientSearchField
+        className="col-span-full"
+        value={{ clientId: values.clientId, clientName: values.clientName }}
+        onChange={(next) => {
+          onChange("clientName", next.clientName);
+          onChange("clientId", next.clientId);
+        }}
+        isRequired
+        isDisabled={isDisabled}
+        errorMessage={errors.clientName}
+      />
 
-      <div>
-        <label
-          htmlFor="appointment-description"
-          className="text-sm text-secondary"
-        >
-          Descrição
-        </label>
-        <TextArea
-          id="appointment-description"
-          value={values.description}
-          onChange={(e) => onChange("description", e.target.value)}
-          placeholder="Pauta, documentos necessários, observações..."
-          disabled={isDisabled}
-          rows={3}
-          className="mt-1 w-full form-border-style"
-        />
-        {errors.description ? (
-          <p className="mt-1 text-sm text-danger">{errors.description}</p>
-        ) : null}
-      </div>
+      <TextAreaField
+        label="Descrição"
+        className="col-span-full"
+        value={values.description}
+        onChange={(next) => onChange("description", next)}
+        placeholder="Pauta, documentos necessários, observações..."
+        rows={3}
+        isDisabled={isDisabled}
+        isInvalid={!!errors.description}
+        errorMessage={errors.description}
+      />
 
       {isEditing && (
         <Field
           label="Justificativa da alteração"
+          className="col-span-full"
           value={values.justification}
           onChange={(e) => onChange("justification", e.target.value)}
           placeholder="Cliente pediu para remarcar"
@@ -441,6 +311,6 @@ export default function AppointmentFormFields({
           errorMessage={errors.justification}
         />
       )}
-    </div>
+    </FieldGrid>
   );
 }

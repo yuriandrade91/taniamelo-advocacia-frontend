@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useDebouncedValue } from "./useDebouncedValue";
 import { clients as fetchClients } from "@/services/clientService";
 import type { Clients } from "@/interfaces/Clients.interface";
 
@@ -19,7 +20,6 @@ import type { Clients } from "@/interfaces/Clients.interface";
 
 /** Caracteres mínimos antes de consultar a API. */
 const MIN_QUERY_LENGTH = 2;
-const DEBOUNCE_MS = 400;
 const MAX_SUGGESTIONS = 8;
 
 export type UseClientSearchOptions = {
@@ -40,45 +40,28 @@ export function useClientSearch({
   linkedClientId,
   enabled = true,
 }: UseClientSearchOptions): UseClientSearchResult {
-  const [suggestions, setSuggestions] = useState<Clients[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [debouncedQuery, setDebouncedQuery] = useState(query);
+  const term = useDebouncedValue(query.trim());
+  const active = enabled && !linkedClientId && term.length >= MIN_QUERY_LENGTH;
+  /** A resposta marcada com o termo que a pediu: resposta de termo antigo não vale. */
+  const [result, setResult] = useState<{ term: string; suggestions: Clients[] } | null>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(query), DEBOUNCE_MS);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  useEffect(() => {
-    const term = debouncedQuery.trim();
-
-    if (!enabled || linkedClientId || term.length < MIN_QUERY_LENGTH) {
-      setSuggestions([]);
-      setIsSearching(false);
-      return;
-    }
-
-    // `active` evita que uma resposta antiga sobrescreva uma mais recente
-    // (o usuário continua digitando enquanto a requisição está em voo).
-    let active = true;
-    setIsSearching(true);
-
+    if (!active) return;
+    let alive = true;
     fetchClients({ searchTerm: term, pageNumber: 1, pageSize: MAX_SUGGESTIONS })
-      .then((envelope) => {
-        if (active) setSuggestions(envelope?.data ?? []);
-      })
-      .catch(() => {
-        // O axiosService já notificou o erro; aqui só limpamos a lista.
-        if (active) setSuggestions([]);
-      })
-      .finally(() => {
-        if (active) setIsSearching(false);
+      // O axiosService já notificou o erro; aqui a lista só fica vazia.
+      .then((envelope) => envelope?.data ?? [], () => [])
+      .then((suggestions) => {
+        if (alive) setResult({ term, suggestions });
       });
-
     return () => {
-      active = false;
+      alive = false;
     };
-  }, [debouncedQuery, linkedClientId, enabled]);
+  }, [active, term]);
 
-  return { suggestions, isSearching };
+  const isCurrent = active && result?.term === term;
+  return {
+    suggestions: isCurrent ? result.suggestions : [],
+    isSearching: active && !isCurrent,
+  };
 }

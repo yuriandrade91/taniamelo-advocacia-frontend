@@ -1,6 +1,6 @@
 import { test, expect, type Page, type APIRequestContext } from "@playwright/test";
 
-import { apiComSessaoDoNavegador, cpfValido, MARCA } from "./apiHelper";
+import { apiComSessaoDoNavegador, cpfValido, MARCA, integracaoPausada } from "./apiHelper";
 
 /**
  * Parcelas a receber, ponta a ponta: lançar, editar, confirmar o crédito e
@@ -19,18 +19,8 @@ import { apiComSessaoDoNavegador, cpfValido, MARCA } from "./apiHelper";
  */
 
 test.describe.configure({ mode: "serial" });
-/**
- * ⏸ Em pausa enquanto a rota não está no ar.
- *
- * A tela e os componentes continuam montados — o corte é no serviço
- * (`services/integracaoPendente`), então nenhuma requisição sai e estes fluxos
- * não têm o que exercitar. O arquivo fica: é o roteiro que precisa passar no dia
- * em que a rota subir, e reescrevê-lo de memória seria pior.
- *
- * Para religar: apague o atalho no serviço e a linha `test.skip` abaixo.
- */
-test.skip(true, "integração pendente — ver services/integracaoPendente.ts");
-
+/** Sem a rota consolidada de pagamentos neste ambiente, não há fluxo para exercitar. */
+test.skip(integracaoPausada("payments"), "rota de Pagamentos em pausa neste ambiente");
 
 const SELO = Date.now();
 const CLIENTE = `${MARCA} Pagador ${SELO}`;
@@ -51,6 +41,15 @@ function vencimentoDesteMes(): string[] {
   ];
 }
 
+/**
+ * Dia 1º do mês corrente — para **data de pagamento**, que não pode estar no
+ * futuro (o validador barra, como deve). Vencimento pode; pagamento não.
+ */
+function pagamentoDesteMes(): string[] {
+  const agora = new Date();
+  return ["01", String(agora.getMonth() + 1).padStart(2, "0"), String(agora.getFullYear())];
+}
+
 async function preencherData(
   page: Page,
   escopo: ReturnType<Page["getByRole"]>,
@@ -66,10 +65,14 @@ async function preencherData(
   }
 }
 
-const linha = (page: Page) =>
-  page.getByRole("row").filter({ hasText: PARCELA_EDITADA }).or(
-    page.getByRole("row").filter({ hasText: PARCELA }),
-  );
+/** O cartão da parcela (a grade é uma lista de cartões). */
+const linha = (page: Page) => page.getByRole("listitem").filter({ hasText: PARCELA }).first();
+
+/** Abre Pagamentos já buscando a parcela deste teste: a grade pagina de 12 em 12. */
+async function abrirPagamentos(page: Page) {
+  await page.goto("/pagamentos");
+  await page.getByRole("searchbox", { name: "Pesquisar recebimento" }).fill(String(SELO));
+}
 
 test.beforeAll(async () => {
   api = await apiComSessaoDoNavegador();
@@ -129,11 +132,12 @@ test("lançar uma parcela a receber", async ({ page }) => {
   // Escreveu por cliente e a lista consolidada enxerga: é a costura entre as
   // duas rotas, e é o que nenhum teste unitário alcança.
   await expect(modal).toBeHidden();
+  await page.getByRole("searchbox", { name: "Pesquisar recebimento" }).fill(String(SELO));
   await expect(linha(page)).toBeVisible();
 });
 
 test("editar a parcela manda só o que mudou", async ({ page }) => {
-  await page.goto("/pagamentos");
+  await abrirPagamentos(page);
   await linha(page).getByRole("button", { name: "Editar parcela" }).click();
 
   const modal = page.getByRole("dialog", { name: /editar parcela/i });
@@ -157,7 +161,7 @@ test("editar a parcela manda só o que mudou", async ({ page }) => {
 });
 
 test("salvar sem mudar nada não manda requisição", async ({ page }) => {
-  await page.goto("/pagamentos");
+  await abrirPagamentos(page);
   await linha(page).getByRole("button", { name: "Editar parcela" }).click();
 
   const modal = page.getByRole("dialog", { name: /editar parcela/i });
@@ -177,13 +181,13 @@ test("salvar sem mudar nada não manda requisição", async ({ page }) => {
 });
 
 test("confirmar o crédito marca a parcela como recebida", async ({ page }) => {
-  await page.goto("/pagamentos");
+  await abrirPagamentos(page);
   await linha(page)
     .getByRole("button", { name: "Registrar recebimento" })
     .click();
 
   const modal = page.getByRole("dialog", { name: /confirmar crédito/i });
-  await preencherData(page, modal, "Data do crédito", vencimentoDesteMes());
+  await preencherData(page, modal, "Data do crédito", pagamentoDesteMes());
 
   const confirmacao = page.waitForResponse(
     (r) => r.request().method() === "PATCH" && r.url().includes("/payments/"),
@@ -207,7 +211,7 @@ test("confirmar o crédito marca a parcela como recebida", async ({ page }) => {
 });
 
 test("excluir a parcela tira a linha da lista", async ({ page }) => {
-  await page.goto("/pagamentos");
+  await abrirPagamentos(page);
   await linha(page).getByRole("button", { name: "Excluir parcela" }).click();
 
   const dialogo = page.getByRole("dialog", { name: /excluir parcela/i });

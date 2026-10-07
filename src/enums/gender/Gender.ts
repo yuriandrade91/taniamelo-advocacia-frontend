@@ -19,6 +19,5 @@ export type GenderInput = GenderKey | GenderLabel;
 export const GenderOptions = gender.optionsWithId;
 export const GenderLabelByKey = gender.labelByKey;
 export const getGenderKeyByLabel = gender.getKeyByLabel;
-export const getGenderLabelByKey = gender.getLabelByKey;
 
 export { GENDER_ENTRIES };

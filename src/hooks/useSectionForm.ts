@@ -1,59 +1,76 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  initialValues,
+  rulesOf,
+  validateValues,
+  type FieldRules,
+  type SectionSchema,
+  type SectionValues,
+} from "@/components/ui/form/schema";
+
+export type { FieldRule, FieldRules } from "@/components/ui/form/schema";
 
 /**
  * Estado de uma seção de formulário: valores, erros e "campo já visitado".
  *
- * Existe para não repetir o padrão que o próprio `REVISAO_ARQUITETURA_2026`
- * aponta como problema no `AppointmentsCard`: um `useState` por campo, 25 no
- * mesmo escopo, com a validação espalhada em `if`s pela função. Aqui o estado
- * é um objeto só e **as regras são dados** — um mapa de campo → validador.
+ * Um objeto de estado e **regras como dados** (campo → validador), no lugar de
+ * um `useState` por campo com `if`s no submit. Duas formas de declarar:
  *
- * Isso também é o degrau anterior ao formulário schema-driven: quando as
- * regras já são dados, mover a definição do campo para um schema deixa de ser
- * reescrita e vira transporte.
+ * - `{ schema }` — o campo descrito uma vez (`defineSection`): valores
+ *   iniciais e regras saem dele, e `SchemaFields` desenha os campos;
+ * - `{ initial, rules }` — para estados que não são campos de tela
+ *   (endereços em lote, períodos).
+ *
+ * Os dois se somam: com `schema`, `rules` acrescenta (ou substitui) regras do
+ * schema, e `initial` admite valores que não são campos — a situação gravada
+ * de um lançamento, o id do cliente escolhido num combo. É o que permite ao
+ * formulário validar o que o schema não alcança sem sair do padrão.
  */
-
-/** Devolve a mensagem de erro ou `null`. Recebe os demais valores para regras cruzadas. */
-export type FieldRule<V> = (value: string, values: V) => string | null;
-
-export type FieldRules<V> = Partial<Record<keyof V, FieldRule<V>>>;
-
-export type SectionFormOptions<V> = {
-  initial: V;
-  rules?: FieldRules<V>;
-};
 
 /** Valores de formulário: string para inputs/selects, boolean para switches. */
 export type FormValues = Record<string, string | boolean>;
 
-export function useSectionForm<V extends FormValues>({
-  initial,
-  rules = {},
-}: SectionFormOptions<V>) {
+type Options<V> =
+  | { initial: V; rules?: FieldRules<V>; schema?: undefined }
+  | { schema: SectionSchema; initial?: V; rules?: FieldRules<V> };
+
+export function useSectionForm<
+  S extends SectionSchema,
+  V extends SectionValues<S> = SectionValues<S>,
+>(options: {
+  schema: S;
+  initial?: V;
+  rules?: FieldRules<V>;
+}): SectionForm<V>;
+export function useSectionForm<V extends FormValues>(options: {
+  initial: V;
+  rules?: FieldRules<V>;
+}): SectionForm<V>;
+export function useSectionForm<V extends FormValues>(options: Options<V>) {
+  const { schema } = options;
+  // O schema é constante de módulo: o que sai dele não muda entre renders.
+  const [initial] = useState<V>(
+    () => options.initial ?? (initialValues(schema!) as unknown as V),
+  );
+  // As do schema primeiro: `rules` acrescenta e, no mesmo campo, substitui —
+  // é como a regra que depende de outro campo (ou do dia de hoje) entra.
+  const rules: FieldRules<V> = schema
+    ? { ...(rulesOf(schema) as FieldRules<V>), ...options.rules }
+    : (options.rules ?? {});
+
   const [values, setValues] = useState<V>(initial);
   const [touched, setTouched] = useState<Partial<Record<keyof V, boolean>>>({});
   /** Erros já revelados. Um campo só mostra erro depois de visitado ou de um submit. */
   const [revealed, setRevealed] = useState(false);
 
-  /** Roda todas as regras sobre os valores atuais. Puro: não toca em estado. */
-  const errors = useMemo(() => {
-    const result: Partial<Record<keyof V, string>> = {};
-    for (const key of Object.keys(rules) as (keyof V)[]) {
-      const rule = rules[key];
-      if (!rule) continue;
-      const raw = values[key];
-      // Switches não passam por regra de texto; se precisar, a regra recebe "".
-      const message = rule(typeof raw === "string" ? raw : "", values);
-      if (message) result[key] = message;
-    }
-    return result;
-    // `rules` é redefinido a cada render no ponto de uso; comparar por
-    // identidade reexecutaria sempre. O que importa é o conteúdo de `values`.
+  const errors = useMemo(
+    () => validateValues(rules, values),
+    // `rules` é redefinido a cada render no ponto de uso; o que importa é `values`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values]);
-
+    [values],
+  );
   const isValid = Object.keys(errors).length === 0;
 
   const setField = useCallback(<K extends keyof V>(key: K, value: V[K]) => {
@@ -87,6 +104,7 @@ export function useSectionForm<V extends FormValues>({
   );
 
   return {
+    schema,
     values,
     errors,
     isValid,
@@ -99,6 +117,15 @@ export function useSectionForm<V extends FormValues>({
   };
 }
 
-export type SectionForm<V extends FormValues> = ReturnType<
-  typeof useSectionForm<V>
->;
+export type SectionForm<V extends FormValues> = {
+  schema?: SectionSchema;
+  values: V;
+  errors: Partial<Record<keyof V, string>>;
+  isValid: boolean;
+  setField: <K extends keyof V>(key: K, value: V[K]) => void;
+  setValues: Dispatch<SetStateAction<V>>;
+  touchField: (key: keyof V) => void;
+  errorOf: (key: keyof V) => string | undefined;
+  revealErrors: () => boolean;
+  reset: (next?: V) => void;
+};

@@ -21,6 +21,7 @@ const PREFIXO_POR_GRUPO: Readonly<Record<string, string>> = {
   payments: "/api/v1/payments",
   expenses: "/api/v1/expenses",
   revenues: "/api/v1/revenues",
+  cep: "/api/v1/cep",
 };
 
 const ROTAS_FORA = (process.env.NEXT_PUBLIC_INTEGRACOES_PENDENTES ?? "")
@@ -36,6 +37,7 @@ for (const tela of [
   "/agenda",
   "/pagamentos",
   "/carteira",
+  "/relatorios",
   "/perfil",
 ]) {
   test(`${tela} não chama rota fora do ar`, async ({ page }) => {

@@ -1,29 +1,36 @@
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type { Clients } from "@/interfaces/Clients.interface";
+import { createSessionCache } from "./requestCache";
 
 /**
- * Cache em memória da listagem de clientes, por combinação de filtros/página.
+ * Cache da listagem de clientes, por combinação de filtros e página.
  *
- * Evita refetch (e o flash de loading) ao paginar ou repetir uma busca já
- * vista nesta sessão. Só é limpo em logout (real ou forçado por refresh
- * falho) ou quando os dados mudam (criar/editar/excluir cliente) — sem
- * dependência de axios/authService para não criar import circular.
+ * Voltar a uma página ou repetir uma busca já vista não pede de novo (nem
+ * pisca o carregando). Limpo quando os dados mudam (criar, editar, excluir) e
+ * no logout — sem depender de axios/authService, para não criar import
+ * circular. A regra de cache é a de `createSessionCache`.
  */
-const cache = new Map<string, ApiEnvelope<Clients[]>>();
+const cache = createSessionCache<ApiEnvelope<Clients[]>>();
 
-export function getCachedClients(
-  key: string,
-): ApiEnvelope<Clients[]> | undefined {
-  return cache.get(key);
-}
+/**
+ * A listagem **inteira** (todas as páginas), para o que pergunta pelo
+ * escritório e não por uma página — hoje, os aniversariantes da Home.
+ *
+ * Cache próprio, e não uma entrada do de cima, porque o valor é de outro tipo
+ * (a lista crua, já concatenada) e a chave não é uma consulta paginada. Vive a
+ * sessão: data de nascimento não muda entre duas visitas à Home.
+ */
+const everyone = createSessionCache<Clients[]>(4);
 
-export function setCachedClients(
-  key: string,
-  envelope: ApiEnvelope<Clients[]>,
-): void {
-  cache.set(key, envelope);
-}
+export const getCachedClients = cache.peek;
+export const loadClients = cache.load;
+export const loadEveryClient = everyone.load;
 
-export function clearClientsCache(): void {
-  cache.clear();
-}
+/**
+ * Criar, editar ou excluir cliente invalida as duas: a lista inteira também
+ * ficou velha (um cliente novo pode fazer aniversário amanhã).
+ */
+export const clearClientsCache = () => {
+  cache.invalidate();
+  everyone.invalidate();
+};

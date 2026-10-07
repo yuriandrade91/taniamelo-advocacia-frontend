@@ -86,3 +86,27 @@ export function parseAmountBRL(input: string): number | null {
   const value = Number(normalized);
   return Number.isFinite(value) ? value : null;
 }
+
+/**
+ * "1 parcela", "3 parcelas" — o número **junto** com a palavra.
+ *
+ * Os kits da Home e dos Relatórios têm um `plural` homônimo que devolve só a
+ * palavra, porque lá o número aparece em outro elemento (tamanho e cor
+ * próprios). São contratos diferentes de propósito; o que decide é de onde
+ * vem o import.
+ */
+export const plural = (n: number, one: string, many: string): string =>
+  `${n} ${n === 1 ? one : many}`;
+
+const NAME_PARTICLES = new Set(["da", "de", "do", "das", "dos", "e"]);
+
+/** "Maria da Silva Souza" → "MS": primeira e última palavras, sem "da", "de", "dos"… */
+export function initials(name?: string | null, empty = "?"): string {
+  const parts = (name ?? "")
+    .trim()
+    .split(/\s+/)
+    .filter((part) => part && !NAME_PARTICLES.has(part.toLowerCase()));
+  if (parts.length === 0) return empty;
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  return `${parts[0][0]}${last}`.toUpperCase();
+}

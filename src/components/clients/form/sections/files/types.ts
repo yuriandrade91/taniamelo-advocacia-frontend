@@ -47,8 +47,40 @@ export const newStagedSimulation = (file: File): StagedSimulation => ({
 export const isDocumentReady = (item: StagedDocument) =>
   Boolean(item.documentType);
 
+
 /**
- * Simulação não tem campo obrigatório no metadado, então qualquer arquivo
- * escolhido já pode subir.
+ * No cadastro, todo campo do arquivo é obrigatório — o tipo e as observações
+ * do documento; data, versão, vínculos e observações da simulação. Só a marca
+ * de principal fica de fora (é escolha entre as simulações, não um dado de
+ * cada uma). Mais rígido que o backend de propósito: um arquivo sem contexto
+ * na ficha vira uma pergunta para o atendimento depois.
+ *
+ * Devolve só os campos com erro, como os validadores dos formulários.
  */
-export const isSimulationReady = () => true;
+export function documentErrors(
+  item: StagedDocument,
+): Partial<Record<"documentType" | "notes", string>> {
+  const errors: Partial<Record<"documentType" | "notes", string>> = {};
+  if (!item.documentType) errors.documentType = "Escolha o tipo do documento.";
+  if (!item.notes.trim()) errors.notes = "Descreva o documento.";
+  return errors;
+}
+
+export function simulationErrors(
+  item: StagedSimulation,
+): Partial<Record<"simulationDate" | "version" | "vinculos" | "notes", string>> {
+  const errors: Partial<
+    Record<"simulationDate" | "version" | "vinculos" | "notes", string>
+  > = {};
+  if (!item.simulationDate) errors.simulationDate = "Informe a data da simulação.";
+  if (!item.version.trim()) errors.version = "Informe a versão.";
+  if (!item.vinculos.trim()) errors.vinculos = "Informe os vínculos.";
+  if (!item.notes.trim()) errors.notes = "Descreva a simulação.";
+  return errors;
+}
+
+export const isDocumentComplete = (item: StagedDocument) =>
+  Object.keys(documentErrors(item)).length === 0;
+
+export const isSimulationComplete = (item: StagedSimulation) =>
+  Object.keys(simulationErrors(item)).length === 0;

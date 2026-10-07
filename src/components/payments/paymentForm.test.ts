@@ -5,7 +5,6 @@ import {
   patchVazio,
   paymentFormFrom,
   statusDaParcela,
-  temErroDeParcela,
   toPaymentPatch,
   validatePaymentForm,
   type PaymentFormValues,
@@ -42,7 +41,7 @@ describe("paymentFormFrom", () => {
       dueDate: "2026-09-10",
       isSettled: false,
       paidDate: "",
-      paymentMethod: "Pix",
+      paymentMethod: "PIX",
       notes: "conferir extrato",
       status: "Pendente",
     });
@@ -218,9 +217,3 @@ describe("toPaymentPatch", () => {
   });
 });
 
-describe("temErroDeParcela", () => {
-  it("chave com undefined não trava o botão", () => {
-    expect(temErroDeParcela({ amount: undefined })).toBe(false);
-    expect(temErroDeParcela({ amount: "inválido" })).toBe(true);
-  });
-});

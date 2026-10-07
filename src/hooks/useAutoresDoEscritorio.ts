@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 
 import { usePermissoes } from "@/hooks/usePermissoes";
 import { indexarPorId, listUsers } from "@/services/userService";
+import { createSessionCache } from "@/lib/requestCache";
 
 /**
  * Índice `id do usuário -> nome`, para a tela mostrar quem agiu.
@@ -23,29 +24,23 @@ import { indexarPorId, listUsers } from "@/services/userService";
  * precisa de viagem à rede — e o índice fica vazio, o que devolve a tela ao
  * comportamento que ela tinha antes: sem nome, sem UUID, sem erro.
  */
+/** O índice muda raramente (o front não cria usuário): uma busca por sessão. */
+const authors = createSessionCache<Record<string, string>>(1);
+
 export function useAutoresDoEscritorio(): Record<string, string> {
   const { podeListarUsuarios } = usePermissoes();
-  const [indice, setIndice] = useState<Record<string, string>>({});
+  const [indice, setIndice] = useState<Record<string, string>>(() => authors.peek("all") ?? {});
 
   useEffect(() => {
     if (!podeListarUsuarios) return;
-
-    // Evita gravar estado depois que o componente saiu da tela — abrir e
-    // fechar a ficha rápido é comum, e o aviso do React sobre isso manda
-    // procurar o problema em quem fechou, não em quem buscou.
+    // Evita gravar estado depois que a ficha fechou — abrir e fechar rápido é comum.
     let ativo = true;
-
-    void (async () => {
-      try {
-        const envelope = await listUsers({ includeInactive: true });
-        if (ativo) setIndice(indexarPorId(envelope?.data));
-      } catch {
-        // Silêncio é a resposta certa: a autoria é enfeite de uma tela que
-        // funciona sem ela. O `userService` já não mostra toast.
-        if (ativo) setIndice({});
-      }
-    })();
-
+    authors
+      .load("all", () => listUsers({ includeInactive: true }).then((envelope) => indexarPorId(envelope?.data)))
+      // Silêncio é a resposta certa: a autoria é enfeite de uma tela que funciona sem ela.
+      .then((found) => {
+        if (ativo) setIndice(found);
+      }, () => undefined);
     return () => {
       ativo = false;
     };

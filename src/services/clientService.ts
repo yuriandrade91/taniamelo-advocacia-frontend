@@ -42,6 +42,33 @@ export const clients = async (
 };
 
 /**
+ * GET /api/v1/clients — **todas** as páginas, concatenadas.
+ *
+ * Para a pergunta que é do escritório inteiro e não de uma página: hoje, os
+ * aniversariantes da Home. O backend limita `pageSize` a 100 (pedir 200
+ * devolve 100), então "todos" é um laço, não um parâmetro.
+ *
+ * `maxPages` é freio, não paginação: uma base que cresce não pode transformar
+ * a abertura da Home numa rajada de requisições. Estourando o limite devolve o
+ * que juntou — melhor uma resposta parcial do que uma tela travada.
+ *
+ * Quem chama deve guardar o resultado (`loadEveryClient`, em `clientsCache`):
+ * sem isso é uma varredura por visita.
+ */
+export const allClients = async (
+  params?: Omit<ClientListRequest, "pageNumber" | "pageSize">,
+  maxPages = 10,
+): Promise<Clients[]> => {
+  const todos: Clients[] = [];
+  for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
+    const envelope = await clients({ ...params, pageNumber, pageSize: 100 });
+    todos.push(...(envelope.data ?? []));
+    if (!envelope.pagination?.hasNextPage) break;
+  }
+  return todos;
+};
+
+/**
  * Preenche `id` a partir do `clientId` que a API manda.
  *
  * O backend renomeou o id próprio do cliente de `id` para `clientId` (commit

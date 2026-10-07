@@ -20,8 +20,7 @@ export type PaymentMethodLabel = (typeof PAYMENT_METHOD_ENTRIES)[number][1];
 export type PaymentMethodInput = PaymentMethodKey | PaymentMethodLabel;
 
 export const PaymentMethodOptions = paymentMethod.optionsWithId;
-export const PaymentMethodLabelByKey = paymentMethod.labelByKey;
-export const getPaymentMethodLabelByKey = paymentMethod.getLabelByKey;
+export const getPaymentMethodKeyByLabel = paymentMethod.getKeyByLabel;
 
 // ── Status do pagamento ──
 const PAYMENT_STATUS_ENTRIES = [
@@ -38,8 +37,6 @@ export type PaymentStatusLabel = (typeof PAYMENT_STATUS_ENTRIES)[number][1];
 /** Aceito em requisições (nome do enum OU label). */
 export type PaymentStatusInput = PaymentStatusKey | PaymentStatusLabel;
 
-export const PaymentStatusOptions = paymentStatus.optionsWithId;
 export const PaymentStatusLabelByKey = paymentStatus.labelByKey;
-export const getPaymentStatusLabelByKey = paymentStatus.getLabelByKey;
 
 export { PAYMENT_METHOD_ENTRIES, PAYMENT_STATUS_ENTRIES };

@@ -28,8 +28,6 @@ export type ExpenseCategoryLabel = (typeof EXPENSE_CATEGORY_ENTRIES)[number][1];
 export type ExpenseCategoryInput = ExpenseCategoryKey | ExpenseCategoryLabel;
 
 export const ExpenseCategoryOptions = expenseCategory.options;
-export const ExpenseCategoryLabelByKey = expenseCategory.labelByKey;
 export const getExpenseCategoryKeyByLabel = expenseCategory.getKeyByLabel;
-export const getExpenseCategoryLabelByKey = expenseCategory.getLabelByKey;
 
 export { EXPENSE_CATEGORY_ENTRIES };

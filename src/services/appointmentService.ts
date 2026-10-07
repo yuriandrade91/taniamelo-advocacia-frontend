@@ -3,11 +3,11 @@ import axiosInstance from "@/services/axiosService";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type {
   AppointmentCancelRequest,
-  AppointmentHistory,
   AppointmentListRequest,
   AppointmentRequest,
   AppointmentResponse,
   AppointmentSummary,
+  AppointmentTimelinePoint,
 } from "@/interfaces/appointment/Appointment.interface";
 
 /**
@@ -50,6 +50,21 @@ export const getAppointmentSummary = async (
 };
 
 /**
+ * GET /appointments/timeline?from=&to= — série mensal por status, para o
+ * gráfico dos Relatórios. Inclui cancelados e devolve todos os meses da
+ * janela, zerados onde não houve compromisso. Janela invertida é 422.
+ */
+export const getAppointmentTimeline = async (params: {
+  from: string;
+  to: string;
+}): Promise<ApiEnvelope<AppointmentTimelinePoint[]>> => {
+  const { data } = await axiosInstance.get<
+    ApiEnvelope<AppointmentTimelinePoint[]>
+  >(endpoints.APPOINTMENTS.TIMELINE, { params });
+  return data;
+};
+
+/**
  * GET /appointments/conflicts — compromissos agendados na mesma faixa.
  *
  * `skipErrorToast` porque isto roda **enquanto a pessoa preenche o
@@ -65,16 +80,6 @@ export const getAppointmentConflicts = async (params: {
   const { data } = await axiosInstance.get<ApiEnvelope<AppointmentResponse[]>>(
     endpoints.APPOINTMENTS.CONFLICTS,
     { params, skipErrorToast: true },
-  );
-  return data;
-};
-
-/** GET /appointments/{id}. */
-export const getAppointment = async (
-  appointmentId: string,
-): Promise<ApiEnvelope<AppointmentResponse>> => {
-  const { data } = await axiosInstance.get<ApiEnvelope<AppointmentResponse>>(
-    endpoints.APPOINTMENTS.BY_ID(appointmentId),
   );
   return data;
 };
@@ -170,14 +175,3 @@ export const deleteAppointment = async (
   });
 };
 
-/** GET /appointments/{id}/history — paginado, mais recente primeiro. */
-export const listAppointmentHistory = async (
-  appointmentId: string,
-  params?: { pageNumber?: number; pageSize?: number },
-): Promise<ApiEnvelope<AppointmentHistory[]>> => {
-  const { data } = await axiosInstance.get<ApiEnvelope<AppointmentHistory[]>>(
-    endpoints.APPOINTMENTS.HISTORY(appointmentId),
-    { params },
-  );
-  return data;
-};

@@ -62,12 +62,15 @@ export function AmountField({
       <div className="relative">
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-100/60"
+          // `amount-field__prefix`/`__input`: âncoras de `formFields.css`,
+          // que desce o "R$" para a linha do valor quando o rótulo entra na
+          // caixa.
+          className="amount-field__prefix pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-gray-100/60"
         >
           R$
         </span>
         <Input
-          className="form-border-style w-full pl-10"
+          className="amount-field__input form-border-style w-full pl-10"
           placeholder={placeholder}
           value={value}
           onChange={(event) => onChange(event.target.value)}

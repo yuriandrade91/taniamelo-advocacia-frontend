@@ -10,7 +10,7 @@ import { apiComSessaoDoNavegador, cpfValido, MARCA } from "./apiHelper";
  * encontrável, editável pela tela, e a exclusão o tira da lista de verdade —
  * não só da renderização.
  *
- * A diferença importa. "Sumiu da tabela" é fácil de conseguir por acidente: um
+ * A diferença importa. "Sumiu da lista" é fácil de conseguir por acidente: um
  * filtro que casou, uma lista otimista que removeu a linha sem esperar a
  * resposta. Por isso a exclusão é conferida recarregando e buscando de novo.
  */
@@ -25,20 +25,20 @@ let api: APIRequestContext | null = null;
 let clienteId = "";
 
 const linha = (page: Page, texto: string) =>
-  page.getByRole("row").filter({ hasText: texto });
+  page.getByRole("list", { name: "Clientes" }).getByRole("listitem").filter({ hasText: texto });
 
 async function buscar(page: Page, termo: string) {
   await page.goto("/clientes");
-  await page.getByPlaceholder("Pesquisar beneficiário...").fill(termo);
+  await page.getByRole("searchbox", { name: "Pesquisar beneficiário" }).fill(termo);
 }
 
+/**
+ * O cadastro é em abas: só a aba ativa está montada. O nome acessível da aba
+ * é "Título (estado)" — daí o `^`, que não deixa "Endereço" casar com outra
+ * coisa. Clicar na aba já ativa não muda nada.
+ */
 async function abrirSecao(page: Page, titulo: string) {
-  const cabecalho = page
-    .getByRole("button", { name: titulo, exact: false })
-    .first();
-  if ((await cabecalho.getAttribute("aria-expanded")) === "false") {
-    await cabecalho.click();
-  }
+  await page.getByRole("tab", { name: new RegExp(`^${titulo} \\(`) }).click();
 }
 
 async function escolher(page: Page, rotulo: string, opcao: string) {
@@ -155,7 +155,7 @@ test("excluir pela lista, com confirmação que nomeia o cliente", async ({
   // detalhe de contrato que não é o que se está verificando.
   expect((await exclusao).ok()).toBe(true);
 
-  // Buscar de novo, do zero. "Sumiu da tabela" também acontece por filtro que
+  // Buscar de novo, do zero. "Sumiu da lista" também acontece por filtro que
   // casou ou por remoção otimista antes da resposta.
   //
   // A exclusão é lógica no banco e o registro fica para auditoria, mas isso

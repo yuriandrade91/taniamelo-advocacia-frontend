@@ -5,6 +5,8 @@ import {
   Calendar,
   DateField,
   DatePicker,
+  Description,
+  FieldError,
   I18nProvider,
   Input,
   Label,
@@ -36,6 +38,20 @@ export type FieldProps = {
   onBlur?: () => void;
   isDisabled?: boolean;
   isReadOnly?: boolean;
+  /**
+   * Texto de apoio sob o campo, quando não há erro. Para avisos que não
+   * bloqueiam o envio — "buscando endereço…", "CEP não encontrado" — e que,
+   * pintados de vermelho, pareceriam um erro a corrigir antes de salvar.
+   */
+  description?: string;
+  /** Para quem precisa mover o foco até o campo (ex.: o Número, depois do CEP). */
+  inputRef?: React.Ref<HTMLInputElement>;
+  /**
+   * Botões dentro do campo, à direita — o olho e o copiar da senha. Com eles
+   * o `Input` passa a morar num embrulho posicionado, com espaço reservado à
+   * direita para os ícones não sentarem em cima do valor.
+   */
+  trailing?: React.ReactNode;
 };
 
 export function Field({
@@ -52,7 +68,23 @@ export function Field({
   onBlur,
   isDisabled,
   isReadOnly,
+  description,
+  inputRef,
+  trailing,
 }: FieldProps) {
+  const input = (
+    <Input
+      ref={inputRef}
+      className={`form-border-style${trailing ? " w-full pr-16" : ""}`}
+      placeholder={placeholder}
+      value={value}
+      onChange={onChange}
+      onBlur={onBlur}
+      maxLength={maxLength}
+      variant="primary"
+    />
+  );
+
   return (
     <TextField
       className={className}
@@ -70,20 +102,46 @@ export function Field({
       >
         {label}
       </Label>
-      <Input
-        className={`form-border-style`}
-        placeholder={placeholder}
-        value={value}
-        onChange={onChange}
-        onBlur={onBlur}
-        maxLength={maxLength}
-        variant="primary"
-      />
-      {isInvalid && errorMessage ? (
-        <p className="mt-1 text-sm text-danger rounded-xl">{errorMessage}</p>
-      ) : null}
+      {/* O embrulho `relative` e o `w-full` do `Input`: ver o comentário do
+          `PasswordField`, que é a mesma composição. */}
+      {trailing ? (
+        <div className="relative">
+          {input}
+          <div className="absolute inset-y-0 right-2 flex items-center gap-1">
+            {trailing}
+          </div>
+        </div>
+      ) : (
+        input
+      )}
+      <FieldMessage isInvalid={isInvalid} errorMessage={errorMessage} description={description} />
     </TextField>
   );
+}
+
+/**
+ * Erro ou texto de apoio sob um campo de texto — ligado ao campo
+ * (`aria-describedby`) pelos `FieldError`/`Description` do HeroUI, para o
+ * leitor de tela anunciar a mensagem junto do campo que errou.
+ */
+function FieldMessage({
+  isInvalid,
+  errorMessage,
+  description,
+}: {
+  isInvalid?: boolean;
+  errorMessage?: string;
+  description?: string;
+}) {
+  if (isInvalid && errorMessage) return <FieldError className="mt-1 text-sm text-danger">{errorMessage}</FieldError>;
+  if (description) {
+    return (
+      <Description className="mt-1 text-sm text-gray-100" aria-live="polite">
+        {description}
+      </Description>
+    );
+  }
+  return null;
 }
 
 export type SelectFieldOption = { id: string; label: string };
@@ -189,6 +247,12 @@ export type SelectFieldProps = {
   isInvalid?: boolean;
   errorMessage?: string;
   isDisabled?: boolean;
+  /**
+   * Rótulo pequeno dentro do gatilho, como o `MultiSelectField` — para as
+   * barras de filtro, onde os dois ficam lado a lado e um rótulo por fora
+   * desalinhava a linha (e sumia na barra escura).
+   */
+  labelInside?: boolean;
 };
 
 export function SelectField({
@@ -202,6 +266,7 @@ export function SelectField({
   isInvalid,
   errorMessage,
   isDisabled,
+  labelInside = false,
 }: SelectFieldProps) {
   return (
     <div className={className}>
@@ -220,7 +285,11 @@ export function SelectField({
           leitor de tela ouvia "Selecione, botão" num formulário com oito
           selects, e `getByLabel("Tipo")` não encontrava nada.
         */}
-        <Label className="text-secondary">{label}</Label>
+        {/* Com `labelInside`, o `Label` continua aqui — é ele que dá nome
+            acessível ao controle — e só sai de vista. */}
+        <Label className={labelInside ? "sr-only" : "text-secondary"}>
+          {label}
+        </Label>
         {/*
           A borda fica no TRIGGER, não no `Select`.
 
@@ -234,11 +303,30 @@ export function SelectField({
           O `Label` continua DENTRO do `Select` (ver acima) — a correção é de
           onde a borda é pintada, não de onde o rótulo mora.
         */}
-        <Select.Trigger className="form-border-style w-full text-gray-100">
+        <Select.Trigger
+          className={`form-border-style w-full text-gray-100 ${
+            labelInside ? "h-auto py-1.5" : ""
+          }`}
+        >
           <Select.Value>
-            {({ isPlaceholder, selectedText }) =>
-              isPlaceholder ? placeholder : selectedText
-            }
+            {({ isPlaceholder, selectedText }) => {
+              const text = isPlaceholder ? placeholder : selectedText;
+              return labelInside ? (
+                <span className="flex min-w-0 flex-col items-start">
+                  <span
+                    aria-hidden="true"
+                    className="text-[11px] leading-tight text-gray-100/60"
+                  >
+                    {label}
+                  </span>
+                  <span className="w-full truncate text-left text-sm leading-tight">
+                    {text}
+                  </span>
+                </span>
+              ) : (
+                text
+              );
+            }}
           </Select.Value>
           <Select.Indicator />
         </Select.Trigger>
@@ -287,9 +375,11 @@ export function SwitchField({
   isDisabled,
 }: SwitchFieldProps) {
   return (
-    <div className={className}>
+    // `switch-field`: âncora de `formFields.css`, que põe o controle dentro
+    // da mesma moldura dos outros campos.
+    <div className={["switch-field", className].filter(Boolean).join(" ")}>
       <Label className="text-secondary">{label}</Label>
-      <div className="mt-2 flex items-center gap-2">
+      <div className="switch-field__row mt-2 flex items-center gap-2">
         {/* v3: o Switch envolve o primitivo do React Aria — `onValueChange`
             virou `onChange(isSelected)`. Sem `Switch.Content`/`Switch.Control`/
             `Switch.Thumb` o controle não desenhava trilho nem bolinha, só o
@@ -301,9 +391,11 @@ export function SwitchField({
           isSelected={value}
           onChange={onChange}
           isDisabled={isDisabled}
+          className="group"
         >
           <Switch.Content>
-            <Switch.Control>
+            {/* Ligado é o verde do sucesso, o mesmo do "Sim" ao lado. */}
+            <Switch.Control className="group-data-[selected=true]:bg-success">
               <Switch.Thumb />
             </Switch.Control>
           </Switch.Content>
@@ -316,7 +408,7 @@ export function SwitchField({
   );
 }
 
-function EyeIcon({ className = "h-4 w-4" }: { className?: string }) {
+export function EyeIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -334,7 +426,7 @@ function EyeIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-function EyeOffIcon({ className = "h-4 w-4" }: { className?: string }) {
+export function EyeOffIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -352,7 +444,7 @@ function EyeOffIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-function CopyIcon({ className = "h-4 w-4" }: { className?: string }) {
+export function CopyIcon({ className = "h-4 w-4" }: { className?: string }) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -368,6 +460,34 @@ function CopyIcon({ className = "h-4 w-4" }: { className?: string }) {
       <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
     </svg>
   );
+}
+
+/**
+ * Botão de ícone dentro de um campo (o olho, o copiar). Exportado porque o
+ * `InssPasswordField` monta os mesmos dois na senha do "meu inss", e dois
+ * tamanhos de alvo de clique no mesmo controle seria o começo de um dialeto.
+ */
+export const FIELD_ICON_BUTTON_CLASS =
+  "flex h-7 w-7 items-center justify-center rounded-full text-gray-100 hover:bg-black/5 hover:text-primary disabled:opacity-60 disabled:hover:bg-transparent";
+
+/**
+ * Copia uma senha e confirma em toast.
+ *
+ * Não é o `copyToClipboard` de `CopyableValue`: aquele põe o valor copiado na
+ * descrição do toast ("CPF copiado · 123…"), que para senha significa
+ * reimprimi-la na tela — e num canto que fica alguns segundos depois de o
+ * campo já ter voltado para a máscara.
+ */
+export async function copiarSenha(value: string) {
+  try {
+    await navigator.clipboard.writeText(value);
+    notificationCenter.success("Senha copiada.");
+  } catch {
+    notificationCenter.warning("Não foi possível copiar a senha.", {
+      description:
+        "O navegador bloqueou a área de transferência. Selecione e copie o valor manualmente.",
+    });
+  }
 }
 
 export type PasswordFieldProps = {
@@ -406,16 +526,6 @@ export function PasswordField({
   isReadOnly,
 }: PasswordFieldProps) {
   const [isVisible, setIsVisible] = React.useState(false);
-
-  const copyToClipboard = async () => {
-    if (!value) return;
-    try {
-      await navigator.clipboard.writeText(value);
-      notificationCenter.success("Senha copiada.");
-    } catch {
-      notificationCenter.warning("Não foi possível copiar a senha.");
-    }
-  };
 
   return (
     <TextField
@@ -459,9 +569,9 @@ export function PasswordField({
             {isVisible && (
               <button
                 type="button"
-                onClick={copyToClipboard}
+                onClick={() => void copiarSenha(value)}
                 aria-label="Copiar senha"
-                className="flex h-7 w-7 items-center justify-center rounded-full text-gray-100 hover:bg-black/5 hover:text-primary"
+                className={FIELD_ICON_BUTTON_CLASS}
               >
                 <CopyIcon />
               </button>
@@ -470,16 +580,14 @@ export function PasswordField({
               type="button"
               onClick={() => setIsVisible((current) => !current)}
               aria-label={isVisible ? "Ocultar senha" : "Mostrar senha"}
-              className="flex h-7 w-7 items-center justify-center rounded-full text-gray-100 hover:bg-black/5 hover:text-primary"
+              className={FIELD_ICON_BUTTON_CLASS}
             >
               {isVisible ? <EyeOffIcon /> : <EyeIcon />}
             </button>
           </div>
         )}
       </div>
-      {isInvalid && errorMessage ? (
-        <p className="mt-1 text-sm text-danger rounded-xl">{errorMessage}</p>
-      ) : null}
+      <FieldMessage isInvalid={isInvalid} errorMessage={errorMessage} />
     </TextField>
   );
 }
@@ -532,67 +640,71 @@ export function DatePickerField({
 
   return (
     <div className={className}>
-      {/*
-        `w-full`: o `DatePicker` não ocupa a largura do container sozinho, e o
-        `fullWidth` do `DateField.Group` estica o grupo dentro de um pai que
-        continuava do tamanho do conteúdo. O campo ficava com metade da coluna
-        — "Data de nascimento" parando no meio do espaço de "Idade".
-      */}
-      <DatePicker
-        className="w-full"
-        value={calendarValue}
-        onChange={(next) => onChange(next ? next.toString() : "")}
-        // Ninguém nasce no futuro — trava direto no calendário, não só no
-        // validador. Com `allowFuture`, o limite sai: vencimento é para frente.
-        maxValue={allowFuture ? undefined : today(getLocalTimeZone())}
-        isRequired={isRequired}
-        isInvalid={isInvalid}
-        isDisabled={isDisabled}
-        onBlur={onBlur}
-      >
-        <Label className="text-secondary" isRequired={isRequired}>
-          {label}
-        </Label>
-        <DateField.Group fullWidth className="form-border-style">
-          <DateField.Input>
-            {(segment) => <DateField.Segment segment={segment} />}
-          </DateField.Input>
-          <DateField.Suffix>
-            <DatePicker.Trigger>
-              <DatePicker.TriggerIndicator />
-            </DatePicker.Trigger>
-          </DateField.Suffix>
-        </DateField.Group>
-        <DatePicker.Popover>
-          <Calendar aria-label={label} className="text-gray-100">
-            <Calendar.Header>
-              <Calendar.YearPickerTrigger>
-                <Calendar.YearPickerTriggerHeading />
-                <Calendar.YearPickerTriggerIndicator />
-              </Calendar.YearPickerTrigger>
-              <Calendar.NavButton slot="previous" className="text-gray-100" />
-              <Calendar.NavButton slot="next" className="text-gray-100" />
-            </Calendar.Header>
-            <Calendar.Grid>
-              <Calendar.GridHeader>
-                {(day) => (
-                  <Calendar.HeaderCell className="text-secondary">
-                    {day}
-                  </Calendar.HeaderCell>
-                )}
-              </Calendar.GridHeader>
-              <Calendar.GridBody>
-                {(date) => <Calendar.Cell date={date} />}
-              </Calendar.GridBody>
-            </Calendar.Grid>
-            <Calendar.YearPickerGrid>
-              <Calendar.YearPickerGridBody>
-                {({ year }) => <Calendar.YearPickerCell year={year} />}
-              </Calendar.YearPickerGridBody>
-            </Calendar.YearPickerGrid>
-          </Calendar>
-        </DatePicker.Popover>
-      </DatePicker>
+      {/* pt-BR: sem o provider, os segmentos saem no formato do navegador
+          (mm/dd/yyyy num Chrome em inglês) — o DateTimePickerField já tinha. */}
+      <I18nProvider locale="pt-BR">
+        {/*
+          `w-full`: o `DatePicker` não ocupa a largura do container sozinho, e o
+          `fullWidth` do `DateField.Group` estica o grupo dentro de um pai que
+          continuava do tamanho do conteúdo. O campo ficava com metade da coluna
+          — "Data de nascimento" parando no meio do espaço de "Idade".
+        */}
+        <DatePicker
+          className="w-full"
+          value={calendarValue}
+          onChange={(next) => onChange(next ? next.toString() : "")}
+          // Ninguém nasce no futuro — trava direto no calendário, não só no
+          // validador. Com `allowFuture`, o limite sai: vencimento é para frente.
+          maxValue={allowFuture ? undefined : today(getLocalTimeZone())}
+          isRequired={isRequired}
+          isInvalid={isInvalid}
+          isDisabled={isDisabled}
+          onBlur={onBlur}
+        >
+          <Label className="text-secondary" isRequired={isRequired}>
+            {label}
+          </Label>
+          <DateField.Group fullWidth className="form-border-style">
+            <DateField.Input>
+              {(segment) => <DateField.Segment segment={segment} />}
+            </DateField.Input>
+            <DateField.Suffix>
+              <DatePicker.Trigger>
+                <DatePicker.TriggerIndicator />
+              </DatePicker.Trigger>
+            </DateField.Suffix>
+          </DateField.Group>
+          <DatePicker.Popover>
+            <Calendar aria-label={label} className="text-gray-100">
+              <Calendar.Header>
+                <Calendar.YearPickerTrigger>
+                  <Calendar.YearPickerTriggerHeading />
+                  <Calendar.YearPickerTriggerIndicator />
+                </Calendar.YearPickerTrigger>
+                <Calendar.NavButton slot="previous" className="text-gray-100" />
+                <Calendar.NavButton slot="next" className="text-gray-100" />
+              </Calendar.Header>
+              <Calendar.Grid>
+                <Calendar.GridHeader>
+                  {(day) => (
+                    <Calendar.HeaderCell className="text-secondary">
+                      {day}
+                    </Calendar.HeaderCell>
+                  )}
+                </Calendar.GridHeader>
+                <Calendar.GridBody>
+                  {(date) => <Calendar.Cell date={date} />}
+                </Calendar.GridBody>
+              </Calendar.Grid>
+              <Calendar.YearPickerGrid>
+                <Calendar.YearPickerGridBody>
+                  {({ year }) => <Calendar.YearPickerCell year={year} />}
+                </Calendar.YearPickerGridBody>
+              </Calendar.YearPickerGrid>
+            </Calendar>
+          </DatePicker.Popover>
+        </DatePicker>
+      </I18nProvider>
       {isInvalid && errorMessage ? (
         <p className="mt-1 text-sm text-danger">{errorMessage}</p>
       ) : null}
@@ -715,6 +827,8 @@ export type TextAreaFieldProps = {
   errorMessage?: string;
   onBlur?: () => void;
   isDisabled?: boolean;
+  /** Teto de caracteres. Presente, o campo mostra quanto falta. */
+  maxLength?: number;
 };
 
 export function TextAreaField({
@@ -729,6 +843,7 @@ export function TextAreaField({
   errorMessage,
   onBlur,
   isDisabled,
+  maxLength,
 }: TextAreaFieldProps) {
   return (
     <TextField
@@ -744,13 +859,34 @@ export function TextAreaField({
         className="form-border-style"
         placeholder={placeholder}
         rows={rows}
+        maxLength={maxLength}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         onBlur={onBlur}
       />
-      {isInvalid && errorMessage ? (
-        <p className="mt-1 text-sm text-danger">{errorMessage}</p>
-      ) : null}
+      {/*
+        O contador fica na mesma linha da mensagem: embaixo dela, ele empurra
+        o campo seguinte quando aparece um erro. Fica apagado até sobrar pouco
+        — avisar o tempo todo em vermelho é ruído, e quem está escrevendo duas
+        linhas não precisa saber de teto nenhum.
+      */}
+      <div className="flex items-start justify-between gap-2">
+        <FieldMessage isInvalid={isInvalid} errorMessage={errorMessage} />
+        {maxLength !== undefined && (
+          <p
+            // `polite` e só perto do fim: ler a contagem a cada tecla
+            // atrapalha quem usa leitor de tela.
+            aria-live="polite"
+            className={`mt-1 shrink-0 text-xs tabular-nums ${
+              value.length >= maxLength ? "text-danger" : "text-gray-100/60"
+            }`}
+          >
+            {value.length >= maxLength - 40
+              ? `${value.length}/${maxLength} caracteres`
+              : `${value.length}/${maxLength}`}
+          </p>
+        )}
+      </div>
     </TextField>
   );
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ageFromBirthDate,
+  validateAmountBRL,
   validateBirthDate,
   validateCEP,
   validateContributionPart,
@@ -112,6 +113,29 @@ describe("validatePastDate", () => {
   });
 });
 
+describe("validateAmountBRL", () => {
+  it("rejeita zero — o backend exige @DecimalMin(0.01)", () => {
+    expect(validateAmountBRL("0")).not.toBeNull();
+    expect(validateAmountBRL("0,00")).not.toBeNull();
+  });
+
+  it("rejeita negativo: o sinal está em ser saída, não no número", () => {
+    expect(validateAmountBRL("-100")).not.toBeNull();
+  });
+
+  it("aceita o formato pt-BR com milhar", () => {
+    expect(validateAmountBRL("1.234,56")).toBeNull();
+  });
+
+  it("rejeita texto", () => {
+    expect(validateAmountBRL("abc")).not.toBeNull();
+  });
+
+  it("vazio não é erro deste validador — quem exige é o `required`", () => {
+    expect(validateAmountBRL("")).toBeNull();
+  });
+});
+
 describe("ageFromBirthDate", () => {
   it("calcula a idade em anos completos", () => {
     const d = new Date();
@@ -182,5 +206,17 @@ describe("validadores simples", () => {
     expect(validateContributionPart("-1", 130, "Anos")).toBe(
       "Anos: informe só números.",
     );
+  });
+});
+
+describe("validatePhone com DDI", () => {
+  it("aceita o 55 na frente, como o backend grava", () => {
+    expect(validatePhone("+5531999990000")).toBeNull();
+    expect(validatePhone("+55 31 3333-4444")).toBeNull();
+  });
+
+  it("continua recusando tamanhos impossíveis", () => {
+    expect(validatePhone("+1 555 0100")).toBe("Telefone inválido.");
+    expect(validatePhone("999")).toBe("Telefone inválido.");
   });
 });

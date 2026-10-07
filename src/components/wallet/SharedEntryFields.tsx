@@ -1,144 +1,92 @@
 "use client";
 
-import {
-  DatePickerField,
-  Field,
-  SelectField,
-  SwitchField,
-  TextAreaField,
-} from "@/components/ui/form/Field";
-import { AmountField } from "@/components/ui/form/AmountField";
-import { toSelectOptions } from "@/components/ui/form/options";
-import { PaymentMethodOptions } from "@/enums/payment/Payment";
+import { SchemaField } from "@/components/ui/form/SchemaFields";
+import type { FormValues, SectionForm } from "@/hooks/useSectionForm";
 import type { SharedValues } from "./entryForms";
 
 /**
- * Os campos que entrada e saída têm em comum.
+ * Os campos que entrada, saída e parcela a receber têm em comum.
  *
- * Existe pelo mesmo motivo que `SharedValues` existe do lado dos dados: um
- * único lugar onde se decide o rótulo, a ordem e a validação desses sete
- * campos. Duplicá-los nos dois formulários é como eles divergiriam — um ganha
- * um `placeholder` melhor, o outro não, e ninguém percebe porque nunca se vê
- * os dois na mesma tela.
+ * Existe pelo mesmo motivo que `sharedEntryFields` existe do lado do schema:
+ * um único lugar onde se decide a ordem e o agrupamento desses sete campos.
+ * Duplicá-los nos formulários é como eles divergiriam — um ganha um grupo
+ * melhor, o outro não, e ninguém percebe porque nunca se vê os dois na mesma
+ * tela.
  *
- * O que muda entre os lados é só o texto do switch e da data, porque
- * "recebido" e "pago" são a mesma pergunta com palavras diferentes. Vem por
- * prop em vez de um `if` aqui dentro: assim este componente não precisa saber
- * que tipos existem.
+ * Rótulo, obrigatoriedade e validador **não** estão aqui: vêm do schema de
+ * quem chama, que é quem sabe se a pergunta é "já foi recebido?" ou "já foi
+ * paga?". Por isso o componente é genérico no formulário — ele não precisa
+ * saber que tipos de lançamento existem.
+ *
+ * Os campos saem soltos, sem moldura em volta: quem chama os põe numa grade
+ * `[data-form-fields]` junto com os seus próprios, e é essa grade que desenha
+ * o rótulo dentro da caixa. `col-span-full` é o campo que ocupa a linha
+ * inteira — só valor e vencimento dividem.
  */
 
-export type SharedEntryFieldsProps = {
-  values: SharedValues;
-  onChange: <K extends keyof SharedValues>(
-    key: K,
-    value: SharedValues[K],
-  ) => void;
-  errorOf: (key: keyof SharedValues) => string | undefined;
+export type SharedEntryFieldsProps<V extends SharedValues & FormValues> = {
+  form: SectionForm<V>;
   isDisabled?: boolean;
-
-  descriptionPlaceholder: string;
-  settledLabel: string;
+  /** A dica ao lado da caixa, nas duas posições. */
   settledHintOn: string;
   settledHintOff: string;
-  settledDateLabel: string;
-  paymentMethodLabel: string;
 };
 
-export function SharedEntryFields({
-  values,
-  onChange,
-  errorOf,
+export function SharedEntryFields<V extends SharedValues & FormValues>({
+  form,
   isDisabled,
-  descriptionPlaceholder,
-  settledLabel,
   settledHintOn,
   settledHintOff,
-  settledDateLabel,
-  paymentMethodLabel,
-}: SharedEntryFieldsProps) {
+}: SharedEntryFieldsProps<V>) {
+  const field = (name: keyof V & string, className = "col-span-full") => (
+    <SchemaField
+      form={form}
+      name={name}
+      className={className}
+      isDisabled={isDisabled}
+    />
+  );
+
   return (
     <>
-      <Field
-        label="Descrição"
-        value={values.description}
-        onChange={(event) => onChange("description", event.target.value)}
-        placeholder={descriptionPlaceholder}
-        isRequired
-        isDisabled={isDisabled}
-        isInvalid={!!errorOf("description")}
-        errorMessage={errorOf("description")}
-      />
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <AmountField
-          label="Valor"
-          value={values.amount}
-          onChange={(next) => onChange("amount", next)}
-          isRequired
-          isDisabled={isDisabled}
-          isInvalid={!!errorOf("amount")}
-          errorMessage={errorOf("amount")}
-        />
-        <DatePickerField
-          label="Vencimento"
-          value={values.dueDate}
-          onChange={(next) => onChange("dueDate", next)}
-          allowFuture
-          isRequired
-          isDisabled={isDisabled}
-          isInvalid={!!errorOf("dueDate")}
-          errorMessage={errorOf("dueDate")}
-        />
-      </div>
-
-      <SelectField
-        label={paymentMethodLabel}
-        options={toSelectOptions(PaymentMethodOptions)}
-        selectedKey={values.paymentMethod || null}
-        onSelectionChange={(key) => onChange("paymentMethod", key)}
-        placeholder="Selecione"
-        isDisabled={isDisabled}
-      />
+      {field("description")}
+      {field("amount", "")}
+      {field("dueDate", "")}
+      {field("paymentMethod")}
 
       {/*
-        O switch é o que liga esta tela ao caixa. Sem ele, todo lançamento
-        nasce "a vencer" e o mês fecha sem movimento nenhum — a Carteira
-        pareceria quebrada funcionando direito, porque ela mede pagamento e não
-        vencimento.
+        A caixa é o que liga esta tela ao caixa do escritório. Sem ela, todo
+        lançamento nasce "a vencer" e o mês fecha sem movimento nenhum — a
+        Carteira pareceria quebrada funcionando direito, porque ela mede
+        pagamento e não vencimento.
       */}
-      <SwitchField
-        label={settledLabel}
-        value={values.isSettled}
-        onChange={(next) => {
-          onChange("isSettled", next);
+      <SchemaField
+        form={form}
+        name="isSettled"
+        className="col-span-full"
+        isDisabled={isDisabled}
+        description={form.values.isSettled ? settledHintOn : settledHintOff}
+        onValueChange={(next) => {
           // Desmarcar limpa a data: "não foi pago" com data de pagamento
           // preenchida é um estado contraditório que o backend rejeitaria — e
           // que aqui viraria um payload com `paidDate` sem sentido.
-          if (!next) onChange("paidDate", "");
+          if (next === "false") form.setField("paidDate", "" as V["paidDate"]);
         }}
-        hint={values.isSettled ? settledHintOn : settledHintOff}
-        isDisabled={isDisabled}
       />
 
-      {values.isSettled && (
-        <DatePickerField
-          label={settledDateLabel}
-          value={values.paidDate}
-          onChange={(next) => onChange("paidDate", next)}
+      {/* Enquanto a caixa está marcada, a data é obrigatória — e some junto
+          com ela, porque "não foi pago" não tem data de pagamento. */}
+      {form.values.isSettled && (
+        <SchemaField
+          form={form}
+          name="paidDate"
+          className="col-span-full"
           isRequired
           isDisabled={isDisabled}
-          isInvalid={!!errorOf("paidDate")}
-          errorMessage={errorOf("paidDate")}
         />
       )}
 
-      <TextAreaField
-        label="Observações"
-        value={values.notes}
-        onChange={(next) => onChange("notes", next)}
-        rows={3}
-        isDisabled={isDisabled}
-      />
+      {field("notes")}
     </>
   );
 }

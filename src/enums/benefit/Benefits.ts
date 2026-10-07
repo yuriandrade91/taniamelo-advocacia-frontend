@@ -31,15 +31,8 @@ export type BenefitLabel = (typeof BENEFIT_ENTRIES)[number][1];
 export type BenefitInput = BenefitKey | BenefitLabel;
 
 export const BenefitOptions = benefit.options;
-export const BenefitLabelByKey = benefit.labelByKey;
+
 export const getBenefitKeyByLabel = benefit.getKeyByLabel;
-export const getBenefitLabelByKey = benefit.getLabelByKey;
 
 export { BENEFIT_ENTRIES };
 
-// Compatibility aliases used across the codebase
-export const IntendedBenefitOptions = BenefitOptions;
-export const Benefits = {
-  BenefitOptions,
-  BenefitLabelByKey,
-};

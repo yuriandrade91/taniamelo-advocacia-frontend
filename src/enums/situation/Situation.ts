@@ -25,8 +25,3 @@ export const getSituationLabelByKey = situation.getLabelByKey;
 
 export { SITUATION_ENTRIES };
 
-// Compatibility: many components expect RetirementTypeOptions = {id,label}[]
-export const RetirementTypeOptions = SituationOptions.map((opt, i) => ({
-  id: i + 1,
-  label: opt.label,
-}));

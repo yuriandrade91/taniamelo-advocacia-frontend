@@ -22,33 +22,89 @@
  */
 
 import { parseAmountBRL } from "@/lib/format";
-import { validateInstallment, validateIsoDate } from "@/components/wallet/entryForms";
-import { validateAmount } from "@/components/wallet/entryForms";
-import { validatePaidDate } from "@/lib/validators/validators";
+import {
+  defineSection,
+  initialValues,
+  rulesOf,
+  validateValues,
+  type FieldRules,
+  type SectionValues,
+} from "@/components/ui/form/schema";
+import {
+  paidDateRule,
+  sharedEntryFields,
+  validateInstallment,
+} from "@/components/wallet/entryForms";
 import { todayIso } from "@/lib/period";
-import { PaymentStatusLabelByKey } from "@/enums/payment/Payment";
+import {
+  PaymentStatusLabelByKey,
+  getPaymentMethodKeyByLabel,
+} from "@/enums/payment/Payment";
 import type {
   ClientPaymentResponse,
   ClientPaymentUpdateRequest,
 } from "@/interfaces/client/ClientSubResources.interface";
-import type { PaymentMethodInput, PaymentStatusInput } from "@/enums/payment/Payment";
+import type {
+  PaymentMethodInput,
+  PaymentStatusInput,
+} from "@/enums/payment/Payment";
 
-export type PaymentFormValues = {
-  description: string;
-  amount: string;
-  installmentNumber: string;
-  installmentTotal: string;
-  dueDate: string;
-  /** "Já foi recebido?" — a caixa que decide Pendente × Pago. */
-  isSettled: boolean;
-  paidDate: string;
-  paymentMethod: string;
-  notes: string;
+/**
+ * Os campos da parcela: o mesmo núcleo da Carteira — descrição, valor,
+ * vencimento, "já foi recebido", data, forma e observações — mais o que só
+ * existe aqui.
+ *
+ * Reusar `sharedEntryFields` não é economia de linhas: é o que garante que a
+ * parcela e o lançamento validem o valor do mesmo jeito. Duas declarações
+ * divergiriam no dia em que uma ganhasse uma regra e a outra não.
+ */
+export const paymentSchema = defineSection({
+  ...sharedEntryFields({
+    descriptionPlaceholder: "Atrasados da concessão, benefício de março…",
+    paymentMethodLabel: "Forma de recebimento",
+    settledLabel: "Já foi recebido",
+    settledDateLabel: "Data do recebimento",
+  }),
+  /*
+   * Parcela é do contrato do cliente, não do caixa do escritório. Os dois
+   * campos andam juntos — "3/2" é o erro que passa despercebido porque parece
+   * plausível na tabela —, e a regra fica no primeiro, que é onde o aviso
+   * precisa aparecer.
+   */
+  installmentNumber: {
+    kind: "digits",
+    label: "Parcela",
+    rule: (value: string, values: Record<string, string | boolean>) =>
+      validateInstallment(value, String(values.installmentTotal ?? "")),
+  },
+  installmentTotal: { kind: "digits", label: "Total de parcelas" },
+});
+
+export type PaymentFormValues = SectionValues<typeof paymentSchema> & {
   /** Situação atual em rótulo, para preservar "Cancelado". */
   status: string;
 };
 
-export type PaymentFormErrors = Partial<Record<keyof PaymentFormValues, string>>;
+/** Os valores de uma parcela nova — tudo vazio, nada recebido. */
+export const emptyPaymentForm = (): PaymentFormValues => ({
+  ...initialValues(paymentSchema),
+  status: "",
+});
+
+/**
+ * As regras da parcela: as do schema, mais a da data do recebimento, que
+ * depende da caixa ao lado e do dia de hoje.
+ */
+export const paymentRules = (
+  today: string = todayIso(),
+): FieldRules<PaymentFormValues> => ({
+  ...rulesOf(paymentSchema),
+  paidDate: paidDateRule(today),
+});
+
+export type PaymentFormErrors = Partial<
+  Record<keyof PaymentFormValues, string>
+>;
 
 const texto = (valor: string | undefined | null): string => valor ?? "";
 
@@ -67,6 +123,7 @@ export function paymentFormFrom(
   payment: ClientPaymentResponse,
 ): PaymentFormValues {
   return {
+    ...emptyPaymentForm(),
     description: texto(payment.description),
     amount: amountToInput(payment.amount),
     installmentNumber: numeroTexto(payment.installmentNumber),
@@ -76,7 +133,13 @@ export function paymentFormFrom(
     // antes do cancelamento, e ler a data a reabriria como recebida.
     isSettled: payment.status === PaymentStatusLabelByKey.PAGO,
     paidDate: texto(payment.paidDate),
-    paymentMethod: texto(payment.paymentMethod),
+    // A API devolve o rótulo ("Boleto"); o select trabalha com a chave
+    // ("BOLETO"). Sem converter, o campo abria em "Selecione" numa parcela
+    // que tem forma — o mesmo `toKey` do `incomeFormFrom` da Carteira.
+    paymentMethod: payment.paymentMethod
+      ? (getPaymentMethodKeyByLabel(payment.paymentMethod) ??
+        payment.paymentMethod)
+      : "",
     notes: texto(payment.notes),
     status: texto(payment.status),
   };
@@ -86,26 +149,7 @@ export function validatePaymentForm(
   values: PaymentFormValues,
   today: string = todayIso(),
 ): PaymentFormErrors {
-  const errors: PaymentFormErrors = {};
-
-  if (!values.description.trim()) errors.description = "Informe a descrição.";
-
-  const amount = validateAmount(values.amount);
-  if (amount) errors.amount = amount;
-
-  const due = validateIsoDate(values.dueDate, "o vencimento");
-  if (due) errors.dueDate = due;
-
-  const paid = validatePaidDate(values.paidDate, values.isSettled, today);
-  if (paid) errors.paidDate = paid;
-
-  const parcela = validateInstallment(
-    values.installmentNumber,
-    values.installmentTotal,
-  );
-  if (parcela) errors.installmentNumber = parcela;
-
-  return errors;
+  return validateValues(paymentRules(today), values);
 }
 
 /**
@@ -114,9 +158,7 @@ export function validatePaymentForm(
  * Igual à Carteira: a caixa manda em Pendente × Pago, e "Cancelado" só se
  * mantém enquanto ninguém marca que o dinheiro entrou.
  */
-export function statusDaParcela(
-  values: PaymentFormValues,
-): PaymentStatusInput {
+export function statusDaParcela(values: PaymentFormValues): PaymentStatusInput {
   if (values.isSettled) return PaymentStatusLabelByKey.PAGO;
   if (values.status === PaymentStatusLabelByKey.CANCELADO) {
     return PaymentStatusLabelByKey.CANCELADO;
@@ -163,8 +205,7 @@ export function toPaymentPatch(
   }
   if (values.paymentMethod !== antes.paymentMethod) {
     patch.paymentMethod = opcional(values.paymentMethod) as
-      | PaymentMethodInput
-      | undefined;
+      PaymentMethodInput | undefined;
   }
   if (values.notes !== antes.notes) patch.notes = opcional(values.notes);
 
@@ -192,5 +233,3 @@ export function toPaymentPatch(
 export const patchVazio = (patch: ClientPaymentUpdateRequest): boolean =>
   Object.keys(patch).length === 0;
 
-export const temErroDeParcela = (errors: PaymentFormErrors): boolean =>
-  Object.values(errors).some(Boolean);

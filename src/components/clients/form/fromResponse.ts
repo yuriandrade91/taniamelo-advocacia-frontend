@@ -33,6 +33,7 @@ import { getGenderKeyByLabel } from "@/enums/gender/Gender";
 import { getMaritalStatusKeyByLabel } from "@/enums/maritalStatus/MaritalStatus";
 import { getSituationKeyByLabel } from "@/enums/situation/Situation";
 
+import { maskCEP, maskCPF, maskNIT, maskRG, maskTelefone } from "@/lib/masks/masks";
 import type { ClientDetails } from "@/interfaces/client/Client.interface";
 import type {
   ClientAddressResponse,
@@ -40,15 +41,44 @@ import type {
   ClientPersonalDataResponse,
   ClientProfessionalDataResponse,
 } from "@/interfaces/client/ClientSubResources.interface";
+import type { AddressValues, InterviewValues, PersonalValues, ProfessionalValues, ServiceValues } from "./schemas";
 
-import type { AddressValues } from "./sections/AddressSection";
-import type { InterviewValues } from "./sections/InterviewSection";
-import type { PersonalValues } from "./sections/PersonalDataSection";
-import type { ProfessionalValues } from "./sections/ProfessionalDataSection";
-import type { ServiceValues } from "./sections/ServiceSection";
+
+/**
+ * A resposta com os enums como texto qualquer: a lista e a ficha usam o shape
+ * legado (`Clients`, rótulos como `string`), os sub-recursos usam os tipos
+ * estritos. Os mapeadores aceitam os dois.
+ */
+type Loose<T> = { [K in keyof T]?: T[K] extends string | undefined ? string | null : T[K] | null };
 
 /** `undefined`/`null` → `""`. */
 const text = (value?: string | null): string => value ?? "";
+
+/**
+ * O que a API devolve cru, com a máscara que o campo usaria.
+ *
+ * O formulário guarda **texto mascarado** — é o que a digitação produz, e é o
+ * que `toCreateRequest` envia. Só a carga escapava disso, e a ficha abria com
+ * `48670715791` no CPF enquanto o mesmo campo, digitado, vira
+ * `486.707.157-91`. As máscaras são idempotentes (elas limpam antes de
+ * formatar), então aplicar na carga não estraga o que já vem formatado.
+ */
+const masked = (mask: (value: string) => string, value?: string | null): string => {
+  const raw = text(value);
+  return raw ? mask(raw) : "";
+};
+
+/**
+ * Telefone — com uma ressalva: gravado com DDI (`+5531999990000`), a máscara
+ * brasileira o reescreveria como DDD 55. O backend aceita o DDI e a ficha não
+ * pode corromper o que ela só foi abrir, então nesse caso o valor fica como
+ * está.
+ */
+const phone = (value?: string | null): string => {
+  const raw = text(value);
+  const digits = raw.replace(/\D/g, "");
+  return digits.length === 10 || digits.length === 11 ? maskTelefone(raw) : raw;
+};
 
 /** Número → texto do input. `0` é valor, `undefined` é campo em branco. */
 const numero = (value?: number | null): string =>
@@ -85,7 +115,7 @@ const looksLikeKey = (candidate: string): boolean =>
 
 // ─────────────────────────── Atendimento ───────────────────────────
 
-export function toServiceValues(client: ClientDetails): ServiceValues {
+export function toServiceValues(client: Loose<ClientDetails>): ServiceValues {
   return {
     benefit: keyOf(client.benefit, getBenefitKeyByLabel, looksLikeKey),
     situation: keyOf(client.situation, getSituationKeyByLabel, looksLikeKey),
@@ -104,13 +134,13 @@ export function toServiceValues(client: ClientDetails): ServiceValues {
  * origem seria duas listas de trinta campos para manter em sincronia.
  */
 export function toPersonalValues(
-  source: Partial<ClientDetails & ClientPersonalDataResponse>,
+  source: Loose<ClientDetails & ClientPersonalDataResponse>,
 ): PersonalValues {
   return {
     fullName: text(source.fullName),
     birthDate: text(source.birthDate),
-    cpf: text(source.cpf),
-    rg: text(source.rg),
+    cpf: masked(maskCPF, source.cpf),
+    rg: masked(maskRG, source.rg),
     rgIssuer: text(source.rgIssuer),
     rgIssueDate: text(source.rgIssueDate),
     motherName: text(source.motherName),
@@ -121,9 +151,9 @@ export function toPersonalValues(
       looksLikeKey,
     ),
     nationality: text(source.nationality),
-    mobilePhone: text(source.mobilePhone),
+    mobilePhone: phone(source.mobilePhone),
     isWhatsapp: flag(source.isWhatsapp),
-    referencePhone: text(source.referencePhone),
+    referencePhone: phone(source.referencePhone),
     referenceResponsible: text(source.referenceResponsible),
     email: text(source.email),
     hasDisability: flag(source.hasDisability),
@@ -133,11 +163,14 @@ export function toPersonalValues(
 // ──────────────────────── Dados profissionais ────────────────────────
 
 export function toProfessionalValues(
-  source: Partial<ClientDetails & ClientProfessionalDataResponse>,
+  source: Loose<ClientDetails & ClientProfessionalDataResponse>,
 ): ProfessionalValues {
   return {
     profession: text(source.profession),
-    nitPis: text(source.nitPis),
+    nitPis: masked(maskNIT, source.nitPis),
+    // CTPS fica como está: a máscara corta em 8 dígitos (é só o número), e um
+    // registro antigo com série e UF no mesmo campo seria truncado na carga —
+    // a ficha gravaria de volta um documento mutilado que ninguém editou.
     ctps: text(source.ctps),
     ctpsSeries: text(source.ctpsSeries),
     // `contributionTime` ("33 anos, 11 meses e 5 dias") também vem na resposta,
@@ -163,7 +196,7 @@ export function toAddressValues(address: ClientAddressResponse): AddressValues {
       getAddressTypeKeyByLabel,
       looksLikeKey,
     ),
-    zipCode: text(address.zipCode),
+    zipCode: masked(maskCEP, address.zipCode),
     street: text(address.street),
     addressNumber: text(address.addressNumber),
     complement: text(address.complement),
@@ -171,6 +204,7 @@ export function toAddressValues(address: ClientAddressResponse): AddressValues {
     city: text(address.city),
     state: text(address.state),
     isPrimary: flag(address.isPrimary),
+    cepLookup: "",
   };
 }
 

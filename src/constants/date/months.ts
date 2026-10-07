@@ -13,3 +13,6 @@ export const MONTH_LABELS = [
   "Novembro",
   "Dezembro",
 ] as const;
+
+/** Abreviações minúsculas, 1-based (`MONTH_SHORT[mes - 1]`): "jan", "fev"… */
+export const MONTH_SHORT = MONTH_LABELS.map((label) => label.slice(0, 3).toLowerCase());

@@ -140,7 +140,9 @@ export function usePendingAction() {
   }, [commitNow]);
 
   const flushRef = useRef(flush);
-  flushRef.current = flush;
+  useEffect(() => {
+    flushRef.current = flush;
+  });
 
   useEffect(() => {
     // Sair da página com ação na janela perderia a ação: o `setTimeout` morre

@@ -20,7 +20,7 @@
  * mudar o próprio papel não tem papel.
  */
 
-import { validateEmail, validateRequired } from "@/lib/validators/validators";
+import { validateEmail, validateRequired } from "@/lib/validators";
 import type {
   ChangePasswordRequest,
   MyProfile,

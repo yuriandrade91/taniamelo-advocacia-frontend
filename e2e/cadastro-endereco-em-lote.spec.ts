@@ -19,7 +19,8 @@ import { MARCA, apiComSessaoDoNavegador, cpfValido } from "./apiHelper";
 const nome = `${MARCA} Lote ${Date.now().toString(36)}`;
 
 async function escolher(page: Page, rotulo: string, opcao: string) {
-  await page.getByRole("button", { name: rotulo }).click();
+  // Pelo rótulo do campo: o rodapé também lista o obrigatório pendente como botão.
+  await page.getByLabel(rotulo).click();
   await page.getByRole("option", { name: opcao }).click();
 }
 
@@ -39,17 +40,14 @@ async function preencherData(page: Page, rotulo: string, partes: string[]) {
 }
 
 /**
- * O formulário é um acordeão: cada seção monta o conteúdo só quando aberta.
- * Sem abrir, os campos existem no DOM e não são visíveis — o `fill` espera 30
- * segundos e a falha aponta para o campo, não para a seção fechada.
+ * O formulário é em abas: só a aba ativa monta o conteúdo. Sem trocar de aba,
+ * o `fill` espera 30 segundos e a falha aponta para o campo, não para a aba.
  *
- * Idempotente de propósito: abrir o que já está aberto fecharia a seção.
+ * O nome acessível da aba é "Título (estado)" — o `^` impede que "Endereço"
+ * case com as abas internas "Endereço 1" / "Endereço 2" do próprio endereço.
  */
 async function abrirSecao(page: Page, titulo: string) {
-  const cabecalho = page.getByRole("button", { name: titulo, exact: false }).first();
-  if ((await cabecalho.getAttribute("aria-expanded")) === "false") {
-    await cabecalho.click();
-  }
+  await page.getByRole("tab", { name: new RegExp(`^${titulo} \\(`) }).click();
 }
 
 /**

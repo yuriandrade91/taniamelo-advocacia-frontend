@@ -46,6 +46,8 @@ test.describe("atendente não alcança o financeiro", () => {
 
     await expect(menu.getByRole("link", { name: "Pagamentos" })).toHaveCount(0);
     await expect(menu.getByRole("link", { name: "Carteira" })).toHaveCount(0);
+    // Relatórios fica: clientes e agenda são de todos.
+    await expect(menu.getByRole("link", { name: "Relatórios" })).toBeVisible();
   });
 
   for (const rota of ["/pagamentos", "/carteira"]) {
@@ -65,6 +67,31 @@ test.describe("atendente não alcança o financeiro", () => {
   }
 });
 
+test.describe("atendente vê Relatórios sem o financeiro", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test("clientes e agenda aparecem; pagamentos e carteira não", async ({
+    page,
+  }) => {
+    test.skip(
+      !usuario || !senha,
+      "defina E2E_USER_STAFF e E2E_PASSWORD_STAFF para rodar os testes de papel",
+    );
+    await entrarComoAtendente(page);
+    await page.goto("/relatorios");
+
+    await expect(
+      page.getByRole("heading", { name: "Clientes e agenda", level: 2 }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Pagamentos aos clientes" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Carteira", level: 2 }),
+    ).toHaveCount(0);
+  });
+});
+
 /**
  * A contraprova. Sem ela, um menu quebrado — ou um `podeVerFinanceiro` que
  * devolve `false` para todo mundo — deixaria os testes acima verdes.
@@ -72,13 +99,14 @@ test.describe("atendente não alcança o financeiro", () => {
 test.describe("para o administrador, o financeiro está lá", () => {
   test.use({ storageState: "e2e/.auth/user.json" });
 
-  test("menu oferece Pagamentos e Carteira, e a página abre", async ({
+  test("menu oferece Pagamentos, Carteira e Relatórios, e a página abre", async ({
     page,
   }) => {
     await page.goto("/home");
     const menu = page.getByRole("navigation");
     await expect(menu.getByRole("link", { name: "Pagamentos" })).toBeVisible();
     await expect(menu.getByRole("link", { name: "Carteira" })).toBeVisible();
+    await expect(menu.getByRole("link", { name: "Relatórios" })).toBeVisible();
 
     await page.goto("/pagamentos");
     await expect(

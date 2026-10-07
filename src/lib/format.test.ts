@@ -5,6 +5,8 @@ import {
   formatDateBR,
   formatInstallment,
   parseAmountBRL,
+  initials,
+  plural,
 } from "./format";
 
 describe("formatBRL", () => {
@@ -90,5 +92,27 @@ describe("parseAmountBRL", () => {
 
   it("aceita negativo", () => {
     expect(parseAmountBRL("-150,25")).toBe(-150.25);
+  });
+});
+
+describe("plural", () => {
+  it("singular só para 1", () => {
+    expect(plural(1, "parcela", "parcelas")).toBe("1 parcela");
+    expect(plural(0, "parcela", "parcelas")).toBe("0 parcelas");
+    expect(plural(3, "dia", "dias")).toBe("3 dias");
+  });
+});
+
+describe("initials", () => {
+  it("primeira e última palavra, sem partículas", () => {
+    expect(initials("Maria Aparecida da Silva")).toBe("MS");
+    expect(initials("Meta Ads")).toBe("MA");
+    expect(initials("TJMG")).toBe("T");
+  });
+
+  it("vazio vira o marcador pedido", () => {
+    expect(initials("")).toBe("?");
+    expect(initials(undefined, "—")).toBe("—");
+    expect(initials("  de  ")).toBe("?");
   });
 });

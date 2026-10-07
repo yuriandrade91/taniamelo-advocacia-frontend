@@ -64,6 +64,9 @@ export function clampPage(page: number, totalPages: number): number {
   return Math.min(Math.max(1, page), Math.max(1, totalPages));
 }
 
-/** Linhas fantasma para o estado de carregamento de uma tabela. */
-export const buildSkeletonRows = (count: number) =>
-  Array.from({ length: count }, (_, i) => ({ id: `skeleton-${i}` }));
+/** A fatia de uma página (1-based) de uma lista já carregada, com a página limitada ao total. */
+export function slicePage<T>(list: readonly T[], page: number, size: number) {
+  const totalPages = Math.max(1, Math.ceil(list.length / size));
+  const current = clampPage(page, totalPages);
+  return { current, totalPages, slice: list.slice((current - 1) * size, current * size) };
+}

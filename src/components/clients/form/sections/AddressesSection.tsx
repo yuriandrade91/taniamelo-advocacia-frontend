@@ -3,8 +3,15 @@
 import type { ReactNode } from "react";
 import { Tabs } from "@heroui/react";
 import type { SectionForm } from "@/hooks/useSectionForm";
-import { PlusIcon } from "@/components/ui/icons/actions";
-import { AddressSection, type AddressValues } from "./AddressSection";
+import { AddressSection } from "./AddressSection";
+import type { AddressValues } from "../schemas";
+import { AddItemButton } from "../FormSection";
+import {
+  TAB_CLASS,
+  TAB_INDICATOR_CLASS,
+  TAB_LIST_CLASS,
+  TAB_LIST_CONTAINER_CLASS,
+} from "../tabs/tabStyle";
 
 /**
  * Um endereço na lista de abas: até 3 no total (o atual + 2 adicionais), cada
@@ -17,19 +24,6 @@ export type AddressSlot = {
   label: string;
   form: SectionForm<AddressValues>;
 };
-
-function AddAddressButton({ onAddAddress }: { onAddAddress: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onAddAddress}
-      className="flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-secondary/50 px-3 py-1.5 text-xs font-medium text-secondary hover:bg-light-secondary"
-    >
-      <PlusIcon className="h-3.5 w-3.5" />
-      Adicionar endereço
-    </button>
-  );
-}
 
 export function AddressesSection({
   slots,
@@ -50,52 +44,47 @@ export function AddressesSection({
   /** Rodapé de cada aba (botão de salvar) — quem sabe salvar é a página. */
   renderActions: (slot: AddressSlot) => ReactNode;
 }) {
-  const only = slots.length === 1 ? slots[0] : null;
-
-  // Com um único endereço não há entre o quê escolher — a barra de abas some
-  // e sobra só o botão de adicionar, sem pill nenhum para o "atual".
-  if (only) {
-    return (
-      <div className="flex flex-col gap-4">
-        {canAddMore && (
-          <div className="flex justify-end">
-            <AddAddressButton onAddAddress={onAddAddress} />
-          </div>
-        )}
-        <AddressSection
-          form={only.form}
-          onRequestPrimary={() => onRequestPrimary(only)}
-        />
-        {renderActions(only)}
-      </div>
-    );
-  }
-
   return (
-    // O botão de adicionar precisa ficar FORA de `Tabs` como wrapper direto:
-    // o CSS do variant `secondary` mira `.tabs--secondary > .tabs__list-container`
-    // (combinador de filho direto). Um `div` entre os dois pra alinhar o botão
-    // quebra essa relação e o variant nunca aplica — a barra fica com a cara
-    // do `primary` mesmo com a prop certa.
+    // As abas no padrão do cadastro (`tabStyle`), mesmo com um endereço só:
+    // a aba "Endereço atual" diz de qual endereço são os campos.
+    //
+    // A barra ocupa a largura toda, como a das seções: estreita, o HeroUI a
+    // trata como rolável e esmaece o texto da direita. O "Adicionar" fica
+    // dentro dela, à direita — fora do `Tabs`, por cima, porque não é aba.
     <div className="relative">
+      {/* `key` pela quantidade: o indicador do HeroUI é medido em JS e, com
+          a aba nova nascendo já selecionada, ficava com a medida velha (por
+          cima das duas abas). Remontar mede de novo; o estado dos endereços
+          mora na página, nada se perde. */}
       <Tabs
-        variant="secondary"
+        key={slots.length}
         selectedKey={selectedKey}
         onSelectionChange={(key) => onSelectionChange(String(key))}
+        className="gap-5"
       >
-        <Tabs.ListContainer className={canAddMore ? "pr-40" : undefined}>
-          <Tabs.List aria-label="Endereços do cliente">
+        <Tabs.ListContainer
+          className={`${TAB_LIST_CONTAINER_CLASS} ${canAddMore ? "pr-48" : ""}`}
+        >
+          <Tabs.List aria-label="Endereços do cliente" className={TAB_LIST_CLASS}>
             {slots.map((slot) => (
-              <Tabs.Tab key={slot.key} id={slot.key}>
+              <Tabs.Tab key={slot.key} id={slot.key} className={TAB_CLASS}>
                 {slot.label}
-                <Tabs.Indicator />
+                {slot.form.values.isPrimary && (
+                  <span
+                    aria-hidden="true"
+                    className="rounded-full bg-light-secondary px-2 py-0.5 text-[10px] font-semibold text-secondary group-data-[selected=true]:bg-white/20 group-data-[selected=true]:text-white"
+                  >
+                    principal
+                  </span>
+                )}
+                <Tabs.Indicator className={TAB_INDICATOR_CLASS} />
               </Tabs.Tab>
             ))}
           </Tabs.List>
         </Tabs.ListContainer>
 
         {slots.map((slot) => (
-          <Tabs.Panel key={slot.key} id={slot.key} className="pt-4">
+          <Tabs.Panel key={slot.key} id={slot.key} className="p-0">
             <div className="flex flex-col gap-4">
               <AddressSection
                 form={slot.form}
@@ -108,8 +97,8 @@ export function AddressesSection({
       </Tabs>
 
       {canAddMore && (
-        <div className="absolute right-0 top-1">
-          <AddAddressButton onAddAddress={onAddAddress} />
+        <div className="absolute top-2.5 right-3">
+          <AddItemButton onClick={onAddAddress}>Adicionar endereço</AddItemButton>
         </div>
       )}
     </div>

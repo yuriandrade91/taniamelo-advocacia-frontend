@@ -131,7 +131,12 @@ backend **local** enquanto o processo de teste acreditava estar na AWS.
   (`GET /appointments/conflicts` disparado enquanto se digita) e limpar o que
   foi criado, pela API.
 - `e2e/inss-password.spec.ts` — a ficha não busca a senha sozinha, revelar
-  grava auditoria, e salvar sem tocar no campo não apaga a senha.
+  grava auditoria, copiar confirma em toast com a contagem andando, e salvar
+  sem tocar no campo não apaga a senha.
+- `e2e/ficha-cliente.spec.ts` — a ficha grava pelas seções do cadastro: o PUT
+  de substituição total não apaga o que a tela não desenha, o CPF inválido é
+  barrado como no cadastro, as seções aparecem todas (o painel ancora, não
+  esconde) e Pagamentos só busca o financeiro quando é aberta.
 - `e2e/login-throttle.spec.ts` — o 429 vira "tente novamente em X" em vez de
   "credenciais inválidas", que mandaria a pessoa tentar de novo e aprofundar o
   bloqueio.
@@ -235,7 +240,8 @@ login de novo, rode o setup outra vez.
 ### Detalhes que evitam investigação à toa
 
 - **`--test-id-attribute data-testid`** casa com o que o código já usa
-  (`InssPasswordField` expõe `inss-password-field` e `inss-password-toggle`).
+  (`InssPasswordField` expõe `inss-password-field`, `inss-password-toggle` e
+  `inss-password-copy`).
 - **Snapshot logo após navegar pega a página antes da hidratação.** Esta
   aplicação lê `localStorage` em `useEffect` — papel do usuário, nome no menu.
   Tirado cedo demais, o snapshot mostra "Menu do usuário" e **nenhum botão de
@@ -264,10 +270,9 @@ tela de clientes. Esta versão **não** tem ferramenta de gravação/codegen
 
 Por ordem de valor, não de esforço:
 
-1. Cadastro de cliente ponta a ponta (página com accordion, endereços,
-   entrevista) — é o formulário mais longo do sistema e o que mais quebra.
-2. Ficha do cliente: abrir, editar uma seção, conferir que o histórico de
-   situação registrou.
-3. Substituir/cancelar na modal de decisão de conflito.
-4. Exclusão e restauração (cliente e compromisso), agora que o backend tem
+1. Cadastro de cliente ponta a ponta (a página em abas, endereços, entrevista)
+   — é o formulário mais longo do sistema e o que mais quebra. `clientes-crud`
+   cobre o caminho feliz; faltam os erros de validação entre abas.
+2. Substituir/cancelar na modal de decisão de conflito.
+3. Exclusão e restauração (cliente e compromisso), agora que o backend tem
    `PATCH /restore`.

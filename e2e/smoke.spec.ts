@@ -20,6 +20,7 @@ test.describe("guarda de rota", () => {
     "/agenda",
     "/pagamentos",
     "/carteira",
+    "/relatorios",
     "/perfil",
   ]) {
     test(`sem sessão, ${rota} manda para o login`, async ({ page }) => {
@@ -35,6 +36,7 @@ test.describe("páginas principais carregam autenticadas", () => {
     { rota: "/agenda", titulo: "Agenda" },
     { rota: "/pagamentos", titulo: "Pagamentos" },
     { rota: "/carteira", titulo: "Carteira" },
+    { rota: "/relatorios", titulo: "Relatórios" },
     { rota: "/perfil", titulo: "Meus dados" },
   ];
 
@@ -80,5 +82,5 @@ test("a listagem de clientes traz dados do backend", async ({ page }) => {
   await page.goto("/clientes");
   expect((await resposta).status()).toBe(200);
 
-  await expect(page.getByRole("grid", { name: /tabela de clientes/i })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Clientes" })).toBeVisible();
 });

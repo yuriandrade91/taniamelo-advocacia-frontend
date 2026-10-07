@@ -26,6 +26,7 @@ const expenses = resource("expenses");
 const revenues = resource("revenues");
 const payments = resource("payments");
 const appointments = resource("appointments");
+const cep = resource("cep");
 
 /** Sub-recurso de um cliente: `/clients/{clientId}/{name}` e `.../{id}`. */
 const clientResource = (name: string) => {
@@ -120,6 +121,24 @@ const endpoints = {
   CLIENT_PROFESSIONAL_DATA: {
     GET: clientResource("professional-data").base,
     UPDATE: clientResource("professional-data").base,
+  },
+
+  /**
+   * /api/v1/cep — consulta de CEP para preencher o endereço (`CepController`).
+   *
+   * Rota de primeiro nível, e não sob `/clients/{id}`: resolver um CEP não
+   * depende de cliente, e o cadastro precisa dela antes de o cliente existir.
+   * Passa pelo backend, e não direto no provedor, para não expor o IP do
+   * escritório a bloqueio nem gastar cota sem freio — o servidor cacheia e
+   * limita por usuário.
+   *
+   * GET — aceita `30240-000`, `30240000` ou `30.240-000`. Respostas: 200 com
+   * `street`, `neighborhood`, `city`, `state` (os nomes do endereço); 400 se
+   * não tiver 8 dígitos; **404** se o CEP não existe; **429** ao estourar a
+   * cota; 500 `EXTERNAL_SERVICE_ERROR` com o provedor fora do ar.
+   */
+  CEP: {
+    LOOKUP: (zipCode: string) => cep.byId(encodeURIComponent(zipCode)),
   },
 
   /** /api/v1/clients/{clientId}/addresses */
@@ -241,6 +260,12 @@ const endpoints = {
     LIST: appointments.base,
     /** GET ?year= — contagem por mês (exclui cancelados); alimenta as abas. */
     SUMMARY: appointments.byId("summary"),
+    /**
+     * GET ?from=&to= — série mensal por status (agendado, concluído,
+     * cancelado), cancelados inclusive; meses vazios vêm zerados. Alimenta o
+     * gráfico dos Relatórios.
+     */
+    TIMELINE: appointments.byId("timeline"),
     /**
      * GET ?startAt=&endAt=&excludeId= — compromissos agendados que ocupam a
      * mesma faixa. **Avisa, não bloqueia**: o POST e o PUT não recusam por

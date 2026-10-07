@@ -98,11 +98,20 @@ export const deleteDisabilityPeriod = async (
 export const getDisabilityConversion = async (
   clientId: string,
   to?: string,
+  options?: {
+    /**
+     * Sem toast global. A ficha consulta ao abrir, e o 400 de sexo fora da
+     * tabela é um estado que ela explica no lugar da conta — um toast
+     * vermelho a cada abertura trataria como falha o que é só a lei.
+     */
+    silent?: boolean;
+  },
 ): Promise<ApiEnvelope<DisabilityConversionResponse>> => {
   const { data } = await axiosInstance.get<
     ApiEnvelope<DisabilityConversionResponse>
   >(endpoints.CLIENT_DISABILITY_PERIODS.CONVERSION(clientId), {
     params: to ? { to } : undefined,
+    skipErrorToast: options?.silent,
   });
   return data;
 };

@@ -24,6 +24,14 @@ export type MonthPickerProps = {
    * componente ficava dois botões com um vazio no meio.
    */
   tone?: "light" | "dark";
+  /**
+   * Versão estreita, para o cabeçalho de um cartão em vez do de uma página.
+   *
+   * Só muda tamanho: o rótulo continua "Outubro de 2026", com o ano. Cortar o
+   * ano economizaria 40px e tornaria a navegação ambígua justamente em
+   * dezembro–janeiro, quando ela é mais usada.
+   */
+  compact?: boolean;
 };
 
 const isAfter = (a: MonthRef, b: MonthRef) =>
@@ -34,6 +42,7 @@ export function MonthPicker({
   onChange,
   maxMonth,
   tone = "light",
+  compact = false,
 }: MonthPickerProps) {
   const next = shiftMonth(value, 1);
   const canGoForward = !maxMonth || !isAfter(next, maxMonth);
@@ -49,10 +58,13 @@ export function MonthPicker({
     ? "border-white/40 text-white hover:bg-white/10 disabled:opacity-30"
     : "";
 
+  const size = compact ? "sm" : "md";
+
   return (
-    <div className="flex items-center gap-2">
+    <div className={`flex items-center ${compact ? "gap-1" : "gap-2"}`}>
       <Button
         type="button"
+        size={size}
         variant={isDark ? "outline" : "secondary"}
         className={navClass}
         aria-label="Mês anterior"
@@ -61,14 +73,15 @@ export function MonthPicker({
         ‹
       </Button>
       <span
-        className={`min-w-44 text-center text-sm font-medium ${
-          isDark ? "text-white" : "text-primary"
-        }`}
+        className={`text-center font-medium whitespace-nowrap ${
+          compact ? "min-w-32 text-xs" : "min-w-44 text-sm"
+        } ${isDark ? "text-white" : "text-primary"}`}
       >
         {formatMonthLabel(value)}
       </span>
       <Button
         type="button"
+        size={size}
         variant={isDark ? "outline" : "secondary"}
         className={navClass}
         aria-label="Próximo mês"

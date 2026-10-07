@@ -13,17 +13,6 @@ import type {
  * ClientPersonalDataController + ClientProfessionalDataController.
  */
 
-// ── Dados pessoais: /clients/{clientId}/personal-data ──
-
-export const getPersonalData = async (
-  clientId: string,
-): Promise<ApiEnvelope<ClientPersonalDataResponse>> => {
-  const { data } = await axiosInstance.get<
-    ApiEnvelope<ClientPersonalDataResponse>
-  >(endpoints.CLIENT_PERSONAL_DATA.GET(clientId));
-  return data;
-};
-
 export const updatePersonalData = async (
   clientId: string,
   body: ClientPersonalDataRequest,
@@ -31,17 +20,6 @@ export const updatePersonalData = async (
   const { data } = await axiosInstance.put<
     ApiEnvelope<ClientPersonalDataResponse>
   >(endpoints.CLIENT_PERSONAL_DATA.UPDATE(clientId), body);
-  return data;
-};
-
-// ── Dados profissionais: /clients/{clientId}/professional-data ──
-
-export const getProfessionalData = async (
-  clientId: string,
-): Promise<ApiEnvelope<ClientProfessionalDataResponse>> => {
-  const { data } = await axiosInstance.get<
-    ApiEnvelope<ClientProfessionalDataResponse>
-  >(endpoints.CLIENT_PROFESSIONAL_DATA.GET(clientId));
   return data;
 };
 

@@ -167,11 +167,36 @@
      brancos ganharem contraste. */
   --color-page: oklch(0.97 0.0029 264.54); /* #F4F5F7 */
 
+  /* Creme (floralwhite) — fundo do cabeçalho dos cartões do cadastro de
+     cliente: aquece o topo do cartão sem competir com o dourado. */
+  --color-floral: #fffaf0; /* floralwhite */
+
   /* Tons translúcidos (alpha é intencional -> mantidos em rgba) */
   --color-light-secondary: rgba(181, 132, 60, 0.1);
   --color-light-white: rgba(255, 255, 255, 0.3);
   /* CORRIGIDO: a chave antiga tinha um espaço no fim ("light-green ") */
   --color-light-green: rgba(106, 231, 110, 0.25);
+
+  /* Cor de "Previsto" (lançamento em aberto, ainda no prazo) — selo das
+     tabelas e ponto/segmentos do painel de detalhes. Laranja orange-700:
+     legível como texto pequeno, entre o vermelho do atraso e o verde do
+     pago. Token próprio para a cor mudar num lugar só. */
+  --color-previsto: #c2410c;
+
+  /* Halo da etapa atual (painel de detalhes da Carteira): o ponto fica
+     parado na cor do status e só o anel em volta cresce e some. O `ping`
+     padrão dobra de tamanho — num nó de 32px isso vira um borrão. */
+  --animate-halo: halo 1.6s cubic-bezier(0, 0, 0.2, 1) infinite;
+  @keyframes halo {
+    0% {
+      transform: scale(1);
+      opacity: 0.6;
+    }
+    100% {
+      transform: scale(1.6);
+      opacity: 0;
+    }
+  }
 }
 
 /* ── Tema do HeroUI v3 mapeado para a marca ───────────────────
@@ -240,6 +265,45 @@ select,
 textarea {
   font-family: inherit;
   box-shadow: none;
+}
+
+/* ==========================================================================
+   Cursor de ação
+   ==========================================================================
+   O Tailwind v4 tirou o `cursor: pointer` dos botões (volta o padrão do
+   navegador, a seta) — e a seta em cima de algo clicável não avisa que ali há
+   uma ação. Aqui ele volta para tudo que age: botões, links, gatilhos do
+   React Aria/HeroUI (`role="button"`), opções de lista, abas, rádios
+   (o seletor de modelos, o Tipo do filtro), caixas de marcar e seletores.
+
+   Na layer `base` de propósito: qualquer utility (`cursor-help` no selo de
+   isento, `cursor-text`…) ou o CSS dos componentes da lib vence esta regra.
+   Desabilitado mostra "não permitido", no lugar da mãozinha que prometeria
+   uma ação que não acontece. */
+@layer base {
+  button,
+  a[href],
+  summary,
+  select,
+  label[for],
+  [role="button"],
+  [role="link"],
+  [role="tab"],
+  [role="radio"],
+  [role="checkbox"],
+  [role="switch"],
+  [role="option"],
+  [role="menuitem"],
+  input[type="checkbox"],
+  input[type="radio"] {
+    cursor: pointer;
+  }
+
+  :disabled,
+  [aria-disabled="true"],
+  [data-disabled="true"] {
+    cursor: not-allowed;
+  }
 }
 
 .form-border-style {
@@ -341,6 +405,19 @@ textarea {
 
 .client-form-accordion .accordion__body-inner {
   padding: 0 1.5rem 1.5rem;
+}
+
+/* ==========================================================================
+   Opções dos selects
+   ==========================================================================
+   Toda opção de lista (select, múltipla escolha, sugestões de cliente) em
+   `gray-100`, a cor do texto do sistema — sem isso herdavam o `foreground` do
+   HeroUI, mais escuro. Na camada `components`, depois do CSS do HeroUI: vence
+   o padrão dele e ainda perde para uma utilitária `text-*` escrita no item. */
+@layer components {
+  .list-box-item {
+    color: var(--color-gray-100);
+  }
 }
 
 /* ==========================================================================

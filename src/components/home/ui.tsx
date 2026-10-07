@@ -1,35 +1,8 @@
 "use client";
 
-import React from "react";
 import { ChevronDownIcon } from "@/components/ui/icons/CalendarIcon";
 
-/**
- * Controles interativos da home.
- *
- * Este arquivo era um saco de gatos com 8 exports sem relação: ícones,
- * primitivos de layout, selos e controles. Ficaram aqui só os que **precisam
- * de cliente** (têm `onClick`); o resto virou Server Component:
- *
- * | Antes (`home/ui.tsx`)      | Agora                                |
- * |----------------------------|--------------------------------------|
- * | `CalendarIcon`             | `ui/icons/CalendarIcon`              |
- * | `Card`, `SectionTitle`     | `ui/layout/Card`                     |
- * | `MonthLabel`, `DeltaBadge` | `ui/feedback/Badges`                 |
- * | `StatusBadge`, `BadgeTone` | `ui/feedback/Badges`                 |
- * | `MonthPill`, `SeeAllLink`  | continuam aqui (interativos)         |
- *
- * Os re-exports abaixo mantêm os imports existentes funcionando — a migração
- * dos consumidores pode ser gradual.
- */
-
-export { CalendarIcon } from "@/components/ui/icons/CalendarIcon";
-export { Card, SectionTitle } from "@/components/ui/layout/Card";
-export {
-  MonthLabel,
-  DeltaBadge,
-  StatusBadge,
-  type BadgeTone,
-} from "@/components/ui/feedback/Badges";
+/** Controles interativos dos cartões da Home (os primitivos estão em `ui/layout` e `ui/feedback`). */
 
 /** Pílula de período (ex.: "Novembro") com chevron. */
 export function MonthPill({

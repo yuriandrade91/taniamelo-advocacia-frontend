@@ -1,0 +1,225 @@
+/* ==========================================================================
+   Campos com o rótulo dentro da moldura
+   ==========================================================================
+   Escolhido entre os estilos em avaliação ("Rótulo dentro") no cadastro de
+   cliente, e desde então o desenho de campo do app: a Carteira, Pagamentos e
+   a Agenda o usam nas suas modais.
+
+   Vale só dentro de `[data-form-fields]` — a grade de campos, que a tela
+   declara (`FormGrid` no cadastro, uma grade de duas colunas nas modais).
+   Abas, cartões, Revisão e botões ficam com o desenho de sempre.
+
+   Âncoras (ver `Field.tsx` e `FormGrid`):
+   - `[data-form-fields] > *`     um campo (rótulo + caixa + erro). Precisa ser
+                                  filho direto: é o que posiciona o rótulo;
+   - `[data-slot="label"]`        o rótulo;
+   - `.form-border-style`         a caixa: input, área de texto, gatilho do
+                                  select, grupo da data, editor do relato;
+   - `.switch-field`              a chave (Sim/Não), que ganha a mesma caixa;
+   - `.amount-field__*`           o campo de dinheiro, que tem o "R$" fixo.
+
+   `[data-readonly]` em qualquer ancestral (a ficha fora da edição) tira o
+   esmaecido de quem só está travado para não mudar.
+
+   CSS sem `@layer` de propósito: vence o HeroUI (camada `components`) e as
+   utilitárias do Tailwind (camada `utilities`) sem `!important`. Sem sombra;
+   o foco é a borda dourada, e o erro, a vermelha. */
+
+[data-form-fields] {
+  --form-field-label: color-mix(in oklab, var(--color-gray-100) 80%, transparent);
+  /* Exemplo de preenchimento: bem apagado, para não ser lido como valor. */
+  --form-field-placeholder: color-mix(in oklab, var(--color-gray-100) 35%, transparent);
+  --form-field-border: var(--color-light-gray);
+}
+
+/* ── O campo: rótulo pequeno no canto de cima da caixa ─────────────────── */
+
+[data-form-fields] > *:has(.form-border-style) {
+  position: relative;
+}
+
+/* O editor do relato tem barra de ferramentas no topo: o rótulo fica fora. */
+[data-form-fields]
+  > *:has(.form-border-style):not(:has(.tiptap))
+  [data-slot="label"] {
+  position: absolute;
+  top: 9px;
+  left: 16px;
+  z-index: 1;
+  margin: 0;
+  color: var(--form-field-label);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+  pointer-events: none;
+}
+
+[data-form-fields] > *:focus-within [data-slot="label"] {
+  color: var(--color-secondary);
+}
+
+/* ── A caixa: input, select e data com a mesma altura e o mesmo respiro ── */
+
+[data-form-fields] .form-border-style {
+  min-height: 58px;
+  border: 1px solid var(--form-field-border);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--color-gray-100);
+  box-shadow: none;
+}
+
+/*
+  O respiro é o mesmo nas três caixas — antes o gatilho do select tinha o seu,
+  e o valor ficava mais alto e mais à esquerda que o de um campo de texto ao
+  lado ("Casado(a)" desalinhado de "Brasileira").
+*/
+[data-form-fields] :is(input, textarea, button, [role="group"]).form-border-style {
+  padding: 24px 16px 8px;
+}
+
+[data-form-fields] :is(button, [role="group"]).form-border-style {
+  display: flex;
+  align-items: center;
+}
+
+/* Os segmentos da data começam onde começa o texto dos outros campos. */
+[data-form-fields] .date-input-group__input {
+  padding-inline: 0;
+}
+
+/* O editor do relato: só a moldura, o rótulo fica em cima (ver acima). */
+[data-form-fields] .form-border-style:has(.tiptap) {
+  min-height: 0;
+  padding: 0;
+}
+
+[data-form-fields] .form-border-style:is(:hover):not(:focus, :focus-within) {
+  border-color: color-mix(in oklab, var(--color-secondary) 45%, var(--form-field-border));
+}
+
+[data-form-fields]
+  .form-border-style:is(
+    :focus,
+    :focus-within,
+    [data-focused="true"],
+    [data-focus-within="true"]
+  ) {
+  border-color: var(--color-secondary);
+  outline: none;
+  box-shadow: none;
+}
+
+/* Travado (ex.: rua que veio do CEP): fundo da página, valor ainda legível. */
+[data-form-fields] .form-border-style:is(:disabled, [data-disabled="true"]),
+[data-form-fields] [data-disabled="true"] .form-border-style {
+  background: var(--color-page);
+}
+
+/* ── Valores em gray-100 ───────────────────────────────────────────────── */
+
+[data-form-fields] :is(.select__value, .date-input-group__segment) {
+  color: var(--color-gray-100);
+}
+
+/* ── Placeholder: exemplo de preenchimento, apagado ────────────────────── */
+
+[data-form-fields] .form-border-style::placeholder,
+[data-form-fields] .select__value[data-placeholder="true"],
+[data-form-fields] .date-input-group__segment[data-placeholder="true"],
+[data-form-fields] .tiptap p.is-editor-empty:first-child::before {
+  color: var(--form-field-placeholder);
+}
+
+/* As barras do dd/mm/aaaa acompanham enquanto a data está vazia. */
+[data-form-fields]
+  .date-input-group:has(.date-input-group__segment[data-placeholder="true"])
+  .date-input-group__segment[data-type="literal"] {
+  color: var(--form-field-placeholder);
+}
+
+/* ── Erro: o contorno vermelho passa por cima do padrão (e do foco) ────── */
+
+[data-form-fields] :is([data-invalid="true"], [aria-invalid="true"]) .form-border-style,
+[data-form-fields] .form-border-style:is([data-invalid="true"], [aria-invalid="true"]),
+[data-form-fields] .form-border-style.border-danger {
+  border-color: var(--color-danger);
+}
+
+[data-form-fields] > *:has([data-invalid="true"]) [data-slot="label"] {
+  color: var(--color-danger);
+}
+
+/* ── Dinheiro: o "R$" fixo à esquerda ─────────────────────────────────── */
+
+/* O respiro de cima vale para todos; à esquerda, o valor começa depois do
+   "R$" — sem isto o número sobe em cima do símbolo.
+
+   O seletor é comprido de propósito: a regra do respiro acima vale para
+   `:is(input, …).form-border-style`, que tem o mesmo peso de duas classes —
+   um seletor mais curto aqui empataria e dependeria da ordem do arquivo. */
+[data-form-fields] input.amount-field__input.form-border-style {
+  padding-left: 40px;
+}
+
+/* O "R$" desce para a linha do valor: centralizado, ele ficaria na altura do
+   rótulo. */
+[data-form-fields] .amount-field__prefix {
+  align-items: flex-end;
+  padding-bottom: 9px;
+}
+
+/* ── A chave (Sim/Não) na mesma caixa dos outros campos ────────────────── */
+
+[data-form-fields] > .switch-field {
+  /* No topo da linha: com erro no campo ao lado, a linha cresce e a caixa
+     esticaria junto. */
+  align-self: start;
+  display: flex;
+  min-height: 58px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 16px;
+  border: 1px solid var(--form-field-border);
+  border-radius: 14px;
+  background: #fff;
+}
+
+[data-form-fields] > .switch-field [data-slot="label"] {
+  margin: 0;
+  color: var(--form-field-label);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+[data-form-fields] > .switch-field .switch-field__row {
+  margin-top: 4px;
+  font-size: 14px;
+}
+
+/* ── Leitura (a ficha fora da edição) ──────────────────────────────────────
+   Select e chave vêm desabilitados só para não mudarem; ficam legíveis como
+   os outros campos, sem o esmaecido do HeroUI nem o fundo de "travado". */
+
+[data-readonly]
+  [data-form-fields]
+  :is(.label, .select__trigger, .switch, .switch__thumb, .date-picker, .date-input-group, .date-input-group__segment) {
+  opacity: 1;
+}
+
+/* Data vazia em leitura: sem o "dd/mm/aaaa" de exemplo, como os "—" dos outros. */
+[data-readonly]
+  [data-form-fields]
+  .date-input-group:has(.date-input-group__segment[data-placeholder="true"])
+  .date-input-group__segment {
+  color: transparent;
+}
+
+[data-readonly] [data-form-fields] .form-border-style {
+  background: #fff;
+}
+
+[data-readonly] [data-form-fields] :is(.select__indicator, [data-slot="date-picker-trigger"]) {
+  visibility: hidden;
+}

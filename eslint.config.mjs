@@ -1,16 +1,25 @@
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-import { FlatCompat } from "@eslint/eslintrc";
+import { defineConfig, globalIgnores } from "eslint/config";
+import nextVitals from "eslint-config-next/core-web-vitals";
+import nextTs from "eslint-config-next/typescript";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-});
-
-const eslintConfig = [
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
-];
-
-export default eslintConfig;
+/**
+ * O `eslint-config-next` 16 já exporta flat config. O `FlatCompat` que vinha
+ * do setup inicial reprocessava essas configs como se fossem `.eslintrc` e
+ * quebrava com "Converting circular structure to JSON" — o `pnpm lint` não
+ * rodava.
+ */
+export default defineConfig([
+  ...nextVitals,
+  ...nextTs,
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "playwright-report/**",
+    "test-results/**",
+    ".pnpm-store/**",
+    "_p/**",
+    "_perm_probe/**",
+  ]),
+]);

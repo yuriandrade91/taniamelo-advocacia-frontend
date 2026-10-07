@@ -10,7 +10,6 @@ import {
   statusDoLancamento,
   toExpenseRequest,
   toRevenueRequest,
-  validateAmount,
   validateExpenseForm,
   validateIncomeForm,
   validateInstallment,
@@ -21,26 +20,6 @@ import { parseAmountBRL } from "@/lib/format";
 import type { OfficeRevenueResponse } from "@/interfaces/finance/OfficeRevenue.interface";
 
 const TODAY = "2026-09-03";
-
-describe("validateAmount", () => {
-  it("rejeita zero — o backend exige @DecimalMin(0.01)", () => {
-    expect(validateAmount("0")).not.toBeNull();
-    expect(validateAmount("0,00")).not.toBeNull();
-  });
-
-  it("rejeita negativo: o sinal está em ser saída, não no número", () => {
-    expect(validateAmount("-100")).not.toBeNull();
-  });
-
-  it("aceita o formato pt-BR com milhar", () => {
-    expect(validateAmount("1.234,56")).toBeNull();
-  });
-
-  it("rejeita texto", () => {
-    expect(validateAmount("abc")).not.toBeNull();
-    expect(validateAmount("")).not.toBeNull();
-  });
-});
 
 describe("validatePaidDate", () => {
   it("não exige nada quando não foi liquidado", () => {
@@ -64,18 +43,21 @@ describe("validateInstallment", () => {
   });
 
   it("recusa só um preenchido", () => {
-    expect(validateInstallment("2", "")).not.toBeNull();
-    expect(validateInstallment("", "12")).not.toBeNull();
+    expect(validateInstallment("2", "")).toBe("Preencha parcela e total.");
+    expect(validateInstallment("", "12")).toBe("Preencha parcela e total.");
   });
 
   it("recusa parcela maior que o total", () => {
-    expect(validateInstallment("3", "2")).not.toBeNull();
+    expect(validateInstallment("3", "2")).toBe(
+      "A parcela não pode ser maior que o total.",
+    );
     expect(validateInstallment("2", "12")).toBeNull();
   });
 
   it("recusa zero e fracionário", () => {
-    expect(validateInstallment("0", "3")).not.toBeNull();
-    expect(validateInstallment("1,5", "3")).not.toBeNull();
+    expect(validateInstallment("0", "3")).toBe("A parcela começa em 1.");
+    expect(validateInstallment("1,5", "3")).toBe("Use números inteiros.");
+    expect(validateInstallment("1.5", "3")).toBe("Use números inteiros.");
   });
 });
 
@@ -196,8 +178,6 @@ describe("carryShared", () => {
     ...emptyIncomeForm(),
     clientId: "c-1",
     clientName: "Maria",
-    installmentNumber: "2",
-    installmentTotal: "12",
     description: "Honorários",
     amount: "1.500,00",
     dueDate: "2026-09-10",
@@ -240,7 +220,7 @@ describe("carryShared", () => {
     );
     const devolta = carryShared(income, saida);
     expect(devolta.clientId).toBe("c-1");
-    expect(devolta.installmentNumber).toBe("2");
+    expect(devolta.clientName).toBe("Maria");
   });
 });
 
@@ -324,7 +304,9 @@ describe("incomeFormFrom", () => {
       amount: "1234,50",
       dueDate: "2026-03-10",
       paidDate: "2026-03-12",
-      paymentMethod: "Pix",
+      // A API manda o rótulo ("Pix"); o select trabalha com a chave. Esperar
+      // o rótulo aqui era o que deixava a Forma em "Selecione" na edição.
+      paymentMethod: "PIX",
       notes: "30% dos atrasados",
       status: "Pago",
       clientId: "c-1",
@@ -371,7 +353,7 @@ describe("expenseFormFrom", () => {
     });
     expect(form).toMatchObject({
       supplier: "Imobiliária X",
-      category: "Aluguel e condomínio",
+      category: "ALUGUEL", // chave do enum, que é o que o select reconhece
       status: "Pendente",
       isSettled: false,
       amount: "3000,00",

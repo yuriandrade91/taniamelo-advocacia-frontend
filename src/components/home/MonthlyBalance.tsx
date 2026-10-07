@@ -1,13 +1,17 @@
 "use client";
 
+import { Skeleton } from "@heroui/react";
+import dynamic from "next/dynamic";
+import { useMemo } from "react";
 import { formatBRLCompact } from "@/lib/format";
-import React, { useMemo } from "react";
-import { ArcElement, Chart as ChartJS, Legend, Tooltip } from "chart.js";
-import { Doughnut } from "react-chartjs-2";
-import { Card, MonthPill, SectionTitle } from "./ui";
+import { Card, SectionTitle } from "@/components/ui/layout/Card";
+import { MonthPicker } from "@/components/ui/MonthPicker";
+import { currentMonth, formatMonthLabel, type MonthRef } from "@/lib/period";
 
-// Registro dos elementos usados pelo doughnut (tree-shaking do Chart.js v4).
-ChartJS.register(ArcElement, Tooltip, Legend);
+const RING = <Skeleton className="h-36 w-36 shrink-0 rounded-full" />;
+
+/** O anel traz o Chart.js: vem depois do cartão, com o skeleton no lugar. */
+const BalanceDoughnut = dynamic(() => import("./BalanceDoughnut"), { ssr: false, loading: () => RING });
 
 /**
  * Paleta do gráfico — degradê do azul da marca até o azul claro.
@@ -32,18 +36,29 @@ export type BalanceSlice = {
 export type MonthlyBalanceProps = {
   total: number;
   slices: BalanceSlice[];
-  period?: string;
-  onChangePeriod?: () => void;
+  /**
+   * O mês dos números. Com `onMonthChange`, o cartão navega: quem consulta
+   * troca o mês ali mesmo e a página relê o resumo (`GET /expenses/summary`
+   * com o intervalo do mês novo).
+   *
+   * Sem ele o cartão não mostra navegação — é o caso dos Relatórios, onde o
+   * mês é o da página inteira e um segundo controle diria o contrário.
+   */
+  month?: MonthRef;
+  onMonthChange?: (month: MonthRef) => void;
   className?: string;
+  /** Carregando: o anel e as fatias em skeleton, no mesmo lugar. */
+  isLoading?: boolean;
 };
 
-/** Balanço mensal — doughnut do Chart.js com total no centro. */
+/** Balanço mensal — doughnut com o total no centro e a legenda ao lado. */
 export default function MonthlyBalance({
   total,
   slices,
-  period,
-  onChangePeriod,
+  month,
+  onMonthChange,
   className = "",
+  isLoading = false,
 }: MonthlyBalanceProps) {
   const colored = useMemo(
     () =>
@@ -55,45 +70,20 @@ export default function MonthlyBalance({
     [slices],
   );
 
-  const data = useMemo(
-    () => ({
-      labels: colored.map((s) => s.label),
-      datasets: [
-        {
-          data: colored.map((s) => s.percentage),
-          backgroundColor: colored.map((s) => s.color),
-          borderWidth: 0,
-          // Espessura do anel: quanto maior, mais fino o donut.
-          cutout: "68%",
-        },
-      ],
-    }),
-    [colored],
-  );
-
-  const options = useMemo(
-    () => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      // A legenda é renderizada ao lado, em HTML (mais controle de estilo).
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          callbacks: {
-            label: (ctx: { label?: string; parsed: number }) =>
-              ` ${ctx.label ?? ""}: ${ctx.parsed}%`,
-          },
-        },
-      },
-    }),
-    [],
-  );
-
   return (
     <Card className={className}>
-      <header className="flex items-start justify-between gap-4">
+      <header className="flex flex-wrap items-start justify-between gap-3">
         <SectionTitle>Balanço</SectionTitle>
-        {period && <MonthPill label={period} onClick={onChangePeriod} />}
+        {month && onMonthChange && (
+          /* Sem `maxMonth` futuro: despesa paga em mês que não chegou não
+             existe, e deixar navegar para lá só renderiza vazio. */
+          <MonthPicker
+            value={month}
+            onChange={onMonthChange}
+            maxMonth={currentMonth()}
+            compact
+          />
+        )}
       </header>
 
       {/*
@@ -102,14 +92,27 @@ export default function MonthlyBalance({
         é "não há dado". São afirmações diferentes, e num cartão de dinheiro a
         diferença importa.
       */}
-      {colored.length === 0 ? (
+      {isLoading ? (
+        <div className="mt-6 flex items-center gap-6" aria-hidden="true">
+          {RING}
+          <ul className="flex flex-1 flex-col gap-2.5">
+            {[0, 1, 2, 3].map((i) => (
+              <li key={i} className="flex items-center justify-between gap-4">
+                <Skeleton className="h-3 w-28 rounded-md" />
+                <Skeleton className="h-3 w-8 rounded-md" />
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : colored.length === 0 ? (
         <p className="mt-6 text-sm text-gray-100/70">
-          Sem despesas pagas para compor o balanço deste mês.
+          Sem despesas pagas para compor o balanço de{" "}
+          {month ? formatMonthLabel(month).toLowerCase() : "deste mês"}.
         </p>
       ) : (
       <div className="mt-6 flex items-center gap-6">
         <div className="relative h-36 w-36 shrink-0">
-          <Doughnut data={data} options={options} />
+          <BalanceDoughnut slices={colored} />
 
           {/* Total no centro do anel */}
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">

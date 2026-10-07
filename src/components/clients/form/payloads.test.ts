@@ -7,11 +7,7 @@ import {
   toPersonalDataRequest,
   toProfessionalDataRequest,
 } from "./payloads";
-import { serviceInitial } from "./sections/ServiceSection";
-import { personalInitial } from "./sections/PersonalDataSection";
-import { professionalInitial } from "./sections/ProfessionalDataSection";
-import { addressInitial } from "./sections/AddressSection";
-import { interviewInitial } from "./sections/InterviewSection";
+import { serviceInitial, personalInitial, professionalInitial, addressInitial, interviewInitial } from "./schemas";
 
 const service = { ...serviceInitial, benefit: "APOSENTADORIA_RURAL", situation: "ANALISE_DOCUMENTAL" };
 const personal = {

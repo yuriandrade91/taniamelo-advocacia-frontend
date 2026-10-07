@@ -1,6 +1,5 @@
 import { notificationCenter } from "@/services/notificationService";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
-import type { FinanceSummary } from "@/interfaces/finance/Finance.interface";
 
 /**
  * O atalho que mantém o front inteiro no ar enquanto uma rota não sobe.
@@ -146,13 +145,3 @@ export function serieVaziaPendente<T>(): Promise<ApiEnvelope<T[]>> {
   return Promise.resolve({ success: true, data: [] });
 }
 
-/** O resumo zerado, para quando a tela precisa de um objeto e não de um erro. */
-export const RESUMO_ZERADO: FinanceSummary = {
-  overdueAmount: 0,
-  overdueCount: 0,
-  upcomingAmount: 0,
-  upcomingCount: 0,
-  paidAmount: 0,
-  paidCount: 0,
-  totalAmount: 0,
-};

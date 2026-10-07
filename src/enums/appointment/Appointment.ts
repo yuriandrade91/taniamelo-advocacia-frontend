@@ -25,7 +25,6 @@ export type AppointmentTypeLabel = (typeof APPOINTMENT_TYPE_ENTRIES)[number][1];
 export type AppointmentTypeInput = AppointmentTypeKey | AppointmentTypeLabel;
 
 export const AppointmentTypeOptions = appointmentType.options;
-export const AppointmentTypeLabelByKey = appointmentType.labelByKey;
 export const getAppointmentTypeKeyByLabel = appointmentType.getKeyByLabel;
 
 // ── Situação ──
@@ -47,7 +46,6 @@ export type AppointmentStatusInput =
 
 export const AppointmentStatusOptions = appointmentStatus.options;
 export const AppointmentStatusLabelByKey = appointmentStatus.labelByKey;
-export const getAppointmentStatusKeyByLabel = appointmentStatus.getKeyByLabel;
 
 // ── Modalidade ──
 const APPOINTMENT_MODALITY_ENTRIES = [
@@ -66,29 +64,8 @@ export type AppointmentModalityInput =
   | AppointmentModalityLabel;
 
 export const AppointmentModalityOptions = appointmentModality.options;
-export const AppointmentModalityLabelByKey = appointmentModality.labelByKey;
 export const getAppointmentModalityKeyByLabel =
   appointmentModality.getKeyByLabel;
-
-/**
- * Ação da trilha de alterações (`appointment_history`).
- * Diferente dos demais: o backend documenta como "puramente técnica", sem
- * label — a API devolve o nome da constante. Por não ter o par chave/label,
- * não passa pela fábrica.
- */
-export const APPOINTMENT_ACTIONS = [
-  "EDITED",
-  "CANCELLED",
-  "ACKNOWLEDGED",
-] as const;
-export type AppointmentAction = (typeof APPOINTMENT_ACTIONS)[number];
-
-/** Rótulos PT-BR para exibição — montados no frontend, não vêm da API. */
-export const AppointmentActionLabel: Record<AppointmentAction, string> = {
-  EDITED: "Editado",
-  CANCELLED: "Cancelado",
-  ACKNOWLEDGED: "Ciência de data passada",
-};
 
 export {
   APPOINTMENT_TYPE_ENTRIES,

@@ -11,6 +11,7 @@ import {
   type SessionUser,
 } from "@/lib/sessionUser";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
+import { useDismiss } from "@/hooks/useDismiss";
 import { LogoutIcon, UserIcon } from "./icons";
 
 /**
@@ -42,7 +43,7 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
 
   // Mesma gramática de movimento da central de notificações: o painel desce
   // do gatilho ao abrir e sobe ao fechar.
-  const panel = useAnimatedPresence(isOpen, {
+  const { ref: panelRef, ...panel } = useAnimatedPresence(isOpen, {
     enter: "animate__slideInDown",
     exit: "animate__slideOutUp",
     durationMs: 320,
@@ -52,25 +53,7 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
     setUser(getSessionUser());
   }, []);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsOpen(false);
-    };
-
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isOpen]);
+  useDismiss(isOpen, () => setIsOpen(false), containerRef);
 
   /** POST /api/v1/auth/logout — revoga o refresh token e limpa a sessão. */
   const handleLogout = async () => {
@@ -114,7 +97,7 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
           }`}
         >
           <div
-            ref={panel.ref}
+            ref={panelRef}
             style={panel.style}
             role="menu"
             className={`overflow-hidden rounded-2xl border border-black/5 bg-white ${panel.className}`}

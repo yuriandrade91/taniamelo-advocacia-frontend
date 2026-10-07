@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
+import { useDismiss } from "@/hooks/useDismiss";
 import {
   AlertIcon,
   BellIcon,
@@ -103,7 +104,7 @@ export default function NotificationCenter({
 
   // Painel ancorado abaixo do sino: desce ao abrir e sobe ao fechar — o
   // movimento acompanha a origem do clique, diferente do lateral que usávamos.
-  const panel = useAnimatedPresence(isOpen, {
+  const { ref: panelRef, ...panel } = useAnimatedPresence(isOpen, {
     enter: "animate__slideInDown",
     exit: "animate__slideOutUp",
     durationMs: 320,
@@ -133,25 +134,7 @@ export default function NotificationCenter({
   }, [items]);
 
   // Fecha ao clicar fora ou apertar Esc — comportamento esperado de popover.
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const onPointerDown = (event: MouseEvent) => {
-      if (!containerRef.current?.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setIsOpen(false);
-    };
-
-    document.addEventListener("mousedown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isOpen]);
+  useDismiss(isOpen, () => setIsOpen(false), containerRef);
 
   return (
     /*
@@ -202,7 +185,7 @@ export default function NotificationCenter({
           }`}
         >
           <div
-            ref={panel.ref}
+            ref={panelRef}
             style={panel.style}
             role="dialog"
             aria-label="Central de notificações"

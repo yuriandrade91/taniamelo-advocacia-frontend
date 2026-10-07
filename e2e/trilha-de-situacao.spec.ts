@@ -57,7 +57,7 @@ test("mostra a situação anterior, marca o retrocesso e nomeia o autor", async 
     }
 
     await page.goto("/clientes");
-    await page.getByPlaceholder("Pesquisar beneficiário...").fill(nome);
+    await page.getByRole("searchbox", { name: "Pesquisar beneficiário" }).fill(nome);
     await page.getByRole("button", { name: "Visualizar este cliente" }).first().click();
 
     const ficha = page.getByRole("dialog");

@@ -1,5 +1,5 @@
 import React from "react";
-import { DeltaBadge, MonthLabel } from "./ui";
+import { DeltaBadge, MonthLabel } from "@/components/ui/feedback/Badges";
 
 export type StatCardProps = {
   /** Rótulo do indicador (ex.: "Formulários preenchidos"). */

@@ -48,10 +48,6 @@ export function UndoCountdown({
   const [remaining, setRemaining] = useState(() => remainingAt(deadline));
 
   useEffect(() => {
-    // Reavalia na montagem: entre o `schedule` e o primeiro paint pode ter
-    // passado tempo suficiente para o anel nascer errado.
-    setRemaining(remainingAt(deadline));
-
     const id = setInterval(() => {
       const next = remainingAt(deadline);
       // No último passo vamos direto a zero: a transição de 300ms começa aqui

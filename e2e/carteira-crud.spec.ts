@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 
-import { apiComSessaoDoNavegador, MARCA } from "./apiHelper";
+import { apiComSessaoDoNavegador, integracaoPausada, MARCA } from "./apiHelper";
 
 /**
  * Carteira, ponta a ponta: lançar, editar e excluir — entrada e saída.
@@ -18,18 +18,8 @@ import { apiComSessaoDoNavegador, MARCA } from "./apiHelper";
  */
 
 test.describe.configure({ mode: "serial" });
-/**
- * ⏸ Em pausa enquanto a rota não está no ar.
- *
- * A tela e os componentes continuam montados — o corte é no serviço
- * (`services/integracaoPendente`), então nenhuma requisição sai e estes fluxos
- * não têm o que exercitar. O arquivo fica: é o roteiro que precisa passar no dia
- * em que a rota subir, e reescrevê-lo de memória seria pior.
- *
- * Para religar: apague o atalho no serviço e a linha `test.skip` abaixo.
- */
-test.skip(true, "integração pendente — ver services/integracaoPendente.ts");
-
+/** Sem as rotas de receita e despesa neste ambiente, não há fluxo para exercitar. */
+test.skip(integracaoPausada("expenses", "revenues"), "rotas da Carteira em pausa neste ambiente");
 
 /** Sorteado por execução: duas execuções no mesmo banco não se confundem. */
 const SELO = Date.now();
@@ -56,6 +46,15 @@ function vencimentoDesteMes(): string[] {
     String(agora.getMonth() + 1).padStart(2, "0"),
     String(agora.getFullYear()),
   ];
+}
+
+/**
+ * Dia 1º do mês corrente — para **data de pagamento**, que não pode estar no
+ * futuro (o validador barra, como deve). Vencimento pode; pagamento não.
+ */
+function pagamentoDesteMes(): string[] {
+  const agora = new Date();
+  return ["01", String(agora.getMonth() + 1).padStart(2, "0"), String(agora.getFullYear())];
 }
 
 const formulario = (page: Page, nome: RegExp) =>
@@ -105,9 +104,20 @@ async function abrirNovoLancamento(page: Page) {
   return formulario(page, /novo lançamento/i);
 }
 
-/** A linha da tabela que contém esta descrição — em qualquer das duas tabelas. */
+/** A linha da lista que contém esta descrição — na aba que estiver aberta. */
 const linha = (page: Page, descricao: string) =>
-  page.getByRole("row").filter({ hasText: descricao });
+  page.getByRole("listitem").filter({ hasText: descricao });
+
+/**
+ * As listas ficam em abas (Saídas abre por padrão). O rótulo leva a contagem
+ * do mês, daí a regex. A busca isola o lançamento deste teste: o mês pode ter
+ * mais de uma página de lançamentos.
+ */
+async function abrirCarteira(page: Page, aba: "Saídas" | "Entradas" = "Saídas") {
+  await page.goto("/carteira");
+  if (aba === "Entradas") await page.getByRole("tab", { name: /^Entradas/ }).click();
+  await page.getByRole("searchbox", { name: "Pesquisar lançamento" }).fill(String(SELO));
+}
 
 test("lançar uma entrada", async ({ page }) => {
   const modal = await abrirNovoLancamento(page);
@@ -136,7 +146,10 @@ test("lançar uma entrada", async ({ page }) => {
   expect(resposta.status()).toBe(201);
   receitas.push((await resposta.json()).data.id);
 
+  // Gravou: a tela abre a aba do que foi lançado.
   await expect(modal).toBeHidden();
+  await expect(page.getByRole("tab", { name: /^Entradas/ })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("searchbox", { name: "Pesquisar lançamento" }).fill(String(SELO));
   await expect(linha(page, RECEITA)).toBeVisible();
 });
 
@@ -160,13 +173,14 @@ test("lançar uma saída", async ({ page }) => {
   despesas.push((await resposta.json()).data.id);
 
   await expect(modal).toBeHidden();
+  await page.getByRole("searchbox", { name: "Pesquisar lançamento" }).fill(String(SELO));
   await expect(linha(page, DESPESA)).toBeVisible();
 });
 
 test("editar a entrada: o registro muda e o tipo não se troca", async ({
   page,
 }) => {
-  await page.goto("/carteira");
+  await abrirCarteira(page, "Entradas");
   await linha(page, RECEITA).getByRole("button", { name: "Editar receita" }).click();
 
   const modal = formulario(page, /editar entrada/i);
@@ -196,15 +210,16 @@ test("editar a entrada: o registro muda e o tipo não se troca", async ({
 test("editar a saída marcando que já foi paga muda o status", async ({
   page,
 }) => {
-  await page.goto("/carteira");
+  await abrirCarteira(page);
   await linha(page, DESPESA).getByRole("button", { name: "Editar despesa" }).click();
 
   const modal = formulario(page, /editar saída/i);
   await modal.getByLabel("Descrição").fill(DESPESA_EDITADA);
 
   // A caixa é o que decide Pendente × Pago; a data segue junto.
-  await modal.getByRole("switch", { name: /já foi paga|já foi pago/i }).click();
-  await preencherData(page, modal, "Data do pagamento", vencimentoDesteMes());
+  // O HeroUI cobre o `input` do switch com o trilho: o clique vai no controle.
+  await modal.getByRole("switch", { name: /já foi paga|já foi pago/i }).click({ force: true });
+  await preencherData(page, modal, "Data do pagamento", pagamentoDesteMes());
 
   const edicao = page.waitForResponse(
     (r) => r.request().method() === "PUT" && r.url().includes("/api/v1/expenses/"),
@@ -222,7 +237,7 @@ test("editar a saída marcando que já foi paga muda o status", async ({
 });
 
 test("excluir a entrada tira a linha da lista", async ({ page }) => {
-  await page.goto("/carteira");
+  await abrirCarteira(page, "Entradas");
   await linha(page, RECEITA_EDITADA)
     .getByRole("button", { name: "Excluir receita" })
     .click();
@@ -245,7 +260,7 @@ test("excluir a entrada tira a linha da lista", async ({ page }) => {
 });
 
 test("excluir a saída tira a linha da lista", async ({ page }) => {
-  await page.goto("/carteira");
+  await abrirCarteira(page);
   await linha(page, DESPESA_EDITADA)
     .getByRole("button", { name: "Excluir despesa" })
     .click();

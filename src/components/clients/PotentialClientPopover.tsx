@@ -11,8 +11,11 @@ import {
   formatWaiting,
   telLink,
   toPendingLead,
+  urgencyDot,
+  urgencyTile,
   whatsappLink,
 } from "@/components/home/pendingLeads";
+import { initials } from "@/lib/format";
 import type { Clients } from "@/interfaces/Clients.interface";
 
 /**
@@ -97,21 +100,38 @@ export function PotentialClientPopover({
       >
         <Popover.Arrow />
         <Popover.Dialog>
-          <span className="inline-flex w-fit items-center rounded-full bg-light-secondary px-2 py-0.5 text-[11px] font-medium text-secondary">
-            Cliente potencial
-          </span>
-          <p className="mt-2 truncate text-sm font-semibold text-primary">
-            {lead.name}
+          {/*
+            O mesmo desenho da fila de leads (`PendingLeadsModal`): ladrilho
+            de iniciais tingido pela urgência, nome, e a espera em pílula com
+            ponto. É a mesma pessoa vista de dois lugares — ler diferente nos
+            dois custa atenção e não dá nada.
+          */}
+          <div className="flex items-center gap-3">
+            <span
+              aria-hidden="true"
+              className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl text-xs font-semibold ${urgencyTile(lead.urgency)}`}
+            >
+              {initials(lead.name)}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold text-primary">{lead.name}</p>
+              <span className="mt-0.5 inline-flex items-center gap-1.5 text-xs text-gray-100">
+                <span
+                  aria-hidden="true"
+                  className={`h-1.5 w-1.5 rounded-full ${urgencyDot(lead.urgency)}`}
+                />
+                {formatWaiting(lead.waitingDays)}
+              </span>
+            </div>
+          </div>
+
+          <p className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-100">
+            <span className="truncate">{lead.benefit || "Benefício a definir"}</span>
+            <span className="shrink-0 rounded-full bg-light-secondary px-2 py-0.5 text-[11px] font-medium text-secondary">
+              Potencial
+            </span>
           </p>
-          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-gray-100">
-            <span>{formatWaiting(lead.waitingDays)}</span>
-            {lead.benefit && (
-              <>
-                <span aria-hidden="true">·</span>
-                <span className="truncate">{lead.benefit}</span>
-              </>
-            )}
-          </p>
+
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-black/5 pt-3">
             <span className="truncate text-sm text-gray-100">
               {lead.phone ?? "Sem telefone"}

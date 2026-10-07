@@ -64,6 +64,30 @@ export function urgencyOf(waitingDays: number | null): LeadUrgency {
   return "recent";
 }
 
+/**
+ * A cor da urgência: o ponto e o ladrilho de iniciais.
+ *
+ * Mora aqui, junto da regra que decide a urgência, porque a fila
+ * (`PendingLeadsModal`) e o selo da lista de clientes
+ * (`PotentialClientPopover`) mostram a mesma pessoa — e duas tabelas de cor
+ * divergem no dia em que alguém mexer em uma só. Vermelho é "já foi longe
+ * demais"; dourado, "ainda dá tempo"; cinza, fluxo normal.
+ */
+const URGENCY_DOT: Record<LeadUrgency, string> = {
+  critical: "bg-danger",
+  warning: "bg-secondary",
+  recent: "bg-gray-100/40",
+};
+
+const URGENCY_TILE: Record<LeadUrgency, string> = {
+  critical: "bg-danger/10 text-danger",
+  warning: "bg-light-secondary text-secondary",
+  recent: "bg-page text-gray-100",
+};
+
+export const urgencyDot = (urgency: LeadUrgency) => URGENCY_DOT[urgency];
+export const urgencyTile = (urgency: LeadUrgency) => URGENCY_TILE[urgency];
+
 /** Só os dígitos, com o 55 do Brasil na frente quando falta. */
 export function toPhoneDigits(phone?: string): string | null {
   if (!phone) return null;

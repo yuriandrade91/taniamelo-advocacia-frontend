@@ -13,9 +13,9 @@
  */
 
 import { todayIso } from "@/lib/period";
-
-/** Só os dígitos — CPF, telefone e afins chegam mascarados da UI. */
-const digitsOf = (value: string) => value.replace(/\D/g, "");
+import { parseAmountBRL } from "@/lib/format";
+// CPF, telefone e afins chegam mascarados da UI — o validador lê os dígitos.
+import { digitsOf } from "@/lib/masks/masks";
 
 export function validateRequired(
   value: string,
@@ -89,9 +89,15 @@ export function validateRG(value: string): string | null {
   return null;
 }
 
+/**
+ * DDD + número (10 ou 11 dígitos), com ou sem o DDI 55 na frente — o backend
+ * aceita `+5531999990000`, e registros gravados assim não podem travar a
+ * edição da ficha.
+ */
 export function validatePhone(value: string): string | null {
   if (!value) return null;
-  const phone = digitsOf(value);
+  const digits = digitsOf(value);
+  const phone = digits.length > 11 && digits.startsWith("55") ? digits.slice(2) : digits;
   if (phone.length < 10 || phone.length > 11) return "Telefone inválido.";
   return null;
 }
@@ -240,13 +246,23 @@ export function validatePaidDate(
   return null;
 }
 
-export function validateSwitch(
-  value: boolean,
-  fieldName: string,
-): string | null {
-  if (typeof value !== "boolean") {
-    return `O campo ${fieldName} deve ser verdadeiro ou falso.`;
-  }
+/**
+ * Dinheiro digitado em pt-BR.
+ *
+ * Vazio é válido, como todo validador de formato daqui — quem exige o valor é
+ * `validateRequired` (ou o `required` do schema).
+ *
+ * Zero é recusado porque o backend recusa (`@DecimalMin("0.01")`): melhor
+ * dizer isso no campo do que colher um 400 depois de preencher o resto.
+ * Negativo idem — o sinal de uma saída está no fato de ser saída, não no
+ * número. Guardar despesa como valor negativo é o começo de somas que dão
+ * certo por acidente.
+ */
+export function validateAmountBRL(value: string): string | null {
+  if (!value.trim()) return null;
+  const parsed = parseAmountBRL(value);
+  if (parsed === null) return "Valor inválido.";
+  if (parsed <= 0) return "O valor deve ser maior que zero.";
   return null;
 }
 

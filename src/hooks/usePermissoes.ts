@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import {
   podeDestruir,
   podeListarUsuarios,
@@ -16,31 +16,36 @@ export type Permissoes = {
   podeVerFinanceiro: boolean;
 };
 
+/** As quatro permissões como texto ("1010"): snapshot estável para comparar por valor. */
+const readKey = () =>
+  [podeDestruir(), podeVerSenhaDoInss(), podeListarUsuarios(), podeVerFinanceiro()]
+    .map(Number)
+    .join("");
+
+/** Outra aba que entra ou sai muda a sessão: o evento `storage` avisa. */
+const subscribe = (onChange: () => void) => {
+  window.addEventListener("storage", onChange);
+  return () => window.removeEventListener("storage", onChange);
+};
+
 /**
  * Permissões do usuário da sessão, para a UI decidir o que mostrar.
  *
- * Lê em `useEffect`, e não durante o render, porque a origem é o
- * `localStorage`: no servidor ele não existe, e ler direto faria o HTML do
- * servidor divergir do primeiro render do cliente (erro de hidratação do
- * React). O preço é um instante com tudo `false` — que esconde o botão em vez
- * de piscá-lo e tirá-lo da tela, ordem menos ruim para quem está olhando.
+ * A origem é o `localStorage`, que não existe no servidor: o HTML pré-gerado
+ * sai com tudo `false` (`getServerSnapshot`) e a hidratação lê a sessão logo
+ * em seguida. Em navegação dentro do app a leitura é imediata — a tela já
+ * nasce sabendo, sem um render com tudo `false` que dispararia chamadas duas
+ * vezes.
  */
 export function usePermissoes(): Permissoes {
-  const [permissoes, setPermissoes] = useState<Permissoes>({
-    podeDestruir: false,
-    podeVerSenhaDoInss: false,
-    podeListarUsuarios: false,
-    podeVerFinanceiro: false,
-  });
-
-  useEffect(() => {
-    setPermissoes({
-      podeDestruir: podeDestruir(),
-      podeVerFinanceiro: podeVerFinanceiro(),
-      podeVerSenhaDoInss: podeVerSenhaDoInss(),
-      podeListarUsuarios: podeListarUsuarios(),
-    });
-  }, []);
-
-  return permissoes;
+  const key = useSyncExternalStore(subscribe, readKey, () => "0000");
+  return useMemo(() => {
+    const [destruir, senha, usuarios, financeiro] = key.split("").map((c) => c === "1");
+    return {
+      podeDestruir: destruir,
+      podeVerSenhaDoInss: senha,
+      podeListarUsuarios: usuarios,
+      podeVerFinanceiro: financeiro,
+    };
+  }, [key]);
 }

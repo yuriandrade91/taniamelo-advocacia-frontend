@@ -1,12 +1,44 @@
 "use client";
 
-import { Accordion, Button } from "@heroui/react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { ProgressRing } from "@/components/clients/form/ProgressRing";
-import { FormSection } from "@/components/clients/form/FormSection";
+import { ClientFormTabs } from "@/components/clients/form/tabs/ClientFormTabs";
+import {
+  FillModeSwitcher,
+  FillModeView,
+  useFillModeChoice,
+} from "@/components/clients/form/modes/FillModes";
+import { ReviewPanel } from "@/components/clients/form/tabs/ReviewPanel";
+import { FormActionBar } from "@/components/clients/form/tabs/FormActionBar";
+import { ActionButton, ChipButton } from "@/components/ui/actions/ActionGroup";
+import { TrashIcon } from "@/components/ui/icons/actions";
+import {
+  AddressIcon,
+  DisabilityIcon,
+  FilesIcon,
+  InterviewIcon,
+  PersonIcon,
+  ServiceIcon,
+  WorkIcon,
+} from "@/components/clients/form/tabs/sectionIcons";
+import type {
+  ClientFormSection,
+  SectionFocus,
+} from "@/components/clients/form/tabs/types";
+import {
+  buildClientReview,
+  missingFields,
+  totalMissing,
+  type ReviewSectionKey,
+} from "@/components/clients/form/review";
+import {
+  DISABILITY_BENEFIT,
+  shouldAskGender,
+} from "@/components/clients/form/genderPrompt";
 import { DisabilitySection } from "@/components/clients/form/sections/DisabilitySection";
 import {
   hasAnyDisabilityInput,
@@ -18,6 +50,7 @@ import {
 } from "@/components/clients/form/disabilityPeriods";
 import {
   createDisabilityPeriod,
+  deleteDisabilityPeriod,
   updateDisabilityPeriod as updateDisabilityPeriodRequest,
 } from "@/services/clientDisabilityPeriodService";
 import {
@@ -28,45 +61,31 @@ import {
   AddressesSection,
   type AddressSlot,
 } from "@/components/clients/form/sections/AddressesSection";
+import { FilesUpload } from "@/components/clients/form/sections/files/upload/FilesUpload";
+import {
+  isDocumentComplete,
+  isSimulationComplete,
+  type StagedDocument,
+  type StagedSimulation,
+} from "@/components/clients/form/sections/files/types";
+import { InterviewSection } from "@/components/clients/form/sections/InterviewSection";
+import { PersonalDataSection } from "@/components/clients/form/sections/PersonalDataSection";
+import { ProfessionalDataSection } from "@/components/clients/form/sections/ProfessionalDataSection";
+import { ServiceSection } from "@/components/clients/form/sections/ServiceSection";
 import {
   addressInitial,
-  addressRules,
+  addressSchema,
   hasAddressInput,
-  type AddressValues,
-} from "@/components/clients/form/sections/AddressSection";
-import { FilesSection } from "@/components/clients/form/sections/files/FilesSection";
-import FileUploadModal from "@/components/clients/form/sections/files/FileUploadModal";
-import type {
-  FileKind,
-  StagedDocument,
-  StagedSimulation,
-} from "@/components/clients/form/sections/files/types";
-import { isDocumentReady } from "@/components/clients/form/sections/files/types";
-import {
-  InterviewSection,
   hasInterviewInput,
-  interviewInitial,
-  interviewRules,
-  type InterviewValues,
-} from "@/components/clients/form/sections/InterviewSection";
-import {
-  PersonalDataSection,
-  personalInitial,
-  personalRules,
-  type PersonalValues,
-} from "@/components/clients/form/sections/PersonalDataSection";
-import {
-  ProfessionalDataSection,
-  professionalInitial,
-  professionalRules,
-  type ProfessionalValues,
-} from "@/components/clients/form/sections/ProfessionalDataSection";
-import {
-  ServiceSection,
+  interviewSchema,
+  personalSchema,
+  professionalSchema,
   serviceInitial,
-  serviceRules,
-  type ServiceValues,
-} from "@/components/clients/form/sections/ServiceSection";
+  personalInitial,
+  professionalInitial,
+  serviceSchema,
+  type AddressValues,
+} from "@/components/clients/form/schemas";
 
 import {
   buildDocumentsFormData,
@@ -107,9 +126,23 @@ import {
   uploadDocuments,
   uploadSimulations,
 } from "@/services/clientFileService";
-import { createInterview } from "@/services/clientInterviewService";
+import {
+  createInterview,
+  updateInterview,
+} from "@/services/clientInterviewService";
+import { usePermissoes } from "@/hooks/usePermissoes";
+import { sectionHasInput } from "@/components/clients/form/unsaved";
 import { createClient, patchClient } from "@/services/clientService";
 import { notificationCenter } from "@/services/notificationService";
+
+/** Modal: fora do pacote da página, como as outras (ver CLAUDE.md). */
+const GenderPromptModal = dynamic(
+  () =>
+    import("@/components/clients/form/GenderPromptModal").then(
+      (m) => m.GenderPromptModal,
+    ),
+  { ssr: false },
+);
 
 /**
  * Cadastro de cliente — página, não modal.
@@ -135,6 +168,9 @@ import { notificationCenter } from "@/services/notificationService";
  * conexão HTTP de dentro de um componente de campo.
  */
 
+/** A aba de revisão — fora de `SECTION_KEYS` porque não é seção do formulário. */
+const REVIEW_KEY = "revisao";
+
 const SECTION_KEYS = {
   service: "atendimento",
   personal: "dados-pessoais",
@@ -145,61 +181,23 @@ const SECTION_KEYS = {
   documents: "documentos",
 } as const;
 
-/** Ícone genérico de seção — o mesmo do print, um cartão com linhas. */
-function SectionIcon() {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
-      <rect
-        x="2"
-        y="4"
-        width="16"
-        height="12"
-        rx="2"
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-      <path
-        d="M5 8h4M5 11h7"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
+/** Endereços além do primeiro nascem sem ser o principal. */
+const SECONDARY_ADDRESS: AddressValues = { ...addressInitial, isPrimary: false };
 
 export default function NewClientPage() {
   const router = useRouter();
 
-  const service = useSectionForm<ServiceValues>({
-    initial: serviceInitial,
-    rules: serviceRules,
-  });
-  const personal = useSectionForm<PersonalValues>({
-    initial: personalInitial,
-    rules: personalRules,
-  });
-  const professional = useSectionForm<ProfessionalValues>({
-    initial: professionalInitial,
-    rules: professionalRules,
-  });
+  const service = useSectionForm({ schema: serviceSchema });
+  const personal = useSectionForm({ schema: personalSchema });
+  const professional = useSectionForm({ schema: professionalSchema });
   /**
    * Três `useSectionForm` fixos, não um array dinâmico — hooks não podem
    * nascer dentro de um loop, e o limite de 3 abas (o atual + até 2 extras)
    * já é regra de negócio fixa, então não perde generalidade.
    */
-  const address1 = useSectionForm<AddressValues>({
-    initial: addressInitial,
-    rules: addressRules,
-  });
-  const address2 = useSectionForm<AddressValues>({
-    initial: { ...addressInitial, isPrimary: false },
-    rules: addressRules,
-  });
-  const address3 = useSectionForm<AddressValues>({
-    initial: { ...addressInitial, isPrimary: false },
-    rules: addressRules,
-  });
+  const address1 = useSectionForm({ schema: addressSchema });
+  const address2 = useSectionForm({ schema: addressSchema, initial: SECONDARY_ADDRESS });
+  const address3 = useSectionForm({ schema: addressSchema, initial: SECONDARY_ADDRESS });
   const addressForms = [address1, address2, address3] as const;
 
   /** Quantas abas de endereço estão visíveis — de 1 (só o atual) a 3. */
@@ -298,7 +296,7 @@ export default function NewClientPage() {
       addressForms.map((form) => form.values),
       addressIds,
       index,
-      { ...addressInitial, isPrimary: false },
+      SECONDARY_ADDRESS,
     );
 
     const promoteAt =
@@ -392,23 +390,58 @@ export default function NewClientPage() {
     setDisabilityPeriods((current) => [...current, newDisabilityPeriod()]);
 
   /**
-   * Remove da tela e, se já estava gravado, do servidor.
+   * Tira o intervalo da tela.
    *
    * A última linha não é removida, é esvaziada: uma seção sem nenhum intervalo
    * não teria onde a pessoa clicar para começar de novo a não ser no botão de
    * adicionar, que some junto com o contexto.
    */
-  const removeDisabilityPeriod = (key: string) =>
+  const dropDisabilityPeriod = (key: string) =>
     setDisabilityPeriods((current) =>
       current.length === 1
         ? [newDisabilityPeriod()]
         : current.filter((period) => period.key !== key),
     );
 
-  const interview = useSectionForm<InterviewValues>({
-    initial: interviewInitial,
-    rules: interviewRules,
-  });
+  /**
+   * Intervalo já gravado à espera de confirmação para sair do servidor.
+   *
+   * Rascunho some na hora; gravado pergunta antes, porque o `DELETE` não tem
+   * desfazer e muda o tempo convertido do cliente — o número que vai para o
+   * requerimento.
+   */
+  const [disabilityRemoval, setDisabilityRemoval] =
+    useState<DisabilityPeriodDraft | null>(null);
+
+  const removeDisabilityPeriod = (key: string) => {
+    const period = disabilityPeriods.find((item) => item.key === key);
+    if (!period) return;
+    if (period.id && clientId) {
+      setDisabilityRemoval(period);
+      return;
+    }
+    dropDisabilityPeriod(key);
+  };
+
+  /**
+   * Antes, a remoção só tirava da tela: o intervalo gravado continuava no
+   * servidor e voltava na próxima abertura da ficha, somando na conversão.
+   * Agora sai de lá primeiro; se o servidor recusar, fica na tela — o toast
+   * do interceptor já diz por quê.
+   */
+  const confirmDisabilityRemoval = async () => {
+    const period = disabilityRemoval;
+    setDisabilityRemoval(null);
+    if (!period?.id || !clientId) return;
+    try {
+      await deleteDisabilityPeriod(clientId, period.id);
+      dropDisabilityPeriod(period.key);
+    } catch (error) {
+      console.error("Erro ao excluir período de deficiência:", error);
+    }
+  };
+
+  const interview = useSectionForm({ schema: interviewSchema });
 
   /**
    * `null` enquanto o cliente não existe. Depois de preenchido, cada seção
@@ -417,6 +450,13 @@ export default function NewClientPage() {
   const [clientId, setClientId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   /**
+   * `id` da entrevista depois de gravada. Sem ele, cada "Salvar entrevista"
+   * da fase 2 era um `POST` novo — a ficha ganhava uma cópia da mesma
+   * entrevista a cada clique.
+   */
+  const [interviewId, setInterviewId] = useState<string | null>(null);
+  const { podeDestruir } = usePermissoes();
+  /**
    * Arquivos escolhidos. Moram aqui, e não dentro da seção, porque quem decide
    * se o upload é disparado é o orquestrador — e ele precisa enxergar a lista.
    */
@@ -424,22 +464,42 @@ export default function NewClientPage() {
   const [stagedSimulations, setStagedSimulations] = useState<
     StagedSimulation[]
   >([]);
-  const [uploadKind, setUploadKind] = useState<FileKind | null>(null);
+  /** Os campos que faltam nos arquivos aparecem depois de tentar avançar ou salvar. */
+  const [filesRevealed, setFilesRevealed] = useState(false);
   const [savedSections, setSavedSections] = useState<Set<string>>(new Set());
   /**
-   * `Set<string>` e não `Set<Key>`: o `Key` do React inclui `bigint`, que o
-   * DisclosureGroup do React Aria não aceita — e `Set<string>` satisfaz o
-   * `Iterable<Key>` que ele pede, sem importar tipo de pacote transitivo.
+   * Qual aba mostrar. A página pede (erro de validação, "Revisar") e as abas
+   * trocam para a primeira chave.
    */
-  const [expandedKeys, setExpandedKeys] = useState<Set<string>>(
-    new Set([SECTION_KEYS.service, SECTION_KEYS.personal]),
-  );
+  const [focus, setFocus] = useState<SectionFocus>({
+    keys: [SECTION_KEYS.service],
+    seq: 0,
+  });
+  const focusSection = (...keys: string[]) =>
+    setFocus((current) => ({ keys, seq: current.seq + 1 }));
+  /** Pergunta de sexo ao escolher o benefício por deficiência. */
+  const [isAskingGender, setIsAskingGender] = useState(false);
+  /** Modo de preenchimento — experimental e oculto, ver `modes/FillModes.tsx`. */
+  const [fillMode, setFillMode, isFillModeRevealed] = useFillModeChoice();
+  // A aba visível — na Revisão o rodapé deixa de repetir as pendências.
+  const [activeTab, setActiveTab] = useState<string>();
+  const isReviewing = fillMode === "abas" && activeTab === REVIEW_KEY;
+  /** Trocar o benefício para PCD pergunta o sexo — vale em qualquer modo. */
+  const handleBenefitChange = (next: string, previous: string) => {
+    if (shouldAskGender(previous, next)) setIsAskingGender(true);
+    // Aposentadoria por deficiência pressupõe a deficiência: a chave de Dados
+    // pessoais já vem ligada. Trocar de benefício depois não a desliga — a
+    // pessoa continua com deficiência, só pede outra coisa.
+    if (next === DISABILITY_BENEFIT) personal.setField("hasDisability", true);
+  };
 
   const isCreated = clientId !== null;
+  /** Diálogo de "descartar o cadastro?" do botão Cancelar. */
+  const [isConfirmingCancel, setIsConfirmingCancel] = useState(false);
 
-  /** Ver o comentário na seção, no accordion abaixo. */
+  /** Ver o comentário na seção, na lista de abas abaixo. */
   const mostrarDeficiencia =
-    service.values.benefit === "APOSENTADORIA_POR_DEFICIENCIA" ||
+    service.values.benefit === DISABILITY_BENEFIT ||
     personal.values.hasDisability === true;
 
   const progress = useMemo(
@@ -454,7 +514,7 @@ export default function NewClientPage() {
   const canCreate =
     service.isValid && personal.isValid && professional.isValid && !isCreating;
 
-  /** Marca uma seção como gravada — alimenta o selo do cabeçalho do accordion. */
+  /** Marca uma seção como gravada — alimenta o selo da aba. */
   const markSaved = (key: string) =>
     setSavedSections((current) => new Set(current).add(key));
 
@@ -481,11 +541,12 @@ export default function NewClientPage() {
     if (clientId || isCreating) return;
 
     // Sempre obrigatórias (compõem o POST /clients).
-    const requiredOk = [
-      service.revealErrors(),
-      personal.revealErrors(),
-      professional.revealErrors(),
-    ].every(Boolean);
+    const requiredChecks = [
+      [SECTION_KEYS.service, service.revealErrors()],
+      [SECTION_KEYS.personal, personal.revealErrors()],
+      [SECTION_KEYS.professional, professional.revealErrors()],
+    ] as const;
+    const requiredOk = requiredChecks.every(([, ok]) => ok);
 
     // Opcionais: só são validadas se o usuário mexeu nelas. Uma seção em
     // branco não pode reprovar um cadastro que está completo.
@@ -495,8 +556,6 @@ export default function NewClientPage() {
     );
     const interviewTouched = hasInterviewInput(interview.values);
     const disabilityTouched = hasAnyDisabilityInput(disabilityPeriods);
-    const documentsTouched =
-      stagedDocuments.length > 0 || stagedSimulations.length > 0;
 
     let disabilityOk = true;
     if (disabilityTouched) {
@@ -515,15 +574,13 @@ export default function NewClientPage() {
       notificationCenter.warning("Revise os campos destacados.", {
         description: "Há campos obrigatórios pendentes.",
       });
-      if (!disabilityOk) setExpandedKeys(new Set([SECTION_KEYS.disability]));
+      // Com abas ou etapas a seção com erro pode nem estar na tela.
+      const firstInvalid = requiredChecks.find(([, ok]) => !ok)?.[0];
+      if (firstInvalid) focusSection(firstInvalid);
+      else if (!disabilityOk) focusSection(SECTION_KEYS.disability);
       return;
     }
 
-    if (interviewTouched && !interview.values.content.trim()) {
-      notificationCenter.warning("A entrevista precisa de conteúdo.");
-      setExpandedKeys(new Set([SECTION_KEYS.interview]));
-      return;
-    }
 
     // Rede de segurança do nosso lado: a interface já impede dois principais,
     // então cair aqui significa bug de estado — melhor descobrir antes do 400.
@@ -531,14 +588,14 @@ export default function NewClientPage() {
       !isValidPrimarySelection(filledAddresses.map((slot) => slot.form.values))
     ) {
       notificationCenter.warning("Escolha um único endereço principal.");
-      setExpandedKeys(new Set([SECTION_KEYS.address]));
+      focusSection(SECTION_KEYS.address);
       return;
     }
 
-    // Simulação não tem metadado obrigatório; documento tem (`documentType`).
-    if (stagedDocuments.length > 0 && !stagedDocuments.every(isDocumentReady)) {
-      notificationCenter.warning("Escolha o tipo de cada documento.");
-      setExpandedKeys(new Set([SECTION_KEYS.documents]));
+    // No cadastro todo campo do arquivo é obrigatório (menos a principal).
+    if (!validateFiles()) {
+      notificationCenter.warning("Complete os dados de cada arquivo.");
+      focusSection(SECTION_KEYS.documents);
       return;
     }
 
@@ -603,9 +660,7 @@ export default function NewClientPage() {
           markSaved(SECTION_KEYS.address);
         } catch (error) {
           console.error("Erro ao salvar endereços:", error);
-          failed.push(
-            filledAddresses.length > 1 ? "endereços" : "endereço",
-          );
+          failed.push(filledAddresses.length > 1 ? "endereços" : "endereço");
         }
       }
 
@@ -651,7 +706,11 @@ export default function NewClientPage() {
 
       if (interviewTouched) {
         try {
-          await createInterview(newId, toInterviewRequest(interview.values));
+          const saved = await createInterview(
+            newId,
+            toInterviewRequest(interview.values),
+          );
+          setInterviewId(saved?.data?.id ?? null);
           markSaved(SECTION_KEYS.interview);
         } catch (error) {
           console.error("Erro ao salvar entrevista:", error);
@@ -696,9 +755,7 @@ export default function NewClientPage() {
         notificationCenter.warning("Cliente criado, com pendências.", {
           description: `Não foi possível salvar: ${failed.join(", ")}. Use o botão da própria seção para tentar de novo.`,
         });
-        setExpandedKeys(
-          new Set([SECTION_KEYS.address, SECTION_KEYS.interview]),
-        );
+        focusSection(SECTION_KEYS.address, SECTION_KEYS.interview);
         return;
       }
 
@@ -806,7 +863,8 @@ export default function NewClientPage() {
 
     setDisabilityRevealed(true);
     if (
-      Object.keys(validateDisabilityPeriods(disabilityPeriods, today)).length > 0
+      Object.keys(validateDisabilityPeriods(disabilityPeriods, today)).length >
+      0
     ) {
       return;
     }
@@ -844,19 +902,59 @@ export default function NewClientPage() {
       notificationCenter.info("Nada para salvar na entrevista.");
       return;
     }
-    if (!interview.revealErrors()) return;
-    if (!interview.values.content.trim()) {
+    if (!interview.revealErrors()) {
       notificationCenter.warning("A entrevista precisa de conteúdo.");
       return;
     }
     try {
-      await createInterview(clientId, toInterviewRequest(interview.values));
+      const body = toInterviewRequest(interview.values);
+      if (interviewId) {
+        await updateInterview(clientId, interviewId, body);
+      } else {
+        const saved = await createInterview(clientId, body);
+        setInterviewId(saved?.data?.id ?? null);
+      }
       markSaved(SECTION_KEYS.interview);
       notificationCenter.success("Entrevista salva.");
     } catch (error) {
       console.error("Erro ao salvar entrevista:", error);
     }
   };
+
+  /**
+   * O `validate` de cada aba — as abas não deixam avançar sem ele.
+   *
+   * Mesma regra do "Salvar cliente": Atendimento, Dados pessoais e Dados
+   * profissionais sempre; endereço, deficiência e entrevista só quando
+   * preenchidos (em branco, não viram requisição); arquivos, cada um completo.
+   * Todos mostram os erros da aba ao reprovar.
+   */
+  function validateFiles() {
+    setFilesRevealed(true);
+    return (
+      stagedDocuments.every(isDocumentComplete) &&
+      stagedSimulations.every(isSimulationComplete)
+    );
+  }
+
+  const validateAddresses = () =>
+    addressSlots
+      .filter((slot) => hasAddressInput(slot.form.values))
+      // `map` antes do `every`: cada aba de endereço mostra os próprios erros.
+      .map((slot) => slot.form.revealErrors())
+      .every(Boolean);
+
+  const validateDisability = () => {
+    if (!hasAnyDisabilityInput(disabilityPeriods)) return true;
+    setDisabilityRevealed(true);
+    return (
+      Object.keys(validateDisabilityPeriods(disabilityPeriods, today)).length ===
+      0
+    );
+  };
+
+  const validateInterview = () =>
+    !hasInterviewInput(interview.values) || interview.revealErrors();
 
   /**
    * Nenhuma seção fica travada. O que define o que vai para a API é o
@@ -870,6 +968,262 @@ export default function NewClientPage() {
       : { status: "pending" as const, label: "Pendente" };
   };
 
+  /**
+   * Todos os campos com rótulo e valor — é a aba Revisão, e é também de onde
+   * cada aba tira quantos obrigatórios faltam nela.
+   */
+  /**
+   * Algo digitado que o Cancelar jogaria fora.
+   *
+   * Só vale **antes** de o cliente existir: depois do primeiro salvamento o
+   * botão vira "Concluir" e o que importava já está gravado. Endereço usa o
+   * `hasAddressInput` em vez da comparação genérica porque o principal muda de
+   * aba sem ninguém digitar nada.
+   */
+  const hasUnsavedInput =
+    !isCreated &&
+    (sectionHasInput(service.values, serviceInitial) ||
+      sectionHasInput(personal.values, personalInitial) ||
+      sectionHasInput(professional.values, professionalInitial) ||
+      addressForms.some((form) => hasAddressInput(form.values)) ||
+      hasAnyDisabilityInput(disabilityPeriods) ||
+      hasInterviewInput(interview.values) ||
+      stagedDocuments.length > 0 ||
+      stagedSimulations.length > 0);
+
+  /** Formulário em branco sai direto: não há o que perder, nem o que perguntar. */
+  const handleCancel = () => {
+    if (hasUnsavedInput) {
+      setIsConfirmingCancel(true);
+      return;
+    }
+    router.push("/clientes");
+  };
+
+  const review = buildClientReview({
+    service: service.values,
+    personal: personal.values,
+    professional: professional.values,
+    addresses: addressSlots.map((slot) => ({
+      label: slot.label,
+      values: slot.form.values,
+      hasInput: hasAddressInput(slot.form.values),
+    })),
+    interview: {
+      values: interview.values,
+      hasInput: hasInterviewInput(interview.values),
+    },
+    disability: mostrarDeficiencia ? disabilityPeriods : null,
+    documents: stagedDocuments,
+    simulations: stagedSimulations,
+  });
+  const missingIn = (key: ReviewSectionKey) =>
+    review.find((section) => section.key === key)?.missing ?? 0;
+
+  /** As abas, na ordem do formulário. A "Revisão" entra no fim, sozinha. */
+  const candidates: (ClientFormSection | false)[] = [
+    {
+      id: SECTION_KEYS.service,
+      title: "Atendimento",
+      description:
+        "Benefício pretendido e situação do caso — é o que orienta o requerimento.",
+      icon: <ServiceIcon />,
+      missing: missingIn("service"),
+      validate: service.revealErrors,
+      ...toSectionProps(statusOf(SECTION_KEYS.service, service.isValid)),
+      content: (
+        <div className="flex flex-col gap-2">
+          <ServiceSection
+            form={service}
+            onBenefitChange={handleBenefitChange}
+          />
+          <SectionActions
+            isVisible={isCreated}
+            onSave={handleSaveService}
+            label="Salvar atendimento"
+          />
+        </div>
+      ),
+    },
+    /*
+      A seção aparece só quando faz diferença: aposentadoria por deficiência
+      é a hipótese em que o grau e o tempo em cada grau mudam o requerimento.
+      A chave "pessoa com deficiência" de Dados pessoais também a traz, porque
+      quem marcou aquela chave tem a informação em mãos — e perdê-la agora
+      significa pedir de novo depois.
+
+      Em qualquer outro caso seria mais um campo para ignorar no meio de um
+      formulário que já é longo.
+    */
+    mostrarDeficiencia && {
+      id: SECTION_KEYS.disability,
+      title: "Períodos de deficiência",
+      description:
+        "Grau e tempo em cada grau. Na aposentadoria da pessoa com deficiência, mudam o tempo exigido.",
+      icon: <DisabilityIcon />,
+      missing: missingIn("disability"),
+      validate: validateDisability,
+      ...toSectionProps(
+        statusOf(
+          SECTION_KEYS.disability,
+          Object.keys(validateDisabilityPeriods(disabilityPeriods, today))
+            .length === 0,
+        ),
+      ),
+      content: (
+        <div className="flex flex-col gap-4">
+          <DisabilitySection
+            periods={disabilityPeriods}
+            errors={disabilityErrors}
+            gender={personal.values.gender}
+            today={today}
+            onChange={updateDisabilityPeriod}
+            onAdd={addDisabilityPeriod}
+            onRemove={removeDisabilityPeriod}
+            canDeleteSaved={podeDestruir}
+          />
+          <SectionActions
+            isVisible={isCreated}
+            onSave={handleSaveDisability}
+            label="Salvar períodos de deficiência"
+          />
+        </div>
+      ),
+    },
+    {
+      id: SECTION_KEYS.personal,
+      title: "Dados pessoais",
+      description: "Quem é o cliente e como falar com ele.",
+      icon: <PersonIcon />,
+      missing: missingIn("personal"),
+      validate: personal.revealErrors,
+      ...toSectionProps(statusOf(SECTION_KEYS.personal, personal.isValid)),
+      content: (
+        <div className="flex flex-col gap-2">
+          <PersonalDataSection form={personal} />
+          <SectionActions
+            isVisible={isCreated}
+            onSave={handleSavePersonal}
+            label="Salvar dados pessoais"
+          />
+        </div>
+      ),
+    },
+    {
+      id: SECTION_KEYS.professional,
+      title: "Dados profissionais",
+      description: "Vida contributiva e o acesso ao Meu INSS.",
+      icon: <WorkIcon />,
+      missing: missingIn("professional"),
+      validate: professional.revealErrors,
+      ...toSectionProps(
+        statusOf(SECTION_KEYS.professional, professional.isValid),
+      ),
+      content: (
+        <div className="flex flex-col gap-2">
+          <ProfessionalDataSection form={professional} />
+          <SectionActions
+            isVisible={isCreated}
+            onSave={handleSaveProfessional}
+            label="Salvar dados profissionais"
+          />
+        </div>
+      ),
+    },
+    {
+      id: SECTION_KEYS.address,
+      title: "Endereço",
+      description: "Até três endereços; um deles é o principal.",
+      icon: <AddressIcon />,
+      missing: missingIn("address"),
+      validate: validateAddresses,
+      ...toSectionProps(
+        statusOf(SECTION_KEYS.address, addressForms[0].isValid),
+      ),
+      content: (
+        <AddressesSection
+          slots={addressSlots}
+          selectedKey={selectedAddressKey}
+          onSelectionChange={setSelectedAddressKey}
+          canAddMore={addressCount < 3}
+          onAddAddress={handleAddAddress}
+          onRequestPrimary={handleRequestPrimary}
+          renderActions={(slot) => {
+            const index = Number(slot.key.replace("address-", ""));
+            return (
+              <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
+                {addressCount > 1 && (
+                  <ChipButton
+                    tone="danger"
+                    icon={<TrashIcon className="h-3.5 w-3.5" />}
+                    onClick={() => handleRemoveAddress(index)}
+                  >
+                    Excluir endereço
+                  </ChipButton>
+                )}
+                <SectionActions
+                  isVisible={isCreated}
+                  onSave={() => handleSaveAddress(index)}
+                  label={
+                    addressIds[index] ? "Atualizar endereço" : "Salvar endereço"
+                  }
+                />
+              </div>
+            );
+          }}
+        />
+      ),
+    },
+    {
+      id: SECTION_KEYS.interview,
+      title: "Entrevista",
+      description:
+        "O relato do atendimento: histórico, pendências e documentos a trazer.",
+      icon: <InterviewIcon />,
+      missing: missingIn("interview"),
+      validate: validateInterview,
+      ...toSectionProps(statusOf(SECTION_KEYS.interview, interview.isValid)),
+      content: (
+        <div className="flex flex-col gap-4">
+          <InterviewSection form={interview} />
+          <SectionActions
+            isVisible={isCreated}
+            onSave={handleSaveInterview}
+            label="Salvar entrevista"
+          />
+        </div>
+      ),
+    },
+    {
+      id: SECTION_KEYS.documents,
+      title: "Arquivos",
+      description:
+        "Documentos e simulações do caso, guardados junto do cliente.",
+      icon: <FilesIcon />,
+      missing: missingIn("documents"),
+      validate: validateFiles,
+      ...toSectionProps(
+        statusOf(
+          SECTION_KEYS.documents,
+          stagedDocuments.every(isDocumentComplete) &&
+            stagedSimulations.every(isSimulationComplete),
+        ),
+      ),
+      content: (
+        <FilesUpload
+          documents={stagedDocuments}
+          simulations={stagedSimulations}
+          onDocumentsChange={setStagedDocuments}
+          onSimulationsChange={setStagedSimulations}
+          showErrors={filesRevealed}
+        />
+      ),
+    },
+  ];
+  const sections = candidates.filter(
+    (section): section is ClientFormSection => section !== false,
+  );
+
   return (
     <div className="flex flex-col gap-4 pb-16">
       {/*
@@ -881,6 +1235,22 @@ export default function NewClientPage() {
 
       <PageHeader
         title="Cadastro de Cliente"
+        description={
+          // Legenda dos números das abas — some junto com eles, quando não
+          // falta mais nada. Leitor de tela já ouve isso na própria aba.
+          totalMissing(review) > 0 ? (
+            <span className="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-secondary px-1.5 text-[11px] font-semibold text-white"
+              >
+                N
+              </span>
+              Os números nas abas indicam quantos itens obrigatórios faltam em
+              cada etapa para que o cliente possa ser cadastrado.
+            </span>
+          ) : undefined
+        }
         actions={
           /*
             O anel de progresso, e não "Salvar cliente".
@@ -899,203 +1269,47 @@ export default function NewClientPage() {
           />
         }
       />
-      {/*
-        `hideSeparator` + `client-form-accordion`: cada seção vira um cartão
-        próprio, com respiro entre elas, como no protótipo — em vez do cartão
-        único com filetes que a variante `surface` desenha por padrão.
-      */}
-      <Accordion
-        variant="surface"
-        className="client-form-accordion"
-        hideSeparator
-        allowsMultipleExpanded
-        expandedKeys={expandedKeys}
-        onExpandedChange={(keys) =>
-          setExpandedKeys(new Set(Array.from(keys, String)))
-        }
-      >
-        <FormSection
-          id={SECTION_KEYS.service}
-          title="Atendimento"
-          icon={<SectionIcon />}
-          {...toSectionProps(statusOf(SECTION_KEYS.service, service.isValid))}
-        >
-          <div className="flex flex-col gap-2">
-            <ServiceSection form={service} />
-            <SectionActions
-              isVisible={isCreated}
-              onSave={handleSaveService}
-              label="Salvar atendimento"
-            />
-          </div>
-        </FormSection>
+      {isFillModeRevealed && (
+        <FillModeSwitcher value={fillMode} onChange={setFillMode} />
+      )}
 
-        {/*
-          A seção aparece só quando faz diferença: aposentadoria por deficiência
-          é a hipótese em que o grau e o tempo em cada grau mudam o
-          requerimento. A chave "pessoa com deficiência" de Dados pessoais
-          também a traz, porque quem marcou aquela chave tem a informação em
-          mãos — e perdê-la agora significa pedir de novo depois.
-
-          Em qualquer outro caso seria mais um campo para ignorar no meio de um
-          formulário que já é longo.
-        */}
-        {mostrarDeficiencia && (
-          <FormSection
-            id={SECTION_KEYS.disability}
-            title="Períodos de deficiência"
-            icon={<SectionIcon />}
-            {...toSectionProps(
-              statusOf(
-                SECTION_KEYS.disability,
-                Object.keys(
-                  validateDisabilityPeriods(disabilityPeriods, today),
-                ).length === 0,
-              ),
-            )}
-          >
-            <div className="flex flex-col gap-4">
-              <DisabilitySection
-                periods={disabilityPeriods}
-                errors={disabilityErrors}
-                gender={personal.values.gender}
-                today={today}
-                onChange={updateDisabilityPeriod}
-                onAdd={addDisabilityPeriod}
-                onRemove={removeDisabilityPeriod}
-              />
-              <SectionActions
-                isVisible={isCreated}
-                onSave={handleSaveDisability}
-                label="Salvar períodos de deficiência"
-              />
-            </div>
-          </FormSection>
-        )}
-
-
-        <FormSection
-          id={SECTION_KEYS.personal}
-          title="Dados pessoais"
-          icon={<SectionIcon />}
-          {...toSectionProps(statusOf(SECTION_KEYS.personal, personal.isValid))}
-        >
-          <div className="flex flex-col gap-2">
-            <PersonalDataSection form={personal} />
-            <SectionActions
-              isVisible={isCreated}
-              onSave={handleSavePersonal}
-              label="Salvar dados pessoais"
-            />
-          </div>
-        </FormSection>
-
-        <FormSection
-          id={SECTION_KEYS.professional}
-          title="Dados profissionais"
-          icon={<SectionIcon />}
-          {...toSectionProps(
-            statusOf(SECTION_KEYS.professional, professional.isValid),
-          )}
-        >
-          <div className="flex flex-col gap-2">
-            <ProfessionalDataSection form={professional} />
-            <SectionActions
-              isVisible={isCreated}
-              onSave={handleSaveProfessional}
-              label="Salvar dados profissionais"
-            />
-          </div>
-        </FormSection>
-
-        <FormSection
-          id={SECTION_KEYS.address}
-          title="Endereço"
-          icon={<SectionIcon />}
-          {...toSectionProps(
-            statusOf(SECTION_KEYS.address, addressForms[0].isValid),
-          )}
-        >
-          <AddressesSection
-            slots={addressSlots}
-            selectedKey={selectedAddressKey}
-            onSelectionChange={setSelectedAddressKey}
-            canAddMore={addressCount < 3}
-            onAddAddress={handleAddAddress}
-            onRequestPrimary={handleRequestPrimary}
-            renderActions={(slot) => {
-              const index = Number(slot.key.replace("address-", ""));
-              return (
-                <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
-                  {addressCount > 1 && (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="text-danger"
-                      onClick={() => handleRemoveAddress(index)}
-                    >
-                      Excluir endereço
-                    </Button>
-                  )}
-                  <SectionActions
-                    isVisible={isCreated}
-                    onSave={() => handleSaveAddress(index)}
-                    label={
-                      addressIds[index]
-                        ? "Atualizar endereço"
-                        : "Salvar endereço"
-                    }
+      {fillMode === "abas" ? (
+        <>
+          <div>
+            <ClientFormTabs
+              sections={sections}
+              focus={focus}
+              onActiveChange={setActiveTab}
+              review={{
+                id: REVIEW_KEY,
+                title: "Revisão",
+                content: (
+                  <ReviewPanel
+                    sections={review}
+                    onEdit={(key) => focusSection(SECTION_KEYS[key])}
                   />
-                </div>
-              );
-            }}
-          />
-        </FormSection>
-
-        <FormSection
-          id={SECTION_KEYS.interview}
-          title="Entrevista"
-          icon={<SectionIcon />}
-          {...toSectionProps(
-            statusOf(SECTION_KEYS.interview, interview.isValid),
-          )}
-        >
-          <div className="flex flex-col gap-4">
-            <InterviewSection form={interview} />
-            <SectionActions
-              isVisible={isCreated}
-              onSave={handleSaveInterview}
-              label="Salvar entrevista"
+                ),
+              }}
             />
           </div>
-        </FormSection>
+        </>
+      ) : (
+        <FillModeView
+          mode={fillMode}
+          service={service}
+          personal={personal}
+          professional={professional}
+          address={address1}
+          onBenefitChange={handleBenefitChange}
+        />
+      )}
 
-        <FormSection
-          id={SECTION_KEYS.documents}
-          title="Arquivos"
-          icon={<SectionIcon />}
-          {...toSectionProps(statusOf(SECTION_KEYS.documents, true))}
-        >
-          <FilesSection
-            documents={[]}
-            simulations={[]}
-            stagedDocuments={stagedDocuments}
-            stagedSimulations={stagedSimulations}
-            onAddFiles={setUploadKind}
-            onRemoveStagedDocument={(index) =>
-              setStagedDocuments((current) =>
-                current.filter((_, i) => i !== index),
-              )
-            }
-            onRemoveStagedSimulation={(index) =>
-              setStagedSimulations((current) =>
-                current.filter((_, i) => i !== index),
-              )
-            }
-          />
-        </FormSection>
-
-      </Accordion>
+      <GenderPromptModal
+        isOpen={isAskingGender}
+        currentGender={personal.values.gender}
+        onChoose={(gender) => personal.setField("gender", gender)}
+        onClose={() => setIsAskingGender(false)}
+      />
 
       <PrimaryAddressPicker
         isOpen={removeRequest !== null}
@@ -1129,14 +1343,35 @@ export default function NewClientPage() {
         }}
       />
 
-      <FileUploadModal
-        isOpen={uploadKind !== null}
-        initialKind={uploadKind ?? "documents"}
-        onClose={() => setUploadKind(null)}
-        onConfirm={({ documents: docs, simulations: sims }) => {
-          setStagedDocuments((current) => [...current, ...docs]);
-          setStagedSimulations((current) => [...current, ...sims]);
-        }}
+      <ConfirmDialog
+        isOpen={isConfirmingCancel}
+        onClose={() => setIsConfirmingCancel(false)}
+        onConfirm={() => router.push("/clientes")}
+        tone="danger"
+        heading="Cancelar o cadastro?"
+        confirmLabel="Descartar e sair"
+        cancelLabel="Continuar cadastro"
+        description={
+          <>
+            O cliente ainda não foi salvo. Ao sair agora,{" "}
+            <span className="font-medium">
+              tudo o que foi preenchido será perdido
+            </span>{" "}
+            — dados pessoais e profissionais, endereços, entrevista e os
+            arquivos selecionados. Não há como desfazer.
+          </>
+        }
+      />
+
+      <ConfirmDialog
+        isOpen={disabilityRemoval !== null}
+        onClose={() => setDisabilityRemoval(null)}
+        onConfirm={() => void confirmDisabilityRemoval()}
+        tone="danger"
+        heading="Excluir este período de deficiência?"
+        confirmLabel="Excluir"
+        cancelLabel="Manter"
+        description="O período já está gravado na ficha. Excluir tira o intervalo do cálculo da LC 142/2013, e não há como desfazer."
       />
 
       <ConfirmDialog
@@ -1164,29 +1399,32 @@ export default function NewClientPage() {
         }
       />
 
-      {/* Barra de ação fixa: com seis seções abertas, um botão no fim da
-          página ficaria fora de alcance sem rolar tudo de volta. */}
-      <div className="bottom-4 flex  flex-col gap-3  p-4 sm:flex-row sm:items-center sm:justify-end">
-        <div className="flex gap-3">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => router.push("/clientes")}
+      {/* Sem "Revisar" aqui: a Revisão é a última aba, e cada seção leva a
+          ela pelo "Próxima". */}
+      <FormActionBar
+        missing={missingFields(review)}
+        progress={progress}
+        isReviewing={isReviewing}
+        onGoTo={(key) => {
+          // As pendências moram nas abas: de outro modo, volta para elas.
+          if (isFillModeRevealed) setFillMode("abas");
+          focusSection(SECTION_KEYS[key]);
+        }}
+      >
+        <ActionButton tone="neutral" onClick={handleCancel}>
+          {isCreated ? "Concluir" : "Cancelar"}
+        </ActionButton>
+        {!isCreated && (
+          <ActionButton
+            tone="primary"
+            grow
+            disabled={!canCreate}
+            onClick={handleSaveAll}
           >
-            {isCreated ? "Concluir" : "Cancelar"}
-          </Button>
-          {!isCreated && (
-            <Button
-              type="button"
-              variant="primary"
-              isDisabled={!canCreate}
-              onClick={handleSaveAll}
-            >
-              {isCreating ? "Salvando…" : "Salvar cliente"}
-            </Button>
-          )}
-        </div>
-      </div>
+            {isCreating ? "Salvando…" : "Salvar cliente"}
+          </ActionButton>
+        )}
+      </FormActionBar>
     </div>
   );
 }
@@ -1211,9 +1449,9 @@ function SectionActions({
   if (!isVisible) return null;
   return (
     <div className="flex justify-end pt-2">
-      <Button type="button" variant="primary" onClick={onSave}>
+      <ActionButton tone="primary" shape="pill" onClick={onSave}>
         {label}
-      </Button>
+      </ActionButton>
     </div>
   );
 }

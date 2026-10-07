@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { ComboBox, Input, Label, ListBox } from "@heroui/react";
 
 import FormModal from "@/components/ui/modals/FormModal/FormModal";
 import {
@@ -11,7 +10,9 @@ import {
   TextAreaField,
 } from "@/components/ui/form/Field";
 import { AmountField } from "@/components/ui/form/AmountField";
-import { useClientSearch } from "@/hooks/useClientSearch";
+import { ClientSearchField } from "@/components/ui/form/ClientSearchField";
+import { FieldGrid } from "@/components/ui/form/FieldGrid";
+import { useFieldErrors } from "@/hooks/useFieldErrors";
 import { createPayment, patchPayment } from "@/services/clientPaymentService";
 import { notificationCenter } from "@/services/notificationService";
 import {
@@ -52,33 +53,25 @@ export function BenefitPaymentModal({
   onSaved,
 }: BenefitPaymentModalProps) {
   const [values, setValues] = useState<BenefitPaymentValues>(emptyBenefitPayment);
-  const [revealed, setRevealed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const errors = validateBenefitPayment(values);
-  const errorOf = (key: keyof BenefitPaymentValues) =>
-    revealed ? errors[key] : undefined;
+  const fieldErrors = useFieldErrors(errors);
+  const errorOf = (key: keyof BenefitPaymentValues) => fieldErrors.errorOf(key);
 
-  const set = <K extends keyof BenefitPaymentValues>(
-    key: K,
-    value: BenefitPaymentValues[K],
-  ) => setValues((current) => ({ ...current, [key]: value }));
-
-  const { suggestions } = useClientSearch({
-    query: values.clientName,
-    linkedClientId: values.clientId,
-    enabled: isOpen && !isSubmitting,
-  });
+  const set = <K extends keyof BenefitPaymentValues>(key: K, value: BenefitPaymentValues[K]) => {
+    setValues((current) => ({ ...current, [key]: value }));
+    fieldErrors.touch(key);
+  };
 
   const close = () => {
     setValues(emptyBenefitPayment());
-    setRevealed(false);
+    fieldErrors.reset();
     onOpenChange(false);
   };
 
   const handleConfirm = async () => {
-    setRevealed(true);
-    if (hasErrors(errors)) return;
+    if (!fieldErrors.revealAll() || hasErrors(errors)) return;
 
     setIsSubmitting(true);
     try {
@@ -118,87 +111,28 @@ export function BenefitPaymentModal({
       title="Lançar valor a receber"
       description="Um valor que o INSS vai pagar ao cliente — atrasados, benefício mensal, parcela de acordo."
       size="lg"
+      // O rodapé em cápsula da Carteira, como as outras modais de lançamento.
+      actions="pill"
       confirmLabel="Lançar"
       onConfirm={handleConfirm}
       isSubmitting={isSubmitting}
     >
-      <div className="flex flex-col gap-4">
-        <div
-          role="status"
-          className="rounded-xl border border-black/5 bg-light-secondary/60 px-4 py-3 text-sm text-primary"
-        >
-          <p className="font-medium">O lançamento é gravado</p>
-          <p className="mt-1 text-gray-100">
-            Ele fica na ficha do cliente. A listagem desta tela só vai mostrá-lo
-            depois que <code>/api/v1/payments</code> existir no backend.
-          </p>
-        </div>
-
-        <div>
-          <ComboBox
-            inputValue={values.clientName}
-            onInputChange={(text) => {
-              setValues((current) => ({
-                ...current,
-                clientName: text,
-                // Editar o texto desfaz o vínculo: o nome na tela e o id
-                // enviado não podem divergir sem ninguém notar.
-                clientId: current.clientId ? "" : current.clientId,
-              }));
-            }}
-            onSelectionChange={(key) => {
-              const match = suggestions.find((c) => c.id === String(key));
-              if (match?.id) {
-                setValues((current) => ({
-                  ...current,
-                  clientId: match.id ?? "",
-                  clientName: match.fullName,
-                }));
-              }
-            }}
-            allowsCustomValue
-            allowsEmptyCollection
-            isRequired
-            isInvalid={!!errorOf("clientName")}
-            isDisabled={isSubmitting}
-          >
-            <Label
-              className="text-secondary"
-              isRequired
-              isInvalid={!!errorOf("clientName")}
-            >
-              Cliente
-            </Label>
-            <ComboBox.InputGroup>
-              <Input placeholder="Nome da pessoa" className="form-border-style" />
-            </ComboBox.InputGroup>
-            <ComboBox.Popover>
-              <ListBox
-                renderEmptyState={() => (
-                  <div className="px-3 py-2 text-sm text-gray-100/60">
-                    Nenhum cliente cadastrado com esse nome.
-                  </div>
-                )}
-              >
-                {suggestions.map((client) => (
-                  <ListBox.Item
-                    key={client.id}
-                    id={client.id ?? ""}
-                    textValue={client.fullName}
-                  >
-                    {client.fullName}
-                  </ListBox.Item>
-                ))}
-              </ListBox>
-            </ComboBox.Popover>
-          </ComboBox>
-          {errorOf("clientName") ? (
-            <p className="mt-1 text-sm text-danger">{errorOf("clientName")}</p>
-          ) : null}
-        </div>
+      <FieldGrid>
+        <ClientSearchField
+          className="col-span-full"
+          value={{ clientId: values.clientId, clientName: values.clientName }}
+          onChange={(next) => {
+            set("clientId", next.clientId);
+            set("clientName", next.clientName);
+          }}
+          isRequired
+          isDisabled={isSubmitting}
+          errorMessage={errorOf("clientName")}
+        />
 
         <Field
           label="Descrição"
+          className="col-span-full"
           value={values.description}
           onChange={(event) => set("description", event.target.value)}
           placeholder="Atrasados — aposentadoria por idade"
@@ -208,61 +142,58 @@ export function BenefitPaymentModal({
           errorMessage={errorOf("description")}
         />
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <AmountField
-            label="Valor"
-            value={values.amount}
-            onChange={(next) => set("amount", next)}
-            isRequired
-            isDisabled={isSubmitting}
-            isInvalid={!!errorOf("amount")}
-            errorMessage={errorOf("amount")}
-          />
-          <DatePickerField
-            label="Previsão de crédito"
-            value={values.expectedDate}
-            onChange={(next) => set("expectedDate", next)}
-            allowFuture
-            isRequired
-            isDisabled={isSubmitting}
-            isInvalid={!!errorOf("expectedDate")}
-            errorMessage={errorOf("expectedDate")}
-          />
-        </div>
+        <AmountField
+          label="Valor"
+          value={values.amount}
+          onChange={(next) => set("amount", next)}
+          isRequired
+          isDisabled={isSubmitting}
+          isInvalid={!!errorOf("amount")}
+          errorMessage={errorOf("amount")}
+        />
+        <DatePickerField
+          label="Previsão de crédito"
+          value={values.expectedDate}
+          onChange={(next) => set("expectedDate", next)}
+          allowFuture
+          isRequired
+          isDisabled={isSubmitting}
+          isInvalid={!!errorOf("expectedDate")}
+          errorMessage={errorOf("expectedDate")}
+        />
 
-        <div>
-          {/* Atrasados costumam vir parcelados pelo próprio INSS. */}
-          <div className="grid grid-cols-2 gap-4">
-            <Field
-              label="Parcela"
-              value={values.installmentNumber}
-              onChange={(event) => set("installmentNumber", event.target.value)}
-              placeholder="1"
-              isDisabled={isSubmitting}
-              isInvalid={!!errorOf("installmentNumber")}
-            />
-            <Field
-              label="De"
-              value={values.installmentTotal}
-              onChange={(event) => set("installmentTotal", event.target.value)}
-              placeholder="6"
-              isDisabled={isSubmitting}
-              isInvalid={!!errorOf("installmentNumber")}
-            />
-          </div>
-          {errorOf("installmentNumber") ? (
-            <p className="mt-1 text-sm text-danger">
-              {errorOf("installmentNumber")}
-            </p>
-          ) : (
-            <p className="mt-1 text-xs text-gray-100/60">
-              Opcional. Deixe em branco para pagamento único.
-            </p>
-          )}
-        </div>
+        {/* Atrasados costumam vir parcelados pelo próprio INSS. Os dois
+            campos são irmãos na grade — o par divide a linha como valor e
+            vencimento acima —, e a mensagem embaixo vale para os dois. */}
+        <Field
+          label="Parcela"
+          value={values.installmentNumber}
+          onChange={(event) => set("installmentNumber", event.target.value)}
+          placeholder="1"
+          isDisabled={isSubmitting}
+          isInvalid={!!errorOf("installmentNumber")}
+        />
+        <Field
+          label="De"
+          value={values.installmentTotal}
+          onChange={(event) => set("installmentTotal", event.target.value)}
+          placeholder="6"
+          isDisabled={isSubmitting}
+          isInvalid={!!errorOf("installmentNumber")}
+        />
+        {errorOf("installmentNumber") ? (
+          <p className="col-span-full -mt-2 text-sm text-danger">
+            {errorOf("installmentNumber")}
+          </p>
+        ) : (
+          <p className="col-span-full -mt-2 text-xs text-gray-100/60">
+            Opcional. Deixe em branco para pagamento único.
+          </p>
+        )}
 
         <SwitchField
           label="O cliente já recebeu?"
+          className="col-span-full"
           value={values.isReceived}
           onChange={(next) => {
             set("isReceived", next);
@@ -275,6 +206,7 @@ export function BenefitPaymentModal({
         {values.isReceived && (
           <DatePickerField
             label="Data do crédito"
+            className="col-span-full"
             value={values.receivedDate}
             onChange={(next) => set("receivedDate", next)}
             isRequired
@@ -286,13 +218,14 @@ export function BenefitPaymentModal({
 
         <TextAreaField
           label="Observações"
+          className="col-span-full"
           value={values.notes}
           onChange={(next) => set("notes", next)}
           rows={3}
           placeholder="Nº do benefício, competência dos atrasados..."
           isDisabled={isSubmitting}
         />
-      </div>
+      </FieldGrid>
     </FormModal>
   );
 }

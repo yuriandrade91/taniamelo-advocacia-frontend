@@ -5,8 +5,9 @@ import {
   SelectField,
   SwitchField,
 } from "@/components/ui/form/Field";
+import { ChipButton } from "@/components/ui/actions/ActionGroup";
 import { toSelectOptions } from "@/components/ui/form/options";
-import { PlusIcon } from "@/components/ui/icons/actions";
+import { TrashIcon } from "@/components/ui/icons/actions";
 import {
   DisabilityGradeOptions,
   getDisabilityGradeLabelByKey,
@@ -22,7 +23,7 @@ import {
   type DisabilityPeriodDraft,
   type DisabilityPeriodErrors,
 } from "../disabilityPeriods";
-import { FormGrid } from "../FormSection";
+import { AddItemButton, FormGroup } from "../FormSection";
 
 /**
  * "Períodos de deficiência" — os intervalos e o tempo convertido (LC 142/2013).
@@ -49,6 +50,13 @@ export type DisabilitySectionProps = {
   onChange: (key: string, patch: Partial<DisabilityPeriodDraft>) => void;
   onAdd: () => void;
   onRemove: (key: string) => void;
+  /**
+   * O papel pode excluir intervalo **gravado**? O `DELETE` é
+   * `@RequerAdvogado` (ADMIN/SUPPORT): para os outros papéis o botão nem
+   * aparece num intervalo salvo, em vez de oferecer um clique que volta 403.
+   * Rascunho, que só existe na tela, qualquer um tira. Padrão `true`.
+   */
+  canDeleteSaved?: boolean;
 };
 
 export function DisabilitySection({
@@ -59,6 +67,7 @@ export function DisabilitySection({
   onChange,
   onAdd,
   onRemove,
+  canDeleteSaved = true,
 }: DisabilitySectionProps) {
   const basis = basisFromGender(gender);
   const convertible = convertibleIntervals(periods, today);
@@ -68,35 +77,41 @@ export function DisabilitySection({
       : null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-8">
       {periods.map((period, index) => {
         const fieldErrors = errors[period.key] ?? {};
+        // Rascunho único não tem "Remover" (esvaziar é o mesmo que não
+        // preencher); gravado tem, mesmo sozinho — senão não haveria como
+        // tirar da ficha o único intervalo cadastrado.
+        const removable = period.id
+          ? canDeleteSaved
+          : periods.length > 1;
         return (
-          <div
+          // Um período é um grupo, como "Identificação" ou "Contato" nas
+          // outras abas: título com filete e a mesma grade de campos.
+          <FormGroup
             key={period.key}
-            className="rounded-lg border border-light-gray p-4"
-          >
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-sm font-medium text-secondary">
-                {periods.length === 1
-                  ? "Período de deficiência"
-                  : `Período ${index + 1}`}
-              </span>
-              {periods.length > 1 && (
-                <button
-                  type="button"
+            title={
+              periods.length === 1
+                ? "Período de deficiência"
+                : `Período ${index + 1}`
+            }
+            action={
+              removable && (
+                <ChipButton
+                  tone="danger"
+                  icon={<TrashIcon className="h-3.5 w-3.5" />}
                   onClick={() => onRemove(period.key)}
-                  className="text-xs font-medium text-danger hover:underline"
                 >
                   Remover
-                </button>
-              )}
-            </div>
-
-            <FormGrid>
+                </ChipButton>
+              )
+            }
+          >
               <SelectField
                 label="Grau da deficiência"
                 isRequired
+                placeholder="Leve, moderada ou grave"
                 options={GRADE_OPTIONS}
                 selectedKey={period.grade || null}
                 onSelectionChange={(key) =>
@@ -126,8 +141,8 @@ export function DisabilitySection({
                 errorMessage={fieldErrors.endedOn}
               />
               <SwitchField
-                className="sm:col-span-2 lg:col-span-4"
-                label="Esta deficiência se mantém até a presente data (não há data de cessação)"
+                label="Se mantém até a presente data?"
+                hint={period.ongoing ? "Sim, sem cessação" : "Não"}
                 value={period.ongoing}
                 onChange={(value) =>
                   // Ligar a chave limpa a data: senão um intervalo "em aberto"
@@ -138,20 +153,14 @@ export function DisabilitySection({
                   })
                 }
               />
-            </FormGrid>
-          </div>
+          </FormGroup>
         );
       })}
 
       <div>
-        <button
-          type="button"
-          onClick={onAdd}
-          className="flex shrink-0 items-center gap-1.5 rounded-full border border-dashed border-secondary/50 px-3 py-1.5 text-xs font-medium text-secondary hover:bg-light-secondary"
-        >
-          <PlusIcon className="h-3.5 w-3.5" />
+        <AddItemButton onClick={onAdd}>
           Adicionar novo intervalo de deficiência
-        </button>
+        </AddItemButton>
       </div>
 
       <DisabilityConversion
@@ -172,16 +181,23 @@ export function DisabilitySection({
  * a refazer a conta à mão para conferir — e aí a tela seria um palpite a mais
  * em vez de ferramenta.
  */
-function DisabilityConversion({
+export function DisabilityConversion({
   conversion,
   gender,
   hasBasis,
   hasPeriods,
+  source = "local",
 }: {
   conversion: ReturnType<typeof convertIntervals> | null;
   gender?: string;
   hasBasis: boolean;
   hasPeriods: boolean;
+  /**
+   * De onde veio a conta. `local` é a prévia enquanto se digita; `server` é a
+   * de `GET .../conversion`, que a ficha mostra para um cliente já gravado — e
+   * a nota de rodapé diz qual das duas a pessoa está lendo.
+   */
+  source?: "local" | "server";
 }) {
   if (!hasBasis) {
     // Sem coluna na lei, não há conversão a oferecer. Dizer isso é melhor que
@@ -248,7 +264,10 @@ function DisabilityConversion({
       <p className="mt-2 text-xs text-gray-100">
         O multiplicador é o tempo exigido no destino dividido pelo exigido na
         origem (art. 3º da LC 142/2013). Cada intervalo converte pelo seu próprio
-        grau antes de entrar na soma. O cálculo é conferido no servidor ao salvar.
+        grau antes de entrar na soma.{" "}
+        {source === "server"
+          ? "Calculado pelo servidor com os períodos gravados."
+          : "O cálculo é conferido no servidor ao salvar."}
       </p>
     </div>
   );

@@ -3,9 +3,7 @@ import axiosInstance from "@/services/axiosService";
 import { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type {
   ClientFileDocumentResponse,
-  ClientFileDocumentUpdateRequest,
   ClientFileSimulationResponse,
-  ClientFileSimulationUpdateRequest,
 } from "@/interfaces/client/ClientSubResources.interface";
 
 /**
@@ -40,27 +38,6 @@ export const listDocuments = async (
   return data;
 };
 
-export const getDocument = async (
-  clientId: string,
-  fileId: string,
-): Promise<ApiEnvelope<ClientFileDocumentResponse>> => {
-  const { data } = await axiosInstance.get<
-    ApiEnvelope<ClientFileDocumentResponse>
-  >(endpoints.CLIENT_FILES.GET_DOCUMENT(clientId, fileId));
-  return data;
-};
-
-export const updateDocument = async (
-  clientId: string,
-  fileId: string,
-  body: ClientFileDocumentUpdateRequest,
-): Promise<ApiEnvelope<ClientFileDocumentResponse>> => {
-  const { data } = await axiosInstance.patch<
-    ApiEnvelope<ClientFileDocumentResponse>
-  >(endpoints.CLIENT_FILES.UPDATE_DOCUMENT(clientId, fileId), body);
-  return data;
-};
-
 // ── Simulações ──
 
 export const uploadSimulations = async (
@@ -83,51 +60,7 @@ export const listSimulations = async (
   return data;
 };
 
-export const getSimulation = async (
-  clientId: string,
-  fileId: string,
-): Promise<ApiEnvelope<ClientFileSimulationResponse>> => {
-  const { data } = await axiosInstance.get<
-    ApiEnvelope<ClientFileSimulationResponse>
-  >(endpoints.CLIENT_FILES.GET_SIMULATION(clientId, fileId));
-  return data;
-};
-
-export const updateSimulation = async (
-  clientId: string,
-  fileId: string,
-  body: ClientFileSimulationUpdateRequest,
-): Promise<ApiEnvelope<ClientFileSimulationResponse>> => {
-  const { data } = await axiosInstance.patch<
-    ApiEnvelope<ClientFileSimulationResponse>
-  >(endpoints.CLIENT_FILES.UPDATE_SIMULATION(clientId, fileId), body);
-  return data;
-};
-
-/** Marca uma simulação como principal. */
-export const setSimulationPrincipal = async (
-  clientId: string,
-  fileId: string,
-): Promise<ApiEnvelope<ClientFileSimulationResponse>> => {
-  const { data } = await axiosInstance.patch<
-    ApiEnvelope<ClientFileSimulationResponse>
-  >(endpoints.CLIENT_FILES.SET_SIMULATION_PRINCIPAL(clientId, fileId), {});
-  return data;
-};
-
 // ── Genéricos (documento OU simulação) ──
-
-/** Download — retorna Blob. */
-export const downloadFile = async (
-  clientId: string,
-  fileId: string,
-): Promise<Blob> => {
-  const { data } = await axiosInstance.get<Blob>(
-    endpoints.CLIENT_FILES.DOWNLOAD(clientId, fileId),
-    { responseType: "blob" },
-  );
-  return data;
-};
 
 /** DELETE — backend responde 204 sem corpo. */
 export const deleteFile = async (

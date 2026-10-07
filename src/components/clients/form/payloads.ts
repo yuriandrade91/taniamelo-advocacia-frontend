@@ -14,11 +14,7 @@ import type { ClientTypeInput } from "@/enums/clientType/ClientType";
 import type { GenderInput } from "@/enums/gender/Gender";
 import type { MaritalStatusInput } from "@/enums/maritalStatus/MaritalStatus";
 import type { SituationInput } from "@/enums/situation/Situation";
-import type { ServiceValues } from "./sections/ServiceSection";
-import type { PersonalValues } from "./sections/PersonalDataSection";
-import type { ProfessionalValues } from "./sections/ProfessionalDataSection";
-import type { AddressValues } from "./sections/AddressSection";
-import type { InterviewValues } from "./sections/InterviewSection";
+import type { ServiceValues, PersonalValues, ProfessionalValues, AddressValues, InterviewValues } from "./schemas";
 
 /**
  * Tradução dos valores do formulário para os payloads da API.

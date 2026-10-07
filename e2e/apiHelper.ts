@@ -61,3 +61,16 @@ export function cpfValido(): string {
 
 /** Tudo que os testes criam nasce marcado, para resíduo ser reconhecível. */
 export const MARCA = "[e2e]";
+
+/**
+ * A integração está em pausa neste ambiente (`NEXT_PUBLIC_INTEGRACOES_PENDENTES`)?
+ * O mesmo critério do front (`services/integracaoPendente.ts`): sem a rota,
+ * o fluxo não tem o que exercitar e o teste se pula — em vez de um `skip`
+ * fixo que esquece de religar quando a rota sobe.
+ */
+export const integracaoPausada = (...nomes: string[]): boolean => {
+  const pausadas = (process.env.NEXT_PUBLIC_INTEGRACOES_PENDENTES ?? "")
+    .split(",")
+    .map((nome) => nome.trim().toLowerCase());
+  return nomes.some((nome) => pausadas.includes(nome));
+};

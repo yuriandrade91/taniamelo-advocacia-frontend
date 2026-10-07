@@ -1,173 +1,145 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ClientListRequest } from "@/interfaces/client/Client.interface";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import {
+  EMPTY_CLIENT_FILTERS,
+  dateRangeError,
+  hasActiveClientFilters,
+  sameFilterValues,
+  toClientListParams,
+  type ClientFiltersState,
+  type DateRange,
+} from "./clientFilters";
+
+export type { DateRange } from "./clientFilters";
 
 /**
  * Estado dos filtros da listagem de clientes.
  *
- * Antes isso eram seis `useState` soltos na página (`search`,
- * `debouncedSearch`, `benefitType`, `situation`, `data`, `dateError`) mais o
- * `useEffect` do debounce, misturados com o estado de dados e de paginação. O
- * efeito de busca dependia de todos eles e ninguém conseguia dizer, olhando a
- * página, o que era filtro e o que era resultado.
- *
- * Aqui a responsabilidade é uma só: guardar o que o usuário escolheu e
- * traduzir isso no `ClientListRequest` que a API espera. Nada de fetch, nada
- * de paginação — quem consome decide o que fazer quando `params` muda.
+ * Responsabilidade única: guardar o que a pessoa escolheu e entregar o
+ * `ClientListRequest` pronto. Nada de fetch nem de paginação — quem consome
+ * decide o que fazer quando `params` muda. As regras (tradução para a query,
+ * validação do período) estão em `clientFilters.ts`, puras e testadas.
  */
 
-/**
- * O `DateRangePicker` do React Aria trabalha com `DateValue`
- * (@internationalized/date), não com `Date`. Tipamos de forma frouxa porque a
- * página só repassa o valor adiante — a conversão para ISO acontece em
- * `toParams`.
- */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type DateValue = any;
-export type DateRange = { start: DateValue; end: DateValue } | null;
-
-/** Tempo entre a digitação parar e a busca disparar. */
-const SEARCH_DEBOUNCE_MS = 500;
-
-export type ClientFiltersState = {
-  search: string;
-  benefitType: string[];
-  situation: string[];
-  /** Verificado / Potencial — chaves do enum `ClientType`. */
-  clientType: string[];
-  dateRange: DateRange;
-  dateError: string | null;
-};
 
 export type UseClientFiltersResult = ClientFiltersState & {
+  /** Erro do período (início depois do fim), ou `null`. */
+  dateError: string | null;
   /** Filtros traduzidos para a query da API. Estável entre renders iguais. */
   params: ClientListRequest;
   setSearch: (value: string) => void;
   setBenefitType: (keys: string[]) => void;
   setSituation: (keys: string[]) => void;
   setClientType: (keys: string[]) => void;
+  setNotBillable: (value: boolean | null) => void;
   setDateRange: (range: DateRange) => void;
-  /** `true` quando há qualquer filtro ativo — habilita o "Limpar filtro". */
+  /** `true` quando há qualquer filtro ativo — habilita o "Limpar filtros". */
   hasActiveFilters: boolean;
   clear: () => void;
 };
 
-const EMPTY: ClientFiltersState = {
-  search: "",
-  benefitType: [],
-  situation: [],
-  clientType: [],
-  dateRange: null,
-  dateError: null,
-};
-
-/** `DateValue` | string -> ISO-8601, que é o que o backend espera. */
-function toIso(value: DateValue): string | undefined {
-  if (!value) return undefined;
-  if (typeof value === "string") return value;
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
-}
-
 export function useClientFilters(
-  /** Chamado sempre que um filtro muda — a página usa para voltar à página 1. */
+  /** Chamado sempre que um filtro que vai à API muda — a página volta para a página 1. */
   onChange?: () => void,
 ): UseClientFiltersResult {
-  const [state, setState] = useState<ClientFiltersState>(EMPTY);
-  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [state, setState] = useState<ClientFiltersState>(EMPTY_CLIENT_FILTERS);
 
-  // Debounce só do texto: os demais filtros são cliques, e esperar meio
-  // segundo depois de um clique é latência sem motivo.
+  /*
+   * O aviso de mudança vai por ref: a página passa uma função nova a cada
+   * render, e depender dela recriaria todos os setters (e o efeito do
+   * debounce) sem motivo.
+   */
+  const onChangeRef = useRef(onChange);
   useEffect(() => {
-    const timer = setTimeout(
-      () => setDebouncedSearch(state.search),
-      SEARCH_DEBOUNCE_MS,
-    );
-    return () => clearTimeout(timer);
-  }, [state.search]);
+    onChangeRef.current = onChange;
+  });
 
-  const patch = useCallback(
-    (next: Partial<ClientFiltersState>) => {
-      setState((prev) => ({ ...prev, ...next }));
-      onChange?.();
-    },
-    [onChange],
+  /*
+   * Debounce só do texto: os demais filtros são cliques, e esperar meio
+   * segundo depois de um clique é latência sem motivo.
+   *
+   * A volta para a página 1 acontece aqui, junto com o texto que vai para a
+   * API, e não a cada tecla: avisar na digitação trocava a página na hora e a
+   * lista mudava (página 1 da busca antiga) antes de a busca nova sair. As
+   * duas atualizações no mesmo callback viram um render só — uma requisição.
+   */
+  const debouncedSearch = useDebouncedValue(state.search, undefined, () =>
+    onChangeRef.current?.(),
   );
 
+  /*
+   * Espelho do estado para o `patch` comparar sem depender dele (o que
+   * recriaria todos os setters a cada mudança).
+   */
+  const stateRef = useRef(state);
+  useEffect(() => {
+    stateRef.current = state;
+  });
+
+  /**
+   * Muda um filtro de clique e avisa na hora (sem debounce). Valor igual ao
+   * atual não faz nada — nem estado novo, nem volta para a página 1.
+   */
+  const patch = useCallback((next: Partial<ClientFiltersState>) => {
+    if (sameFilterValues(stateRef.current, next)) return;
+    setState((prev) => ({ ...prev, ...next }));
+    onChangeRef.current?.();
+  }, []);
+
+  const setSearch = useCallback(
+    (search: string) => setState((prev) => ({ ...prev, search })),
+    [],
+  );
+  const setBenefitType = useCallback(
+    (benefitType: string[]) => patch({ benefitType }),
+    [patch],
+  );
+  const setSituation = useCallback(
+    (situation: string[]) => patch({ situation }),
+    [patch],
+  );
+  const setClientType = useCallback(
+    (clientType: string[]) => patch({ clientType }),
+    [patch],
+  );
+  const setNotBillable = useCallback(
+    (notBillable: boolean | null) => patch({ notBillable }),
+    [patch],
+  );
   const setDateRange = useCallback(
-    (range: DateRange) => {
-      // O componente já impede fim antes do início; isto cobre valor vindo de
-      // fora (URL, cache) já invertido.
-      let dateError: string | null = null;
-      if (range?.start && range?.end) {
-        const start = new Date(String(range.start));
-        const end = new Date(String(range.end));
-        const isValid = !Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime());
-        if (isValid && start > end) {
-          dateError = "Data inicial deve ser anterior à data final";
-        }
-      }
-      patch({ dateRange: range, dateError });
-    },
+    (dateRange: DateRange) => patch({ dateRange }),
     [patch],
   );
 
-  const params = useMemo<ClientListRequest>(() => {
-    const next: ClientListRequest = {};
-
-    const term = debouncedSearch.trim();
-    if (term) next.searchTerm = term;
-
-    if (state.benefitType.length > 0) {
-      next.benefitType = state.benefitType.filter(Boolean);
-    }
-    if (state.situation.length > 0) {
-      next.situation = state.situation.filter(Boolean);
-    }
-    if (state.clientType.length > 0) {
-      next.clientType = state.clientType.filter(Boolean);
-    }
-
-    // Intervalo inválido não vai para a API — mandaria um filtro que o
-    // usuário está vendo marcado como errado na tela.
-    if (!state.dateError && state.dateRange?.start && state.dateRange?.end) {
-      next.createdFrom = toIso(state.dateRange.start);
-      next.createdTo = toIso(state.dateRange.end);
-    }
-
-    return next;
-  }, [
-    debouncedSearch,
-    state.benefitType,
-    state.situation,
-    state.clientType,
-    state.dateRange,
-    state.dateError,
-  ]);
-
-  const hasActiveFilters =
-    state.search !== "" ||
-    state.benefitType.length > 0 ||
-    state.situation.length > 0 ||
-    state.clientType.length > 0 ||
-    state.dateRange !== null;
-
   const clear = useCallback(() => {
-    setState(EMPTY);
-    setDebouncedSearch("");
-    onChange?.();
-  }, [onChange]);
+    setState(EMPTY_CLIENT_FILTERS);
+    onChangeRef.current?.();
+  }, []);
+
+  const { benefitType, situation, clientType, notBillable, dateRange } = state;
+  const params = useMemo(
+    () =>
+      toClientListParams(
+        { benefitType, situation, clientType, notBillable, dateRange },
+        debouncedSearch,
+      ),
+    [benefitType, situation, clientType, notBillable, dateRange, debouncedSearch],
+  );
 
   return {
     ...state,
+    dateError: dateRangeError(dateRange),
     params,
-    setSearch: (search) => patch({ search }),
-    setBenefitType: (benefitType) => patch({ benefitType }),
-    setSituation: (situation) => patch({ situation }),
-    setClientType: (clientType) => patch({ clientType }),
+    setSearch,
+    setBenefitType,
+    setSituation,
+    setClientType,
+    setNotBillable,
     setDateRange,
-    hasActiveFilters,
+    hasActiveFilters: hasActiveClientFilters(state),
     clear,
   };
 }

@@ -6,7 +6,7 @@ import type {
   LoginResponse,
 } from "@/interfaces/auth/Auth.interface";
 import { setTenant, clearTenant } from "@/lib/tenant";
-import { clearClientsCache } from "@/lib/clientsCache";
+import { clearSessionCaches } from "@/lib/requestCache";
 import { saveSessionUser, clearSessionUser } from "@/lib/sessionUser";
 
 /**
@@ -45,7 +45,7 @@ export function clearSession(): void {
     document.cookie = `${TOKEN_COOKIE}=; path=/; max-age=0`;
   }
   clearTenant();
-  clearClientsCache();
+  clearSessionCaches();
   clearSessionUser();
 }
 

@@ -43,7 +43,7 @@ test.describe("o que o atendente NÃO vê", () => {
 
     test("na lista de clientes, não há botão de excluir", async ({ page }) => {
     await page.goto("/clientes");
-    await expect(page.getByRole("grid", { name: /tabela de clientes/i })).toBeVisible();
+    await expect(page.getByRole("list", { name: "Clientes" })).toBeVisible();
 
     // Visualizar e editar continuam: é o dia a dia de quem atende.
     await expect(page.getByRole("button", { name: "Visualizar este cliente" }).first()).toBeVisible();
@@ -58,8 +58,8 @@ test.describe("o que o atendente NÃO vê", () => {
 
     await expect(page.getByRole("button", { name: "Excluir cliente" })).toHaveCount(0);
 
-    await page.getByRole("button", { name: /dados profissionais/i }).click();
-    // O campo continua lá, mascarado: esconder o campo inteiro faria parecer que
+    // A ficha mostra as seções todas: o campo já está na tela, sem navegar.
+    // Ele continua lá, mascarado — esconder o campo inteiro faria parecer que
     // o cliente não tem senha cadastrada. O que some é o botão de revelar.
     await expect(page.getByTestId("inss-password-field")).toBeVisible();
     await expect(page.getByTestId("inss-password-toggle")).toHaveCount(0);

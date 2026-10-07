@@ -56,24 +56,8 @@ test.afterAll(async () => {
   await api?.dispose();
 });
 
-/**
- * Expande uma seção do accordion — e só se estiver fechada.
- *
- * A ficha abre com as seções já abertas. Um `click` cego, que é o reflexo de
- * quem escreve o teste, FECHA a seção; e o conteúdo continua no DOM, deitado
- * atrás dos cabeçalhos seguintes, então o clique seguinte falha com
- * "intercepts pointer events" e manda procurar o defeito no CSS.
- */
-async function expandir(trigger: import("@playwright/test").Locator) {
-  await expect(trigger).toBeVisible();
-  if ((await trigger.getAttribute("aria-expanded")) !== "true") {
-    await trigger.click();
-    await expect(trigger).toHaveAttribute("aria-expanded", "true");
-  }
-}
-
-/** Abre a ficha e expande "Dados profissionais", onde o campo mora. */
-async function abrirAbaProfissional(page: import("@playwright/test").Page) {
+/** Abre a ficha deste cliente. As seções aparecem todas; nada a expandir. */
+async function abrirFicha(page: import("@playwright/test").Page) {
   await page.goto("/clientes");
   await page.getByPlaceholder("Pesquisar beneficiário").fill(NOME);
   // A busca é debounced: esperar a resposta evita clicar na linha de outro
@@ -83,7 +67,6 @@ async function abrirAbaProfissional(page: import("@playwright/test").Page) {
   );
   await page.getByRole("button", { name: "Visualizar este cliente" }).first().click();
   await expect(page.getByRole("dialog")).toBeVisible();
-  await expandir(page.getByRole("button", { name: /dados profissionais/i }));
   await expect(page.getByTestId("inss-password-field")).toBeVisible();
 }
 
@@ -96,7 +79,7 @@ test("a ficha não pede a senha sozinha, e mostra mascarada", async ({ page }) =
     if (r.url().includes("/inss-password")) consultas.push(r.url());
   });
 
-  await abrirAbaProfissional(page);
+  await abrirFicha(page);
 
   expect(consultas, "a tela consultou a senha sem ninguém pedir").toEqual([]);
   const campo = page.getByTestId("inss-password-field").locator("input");
@@ -105,7 +88,7 @@ test("a ficha não pede a senha sozinha, e mostra mascarada", async ({ page }) =
 });
 
 test("Revelar mostra a senha e a consulta vai para a auditoria", async ({ page }) => {
-  await abrirAbaProfissional(page);
+  await abrirFicha(page);
 
   const consulta = page.waitForResponse(
     (r) => r.url().includes("/inss-password") && r.request().method() === "GET",
@@ -121,8 +104,30 @@ test("Revelar mostra a senha e a consulta vai para a auditoria", async ({ page }
   await expect(page.getByText(/registrada/i)).toBeVisible();
 });
 
+test("revelada, dá para copiar e a contagem anda", async ({ page }) => {
+  await abrirFicha(page);
+  await page.getByTestId("inss-password-toggle").click();
+  await expect(page.getByTestId("inss-password-field").locator("input")).toHaveValue(SENHA);
+
+  // O copiar só existe com a senha à vista: copiar atrás da máscara poria no
+  // clipboard um valor que ninguém conferiu. A permissão é explícita — sem
+  // ela o Chromium recusa a escrita e o componente mostraria o aviso de falha,
+  // que é um caminho diferente do que este teste cobre.
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByTestId("inss-password-copy").click();
+  await expect(page.getByText("Senha copiada.")).toBeVisible();
+
+  // A contagem anda sozinha. Ler dois números diferentes prova o relógio; o
+  // teste não espera os 20s inteiros, que seriam 20s em toda execução.
+  const aviso = page.getByText(/Some sozinha em/i);
+  const primeiro = await aviso.textContent();
+  await expect
+    .poll(async () => (await aviso.textContent()) !== primeiro, { timeout: 5_000 })
+    .toBe(true);
+});
+
 test("Esconder devolve a máscara sem nova consulta", async ({ page }) => {
-  await abrirAbaProfissional(page);
+  await abrirFicha(page);
   await page.getByTestId("inss-password-toggle").click();
   const campo = page.getByTestId("inss-password-field").locator("input");
   await expect(campo).toHaveValue(SENHA);
@@ -144,7 +149,7 @@ test("editar a ficha sem tocar na senha NÃO apaga a senha", async ({ page }) =>
   // senha, então ele salva sem ela; se "ausente" significasse "apaga", trocar
   // o telefone de um cliente destruiria o acesso dele ao INSS — em silêncio,
   // e sem ninguém relacionar as duas coisas depois.
-  await abrirAbaProfissional(page);
+  await abrirFicha(page);
 
   await page.getByRole("button", { name: "Editar cadastro" }).click();
   await page.getByLabel("Nome completo").fill(`${NOME} editado`);
@@ -166,7 +171,7 @@ test("digitar uma senha nova troca a senha", async ({ page }) => {
   // O par do teste acima: se "em branco mantém" virasse "nunca muda", a senha
   // ficaria impossível de trocar pela tela e o teste anterior seguiria verde.
   const nova = "senha-inss-trocada";
-  await abrirAbaProfissional(page);
+  await abrirFicha(page);
 
   await page.getByRole("button", { name: "Editar cadastro" }).click();
   await page.getByLabel('Senha "meu inss"').fill(nova);

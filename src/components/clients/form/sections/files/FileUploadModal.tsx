@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useResetOnOpen } from "@/hooks/useResetOnOpen";
+import {useRef, useState} from "react";
 import { Button, Modal } from "@heroui/react";
 import { Field, SelectField } from "@/components/ui/form/Field";
 import {
@@ -62,14 +63,12 @@ export default function FileUploadModal({
 
   // Cada abertura começa limpa: manter a lista da vez anterior faria o usuário
   // reenviar sem querer o que já subiu.
-  useEffect(() => {
-    if (isOpen) {
-      setKind(initialKind);
-      setDocuments([]);
-      setSimulations([]);
-      setIsDragging(false);
-    }
-  }, [isOpen, initialKind]);
+  useResetOnOpen(isOpen, () => {
+    setKind(initialKind);
+    setDocuments([]);
+    setSimulations([]);
+    setIsDragging(false);
+  });
 
   const addFiles = (list: FileList | null) => {
     if (!list?.length) return;

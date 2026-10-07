@@ -87,6 +87,8 @@ export interface ClientListItem {
   benefit?: BenefitLabel;
   situation?: SituationLabel;
   clientType?: ClientTypeLabel;
+  /** Isento do serviço (sem arrecadação) — o mesmo campo do filtro `?notBillable=`. */
+  notBillable?: boolean;
   beneficiaryNumber?: string;
   createdAt?: string;
   updatedAt?: string;
@@ -199,6 +201,8 @@ export interface ClientListRequest {
   situation?: string[];
   /** `VERIFICADO` / `POTENCIAL` — nome da constante ou label, como os demais. */
   clientType?: string[];
+  /** Isento do serviço: `true` só os isentos, `false` só os não isentos; ausente, todos. */
+  notBillable?: boolean;
   createdFrom?: string;
   createdTo?: string;
 }

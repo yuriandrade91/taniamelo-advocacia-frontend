@@ -1,60 +1,40 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@heroui/react";
 
-import MonthlyBalance from "@/components/home/MonthlyBalance";
-import { ExpensesTable } from "@/components/wallet/ExpensesTable";
-import { RevenuesTable } from "@/components/wallet/RevenuesTable";
-import { MonthPicker } from "@/components/ui/MonthPicker";
-import { PageHeader } from "@/components/ui/layout/PageHeader";
-import { SemAcessoFinanceiro } from "@/components/ui/feedback/SemAcessoFinanceiro";
-import { usePermissoes } from "@/hooks/usePermissoes";
-import { EntryFormModal } from "@/components/wallet/EntryFormModal";
-import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import { WalletEntryList, type WalletEntryActions } from "@/components/wallet/WalletEntryList";
+import { WalletFilterBar } from "@/components/wallet/WalletFilterBar";
+import { WalletMonthSummary } from "@/components/wallet/summary/WalletMonthSummary";
+import dynamic from "next/dynamic";
+import type { EntryDetailsTarget } from "@/components/wallet/EntryDetailsDrawer";
+import { KIND_META } from "@/components/wallet/entryKind";
 import {
   expenseFormFrom,
   incomeFormFrom,
   type EntryKind,
-  type SharedValues,
 } from "@/components/wallet/entryForms";
-import { WalletSummary } from "@/components/wallet/WalletSummary";
-import {
-  buildFlowTimeline,
-  buildWalletOverview,
-  toBalanceSlices,
-} from "@/components/wallet/walletOverview";
-import {
-  currentMonth,
-  monthName,
-  monthRange,
-  shiftMonth,
-  type MonthRef,
-} from "@/lib/period";
-import {
-  deleteOfficeExpense,
-  getOfficeExpenseSummary,
-  getOfficeExpenseTimeline,
-  listOfficeExpenses,
-} from "@/services/officeExpenseService";
-import {
-  deleteOfficeRevenue,
-  getOfficeRevenueSummary,
-  getOfficeRevenueTimeline,
-  listOfficeRevenues,
-} from "@/services/officeRevenueService";
-import { WalletFlowChart } from "@/components/wallet/WalletFlowChart";
-import { WalletBalanceChart } from "@/components/wallet/WalletBalanceChart";
-import type {
-  FlowTimelinePoint,
-  OfficeExpenseResponse,
-  OfficeExpenseSummary,
-} from "@/interfaces/finance/OfficeExpense.interface";
-import type {
-  OfficeRevenueResponse,
-  OfficeRevenueSummary,
-} from "@/interfaces/finance/OfficeRevenue.interface";
+import type { EntryEditing } from "@/components/wallet/useEntryForm";
+import { expenseFilters as EXPENSE_FILTERS, revenueFilters as REVENUE_FILTERS } from "@/components/wallet/walletFilters";
+import { useWalletMonth } from "@/components/wallet/useWalletMonth";
+import { bucketQuery, type PaymentBucket } from "@/components/payments/paymentBuckets";
+import { editWarning } from "@/components/payments/editWarning";
+import { useEditConfirmation } from "@/components/payments/useEditConfirmation";
+import { TablePagination } from "@/components/ui/table/TablePagination";
+import { MonthPicker } from "@/components/ui/MonthPicker";
+import { PageHeader } from "@/components/ui/layout/PageHeader";
+import { SemAcessoFinanceiro } from "@/components/ui/feedback/SemAcessoFinanceiro";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import { useFilters } from "@/hooks/useFilters";
+import { usePagedList, type ListPage } from "@/hooks/usePagedList";
+import { usePermissoes } from "@/hooks/usePermissoes";
+import { currentMonth, monthRange, todayIso, type MonthRef } from "@/lib/period";
+import type { PaymentMethodInput } from "@/enums/payment/Payment";
+import type { ExpenseCategoryInput } from "@/enums/expenseCategory/ExpenseCategory";
+import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
+import { deleteOfficeExpense, listOfficeExpenses } from "@/services/officeExpenseService";
+import { deleteOfficeRevenue, listOfficeRevenues } from "@/services/officeRevenueService";
 
 /**
  * Carteira — o financeiro do escritório.
@@ -91,147 +71,118 @@ import type {
  * outra falhou — que é informação, não ruído.
  */
 
-type LoadState = "loading" | "ready" | "partial" | "error";
+/** Formulário e painel de detalhe só existem depois do clique: fora do JS inicial. */
+const EntryFormModal = dynamic(() => import("@/components/wallet/EntryFormModal").then((m) => m.EntryFormModal), { ssr: false });
+const EntryDetailsDrawer = dynamic(
+  () => import("@/components/wallet/EntryDetailsDrawer").then((m) => m.EntryDetailsDrawer),
+  { ssr: false },
+);
 
-/** Quantas linhas as duas tabelas do mês trazem antes de pedir a próxima página. */
-const LINHAS_DO_MES = 50;
+/** Linhas por página nas duas listas. */
+const PAGE_SIZE = 10;
+
+/**
+ * Filtros da aba → parâmetros da lista, dentro do mês do seletor. O balde
+ * vira status + corte de vencimento intersectado com o mês (`bucketQuery`);
+ * `null` quando a interseção é vazia ("Atrasado" num mês futuro): aí não há
+ * o que perguntar ao servidor.
+ */
+function listParams(
+  filters: { bucket: string; paymentMethod: string[]; category?: string[] },
+  searchTerm: string,
+  range: { from: string; to: string },
+) {
+  const bucket = bucketQuery(filters.bucket as PaymentBucket | "", { dueFrom: range.from, dueTo: range.to }, todayIso());
+  if (bucket.empty) return null;
+  return {
+    searchTerm: searchTerm || undefined,
+    status: bucket.status,
+    dueFrom: bucket.dueFrom,
+    dueTo: bucket.dueTo,
+    paymentMethod: filters.paymentMethod.length ? (filters.paymentMethod as PaymentMethodInput[]) : undefined,
+    category: filters.category?.length ? (filters.category as ExpenseCategoryInput[]) : undefined,
+  };
+}
+
+type Params = NonNullable<ReturnType<typeof listParams>>;
+
+/** Envelope da API → página da lista. */
+const toPage = <T,>(envelope: ApiEnvelope<T[]>): ListPage<T> => ({
+  items: envelope.data ?? [],
+  total: envelope.pagination?.totalRecords ?? 0,
+  totalPages: envelope.pagination?.totalPages ?? 0,
+});
+
+type Target = { kind: EntryKind; id: string; descricao: string };
 
 export default function WalletPage() {
   /**
-   * Mesmo corte de Pagamentos (D3): dinheiro do escritório é de quem
-   * administra. A guarda aqui é só da tela — as rotas são `@RequerAdmin` e
-   * respondem 403 por conta própria, então esconder o menu é conveniência, não
-   * a regra.
+   * Dinheiro do escritório é de quem administra (D3). A guarda aqui é da tela
+   * — as rotas são `@RequerAdmin` — e segura as chamadas até a permissão ser
+   * conhecida: sem ela, saíam no mount e tomavam 403 de quem não é ADMIN.
    */
   const { podeVerFinanceiro } = usePermissoes();
   const [month, setMonth] = useState<MonthRef>(() => currentMonth());
-  const [revenues, setRevenues] = useState<OfficeRevenueSummary | null>(null);
-  const [revenueItems, setRevenueItems] = useState<OfficeRevenueResponse[]>([]);
-  const [expenses, setExpenses] = useState<OfficeExpenseSummary | null>(null);
-  const [expenseItems, setExpenseItems] = useState<OfficeExpenseResponse[]>([]);
-  const [flow, setFlow] = useState<FlowTimelinePoint[]>([]);
-  const [state, setState] = useState<LoadState>("loading");
-  const [isEntryFormOpen, setIsEntryFormOpen] = useState(false);
-  const [editing, setEditing] = useState<{
-    kind: EntryKind;
-    id: string;
-    values: SharedValues;
-    descricao: string;
-  } | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<{
-    kind: EntryKind;
-    id: string;
-    descricao: string;
-  } | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
   const range = useMemo(() => monthRange(month), [month]);
+  /** Aba da lista. Despesa primeiro: é a que pede ação (pagar). */
+  const [tab, setTab] = useState<EntryKind>("saida");
+  const [isEntryFormOpen, setIsEntryFormOpen] = useState(false);
+  const [editing, setEditing] = useState<(EntryEditing & { descricao: string }) | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Target | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [detailsTarget, setDetailsTarget] = useState<EntryDetailsTarget | null>(null);
+  /** Recebido/pago ou cancelado: o lápis confirma antes de editar. */
+  const confirmEdit = useEditConfirmation();
 
-  /**
-   * O gráfico mostra 6 meses terminando no mês selecionado: o card responde
-   * "quanto sobrou este mês", o gráfico responde "isso é normal ou fora da
-   * curva". Um mês isolado não responde a segunda.
+  const monthData = useWalletMonth(range, podeVerFinanceiro);
+
+  /** Cada aba com os seus filtros: categoria só existe em despesa. */
+  const expenseFilters = useFilters(EXPENSE_FILTERS);
+  const revenueFilters = useFilters(REVENUE_FILTERS);
+  const { bucket: expenseBucket, paymentMethod: expenseMethod, category } = expenseFilters.values;
+  const { bucket: revenueBucket, paymentMethod: revenueMethod } = revenueFilters.values;
+  const expenseParams = useMemo(
+    () => listParams({ bucket: expenseBucket, paymentMethod: expenseMethod, category }, expenseFilters.search, range),
+    [expenseBucket, expenseMethod, category, expenseFilters.search, range],
+  );
+  const revenueParams = useMemo(
+    () => listParams({ bucket: revenueBucket, paymentMethod: revenueMethod }, revenueFilters.search, range),
+    [revenueBucket, revenueMethod, revenueFilters.search, range],
+  );
+
+  /*
+   * As listas usam VENCIMENTO ("o que há no mês", inclusive o não pago) e cada
+   * uma só vai ao servidor com a aba dela aberta: a Carteira abre pedindo as
+   * despesas, e as entradas só no clique. A contagem das abas vem do resumo.
    */
-  const flowRange = useMemo(
-    () => ({
-      from: monthRange(shiftMonth(month, -5)).from,
-      to: monthRange(month).to,
-    }),
-    [month],
-  );
+  const expenses = usePagedList({
+    enabled: podeVerFinanceiro && tab === "saida",
+    params: expenseParams,
+    fetchPage: (params: Params, page) => listOfficeExpenses({ ...params, pageNumber: page, pageSize: PAGE_SIZE }).then(toPage),
+  });
+  const revenues = usePagedList({
+    enabled: podeVerFinanceiro && tab === "entrada",
+    params: revenueParams,
+    fetchPage: (params: Params, page) => listOfficeRevenues({ ...params, pageNumber: page, pageSize: PAGE_SIZE }).then(toPage),
+  });
 
-  const load = useCallback(async () => {
-    setState("loading");
-
-    const [revenueSummary, expenseSummary, revenueList, expenseList] =
-      await Promise.allSettled([
-        // Os cards são CAIXA: recorte por data de pagamento nos dois lados, com
-        // o mesmo par de datas. Misturar os recortes é o que dá saldo falso.
-        getOfficeRevenueSummary({ paidFrom: range.from, paidTo: range.to }),
-        getOfficeExpenseSummary({ paidFrom: range.from, paidTo: range.to }),
-        // As tabelas usam VENCIMENTO: ali a pergunta é "o que há no mês",
-        // que inclui o que ainda não foi pago.
-        listOfficeRevenues({
-          dueFrom: range.from,
-          dueTo: range.to,
-          pageSize: LINHAS_DO_MES,
-        }),
-        listOfficeExpenses({
-          dueFrom: range.from,
-          dueTo: range.to,
-          pageSize: LINHAS_DO_MES,
-        }),
-      ]);
-
-    const nextRevenues =
-      revenueSummary.status === "fulfilled"
-        ? (revenueSummary.value.data ?? null)
-        : null;
-    const nextExpenses =
-      expenseSummary.status === "fulfilled"
-        ? (expenseSummary.value.data ?? null)
-        : null;
-
-    // Série de 6 meses, em regime de caixa como os cards.
-    const [revenueSeries, expenseSeries] = await Promise.allSettled([
-      getOfficeRevenueTimeline({ ...flowRange, basis: "paid" }),
-      getOfficeExpenseTimeline({ ...flowRange, basis: "paid" }),
-    ]);
-    setFlow(
-      buildFlowTimeline(
-        revenueSeries.status === "fulfilled"
-          ? (revenueSeries.value.data ?? [])
-          : [],
-        expenseSeries.status === "fulfilled"
-          ? (expenseSeries.value.data ?? [])
-          : [],
-      ),
-    );
-
-    setRevenues(nextRevenues);
-    setExpenses(nextExpenses);
-    setRevenueItems(
-      revenueList.status === "fulfilled" ? (revenueList.value.data ?? []) : [],
-    );
-    setExpenseItems(
-      expenseList.status === "fulfilled" ? (expenseList.value.data ?? []) : [],
-    );
-
-    if (nextRevenues && nextExpenses) setState("ready");
-    else if (nextRevenues || nextExpenses) setState("partial");
-    else setState("error");
-  }, [range, flowRange]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const overview = useMemo(
-    () => buildWalletOverview(revenues, expenses),
-    [revenues, expenses],
-  );
-
-  const slices = useMemo(
-    () => toBalanceSlices(expenses?.byCategory ?? []),
-    [expenses],
-  );
+  /** Gravou ou excluiu: muda o saldo e a lista daquele lado — só dele. */
+  const reloadAfterChange = (kind: EntryKind) => {
+    monthData.reload(kind);
+    (kind === "entrada" ? revenues : expenses).invalidate();
+  };
 
   /**
-   * Excluir é soft delete e não tem rota de restaurar nestas duas tabelas —
-   * por isso o caminho é confirmar antes, e não a janela de desfazer que a
-   * agenda usa. Desfazer depois do fato só poderia falhar.
+   * Excluir é soft delete sem rota de restaurar: confirma antes, em vez da
+   * janela de desfazer da agenda — desfazer depois do fato só poderia falhar.
    */
   const confirmarExclusao = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      if (deleteTarget.kind === "entrada") {
-        await deleteOfficeRevenue(deleteTarget.id);
-      } else {
-        await deleteOfficeExpense(deleteTarget.id);
-      }
+      await (deleteTarget.kind === "entrada" ? deleteOfficeRevenue : deleteOfficeExpense)(deleteTarget.id);
       setDeleteTarget(null);
-      await load();
+      reloadAfterChange(deleteTarget.kind);
     } catch {
       // O axiosService já mostrou o erro; o alvo fica para nova tentativa.
     } finally {
@@ -239,18 +190,35 @@ export default function WalletPage() {
     }
   };
 
-  const isLoading = state === "loading";
-  /**
-   * A série vem preenchida mês a mês pelo servidor, inclusive os meses sem
-   * movimento. Vazia só acontece quando as duas chamadas falharam — e aí o
-   * gráfico fica vazio de propósito. Não existe mais dado de exemplo nesta
-   * tela: número plausível sem fonte é como ele acaba repetido em reunião.
-   */
-  const semSerie = !isLoading && flow.length === 0;
+  const entryActions: WalletEntryActions = {
+    expense: {
+      onView: (item) => setDetailsTarget({ kind: "saida", id: item.id, descricao: item.description }),
+      onEdit: (item) =>
+        confirmEdit.request(editWarning(item, "pago"), () =>
+          setEditing({ kind: "saida", id: item.id, values: expenseFormFrom(item), descricao: item.description }),
+        ),
+      onDelete: (item) => setDeleteTarget({ kind: "saida", id: item.id, descricao: item.description }),
+    },
+    revenue: {
+      onView: (item) => setDetailsTarget({ kind: "entrada", id: item.id, descricao: item.description }),
+      onEdit: (item) =>
+        confirmEdit.request(editWarning(item, "recebido"), () =>
+          setEditing({ kind: "entrada", id: item.id, values: incomeFormFrom(item), descricao: item.description }),
+        ),
+      onDelete: (item) => setDeleteTarget({ kind: "entrada", id: item.id, descricao: item.description }),
+    },
+  };
 
-  if (!podeVerFinanceiro) {
-    return <SemAcessoFinanceiro titulo="Carteira" />;
-  }
+  if (!podeVerFinanceiro) return <SemAcessoFinanceiro titulo="Carteira" />;
+
+  const list = tab === "saida" ? expenses : revenues;
+  const filters = tab === "saida" ? expenseFilters : revenueFilters;
+  const noun = KIND_META[tab].noun;
+  const emptyMessage = list.failed
+    ? `Não foi possível carregar as ${noun}s. Tente novamente.`
+    : filters.hasActive
+      ? `Nenhuma ${noun} encontrada para os filtros escolhidos.`
+      : `Nenhuma ${noun} com vencimento neste mês.`;
 
   return (
     <div className="flex flex-col gap-5 pb-16">
@@ -259,194 +227,99 @@ export default function WalletPage() {
         description="Receitas e despesas do escritório — pelo que foi efetivamente pago no mês."
         actions={
           <div className="flex flex-wrap items-center gap-3">
-            <MonthPicker
-              value={month}
-              onChange={setMonth}
-              maxMonth={currentMonth()}
-              tone="dark"
-            />
-            {/* Um botão só: o tipo (entrada ou saída) é escolhido dentro do
-                modal. Dois botões obrigariam a decidir antes de ver o que o
-                formulário pede, e errar o tipo custaria fechar e recomeçar. */}
-            <Button
-              type="button"
-              variant="outline"
-              className="on-primary-button"
-              onPress={() => setIsEntryFormOpen(true)}
-            >
+            <MonthPicker value={month} onChange={setMonth} maxMonth={currentMonth()} tone="dark" />
+            {/* Um botão só: o tipo é escolhido no modal, depois de ver o que ele pede. */}
+            <Button type="button" variant="ghost" className="on-primary-button bg-secondary" onPress={() => setIsEntryFormOpen(true)}>
               Registrar lançamento
             </Button>
           </div>
         }
       />
 
-      <WalletSummary overview={overview} isLoading={isLoading} />
+      {/* O financeiro do mês vem primeiro; a lista, depois. */}
+      <WalletMonthSummary summary={monthData.summary} isLoading={monthData.state === "loading"} month={month} />
 
-      {/*
-        Três gráficos na mesma linha, a rosca primeiro.
-        ────────────────────────────────────────────
-        A ordem é de leitura: a rosca responde "no que o dinheiro foi" (a
-        composição do mês), e as duas da direita respondem "como isso andou"
-        (o fluxo mês a mês e o acumulado). Composição antes de série é a
-        pergunta que se faz primeiro ao abrir a tela.
-
-        `lg:` e não `md:`: três gráficos lado a lado num tablet deixam cada um
-        com menos de 250px, e uma rosca com legenda de cinco linhas nesse
-        espaço vira ilegível. Abaixo de `lg` eles empilham.
-      */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <MonthlyBalance
-          total={overview.outflowAmount}
-          period={monthName(month)}
-          slices={slices}
-        />
-        <WalletFlowChart points={flow} />
-        <WalletBalanceChart points={flow} />
-      </div>
-
-      {(state === "partial" || state === "error" || semSerie) && (
-        <div
-          role="status"
-          className="rounded-2xl border border-secondary/40 bg-light-secondary px-5 py-4 text-sm text-primary"
-        >
-          <p className="font-medium">
-            {state === "error" ? "Não foi possível carregar" : "Dados parciais"}
-          </p>
+      {(monthData.state === "partial" || monthData.state === "error") && (
+        <div role="status" className="rounded-2xl border border-secondary/40 bg-light-secondary px-5 py-4 text-sm text-primary">
+          <p className="font-medium">{monthData.state === "error" ? "Não foi possível carregar" : "Dados parciais"}</p>
           <p className="mt-1 text-gray-100">
-            {state === "error" ? (
-              <>
-                Nem as receitas nem as despesas responderam. Os valores estão
-                zerados por falta de resposta, não por falta de movimento —
-                recarregue a página antes de tirar qualquer conclusão deles.
-              </>
-            ) : (
-              <>
-                Uma das metades não respondeu, então o saldo acima está
-                incompleto. Ele soma só o que chegou.
-              </>
-            )}
+            {monthData.state === "error"
+              ? "Nem as receitas nem as despesas responderam. Os valores estão zerados por falta de resposta, não por falta de movimento — recarregue a página antes de tirar qualquer conclusão deles."
+              : "Uma das metades não respondeu, então o saldo acima está incompleto. Ele soma só o que chegou."}
           </p>
         </div>
       )}
 
-      {/* A tabela ocupa a linha inteira: a rosca subiu para junto dos
-          gráficos, e manter a grade de 3 colunas deixaria um terço vazio. */}
-      <section>
-        <div>
-          <div className="mb-3 flex items-baseline justify-between gap-4">
-            <h2 className="text-lg font-medium text-primary">
-              Despesas do mês
-            </h2>
-            {/* Rótulo explícito: os cards acima são caixa (pago), esta tabela
-                é agenda (vencimento). Sem dizer, os números não batem e
-                parece defeito. */}
-            <span className="text-xs text-gray-100">por vencimento</span>
-          </div>
-          <ExpensesTable
-            items={expenseItems}
-            isLoading={isLoading}
-            emptyMessage="Nenhuma despesa com vencimento neste mês."
-            onEdit={(item) =>
-              setEditing({
-                kind: "saida",
-                id: item.id,
-                values: expenseFormFrom(item),
-                descricao: item.description,
-              })
-            }
-            /* Sem guarda extra: chegar aqui já exige podeVerFinanceiro, que é
-               só ADMIN — o mesmo papel que o @RequerAdmin do DELETE exige.
-               Um `podeDestruir` (ADMIN|LAWYER) aqui seria sempre verdadeiro e
-               sugeriria um corte que não existe nesta tela. */
-            onDelete={(item) =>
-              setDeleteTarget({
-                kind: "saida",
-                id: item.id,
-                descricao: item.description,
-              })
-            }
-          />
-        </div>
-      </section>
-
-      <section>
-        <div className="mb-3 flex items-baseline justify-between gap-4">
-          <h2 className="text-lg font-medium text-primary">Entradas do mês</h2>
-          <span className="text-xs text-gray-100">por vencimento</span>
-        </div>
-        <RevenuesTable
-          items={revenueItems}
-          isLoading={isLoading}
-          emptyMessage="Nenhuma receita com vencimento neste mês."
-          onEdit={(item) =>
-            setEditing({
-              kind: "entrada",
-              id: item.id,
-              values: incomeFormFrom(item),
-              descricao: item.description,
-            })
-          }
-          onDelete={(item) =>
-            setDeleteTarget({
-              kind: "entrada",
-              id: item.id,
-              descricao: item.description,
-            })
-          }
+      {/* Filtro → lista → paginação, da aba aberta: cada aba guarda os seus filtros. */}
+      <section className="flex flex-col gap-4">
+        <WalletFilterBar tab={tab} onTabChange={setTab} counts={monthData.counts} filters={filters} />
+        {tab === "saida" ? (
+          <WalletEntryList kind="saida" items={expenses.items} isLoading={expenses.isLoading} emptyMessage={emptyMessage} actions={entryActions} />
+        ) : (
+          <WalletEntryList kind="entrada" items={revenues.items} isLoading={revenues.isLoading} emptyMessage={emptyMessage} actions={entryActions} />
+        )}
+        <TablePagination
+          pageNumber={list.page}
+          pageSize={PAGE_SIZE}
+          total={list.total}
+          totalPages={list.totalPages}
+          onPageChange={list.setPage}
+          noun={[noun, `${noun}s`]}
         />
-        <p className="mt-3 text-sm text-gray-100">
-          Entrada aqui é honorário, parecer avulso, reembolso — dinheiro do
-          escritório. Não confunda com{" "}
-          <Link
-            href="/pagamentos"
-            className="font-medium text-secondary underline underline-offset-2"
-          >
-            Pagamentos
-          </Link>
-          : lá é o que o INSS paga ao cliente, e esse dinheiro não passa pelo
-          caixa daqui.
-        </p>
+        {tab === "entrada" && (
+          <p className="px-1 text-sm text-gray-100">
+            Entrada aqui é honorário, parecer avulso, reembolso — dinheiro do escritório. Não confunda com{" "}
+            <Link href="/pagamentos" className="font-medium text-secondary underline underline-offset-2">
+              Pagamentos
+            </Link>
+            : lá é o que o INSS paga ao cliente, e esse dinheiro não passa pelo caixa daqui.
+          </p>
+        )}
       </section>
 
+      {isEntryFormOpen && (
       <EntryFormModal
-        isOpen={isEntryFormOpen}
+        isOpen
         onOpenChange={setIsEntryFormOpen}
-        onSaved={() => void load()}
+        // Abre a aba do que acabou de ser gravado, para a pessoa ver o resultado.
+        onSaved={(kind) => {
+          setTab(kind);
+          reloadAfterChange(kind);
+        }}
       />
+      )}
 
-      {/* Modal separado do de cadastro, e montado só com alvo: um modal só,
-          reaproveitado, precisaria limpar o estado da edição anterior ao
-          fechar — e o dia em que esquecesse abriria "novo" já preenchido. */}
+      {/* Montado só com alvo: o modal de edição nunca herda estado de outra edição. */}
       {editing && (
-        <EntryFormModal
-          isOpen
-          onOpenChange={(open) => {
-            if (!open) setEditing(null);
-          }}
-          onSaved={() => void load()}
-          editing={editing}
+        <EntryFormModal isOpen onOpenChange={(open) => !open && setEditing(null)} onSaved={reloadAfterChange} editing={editing} />
+      )}
+
+      {detailsTarget && (
+        <EntryDetailsDrawer
+          // `key`: abrir outro lançamento remonta o painel, com estado limpo.
+          key={`${detailsTarget.kind}-${detailsTarget.id}`}
+          target={detailsTarget}
+          onClose={() => setDetailsTarget(null)}
+          onSaved={reloadAfterChange}
         />
       )}
+
+      {confirmEdit.dialog}
 
       <ConfirmDialog
         isOpen={deleteTarget !== null}
-        onClose={() => {
-          if (!isDeleting) setDeleteTarget(null);
-        }}
+        onClose={() => !isDeleting && setDeleteTarget(null)}
         tone="danger"
-        heading={
-          deleteTarget?.kind === "entrada" ? "Excluir entrada?" : "Excluir saída?"
-        }
+        heading={deleteTarget?.kind === "entrada" ? "Excluir entrada?" : "Excluir saída?"}
         confirmLabel="Excluir"
         cancelLabel="Manter"
         description={
-          deleteTarget ? (
+          deleteTarget && (
             <>
-              <span className="font-medium">{deleteTarget.descricao}</span> sai
-              da Carteira e deixa de contar no saldo do mês. Não há como
-              restaurar por aqui.
+              <span className="font-medium">{deleteTarget.descricao}</span> sai da Carteira e deixa de contar no saldo
+              do mês. Não há como restaurar por aqui.
             </>
-          ) : null
+          )
         }
         onConfirm={() => void confirmarExclusao()}
       />

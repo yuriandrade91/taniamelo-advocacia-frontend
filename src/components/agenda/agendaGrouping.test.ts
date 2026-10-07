@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { formatDayHeader, groupByDay, localDayOf, localTimeOf } from "./agendaGrouping";
+import {
+  formatDayHeader,
+  groupByDay,
+  localDayOf,
+  localTimeOf,
+  busyMinutes,
+  durationMinutes,
+  formatDuration,
+  formatWhen,
+  isOngoing,
+  rulerSpan,
+} from "./agendaGrouping";
 import type { AppointmentResponse } from "@/interfaces/appointment/Appointment.interface";
 
 /**
@@ -69,5 +80,45 @@ describe("formatDayHeader", () => {
 
   it("entrada fora do formato volta como veio", () => {
     expect(formatDayHeader("12/03/2026")).toBe("12/03/2026");
+  });
+});
+
+describe("tempo de um compromisso", () => {
+  const appt = (startAt: string, endAt: string, status = "Agendado") =>
+    ({ ...at(startAt), startAt, endAt, status }) as AppointmentResponse;
+
+  it("duração e ocupação do dia, sem contar cancelado", () => {
+    const a = appt("2026-10-05T12:00:00Z", "2026-10-05T13:30:00Z");
+    const b = appt("2026-10-05T15:00:00Z", "2026-10-05T16:00:00Z", "Cancelado");
+    expect(durationMinutes(a)).toBe(90);
+    expect(busyMinutes([a, b])).toBe(90);
+  });
+
+  it("formatDuration", () => {
+    expect(formatDuration(45)).toBe("45 min");
+    expect(formatDuration(120)).toBe("2h");
+    expect(formatDuration(90)).toBe("1h30");
+  });
+
+  it("acontecendo agora: agendado e dentro do horário", () => {
+    const a = appt("2026-10-05T12:00:00Z", "2026-10-05T13:00:00Z");
+    expect(isOngoing(a, Date.parse("2026-10-05T12:30:00Z"))).toBe(true);
+    expect(isOngoing(a, Date.parse("2026-10-05T13:30:00Z"))).toBe(false);
+    expect(isOngoing({ ...a, status: "Concluído" } as AppointmentResponse, Date.parse("2026-10-05T12:30:00Z"))).toBe(false);
+  });
+
+  it("régua do expediente (07h–20h): corta nas pontas e some fora dela", () => {
+    const local = (h: number, m = 0) => new Date(2026, 9, 5, h, m).toISOString();
+    expect(rulerSpan(appt(local(7), local(20)))).toEqual({ left: 0, width: 100 });
+    expect(rulerSpan(appt(local(6), local(8)))?.left).toBe(0);
+    expect(rulerSpan(appt(local(21), local(22)))).toBeNull();
+  });
+
+  it("formatWhen: hoje, amanhã ou a data, no fuso de quem olha", () => {
+    const now = new Date(2026, 9, 5, 9, 0);
+    expect(formatWhen(new Date(2026, 9, 5, 14, 30).toISOString(), now)).toBe("Hoje, às 14h30");
+    expect(formatWhen(new Date(2026, 9, 6, 9, 5).toISOString(), now)).toBe("Amanhã, às 09h05");
+    expect(formatWhen(new Date(2026, 8, 23, 15, 0).toISOString(), now)).toBe("23/09, às 15h00");
+    expect(formatWhen("lixo", now)).toBe("-");
   });
 });

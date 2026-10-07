@@ -2,17 +2,17 @@
 
 import React from "react";
 import StatCard, { type StatCardProps } from "./StatCard";
-import { Card, MonthPill, SectionTitle } from "./ui";
+import { Card, SectionTitle } from "@/components/ui/layout/Card";
+import { LoadingCircle } from "@/components/ui/feedback/Loading";
+import { MonthPill } from "./ui";
 
 export type PendingFormsProps = {
   /**
-   * Quantidade de formulários que ainda não viraram clientes.
-   *
-   * Aceita texto para o "—" de carregamento: mostrar `0` enquanto a contagem
-   * não chega pisca "ninguém esperando" antes do número real, que é a
-   * informação oposta da verdadeira.
+   * Quantidade de formulários que ainda não viraram clientes; `null` enquanto
+   * conta, `undefined` se a contagem falhou. Mostrar `0` em qualquer dos dois
+   * diria "ninguém esperando" — o oposto do que talvez seja verdade.
    */
-  count: number | string;
+  count: number | null | undefined;
   period: string;
   /** Indicadores exibidos na base do card. */
   stats: StatCardProps[];
@@ -43,7 +43,7 @@ export default function PendingForms({
       <div className="mt-5 flex items-center gap-4">
         {/* Contador em círculo com anel dourado, como no design. */}
         <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-secondary/50 text-2xl font-semibold text-primary">
-          {count}
+          {count === null ? <LoadingCircle size={24} label="Contando formulários pendentes" /> : (count ?? "—")}
         </span>
         <div className="min-w-0">
           <p className="text-sm text-gray-100">
