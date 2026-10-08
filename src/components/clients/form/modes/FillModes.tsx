@@ -1,15 +1,18 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { Accordion } from "@heroui/react";
+import { useState } from "react";
 import { useStoredChoice, useUrlParam } from "@/hooks/useStoredValue";
 import type { FillModeProps } from "./shared";
 
 /**
- * Modos de preenchimento do cadastro — EXPERIMENTAIS, e escondidos.
+ * Modos de preenchimento do cadastro — EXPERIMENTAIS, e recolhidos.
  *
- * O cadastro abre sempre nas abas. Os outros modos só aparecem com `?modo=`
- * na URL (ex.: `/clientes/novo?modo=colar`): é uma opção oculta, para quem
- * quiser experimentar, e não um seletor no caminho de todo mundo.
+ * O cadastro abre sempre nas abas. Os outros modos moram num acordeão
+ * fechado logo abaixo do cabeçalho ("Outras formas de preencher"): estão à
+ * mão para quem quiser experimentar, sem disputar a tela com o formulário.
+ * `?modo=` na URL abre direto num deles (ex.: `/clientes/novo?modo=colar`).
  *
  * Não são skins dos campos: cada um muda a forma de entrar com os dados.
  * Todos editam os mesmos formulários da página; trocar de modo não perde
@@ -63,9 +66,9 @@ export type FillModeId = (typeof FILL_MODES)[number]["id"];
 const STORAGE_KEY = "cadastro-cliente:modo";
 
 /**
- * O modo e se o seletor aparece. Sem `?modo=` na URL é sempre "abas" — uma
- * escolha antiga guardada no navegador não pode prender alguém num modo
- * experimental sem o seletor na tela para sair dele.
+ * O modo escolhido. Sem `?modo=` na URL é sempre "abas" — uma escolha antiga
+ * guardada no navegador não abre o cadastro num modo experimental; escolher
+ * um modo grava o parâmetro, e ele vale até sair da página.
  */
 export function useFillModeChoice() {
   const [choice, choose] = useStoredChoice<FillModeId>(
@@ -74,11 +77,59 @@ export function useFillModeChoice() {
     FILL_MODES.map((mode) => mode.id),
     "abas",
   );
-  const isRevealed = useUrlParam("modo") !== null;
-  return [isRevealed ? choice : "abas", choose, isRevealed] as const;
+  const isChosenInUrl = useUrlParam("modo") !== null;
+  return [isChosenInUrl ? choice : "abas", choose] as const;
 }
 
-export function FillModeSwitcher({
+const PANEL_KEY = "outros-modos";
+
+/**
+ * O seletor dentro de um acordeão fechado. Num modo experimental ele fica
+ * aberto — é por ele que se volta às abas —, e fechá-lo volta às abas: nada
+ * se perde, todos os modos editam os mesmos formulários.
+ */
+export function FillModeDisclosure({
+  value,
+  onChange,
+}: {
+  value: FillModeId;
+  onChange: (mode: FillModeId) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const isExpanded = isOpen || value !== "abas";
+  const current = FILL_MODES.find((mode) => mode.id === value);
+
+  return (
+    <Accordion
+      hideSeparator
+      expandedKeys={isExpanded ? [PANEL_KEY] : []}
+      onExpandedChange={(keys) => {
+        const next = keys.has(PANEL_KEY);
+        setIsOpen(next);
+        if (!next && value !== "abas") onChange("abas");
+      }}
+    >
+      <Accordion.Item id={PANEL_KEY}>
+        <Accordion.Heading>
+          <Accordion.Trigger className="w-fit cursor-pointer gap-2 px-1 py-1 text-sm text-gray-100 hover:text-secondary">
+            Outras formas de preencher
+            {value !== "abas" && current && (
+              <span className="text-secondary">· {current.title}</span>
+            )}
+            <Accordion.Indicator />
+          </Accordion.Trigger>
+        </Accordion.Heading>
+        <Accordion.Panel>
+          <Accordion.Body className="px-0 pt-2">
+            <FillModeSwitcher value={value} onChange={onChange} />
+          </Accordion.Body>
+        </Accordion.Panel>
+      </Accordion.Item>
+    </Accordion>
+  );
+}
+
+function FillModeSwitcher({
   value,
   onChange,
 }: {

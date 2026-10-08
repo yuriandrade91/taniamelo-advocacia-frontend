@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { ProgressRing } from "@/components/clients/form/ProgressRing";
 import { ClientFormTabs } from "@/components/clients/form/tabs/ClientFormTabs";
 import {
-  FillModeSwitcher,
+  FillModeDisclosure,
   FillModeView,
   useFillModeChoice,
 } from "@/components/clients/form/modes/FillModes";
@@ -479,8 +479,8 @@ export default function NewClientPage() {
     setFocus((current) => ({ keys, seq: current.seq + 1 }));
   /** Pergunta de sexo ao escolher o benefício por deficiência. */
   const [isAskingGender, setIsAskingGender] = useState(false);
-  /** Modo de preenchimento — experimental e oculto, ver `modes/FillModes.tsx`. */
-  const [fillMode, setFillMode, isFillModeRevealed] = useFillModeChoice();
+  /** Modo de preenchimento — experimental e recolhido, ver `modes/FillModes.tsx`. */
+  const [fillMode, setFillMode] = useFillModeChoice();
   // A aba visível — na Revisão o rodapé deixa de repetir as pendências.
   const [activeTab, setActiveTab] = useState<string>();
   const isReviewing = fillMode === "abas" && activeTab === REVIEW_KEY;
@@ -1269,9 +1269,7 @@ export default function NewClientPage() {
           />
         }
       />
-      {isFillModeRevealed && (
-        <FillModeSwitcher value={fillMode} onChange={setFillMode} />
-      )}
+      <FillModeDisclosure value={fillMode} onChange={setFillMode} />
 
       {fillMode === "abas" ? (
         <>
@@ -1407,7 +1405,7 @@ export default function NewClientPage() {
         isReviewing={isReviewing}
         onGoTo={(key) => {
           // As pendências moram nas abas: de outro modo, volta para elas.
-          if (isFillModeRevealed) setFillMode("abas");
+          if (fillMode !== "abas") setFillMode("abas");
           focusSection(SECTION_KEYS[key]);
         }}
       >
