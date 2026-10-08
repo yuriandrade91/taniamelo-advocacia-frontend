@@ -27,11 +27,6 @@ export const FILL_MODES = [
     hint: "O formulário completo, seção por seção.",
   },
   {
-    id: "peticao",
-    title: "Petição viva",
-    hint: "Preencha as lacunas do parágrafo de qualificação.",
-  },
-  {
     id: "colar",
     title: "Colar e preencher",
     hint: "Cole a mensagem do cliente; os dados se extraem.",
@@ -41,24 +36,11 @@ export const FILL_MODES = [
     title: "Ditado por voz",
     hint: "Fale os dados; vira texto e depois cadastro.",
   },
-  {
-    id: "carteirinha",
-    title: "Carteirinha",
-    hint: "Edite direto no cartão do cliente; ele vira.",
-  },
-  {
-    id: "linha",
-    title: "Linha da vida",
-    hint: "A trajetória do cliente, com a régua de idade e contribuição.",
-  },
 ] as const;
 
 /** Cada modo só é baixado quando escolhido. */
-const PetitionMode = dynamic(() => import("./PetitionMode").then((m) => m.PetitionMode));
 const PasteMode = dynamic(() => import("./PasteMode").then((m) => m.PasteMode));
 const VoiceMode = dynamic(() => import("./VoiceMode").then((m) => m.VoiceMode));
-const IdCardMode = dynamic(() => import("./IdCardMode").then((m) => m.IdCardMode));
-const LifelineMode = dynamic(() => import("./LifelineMode").then((m) => m.LifelineMode));
 
 export type FillModeId = (typeof FILL_MODES)[number]["id"];
 
@@ -144,7 +126,7 @@ function FillModeSwitcher({
       <div
         role="radiogroup"
         aria-label="Modo de preenchimento"
-        className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6"
+        className="grid grid-cols-1 gap-2 sm:grid-cols-3"
       >
         {FILL_MODES.map((mode) => {
           const isSelected = mode.id === value;
@@ -183,15 +165,9 @@ export function FillModeView({
   ...forms
 }: FillModeProps & { mode: Exclude<FillModeId, "abas"> }) {
   switch (mode) {
-    case "peticao":
-      return <PetitionMode {...forms} />;
     case "colar":
       return <PasteMode {...forms} />;
     case "voz":
       return <VoiceMode {...forms} />;
-    case "carteirinha":
-      return <IdCardMode {...forms} />;
-    case "linha":
-      return <LifelineMode {...forms} />;
   }
 }

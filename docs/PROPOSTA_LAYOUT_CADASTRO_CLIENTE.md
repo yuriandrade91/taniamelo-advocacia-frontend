@@ -466,8 +466,12 @@ grava o que qualquer modo preencheu); "Revisar" volta às abas. Escolha em
 | `carteirinha` | Carteirinha | edita direto no cartão do cliente com a marca do escritório; vira em 3D (frente: identificação; verso: previdência) |
 | `linha` | Linha da vida | a trajetória (nascimento → identidade → trabalho → pedido) e uma régua que desenha idade e tempo de contribuição |
 
-Código em `components/clients/form/modes/`. O extrator (`smartFill.ts`) e
-o texto da qualificação (`qualification.ts`) são funções puras com testes.
+Código em `components/clients/form/modes/`. O extrator (`smartFill.ts`) é
+função pura com testes.
+
+**08/10/2026:** Petição viva, Carteirinha e Linha da vida saíram do
+cadastro (e o código delas, com `qualification.ts`). Ficam Abas, Colar e
+preencher e Ditado por voz, em três cartões de mesma largura.
 Limite: deficiência, vários endereços, entrevista e arquivos só existem
 nas abas. Prints em `assets/layout-cadastro-cliente/modos/`.
 
