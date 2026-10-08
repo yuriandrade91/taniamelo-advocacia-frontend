@@ -24,13 +24,14 @@ import {
 } from "@/enums/appointment/Appointment";
 
 /**
- * Agenda — página própria, no lugar do modal aberto por `?openAgenda=true`.
+ * Agenda — página própria. O "Visualizar todos" do card da Home traz para
+ * cá; o modal que fazia esse papel (e o `?openAgenda=true`) saiu.
  *
  * ## Por que não reaproveitei o `AppointmentsCard`
  *
  * Ele resolve o mesmo domínio, mas é o componente-Deus que o
- * `REVISAO_ARQUITETURA_2026` aponta: 1.797 linhas, 25 `useState`, três caches
- * e o formulário inteiro no mesmo escopo. Colocá-lo numa rota faria a página
+ * `REVISAO_ARQUITETURA_2026` aponta: eram 1.797 linhas, 25 `useState`, três
+ * caches e o formulário inteiro no mesmo escopo. Colocá-lo numa rota faria a página
  * nascer com o problema pronto.
  *
  * O fluxo de formulário e o das ações moram em hooks compartilhados com o card

@@ -1,13 +1,10 @@
 "use client";
 
 import {
-  Accordion,
   Button,
   Label,
   Modal,
-  Pagination,
   Skeleton,
-  Table,
   Tabs,
   TextArea,
   Tooltip,
@@ -15,15 +12,8 @@ import {
 } from "@heroui/react";
 import ModalShell from "@/components/ui/modals/ModalShell";
 import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
-import React, {
-  Suspense,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { Card, SectionTitle } from "@/components/ui/layout/Card";
 import Drawer from "@/components/ui/Drawer/Drawer";
 import {
@@ -32,7 +22,6 @@ import {
   TabBarSkeleton,
   TabItem,
 } from "@/components/ui/tabs/SegmentedTabs";
-import { Field, SelectField } from "@/components/ui/form/Field";
 import { MONTH_LABELS } from "@/constants/date/months";
 import { openInNewTab } from "@/lib/openInNewTab";
 import { DetailsIcon, PencilIcon, TrashIcon } from "@/components/ui/icons/actions";
@@ -45,7 +34,6 @@ import {
 } from "@/components/agenda/agendaIcons";
 import { formatWhen } from "@/components/agenda/agendaGrouping";
 import ActionButton from "@/components/ui/table/ActionButton";
-import { ELLIPSIS, buildPageList } from "@/lib/pagination";
 import { useFieldErrors } from "@/hooks/useFieldErrors";
 import { notificationCenter } from "@/services/notificationService";
 import { usePendingAction } from "@/hooks/usePendingAction";
@@ -77,11 +65,7 @@ import type {
   AppointmentResponse,
   AppointmentSummary,
 } from "@/interfaces/appointment/Appointment.interface";
-import {
-  AppointmentStatusLabelByKey,
-  AppointmentStatusOptions,
-  type AppointmentStatusKey,
-} from "@/enums/appointment/Appointment";
+import { AppointmentStatusLabelByKey } from "@/enums/appointment/Appointment";
 import { usePermissions } from "@/hooks/usePermissions";
 
 /**
@@ -93,41 +77,14 @@ import { usePermissions } from "@/hooks/usePermissions";
  * As abas vêm de `GET /appointments/summary?year=` (contagem por mês, exclui
  * cancelados); a lista do mês selecionado vem de `GET /appointments`,
  * filtrada por `status=AGENDADO` — cancelados/concluídos saem da agenda "do
- * que vem por aí" assim que mudam de status.
+ * que vem por aí" assim que mudam de status. A visão completa (todos os
+ * status, busca, outros meses) é a página `/agenda`, aonde "Visualizar todos"
+ * leva.
  */
-
-/** Colunas da tabela do modal "Ver todos". */
-const APPOINTMENT_TABLE_COLUMNS = [
-  { id: "title", name: "Compromisso" },
-  { id: "when", name: "Quando" },
-  { id: "type", name: "Tipo" },
-  { id: "description", name: "Descrição" },
-  { id: "actions", name: "Ações" },
-] as const;
 
 /** Tamanho mínimo exigido na justificativa de cancelamento. */
 const MIN_CANCEL_JUSTIFICATION_LENGTH = 10;
 
-/** A tabela de cancelados ganha a coluna "Motivo" (`cancellationReason`), inexistente nos outros status. */
-const CANCELLED_TABLE_COLUMNS = [
-  { id: "title", name: "Compromisso" },
-  { id: "when", name: "Quando" },
-  { id: "type", name: "Tipo" },
-  { id: "description", name: "Descrição" },
-  { id: "reason", name: "Motivo" },
-  { id: "actions", name: "Ações" },
-] as const;
-
-/**
- * Linhas fantasma do carregamento — mesmo padrão de `clientes/page.tsx`:
- * `Table.Body` é uma coleção e precisa de `items` com `id`; o conteúdo de
- * cada célula sai do `Table.Collection` sobre as colunas.
- */
-const SKELETON_ROWS = Array.from({ length: 3 }, (_, i) => ({
-  id: `skeleton-${i}`,
-}));
-
-/** Itens visíveis na lista compacta do card — o resto só aparece no modal. */
 /**
  * Como a linha aparece enquanto a janela de desfazer corre. A API trabalha
  * com o label PT-BR (`@JsonValue`), não com a chave do enum — por isso o
@@ -138,9 +95,8 @@ const PENDING_STATUS_LABELS = {
   cancel: AppointmentStatusLabelByKey.CANCELADO,
 } as const;
 
+/** Itens visíveis na lista compacta do card — o resto fica na página `/agenda`. */
 const COMPACT_LIMIT = 3;
-/** Itens por página em cada tabela do modal "Ver todos". */
-const MODAL_PAGE_SIZE = 10;
 
 /**
  * Uma página de compromissos — `items` já vem do tamanho certo (`pageSize`)
@@ -162,7 +118,6 @@ function initialsFrom(appointment: AppointmentResponse): string | undefined {
   return initials || undefined;
 }
 
-
 /** Ação de linha pendente de confirmação — cancelamento ou exclusão. */
 type RowAction = {
   /**
@@ -176,62 +131,15 @@ type RowAction = {
 
 export type AppointmentsCardProps = { className?: string };
 
-/**
- * Componente interno de verdade — separado do export default só porque usa
- * `useSearchParams` (pro item "Agenda" da navbar abrir o modal via
- * `?openAgenda=true`), que o Next exige rodar dentro de um `<Suspense>` pra
- * não tirar a página inteira da renderização estática. Ver o wrapper
- * `AppointmentsCard` no fim do arquivo.
- */
-function AppointmentsCardInner({ className = "" }: AppointmentsCardProps) {
+export default function AppointmentsCard({
+  className = "",
+}: AppointmentsCardProps) {
   const { canDestroy } = usePermissions();
   // ── Ano fixo no atual — sem seletor de ano por enquanto (fora do escopo). ──
   const year = useMemo(() => new Date().getFullYear(), []);
   const currentMonth = useMemo(() => new Date().getMonth() + 1, []);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  /**
-   * Se o modal "Ver todos" está aberto — subida aqui (não fica só perto do
-   * resto do estado do modal) porque a busca da lista compacta do card
-   * também precisa saber disso: com o modal aberto, navegar entre abas ali
-   * dentro não pode disparar a busca do card por trás (ele nem está visível).
-   */
-  const [isAllOpen, setIsAllOpen] = useState(false);
-
-  /**
-   * O item "Agenda" da navbar (global, fora deste componente) linka pra
-   * `/home?openAgenda=true` — é a única forma de abrir o modal a partir de
-   * outra página, já que `isAllOpen` é estado local daqui.
-   *
-   * Usa `useSearchParams` (não hash + `hashchange`): o `<Link>` do Next
-   * navega via `history.pushState`/`replaceState`, e esses NÃO disparam
-   * `hashchange` — esse evento só existe pra navegação nativa de hash (link
-   * `<a href="#x">` puro, ou back/forward). Search params, ao contrário, o
-   * App Router mantém reativo de verdade: `useSearchParams()` re-renderiza
-   * em qualquer navegação via `<Link>`, inclusive clicando de novo já
-   * estando em `/home`.
-   */
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  useEffect(() => {
-    if (searchParams.get("openAgenda") !== "true") return;
-    setIsAllOpen(true);
-    // Limpa o param sem entrada nova no histórico.
-    const params = new URLSearchParams(searchParams);
-    params.delete("openAgenda");
-    const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, {
-      scroll: false,
-    });
-  }, [searchParams, pathname, router]);
-
-  /**
-   * Resumo (contagem por mês) por ano — cacheado por ano pra poder sondar
-   * anos vizinhos ao atual (usado pelo filtro "Ano" do modal "Ver todos": só
-   * lista anos que realmente têm compromisso no mês da aba aberta, sem
-   * depender de um endpoint dedicado pra isso).
-   */
+  /** Resumo (contagem por mês) do ano, cacheado por ano. */
   const [yearSummaryCache, setYearSummaryCache] = useState<
     Record<number, AppointmentSummary[]>
   >({});
@@ -304,8 +212,7 @@ function AppointmentsCardInner({ className = "" }: AppointmentsCardProps) {
     appointmentsCache[selectedMonth] !== undefined;
 
   /**
-   * Busca (e cacheia) o resumo de um ano — usada tanto pro ano fixo do card
-   * quanto pra sondar o filtro "Ano" do modal. `summaryLoading` só desarma
+   * Busca (e cacheia) o resumo de um ano. `summaryLoading` só desarma
    * quando o ano ATUAL termina de carregar (é o único que a barra de abas
    * do card espera).
    */
@@ -380,15 +287,7 @@ function AppointmentsCardInner({ className = "" }: AppointmentsCardProps) {
   );
 
   useEffect(fetchSummary, [fetchSummary]);
-  useEffect(() => {
-    // Com o modal "Ver todos" aberto, o card fica atrás e não está visível —
-    // navegar entre abas ali dentro não pode disparar a busca da lista
-    // compacta também (era o que gerava 2 requisições por clique de aba:
-    // uma do card, com pageSize=3, e outra do modal). Ao fechar o modal, o
-    // efeito roda de novo (isAllOpen entra nas deps) e busca se ainda faltar.
-    if (isAllOpen) return;
-    fetchList(selectedMonth);
-  }, [selectedMonth, isAllOpen, fetchList]);
+  useEffect(() => fetchList(selectedMonth), [selectedMonth, fetchList]);
 
   /**
    * Abas: só meses com compromissos de fato (evita 12 abas vazias) — mas o
@@ -479,21 +378,6 @@ function AppointmentsCardInner({ className = "" }: AppointmentsCardProps) {
         </li>
       ))}
     </ul>
-  );
-
-  /**
-   * Placeholder do modal "Ver todos" enquanto nenhum status ainda confirmou
-   * ter dado (primeira busca de uma combinação mês/ano/busca) — 3 barras
-   * imitando os cabeçalhos do accordion, no lugar do texto genérico.
-   */
-  const accordionSkeleton = (
-    <div className="mt-4 flex flex-col gap-2">
-      {[1, 2, 3].map((i) => (
-        <Skeleton key={i} className="rounded-xl">
-          <div className="h-12 w-full rounded-xl bg-default-300" />
-        </Skeleton>
-      ))}
-    </div>
   );
 
   // ── Drawer "Novo compromisso" / "Editar compromisso" ──
@@ -811,8 +695,7 @@ function AppointmentsCardInner({ className = "" }: AppointmentsCardProps) {
   };
 
   /**
-   * Cluster de ações de uma linha — compartilhado entre a lista compacta e o
-   * modal "Ver todos". Concluir/editar/cancelar só fazem sentido em quem
+   * Cluster de ações de uma linha da lista compacta. Concluir/editar/cancelar só fazem sentido em quem
    * ainda está agendado; reagendar só em quem está cancelado; excluir e o
    * link de reunião valem para qualquer status.
    */
@@ -902,233 +785,7 @@ function AppointmentsCardInner({ className = "" }: AppointmentsCardProps) {
   const hasMoreAppointments = appointmentsTotal > COMPACT_LIMIT;
 
   /**
-   * Modal "Ver todos" — paginação EXCLUSIVA de cada accordion, conforme seu
-   * próprio status: cada seção busca e pagina só o que é dela
-   * (`status: <um único>`, `pageSize=10`), independente das outras duas.
-   * Trocar de página numa seção não mexe nas demais. Cacheado por
-   * `mês:status:busca:página`, com o mesmo gate síncrono de sempre.
-   */
-  const [modalPagesCache, setModalPagesCache] = useState<
-    Record<string, PagedAppointments>
-  >({});
-  const [modalLoadingKeys, setModalLoadingKeys] = useState<Set<string>>(
-    new Set(),
-  );
-  const fetchedModalPagesRef = useRef<Set<string>>(new Set());
-  const [statusPages, setStatusPages] = useState<Record<string, number>>({});
-  /**
-   * Combinações mês:status:busca já confirmadas com pelo menos 1 item —
-   * `total` não muda entre páginas de uma mesma combinação, então "teve dado
-   * uma vez" continua valendo pras outras páginas dela. Existe só pra evitar
-   * o flash de "aparece com skeleton, confirma vazio, some": uma seção que
-   * nunca foi confirmada com dado não chega a montar enquanto carrega — só
-   * aparece se/quando a resposta trouxer algo.
-   */
-  const [confirmedStatuses, setConfirmedStatuses] = useState<Set<string>>(
-    new Set(),
-  );
-
-  /** Filtros do modal — "Ano" e busca por texto (debounce, mesmo padrão de `clientes/page.tsx`). */
-  const [filterYear, setFilterYear] = useState(year);
-  const [searchInput, setSearchInput] = useState("");
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("");
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearchTerm(searchInput), 500);
-    return () => clearTimeout(t);
-  }, [searchInput]);
-
-  /**
-   * Só os anos que já têm resumo carregado (`yearSummaryCache`, o mesmo
-   * usado pelas abas do card) E que de fato têm compromisso em algum mês —
-   * sem sondar o backend com anos novos só pra popular esse filtro.
-   */
-  const filterYearOptions = Object.keys(yearSummaryCache)
-    .map(Number)
-    .filter((y) => yearSummaryCache[y]?.some((s) => s.count > 0))
-    .sort((a, b) => b - a);
-
-  const hasActiveFilters = filterYear !== year || searchInput.trim() !== "";
-
-  const clearFilters = () => {
-    setFilterYear(year);
-    setSearchInput("");
-    setDebouncedSearchTerm("");
-  };
-
-  // Trocar de mês/ano/busca (na lista compacta ou dentro do modal) volta cada seção à página 1.
-  useEffect(
-    () => setStatusPages({}),
-    [selectedMonth, filterYear, debouncedSearchTerm],
-  );
-
-  const getStatusPage = (statusKey: string) => statusPages[statusKey] ?? 1;
-  const setStatusPage = (statusKey: string, page: number) =>
-    setStatusPages((prev) => ({ ...prev, [statusKey]: page }));
-
-  const modalPageKey = (
-    modalYear: number,
-    month: number,
-    statusKey: string,
-    page: number,
-    searchTerm: string,
-  ) => `${modalYear}:${month}:${statusKey}:${searchTerm}:${page}`;
-
-  /** Chave de `confirmedStatuses` — sem página, já que `total` não varia entre páginas de uma combinação. */
-  const statusComboKey = (
-    modalYear: number,
-    month: number,
-    statusKey: string,
-    searchTerm: string,
-  ) => `${modalYear}:${month}:${statusKey}:${searchTerm}`;
-
-  const fetchModalPage = useCallback(
-    (
-      modalYear: number,
-      month: number,
-      statusKey: AppointmentStatusKey,
-      page: number,
-      searchTerm: string,
-    ) => {
-      const key = modalPageKey(modalYear, month, statusKey, page, searchTerm);
-      if (fetchedModalPagesRef.current.has(key)) return;
-      fetchedModalPagesRef.current.add(key);
-      setModalLoadingKeys((prev) => new Set(prev).add(key));
-      listAppointments({
-        year: modalYear,
-        month,
-        status: statusKey,
-        searchTerm: searchTerm.trim() || undefined,
-        pageNumber: page,
-        pageSize: MODAL_PAGE_SIZE,
-      })
-        .then((envelope) => {
-          const total =
-            envelope?.pagination?.totalRecords ?? envelope?.data?.length ?? 0;
-          setModalPagesCache((prev) => ({
-            ...prev,
-            [key]: { items: envelope?.data ?? [], total },
-          }));
-          if (total > 0) {
-            const comboKey = statusComboKey(
-              modalYear,
-              month,
-              statusKey,
-              searchTerm,
-            );
-            setConfirmedStatuses((prev) =>
-              prev.has(comboKey) ? prev : new Set(prev).add(comboKey),
-            );
-          }
-        })
-        .catch(() => {
-          fetchedModalPagesRef.current.delete(key);
-          setModalPagesCache((prev) => ({
-            ...prev,
-            [key]: { items: [], total: 0 },
-          }));
-        })
-        .finally(() => {
-          setModalLoadingKeys((prev) => {
-            const next = new Set(prev);
-            next.delete(key);
-            return next;
-          });
-        });
-    },
-    [],
-  );
-
-  /** Estado (dados + loading) da página atual de um status, pro mês/ano/busca selecionados. */
-  const getModalPageState = useCallback(
-    (statusKey: string) => {
-      const page = getStatusPage(statusKey);
-      const key = modalPageKey(
-        filterYear,
-        selectedMonth,
-        statusKey,
-        page,
-        debouncedSearchTerm,
-      );
-      const cached = modalPagesCache[key];
-      const rawItems = cached?.items ?? [];
-      /**
-       * Cada seção do modal mostra um único status. Depois da sobreposição, um
-       * compromisso com conclusão/cancelamento agendado deixa de pertencer à
-       * seção onde estava — sai dela em vez de aparecer com o rótulo trocado.
-       */
-      const sectionLabel = AppointmentStatusLabelByKey[
-        statusKey as keyof typeof AppointmentStatusLabelByKey
-      ] as string | undefined;
-      const items = applyPendingOverlay(
-        rawItems,
-        pending,
-        PENDING_STATUS_LABELS,
-      ).filter((item) => !sectionLabel || item.status === sectionLabel);
-
-      return {
-        page,
-        items,
-        total: applyPendingTotal(cached?.total ?? 0, rawItems, pending),
-        // Sem entrada no cache ainda = nem começou a carregar (efeito não
-        // rodou) ou está em voo — os dois casos são "carregando" pra UI.
-        isLoading: cached === undefined || modalLoadingKeys.has(key),
-      };
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
-      filterYear,
-      selectedMonth,
-      statusPages,
-      debouncedSearchTerm,
-      modalPagesCache,
-      modalLoadingKeys,
-      // Sem isto o modal não reflete a janela de desfazer: o overlay ficaria
-      // preso no `pending` do render em que o callback foi memoizado.
-      pending,
-    ],
-  );
-
-  /** Os 3 status sempre aparecem — sem filtro por status, só por ano e busca. */
-  const visibleStatusKeys = AppointmentStatusOptions.map((s) => s.value);
-
-  const visibleModalStates = visibleStatusKeys.map(getModalPageState);
-  const isAnyVisibleStatusLoading = visibleModalStates.some((s) => s.isLoading);
-  const areAllVisibleStatusesEmpty = visibleModalStates.every(
-    (s) => !s.isLoading && s.total === 0,
-  );
-  const isAnyVisibleStatusConfirmedNonEmpty = visibleStatusKeys.some((k) =>
-    confirmedStatuses.has(
-      statusComboKey(filterYear, selectedMonth, k, debouncedSearchTerm),
-    ),
-  );
-
-  // Busca (e cacheia por ano:mês:status:busca:página) a página atual de cada
-  // status, só enquanto o modal está aberto.
-  useEffect(() => {
-    if (!isAllOpen) return;
-    visibleStatusKeys.forEach((statusKey) => {
-      fetchModalPage(
-        filterYear,
-        selectedMonth,
-        statusKey,
-        getStatusPage(statusKey),
-        debouncedSearchTerm,
-      );
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isAllOpen,
-    filterYear,
-    selectedMonth,
-    debouncedSearchTerm,
-    statusPages,
-    fetchModalPage,
-  ]);
-
-  /**
-   * Recarrega abas, lista compacta e — se o modal "Ver todos" estiver
-   * aberto — a página atual de cada status, após qualquer ação que altere um
+   * Recarrega abas e lista compacta após qualquer ação que altere um
    * compromisso. É o único gatilho que invalida os caches: uma edição pode
    * mudar a data de um compromisso pra outro mês, então não dá pra saber só
    * o mês atual ficou desatualizado — limpa tudo e deixa recarregar sob
@@ -1142,235 +799,10 @@ function AppointmentsCardInner({ className = "" }: AppointmentsCardProps) {
     fetchedYearsRef.current.clear();
     fetchedMonthsRef.current.clear();
     setAppointmentsCache({});
-    fetchedModalPagesRef.current.clear();
-    setModalPagesCache({});
 
     fetchSummary();
     fetchList(selectedMonth);
-    if (isAllOpen) {
-      visibleStatusKeys.forEach((statusKey) => {
-        fetchModalPage(
-          filterYear,
-          selectedMonth,
-          statusKey,
-          getStatusPage(statusKey),
-          debouncedSearchTerm,
-        );
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    fetchSummary,
-    fetchList,
-    fetchModalPage,
-    selectedMonth,
-    isAllOpen,
-    filterYear,
-    debouncedSearchTerm,
-    statusPages,
-  ]);
-
-  /**
-   * Uma tabela paginada por status (Agendado/Concluído/Cancelado), dentro do
-   * modal "Ver todos" — paginação exclusiva dessa seção, independente das
-   * outras duas (ver `getModalPageState`/`fetchModalPage`).
-   */
-  const renderStatusSection = (
-    status: (typeof AppointmentStatusOptions)[number],
-  ) => {
-    const { page, items, total, isLoading } = getModalPageState(status.value);
-    const isConfirmedNonEmpty = confirmedStatuses.has(
-      statusComboKey(
-        filterYear,
-        selectedMonth,
-        status.value,
-        debouncedSearchTerm,
-      ),
-    );
-    // Nunca confirmado com dado e ainda carregando: não monta nem o
-    // skeleton — evita "aparece, confirma vazio, some". Só passa a
-    // renderizar quando a resposta chegar (com ou sem itens).
-    if (isLoading && !isConfirmedNonEmpty) return null;
-    // Carregou e confirmou vazio — nunca aparece.
-    if (!isLoading && total === 0) return null;
-
-    const totalPages = Math.max(1, Math.ceil(total / MODAL_PAGE_SIZE));
-    const isCancelledStatus = status.value === "CANCELADO";
-    const columns = isCancelledStatus
-      ? CANCELLED_TABLE_COLUMNS
-      : APPOINTMENT_TABLE_COLUMNS;
-
-    return (
-      <Accordion.Item key={status.value} id={status.value}>
-        <Accordion.Heading>
-          <Accordion.Trigger className="cursor-pointer text-sm font-medium text-primary">
-            {status.label} {!isLoading && `(${total})`}
-            <Accordion.Indicator />
-          </Accordion.Trigger>
-        </Accordion.Heading>
-        <Accordion.Panel>
-          <Accordion.Body>
-            <Table variant="secondary" className="rounded-t-none">
-              <Table.ScrollContainer>
-                <Table.Content
-                  aria-label={`Compromissos ${status.label.toLowerCase()} de ${selectedMonthLabel}`}
-                  className="min-w-[720px]"
-                >
-                  <Table.Header columns={columns}>
-                    {(column) => (
-                      <Table.Column
-                        className="h-12 text-center text-sm text-secondary after:content-none"
-                        isRowHeader={column.id === "title"}
-                      >
-                        {column.name}
-                      </Table.Column>
-                    )}
-                  </Table.Header>
-                  {isLoading ? (
-                    /* Skeleton — uma barra por linha, não uma por célula. */
-                    <Table.Body items={SKELETON_ROWS}>
-                      {(row) => (
-                        <Table.Row>
-                          <Table.Cell
-                            colSpan={columns.length}
-                            // `style` tem especificidade maior que a borda de
-                            // classe da lib — mais confiável que tentar
-                            // sobrescrever a classe interna dela via CSS.
-                            style={
-                              row.id ===
-                              SKELETON_ROWS[SKELETON_ROWS.length - 1].id
-                                ? { borderBottom: "none" }
-                                : undefined
-                            }
-                          >
-                            <Skeleton className="rounded-lg">
-                              <div className="h-8 w-full rounded-lg bg-default-300" />
-                            </Skeleton>
-                          </Table.Cell>
-                        </Table.Row>
-                      )}
-                    </Table.Body>
-                  ) : (
-                    <Table.Body
-                      items={items}
-                      renderEmptyState={() => (
-                        <div className="py-6 text-center text-sm">
-                          Nenhum compromisso {status.label.toLowerCase()} nesta
-                          página.
-                        </div>
-                      )}
-                    >
-                      {(item) => {
-                        const isLastRow = item === items[items.length - 1];
-                        // `style` tem especificidade maior que a borda de
-                        // classe da lib — mais confiável que tentar
-                        // sobrescrever a classe interna dela via CSS.
-                        const noBorder = isLastRow
-                          ? { borderBottom: "none" }
-                          : undefined;
-                        return (
-                          <Table.Row>
-                            <Table.Cell
-                              style={noBorder}
-                              className="max-w-56 truncate text-center text-sm text-gray-100"
-                            >
-                              {item.title || "-"}
-                            </Table.Cell>
-                            <Table.Cell
-                              style={noBorder}
-                              className="whitespace-nowrap text-center text-sm text-gray-100"
-                            >
-                              {formatWhen(item.startAt) || "-"}
-                            </Table.Cell>
-                            <Table.Cell
-                              style={noBorder}
-                              className="w-auto text-center text-sm text-gray-100"
-                            >
-                              {item.type || "-"}
-                            </Table.Cell>
-                            <Table.Cell
-                              style={noBorder}
-                              className="w-auto truncate text-center text-sm text-gray-100"
-                            >
-                              {item.description || "-"}
-                            </Table.Cell>
-                            {isCancelledStatus && (
-                              <Table.Cell
-                                style={noBorder}
-                                className="w-auto truncate text-center text-sm text-gray-100"
-                              >
-                                {item.cancellationReason || "-"}
-                              </Table.Cell>
-                            )}
-                            <Table.Cell style={noBorder}>
-                              <div className="flex justify-center">
-                                {renderActions(item)}
-                              </div>
-                            </Table.Cell>
-                          </Table.Row>
-                        );
-                      }}
-                    </Table.Body>
-                  )}
-                </Table.Content>
-              </Table.ScrollContainer>
-
-              {!isLoading && totalPages > 1 && (
-                <Table.Footer>
-                  {/*
-                    `.table__footer` da lib já é `display:flex` sem
-                    `justify-content` — em vez de uma div wrapper com
-                    `w-full justify-end` (dependia do filho herdar 100% da
-                    largura dentro do flex, frágil), `ml-auto` no próprio
-                    `Pagination` empurra ele pro fim da linha de forma
-                    garantida, sem depender de wrapper nenhum.
-                  */}
-                  <Pagination size="sm" className="ml-auto">
-                    <Pagination.Content>
-                      <Pagination.Item>
-                        <Pagination.Previous
-                          isDisabled={page === 1}
-                          onPress={() => setStatusPage(status.value, page - 1)}
-                        >
-                          <Pagination.PreviousIcon />
-                        </Pagination.Previous>
-                      </Pagination.Item>
-
-                      {buildPageList(page, totalPages).map((entry, i) =>
-                        entry === ELLIPSIS ? (
-                          <Pagination.Item key={`gap-${i}`}>
-                            <Pagination.Ellipsis />
-                          </Pagination.Item>
-                        ) : (
-                          <Pagination.Item key={entry}>
-                            <Pagination.Link
-                              isActive={entry === page}
-                              onPress={() => setStatusPage(status.value, entry)}
-                            >
-                              {entry}
-                            </Pagination.Link>
-                          </Pagination.Item>
-                        ),
-                      )}
-
-                      <Pagination.Item>
-                        <Pagination.Next
-                          isDisabled={page === totalPages}
-                          onPress={() => setStatusPage(status.value, page + 1)}
-                        >
-                          <Pagination.NextIcon />
-                        </Pagination.Next>
-                      </Pagination.Item>
-                    </Pagination.Content>
-                  </Pagination>
-                </Table.Footer>
-              )}
-            </Table>
-          </Accordion.Body>
-        </Accordion.Panel>
-      </Accordion.Item>
-    );
-  };
+  }, [fetchSummary, fetchList, selectedMonth]);
 
   return (
     <Card className={`flex flex-col ${className}`}>
@@ -1661,13 +1093,12 @@ function AppointmentsCardInner({ className = "" }: AppointmentsCardProps) {
 
                 {hasMoreAppointments && (
                   <li className="flex justify-center pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setIsAllOpen(true)}
-                      className="text-sm text-secondary underline-offset-4 hover:text-secondary/70 hover:underline cursor-pointer"
+                    <Link
+                      href="/agenda"
+                      className="text-sm text-secondary underline-offset-4 hover:text-secondary/70 hover:underline"
                     >
                       Visualizar todos
-                    </button>
+                    </Link>
                   </li>
                 )}
               </ul>
@@ -1675,122 +1106,6 @@ function AppointmentsCardInner({ className = "" }: AppointmentsCardProps) {
           </Tabs.Panel>
         </Tabs>
       )}
-
-      {/* ── "Ver todos" — mesmas abas + uma tabela paginada (10 em 10) por status ── */}
-      <ModalShell
-        isOpen={isAllOpen}
-        onClose={() => setIsAllOpen(false)}
-        size="cover"
-        scroll="inside"
-      >
-        <Modal.Header className="relative">
-          <Modal.Heading className="text-2xl">Agenda</Modal.Heading>
-          <div className="absolute top-10 w-14 h-0.5 bg-secondary"></div>
-        </Modal.Header>
-        <Modal.Body>
-          {summaryLoading ? (
-            tabsSkeleton
-          ) : (
-            <Tabs
-              selectedKey={String(selectedMonth)}
-              onSelectionChange={(key) => setSelectedMonth(Number(key))}
-            >
-              <TabBar label="Meses da agenda">{monthTabs}</TabBar>
-            </Tabs>
-          )}
-
-          {/* ── Filtros — ano/busca aplicam sobre o mês da aba aberta ── */}
-          <div className="mt-4 flex flex-wrap items-end gap-3">
-            <Field
-              label="Buscar"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Título, cliente..."
-              className="min-w-[200px] flex-1"
-            />
-            <SelectField
-              label="Ano"
-              options={filterYearOptions.map((y) => ({
-                id: String(y),
-                label: String(y),
-              }))}
-              selectedKey={String(filterYear)}
-              onSelectionChange={(key) => setFilterYear(Number(key))}
-              className="w-28"
-            />
-            <Button
-              type="button"
-              variant="secondary"
-              onClick={clearFilters}
-              isDisabled={!hasActiveFilters}
-              className="cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Limpar filtro
-            </Button>
-          </div>
-
-          {isAnyVisibleStatusLoading &&
-          !isAnyVisibleStatusConfirmedNonEmpty ? (
-            // Nada confirmado ainda (primeira busca desta combinação) —
-            // skeleton em vez de deixar a área em branco; as seções em
-            // si só aparecem quando alguma responder com dado.
-            accordionSkeleton
-          ) : !isAnyVisibleStatusLoading && areAllVisibleStatusesEmpty ? (
-            <p className="mt-6 text-center text-sm text-gray-100/60">
-              {hasActiveFilters
-                ? "Nenhum resultado para os filtros aplicados."
-                : `Não há agendamentos para ${selectedMonthLabel} ainda.`}
-            </p>
-          ) : (
-            <Accordion
-              className="mt-4 text-secondary"
-              defaultExpandedKeys={["AGENDADO"]}
-            >
-              {AppointmentStatusOptions.map((status) =>
-                renderStatusSection(status),
-              )}
-            </Accordion>
-          )}
-        </Modal.Body>
-      </ModalShell>
     </Card>
-  );
-}
-
-/** Fallback do Suspense — mesma casca do card, sem depender de nenhum state interno do componente real. */
-function appointmentsCardFallback(className: string) {
-  return (
-    <Card className={`flex flex-col ${className}`}>
-      <header className="flex items-start justify-between gap-4">
-        <SectionTitle>Agenda</SectionTitle>
-      </header>
-      <div className="mt-4 flex flex-col gap-2">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-3 px-1 py-2">
-            <Skeleton className="shrink-0 rounded-lg">
-              <div className="h-9 w-9 rounded-lg bg-default-300" />
-            </Skeleton>
-            <div className="flex min-w-0 flex-1 flex-col gap-1.5">
-              <Skeleton className="rounded">
-                <div className="h-3 w-2/3 rounded bg-default-300" />
-              </Skeleton>
-              <Skeleton className="rounded">
-                <div className="h-2.5 w-1/3 rounded bg-default-300" />
-              </Skeleton>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
-  );
-}
-
-export default function AppointmentsCard({
-  className = "",
-}: AppointmentsCardProps) {
-  return (
-    <Suspense fallback={appointmentsCardFallback(className)}>
-      <AppointmentsCardInner className={className} />
-    </Suspense>
   );
 }
