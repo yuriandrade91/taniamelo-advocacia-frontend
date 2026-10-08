@@ -31,11 +31,11 @@ test("com 429 e Retry-After, a tela diz QUANDO tentar de novo", async ({ page },
     teste reprovava apontando para a tela, que estava certa. Um teste que falha
     por causa da porta em que ele mesmo roda não diz nada sobre o produto.
   */
-  const origem = new URL(info.project.use.baseURL ?? "http://localhost:3001")
+  const origin = new URL(info.project.use.baseURL ?? "http://localhost:3001")
     .origin;
 
-  await page.route("**/api/v1/auth/login", (rota) =>
-    rota.fulfill({
+  await page.route("**/api/v1/auth/login", (route) =>
+    route.fulfill({
       status: 429,
       headers: {
         "retry-after": "900",
@@ -44,7 +44,7 @@ test("com 429 e Retry-After, a tela diz QUANDO tentar de novo", async ({ page },
         // jeito: sem `expose-headers`, o `Retry-After` chega e some antes do
         // JavaScript. Repetir aqui o que o backend manda é o que faz este teste
         // exercitar o mesmo caminho da vida real, em vez de um caminho mais fácil.
-        "access-control-allow-origin": origem,
+        "access-control-allow-origin": origin,
         "access-control-allow-credentials": "true",
         "access-control-expose-headers": "Retry-After",
       },
@@ -74,8 +74,8 @@ test("com 429 e Retry-After, a tela diz QUANDO tentar de novo", async ({ page },
 
   // E não pode revelar se a conta existe: mensagem diferente para conta
   // bloqueada e conta inexistente entregaria a lista de quem tem login aqui.
-  const texto = (await page.locator("body").innerText()).toLowerCase();
-  expect(texto).not.toContain("bloquead");
+  const text = (await page.locator("body").innerText()).toLowerCase();
+  expect(text).not.toContain("bloquead");
 
   // 429 não é porta de entrada.
   await expect(page).toHaveURL(/\/login/);
@@ -87,8 +87,8 @@ test("com 429 e Retry-After, a tela diz QUANDO tentar de novo", async ({ page },
  * A cota que precisa estourar é a DAQUELE login. Usar o usuário real da suíte
  * travaria a conta por 15 minutos e derrubaria todos os outros testes.
  */
-const LOGIN_DESCARTAVEL = `e2e-rajada-${Date.now()}@teste.invalido`;
-const TENTATIVAS = 6;
+const THROWAWAY_LOGIN = `e2e-rajada-${Date.now()}@teste.invalido`;
+const ATTEMPTS = 6;
 
 // Até seis idas ao servidor num teste só passam do limite padrão de 30s quando
 // a máquina está carregada. Falhar por relógio diria "o freio não funciona",
@@ -98,13 +98,13 @@ test.setTimeout(90_000);
 test("a rajada real chega a 429 e a tela reage", async ({ page }) => {
   await page.goto("/login");
 
-  for (let tentativa = 1; tentativa <= TENTATIVAS; tentativa++) {
-    await page.getByPlaceholder("Usuário").fill(LOGIN_DESCARTAVEL);
-    await page.getByPlaceholder("Senha").fill(`errada-${tentativa}`);
+  for (let attempt = 1; attempt <= ATTEMPTS; attempt++) {
+    await page.getByPlaceholder("Usuário").fill(THROWAWAY_LOGIN);
+    await page.getByPlaceholder("Senha").fill(`errada-${attempt}`);
 
-    const resposta = page.waitForResponse((r) => r.url().includes("/api/v1/auth/login"));
+    const response = page.waitForResponse((r) => r.url().includes("/api/v1/auth/login"));
     await page.getByRole("button", { name: /entrar/i }).click();
-    const status = (await resposta).status();
+    const status = (await response).status();
 
     if (status === 429) {
       await expect(page.getByText(/muitas tentativas/i).first()).toBeVisible();
@@ -115,10 +115,10 @@ test("a rajada real chega a 429 e a tela reage", async ({ page }) => {
 
     // Antes do teto só pode ser recusa de credencial. Qualquer outra coisa (500,
     // 400 de tenant) significa que o teste não está medindo o que acha.
-    expect(status, `tentativa ${tentativa} deveria ser 401`).toBe(401);
+    expect(status, `tentativa ${attempt} deveria ser 401`).toBe(401);
   }
 
   throw new Error(
-    `${TENTATIVAS} senhas erradas seguidas no mesmo login não foram freadas`,
+    `${ATTEMPTS} senhas erradas seguidas no mesmo login não foram freadas`,
   );
 });

@@ -73,8 +73,8 @@ describe("sectionFill — o \"6/7\" ao lado do nome da seção", () => {
   });
 
   it("`skip` tira do total o que a ficha não recebe (a senha do INSS)", () => {
-    const todos = sectionFill(professionalSchema, professionalInitial);
-    const semSenha = sectionFill(professionalSchema, professionalInitial, ["inssPassword"]);
-    expect(semSenha.total).toBe(todos.total - 1);
+    const all = sectionFill(professionalSchema, professionalInitial);
+    const withoutPassword = sectionFill(professionalSchema, professionalInitial, ["inssPassword"]);
+    expect(withoutPassword.total).toBe(all.total - 1);
   });
 });

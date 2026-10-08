@@ -33,15 +33,15 @@ import { getSessionUser } from "@/lib/sessionUser";
  * nome antigo, os dois precisam valer — senão a pessoa perde o botão de
  * excluir em um ambiente e não em outro, sem nada explicando por quê.
  */
-export const PAPEIS_QUE_DESTROEM = ["ADMIN", "SUPPORT", "LAWYER"] as const;
+export const ROLES_THAT_DESTROY = ["ADMIN", "SUPPORT", "LAWYER"] as const;
 
-function papelAtual(): string {
+function currentRole(): string {
   return (getSessionUser()?.role ?? "").trim().toUpperCase();
 }
 
 /** ADMIN ou SUPPORT: pode excluir, restaurar e ler dado sensível. */
-export function podeDestruir(): boolean {
-  return (PAPEIS_QUE_DESTROEM as readonly string[]).includes(papelAtual());
+export function canDestroy(): boolean {
+  return (ROLES_THAT_DESTROY as readonly string[]).includes(currentRole());
 }
 
 /**
@@ -49,25 +49,25 @@ export function podeDestruir(): boolean {
  * API, e o backend a trata com o mesmo papel. Existe com nome próprio para o
  * dia em que uma das duas regras mudar sem a outra.
  */
-export function podeVerSenhaDoInss(): boolean {
-  return podeDestruir();
+export function canSeeInssPassword(): boolean {
+  return canDestroy();
 }
 
 /** Listar quem trabalha no escritório não é da conta de quem só opera. */
-export function podeListarUsuarios(): boolean {
-  return podeDestruir();
+export function canListUsers(): boolean {
+  return canDestroy();
 }
 
 /**
  * Financeiro do cliente (`/clients/{id}/payments`): só ADMIN.
  *
- * Note que NÃO é `podeDestruir()`: advogado passa em excluir e restaurar, e
+ * Note que NÃO é `canDestroy()`: advogado passa em excluir e restaurar, e
  * não passa aqui. Honorários são do escritório, não do caso — o backend
  * devolve 403 para LAWYER também (`@RequerAdmin` na classe do controller), e
  * esconder a aba evita oferecer uma tela que só vai recusar.
  *
  * Vale para LER também, não só para lançar: o recurso inteiro é fechado.
  */
-export function podeVerFinanceiro(): boolean {
-  return papelAtual() === "ADMIN";
+export function canSeeFinance(): boolean {
+  return currentRole() === "ADMIN";
 }

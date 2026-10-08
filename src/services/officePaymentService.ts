@@ -1,11 +1,11 @@
 import endpoints from "@/constants/endpoints/paths";
 import axiosInstance from "@/services/axiosService";
 import {
-  leituraPendente,
-  listaVaziaPendente,
-  serieVaziaPendente,
-  integracaoPendente,
-} from "@/services/integracaoPendente";
+  pendingRead,
+  pendingEmptyList,
+  pendingEmptySeries,
+  pendingIntegration,
+} from "@/services/pendingIntegration";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type {
   OfficePaymentListRequest,
@@ -37,7 +37,7 @@ import type {
 export const listOfficePayments = async (
   params?: OfficePaymentListRequest,
 ): Promise<ApiEnvelope<OfficePaymentResponse[]>> => {
-  if (integracaoPendente("payments")) return listaVaziaPendente();
+  if (pendingIntegration("payments")) return pendingEmptyList();
   const { data } = await axiosInstance.get<ApiEnvelope<OfficePaymentResponse[]>>(
     endpoints.PAYMENTS.LIST,
     { params },
@@ -56,7 +56,7 @@ export const getOfficePaymentSummary = async (
     "dueFrom" | "dueTo" | "paidFrom" | "paidTo" | "clientId"
   >,
 ): Promise<ApiEnvelope<OfficePaymentSummary>> => {
-  if (integracaoPendente("payments")) return leituraPendente("GET /api/v1/payments/summary");
+  if (pendingIntegration("payments")) return pendingRead("GET /api/v1/payments/summary");
   const { data } = await axiosInstance.get<ApiEnvelope<OfficePaymentSummary>>(
     endpoints.PAYMENTS.SUMMARY,
     { params },
@@ -73,7 +73,7 @@ export const getOfficePaymentTimeline = async (params: {
   to: string;
   basis?: "due" | "paid";
 }): Promise<ApiEnvelope<PaymentTimelinePoint[]>> => {
-  if (integracaoPendente("payments")) return serieVaziaPendente();
+  if (pendingIntegration("payments")) return pendingEmptySeries();
   const { data } = await axiosInstance.get<ApiEnvelope<PaymentTimelinePoint[]>>(
     endpoints.PAYMENTS.TIMELINE,
     { params },

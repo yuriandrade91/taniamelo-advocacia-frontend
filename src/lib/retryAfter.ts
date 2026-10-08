@@ -13,24 +13,24 @@
  * Ausente ou ilegível devolve `null` — quem chama mostra o texto genérico em
  * vez de inventar um número.
  */
-export function segundosDeEspera(
+export function waitSeconds(
   retryAfter: string | number | null | undefined,
   agora: Date = new Date(),
 ): number | null {
   if (retryAfter === null || retryAfter === undefined) return null;
 
-  const texto = String(retryAfter).trim();
-  if (!texto) return null;
+  const text = String(retryAfter).trim();
+  if (!text) return null;
 
-  if (/^\d+$/.test(texto)) {
-    const segundos = Number(texto);
-    return Number.isFinite(segundos) && segundos > 0 ? segundos : null;
+  if (/^\d+$/.test(text)) {
+    const seconds = Number(text);
+    return Number.isFinite(seconds) && seconds > 0 ? seconds : null;
   }
 
-  const quando = Date.parse(texto);
-  if (Number.isNaN(quando)) return null;
-  const segundos = Math.ceil((quando - agora.getTime()) / 1000);
-  return segundos > 0 ? segundos : null;
+  const when = Date.parse(text);
+  if (Number.isNaN(when)) return null;
+  const seconds = Math.ceil((when - agora.getTime()) / 1000);
+  return seconds > 0 ? seconds : null;
 }
 
 /**
@@ -39,26 +39,26 @@ export function segundosDeEspera(
  * Arredonda para cima: prometer 1 minuto e ainda recusar aos 61 segundos faz a
  * pessoa achar que o sistema está quebrado.
  */
-export function esperaLegivel(
+export function readableWait(
   retryAfter: string | number | null | undefined,
   agora: Date = new Date(),
 ): string | null {
-  const segundos = segundosDeEspera(retryAfter, agora);
-  if (segundos === null) return null;
+  const seconds = waitSeconds(retryAfter, agora);
+  if (seconds === null) return null;
 
-  if (segundos < 60) return `em ${segundos} segundo${segundos === 1 ? "" : "s"}`;
+  if (seconds < 60) return `em ${seconds} segundo${seconds === 1 ? "" : "s"}`;
 
-  const minutos = Math.ceil(segundos / 60);
-  return `em ${minutos} minuto${minutos === 1 ? "" : "s"}`;
+  const minutes = Math.ceil(seconds / 60);
+  return `em ${minutes} minuto${minutes === 1 ? "" : "s"}`;
 }
 
 /** A frase inteira mostrada no login quando o backend devolve 429. */
-export function mensagemDeMuitasTentativas(
+export function tooManyAttemptsMessage(
   retryAfter: string | number | null | undefined,
   agora: Date = new Date(),
 ): string {
-  const espera = esperaLegivel(retryAfter, agora);
-  return espera
-    ? `Muitas tentativas. Tente novamente ${espera}.`
+  const wait = readableWait(retryAfter, agora);
+  return wait
+    ? `Muitas tentativas. Tente novamente ${wait}.`
     : "Muitas tentativas. Tente novamente em alguns minutos.";
 }

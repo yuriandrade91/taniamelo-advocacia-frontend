@@ -28,7 +28,7 @@ import type {
 } from "@/interfaces/user/User.interface";
 
 /** Tamanho mínimo da nova senha — o mesmo `@Size(min = 8)` do backend. */
-export const SENHA_MINIMA = 8;
+export const MIN_PASSWORD_LENGTH = 8;
 
 // ───────────────────────────── Dados ─────────────────────────────
 
@@ -46,14 +46,14 @@ export const profileValuesFrom = (perfil: MyProfile | null): ProfileValues => ({
 
 export function validateProfile(values: ProfileValues): ProfileErrors {
   const errors: ProfileErrors = {};
-  const nome = validateRequired(values.fullName, "Nome");
-  if (nome) errors.fullName = nome;
+  const name = validateRequired(values.fullName, "Nome");
+  if (name) errors.fullName = name;
 
-  const obrigatorio = validateRequired(values.email, "E-mail");
-  if (obrigatorio) errors.email = obrigatorio;
+  const required = validateRequired(values.email, "E-mail");
+  if (required) errors.email = required;
   else {
-    const formato = validateEmail(values.email);
-    if (formato) errors.email = formato;
+    const format = validateEmail(values.email);
+    if (format) errors.email = format;
   }
   return errors;
 }
@@ -62,7 +62,7 @@ export function validateProfile(values: ProfileValues): ProfileErrors {
  * Salvar sem ter mudado nada é requisição à toa — e, pior, um toast de sucesso
  * que ensina a pessoa a clicar em "Salvar" por reflexo para conferir se salvou.
  */
-export function profileMudou(
+export function profileChanged(
   values: ProfileValues,
   perfil: MyProfile | null,
 ): boolean {
@@ -109,8 +109,8 @@ export function validatePassword(values: PasswordValues): PasswordErrors {
 
   if (!values.newPassword) {
     errors.newPassword = "Informe a nova senha.";
-  } else if (values.newPassword.length < SENHA_MINIMA) {
-    errors.newPassword = `A nova senha precisa ter ao menos ${SENHA_MINIMA} caracteres.`;
+  } else if (values.newPassword.length < MIN_PASSWORD_LENGTH) {
+    errors.newPassword = `A nova senha precisa ter ao menos ${MIN_PASSWORD_LENGTH} caracteres.`;
   } else if (values.newPassword === values.currentPassword) {
     // O backend também recusa. Recusar aqui evita que a pessoa descubra isso
     // só depois de digitar as três caixas e clicar.
@@ -142,7 +142,7 @@ export function toPasswordRequest(
   };
 }
 
-export const temErro = (errors: Record<string, string | undefined>): boolean =>
+export const hasError = (errors: Record<string, string | undefined>): boolean =>
   Object.values(errors).some(Boolean);
 
 /**
@@ -153,29 +153,29 @@ export const temErro = (errors: Record<string, string | undefined>): boolean =>
  * exatamente isso em `errors[].field`. Jogar tudo num toast genérico faria a
  * pessoa adivinhar qual das três caixas está errada.
  */
-export function erroDoCampo(erro: unknown, campo: string): string | null {
+export function fieldError(erro: unknown, campo: string): string | null {
   const envelope = (erro as { response?: { data?: unknown } })?.response?.data;
   const errors = (envelope as { errors?: unknown })?.errors;
   if (!Array.isArray(errors)) return null;
   for (const item of errors) {
-    const registro = item as { field?: unknown; message?: unknown };
-    if (registro?.field === campo && typeof registro.message === "string") {
-      return registro.message;
+    const record = item as { field?: unknown; message?: unknown };
+    if (record?.field === campo && typeof record.message === "string") {
+      return record.message;
     }
   }
   return null;
 }
 
 /** Primeira mensagem do envelope, para quando o erro não é de campo nenhum. */
-export function primeiraMensagem(erro: unknown): string | null {
+export function firstMessage(erro: unknown): string | null {
   const envelope = (erro as { response?: { data?: unknown } })?.response?.data;
   const errors = (envelope as { errors?: unknown })?.errors;
   if (Array.isArray(errors)) {
     for (const item of errors) {
-      const mensagem = (item as { message?: unknown })?.message;
-      if (typeof mensagem === "string" && mensagem) return mensagem;
+      const message = (item as { message?: unknown })?.message;
+      if (typeof message === "string" && message) return message;
     }
   }
-  const mensagem = (envelope as { message?: unknown })?.message;
-  return typeof mensagem === "string" && mensagem ? mensagem : null;
+  const message = (envelope as { message?: unknown })?.message;
+  return typeof message === "string" && message ? message : null;
 }

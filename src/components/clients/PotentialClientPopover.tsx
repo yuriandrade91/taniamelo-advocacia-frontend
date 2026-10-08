@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import Image from "next/image";
 import { Popover } from "@heroui/react";
 import { PhoneIcon, WhatsappIcon } from "@/components/ui/icons/ContactIcons";
@@ -9,37 +9,22 @@ import ActionButton from "@/components/ui/table/ActionButton";
 import svgPaths from "@/constants/svg/paths";
 import {
   formatWaiting,
-  telLink,
   toPendingLead,
   urgencyDot,
   urgencyTile,
-  whatsappLink,
 } from "@/components/home/pendingLeads";
+import { telLink, whatsappLink } from "@/lib/contactLinks";
 import { initials } from "@/lib/format";
 import type { Clients } from "@/interfaces/Clients.interface";
+import { Pill } from "@/components/ui/feedback/Badges";
+import { useHoverCard } from "@/hooks/useHoverCard";
 
 /**
  * Popover do selo "cliente potencial" na tabela de clientes
  * (heroui.com/.../popover#interactive-content).
  *
- * ## Hover mostra, clique fixa
- *
- * Passar o mouse abre uma prévia que some ao tirar o mouse — como o tooltip
- * que isto substitui. Clicar fixa a prévia aberta, sobrevivendo ao mouse
- * saindo; só fecha de novo com Esc ou clique fora. É por isso que `isOpen`
- * não é só "está fixo": sem o hover, cada espiada exigiria um clique.
- *
- * A pista de que "fixar" e "fechar" são a mesma notificação da lib
- * (`onOpenChange(false)`, seja de Esc, clique fora ou clique no próprio
- * gatilho) é `isHovering`: se o mouse ainda está em cima quando o fechamento
- * chega, foi um clique na prévia — vira fixar. Se não está, foi Esc ou
- * clique fora — fecha de vez.
- *
- * ## O atraso ao sair
- *
- * Sem ele, o intervalo entre o ícone e o cartão (onde fica a seta do
- * popover) faz o mouse "sair" de um e ainda não ter "entrado" no outro, e a
- * prévia pisca fechada no meio do caminho até o telefone.
+ * Hover mostra, clique fixa — o comportamento é o de `useHoverCard`, o mesmo
+ * do trilho de etapas e das parcelas do acordo.
  */
 export function PotentialClientPopover({
   client,
@@ -51,53 +36,16 @@ export function PotentialClientPopover({
   onViewDetails: () => void;
   children: ReactNode;
 }) {
-  const [isPinned, setIsPinned] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-  }, []);
-
-  const startHovering = () => {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-    setIsHovering(true);
-  };
-
-  const scheduleStopHovering = () => {
-    if (closeTimer.current) clearTimeout(closeTimer.current);
-    closeTimer.current = setTimeout(() => setIsHovering(false), 150);
-  };
-
-  const handleOpenChange = (next: boolean) => {
-    if (next || isHovering) {
-      setIsPinned(true);
-      return;
-    }
-    setIsPinned(false);
-    setIsHovering(false);
-  };
+  const card = useHoverCard();
 
   const lead = toPendingLead(client);
 
   return (
-    <Popover isOpen={isPinned || isHovering} onOpenChange={handleOpenChange}>
-      <Popover.Trigger
-        aria-label="Ver detalhes do cliente potencial"
-        onMouseEnter={startHovering}
-        onMouseLeave={scheduleStopHovering}
-      >
+    <Popover {...card.popoverProps}>
+      <Popover.Trigger {...card.triggerProps} aria-label="Ver detalhes do cliente potencial">
         {children}
       </Popover.Trigger>
-      <Popover.Content
-        placement="top"
-        className="w-72"
-        onMouseEnter={startHovering}
-        onMouseLeave={scheduleStopHovering}
-      >
+      <Popover.Content {...card.contentProps} placement="top" className="w-72">
         <Popover.Arrow />
         <Popover.Dialog>
           {/*
@@ -127,9 +75,7 @@ export function PotentialClientPopover({
 
           <p className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-100">
             <span className="truncate">{lead.benefit || "Benefício a definir"}</span>
-            <span className="shrink-0 rounded-full bg-light-secondary px-2 py-0.5 text-[11px] font-medium text-secondary">
-              Potencial
-            </span>
+            <Pill size="sm">Potencial</Pill>
           </p>
 
           <div className="mt-3 flex items-center justify-between gap-3 border-t border-black/5 pt-3">

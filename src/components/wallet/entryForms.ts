@@ -342,7 +342,7 @@ export function toRevenueRequest(values: IncomeFormValues): OfficeRevenueRequest
     description: values.description.trim(),
     amount: parseAmountBRL(values.amount) ?? 0,
     dueDate: values.dueDate,
-    status: statusDoLancamento(values),
+    status: entryStatus(values),
     paidDate: values.isSettled ? values.paidDate || todayIso() : undefined,
     paymentMethod: optional(values.paymentMethod) as
       | PaymentMethodInput
@@ -358,7 +358,7 @@ export function toExpenseRequest(values: ExpenseFormValues): OfficeExpenseReques
     description: values.description.trim(),
     amount: parseAmountBRL(values.amount) ?? 0,
     dueDate: values.dueDate,
-    status: statusDoLancamento(values),
+    status: entryStatus(values),
     paidDate: values.isSettled ? values.paidDate || todayIso() : undefined,
     category: optional(values.category) as ExpenseCategoryInput | undefined,
     paymentMethod: optional(values.paymentMethod) as
@@ -391,7 +391,7 @@ export { todayIso, validatePaidDate };
  * Marcar "já foi liquidado" num cancelado é uma decisão explícita e ganha:
  * quem marcou está dizendo que o dinheiro se moveu.
  */
-export function statusDoLancamento(values: SharedValues): PaymentStatusInput {
+export function entryStatus(values: SharedValues): PaymentStatusInput {
   if (values.isSettled) return PaymentStatusLabelByKey.PAGO;
   if (values.status === PaymentStatusLabelByKey.CANCELADO) {
     return PaymentStatusLabelByKey.CANCELADO;
@@ -400,7 +400,7 @@ export function statusDoLancamento(values: SharedValues): PaymentStatusInput {
 }
 
 /** Um lançamento cancelado não volta sozinho — a tela avisa em vez de esconder. */
-export const estaCancelado = (values: SharedValues): boolean =>
+export const isCancelled = (values: SharedValues): boolean =>
   values.status === PaymentStatusLabelByKey.CANCELADO;
 
 // ───────────────────── Da resposta para o formulário ─────────────────────

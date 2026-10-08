@@ -10,7 +10,7 @@ import {
   type DisabilityPeriodDraft,
 } from "./disabilityPeriods";
 
-const HOJE = "2026-08-27";
+const TODAY = "2026-08-27";
 
 function draft(over: Partial<DisabilityPeriodDraft> = {}): DisabilityPeriodDraft {
   return { ...newDisabilityPeriod(), ...over };
@@ -18,10 +18,10 @@ function draft(over: Partial<DisabilityPeriodDraft> = {}): DisabilityPeriodDraft
 
 describe("o intervalo em branco", () => {
   it("começa em aberto: é o caso comum e a primeira opção da tela", () => {
-    const novo = newDisabilityPeriod();
-    expect(novo.ongoing).toBe(true);
-    expect(novo.endedOn).toBe("");
-    expect(novo.id).toBeNull();
+    const newPeriod = newDisabilityPeriod();
+    expect(newPeriod.ongoing).toBe(true);
+    expect(newPeriod.endedOn).toBe("");
+    expect(newPeriod.id).toBeNull();
   });
 
   it("tem chave única, para o React não confundir duas linhas", () => {
@@ -37,34 +37,34 @@ describe("o intervalo em branco", () => {
 
 describe("a validação de um intervalo", () => {
   it("em branco não reprova: seção opcional não barra cadastro completo", () => {
-    expect(validateDisabilityPeriods([newDisabilityPeriod()], HOJE)).toEqual({});
+    expect(validateDisabilityPeriods([newDisabilityPeriod()], TODAY)).toEqual({});
   });
 
   it("cobra o grau e a data de início de quem foi mexido", () => {
     const d = draft({ startedOn: "2010-01-01" });
-    expect(validateDisabilityPeriods([d], HOJE)[d.key].grade).toMatch(/grau/i);
+    expect(validateDisabilityPeriods([d], TODAY)[d.key].grade).toMatch(/grau/i);
 
     const e = draft({ grade: "LEVE" });
-    expect(validateDisabilityPeriods([e], HOJE)[e.key].startedOn).toMatch(
+    expect(validateDisabilityPeriods([e], TODAY)[e.key].startedOn).toMatch(
       /início/i,
     );
   });
 
   it("recusa início no futuro", () => {
     const d = draft({ grade: "LEVE", startedOn: "2030-01-01" });
-    expect(validateDisabilityPeriods([d], HOJE)[d.key].startedOn).toMatch(
+    expect(validateDisabilityPeriods([d], TODAY)[d.key].startedOn).toMatch(
       /futuro/i,
     );
   });
 
   it("em aberto não pede data de cessação", () => {
     const d = draft({ grade: "GRAVE", startedOn: "2010-01-01", ongoing: true });
-    expect(validateDisabilityPeriods([d], HOJE)).toEqual({});
+    expect(validateDisabilityPeriods([d], TODAY)).toEqual({});
   });
 
   it("desmarcar \"se mantém\" torna a cessação obrigatória", () => {
     const d = draft({ grade: "GRAVE", startedOn: "2010-01-01", ongoing: false });
-    expect(validateDisabilityPeriods([d], HOJE)[d.key].endedOn).toMatch(
+    expect(validateDisabilityPeriods([d], TODAY)[d.key].endedOn).toMatch(
       /cessação/i,
     );
   });
@@ -76,7 +76,7 @@ describe("a validação de um intervalo", () => {
       ongoing: false,
       endedOn: "2010-01-01",
     });
-    expect(validateDisabilityPeriods([d], HOJE)[d.key].endedOn).toMatch(
+    expect(validateDisabilityPeriods([d], TODAY)[d.key].endedOn).toMatch(
       /anterior/i,
     );
   });
@@ -89,7 +89,7 @@ describe("a validação de um intervalo", () => {
       endedOn: "2030-01-01",
     });
     // Quem data a cessação à frente está querendo dizer "ainda está em curso".
-    expect(validateDisabilityPeriods([d], HOJE)[d.key].endedOn).toMatch(
+    expect(validateDisabilityPeriods([d], TODAY)[d.key].endedOn).toMatch(
       /se mantém/i,
     );
   });
@@ -101,7 +101,7 @@ describe("a validação de um intervalo", () => {
       ongoing: false,
       endedOn: "2010-01-01",
     });
-    expect(validateDisabilityPeriods([d], HOJE)).toEqual({});
+    expect(validateDisabilityPeriods([d], TODAY)).toEqual({});
   });
 });
 
@@ -114,25 +114,25 @@ describe("a sobreposição entre intervalos", () => {
   });
 
   it("intervalo dentro de outro é recusado, nomeando o conflitante", () => {
-    const dentro = draft({
+    const inside = draft({
       grade: "LEVE",
       startedOn: "1995-01-01",
       ongoing: false,
       endedOn: "1996-01-01",
     });
-    const errors = validateDisabilityPeriods([grave, dentro], HOJE);
-    expect(errors[dentro.key].startedOn).toContain("01/01/1990");
+    const errors = validateDisabilityPeriods([grave, inside], TODAY);
+    expect(errors[inside.key].startedOn).toContain("01/01/1990");
     // E não acusa os dois lados: quem chega depois na lista recebe o erro.
     expect(errors[grave.key]).toBeUndefined();
   });
 
   it("encostar no dia seguinte é permitido; no mesmo dia, não", () => {
-    const seguinte = draft({ grade: "LEVE", startedOn: "2000-01-01" });
-    expect(validateDisabilityPeriods([grave, seguinte], HOJE)).toEqual({});
+    const next = draft({ grade: "LEVE", startedOn: "2000-01-01" });
+    expect(validateDisabilityPeriods([grave, next], TODAY)).toEqual({});
 
-    const mesmoDia = draft({ grade: "LEVE", startedOn: "1999-12-31" });
+    const sameDay = draft({ grade: "LEVE", startedOn: "1999-12-31" });
     expect(
-      validateDisabilityPeriods([grave, mesmoDia], HOJE)[mesmoDia.key].startedOn,
+      validateDisabilityPeriods([grave, sameDay], TODAY)[sameDay.key].startedOn,
     ).toMatch(/sobrep/i);
   });
 
@@ -140,16 +140,16 @@ describe("a sobreposição entre intervalos", () => {
     // Ambos se estendem até hoje, então têm necessariamente dias em comum.
     const a = draft({ grade: "GRAVE", startedOn: "1990-01-01", ongoing: true });
     const b = draft({ grade: "LEVE", startedOn: "2020-01-01", ongoing: true });
-    expect(validateDisabilityPeriods([a, b], HOJE)[b.key].startedOn).toMatch(
+    expect(validateDisabilityPeriods([a, b], TODAY)[b.key].startedOn).toMatch(
       /sobrep/i,
     );
   });
 
   it("não acusa sobreposição contra um intervalo sem data de início", () => {
-    const semData = draft({ grade: "LEVE" });
-    const valido = draft({ grade: "GRAVE", startedOn: "2010-01-01" });
-    const errors = validateDisabilityPeriods([semData, valido], HOJE);
-    expect(errors[valido.key]).toBeUndefined();
+    const withoutDate = draft({ grade: "LEVE" });
+    const valid = draft({ grade: "GRAVE", startedOn: "2010-01-01" });
+    const errors = validateDisabilityPeriods([withoutDate, valid], TODAY);
+    expect(errors[valid.key]).toBeUndefined();
   });
 });
 
@@ -164,21 +164,21 @@ describe("o que entra no cálculo", () => {
           draft({ startedOn: "2010-01-01" }),
           draft({ grade: "GRAVE", startedOn: "2010-01-01", ongoing: false }),
         ],
-        HOJE,
+        TODAY,
       ),
     ).toEqual([]);
   });
 
   it("intervalo completo entra, com o fim resolvido", () => {
-    const abertos = convertibleIntervals(
+    const open = convertibleIntervals(
       [draft({ grade: "GRAVE", startedOn: "2010-01-01", ongoing: true })],
-      HOJE,
+      TODAY,
     );
-    expect(abertos).toEqual([
+    expect(open).toEqual([
       { grade: "GRAVE", startedOn: "2010-01-01", endedOn: null },
     ]);
 
-    const fechados = convertibleIntervals(
+    const closed = convertibleIntervals(
       [
         draft({
           grade: "LEVE",
@@ -187,16 +187,16 @@ describe("o que entra no cálculo", () => {
           endedOn: "2015-01-01",
         }),
       ],
-      HOJE,
+      TODAY,
     );
-    expect(fechados[0].endedOn).toBe("2015-01-01");
+    expect(closed[0].endedOn).toBe("2015-01-01");
   });
 
   it("início no futuro fica fora", () => {
     expect(
       convertibleIntervals(
         [draft({ grade: "LEVE", startedOn: "2030-01-01", ongoing: true })],
-        HOJE,
+        TODAY,
       ),
     ).toEqual([]);
   });

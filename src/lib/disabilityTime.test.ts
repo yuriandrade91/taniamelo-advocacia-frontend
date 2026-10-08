@@ -183,13 +183,13 @@ describe("o total convertido", () => {
       "FEMININO",
       "2026-01-01",
     );
-    const depois = convertIntervals(
+    const after = convertIntervals(
       intervals,
       "SEM_DEFICIENCIA",
       "FEMININO",
       "2027-01-01",
     );
-    expect(depois.total.totalDays).toBeGreaterThan(antes.total.totalDays);
+    expect(after.total.totalDays).toBeGreaterThan(antes.total.totalDays);
   });
 
   it("somar antes e converter depois dá outro número — e errado", () => {
@@ -199,12 +199,12 @@ describe("o total convertido", () => {
       "FEMININO",
       "2026-08-27",
     );
-    const somaCrua = result.lines[0].days + result.lines[1].days;
+    const rawSum = result.lines[0].days + result.lines[1].days;
     expect(
-      convertDays(somaCrua, "GRAVE", "SEM_DEFICIENCIA", "FEMININO"),
+      convertDays(rawSum, "GRAVE", "SEM_DEFICIENCIA", "FEMININO"),
     ).toBeGreaterThan(result.total.totalDays);
     expect(
-      convertDays(somaCrua, "LEVE", "SEM_DEFICIENCIA", "FEMININO"),
+      convertDays(rawSum, "LEVE", "SEM_DEFICIENCIA", "FEMININO"),
     ).toBeLessThan(result.total.totalDays);
   });
 

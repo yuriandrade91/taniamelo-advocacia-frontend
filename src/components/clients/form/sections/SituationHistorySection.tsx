@@ -8,6 +8,7 @@ import {
   type SituationKey,
 } from "@/enums/situation/Situation";
 import type { ClientSituationHistory } from "@/interfaces/client/Client.interface";
+import { Pill } from "@/components/ui/feedback/Badges";
 
 /**
  * Histórico de situações do cliente.
@@ -48,10 +49,10 @@ export type SituationHistorySectionProps = {
   /** Quando a rota falhou — diferente de "nunca mudou de situação". */
   hasError?: boolean;
   /**
-   * Índice `id do usuário -> nome`, de `useAutoresDoEscritorio`. Vazio é
+   * Índice `id do usuário -> nome`, de `useOfficeAuthors`. Vazio é
    * estado normal (atendente não lista usuários), não erro.
    */
-  autores?: Record<string, string>;
+  authors?: Record<string, string>;
 };
 
 /**
@@ -133,7 +134,7 @@ export function SituationHistorySection({
   items,
   isLoading = false,
   hasError = false,
-  autores = {},
+  authors = {},
 }: SituationHistorySectionProps) {
   if (isLoading) {
     return (
@@ -166,7 +167,7 @@ export function SituationHistorySection({
   return (
     <ol className="flex flex-col">
       {items.map((entry, index) => {
-        const autor = autores[entry.changedByUserId ?? ""];
+        const author = authors[entry.changedByUserId ?? ""];
         const isCurrent = index === 0;
         const isLast = index === items.length - 1;
         return (
@@ -194,16 +195,13 @@ export function SituationHistorySection({
                   {situationLabel(entry.currentSituation)}
                 </span>
                 {isCurrent && (
-                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-white">
+                  <Pill tone="solid" weight="semibold">
                     atual
-                  </span>
+                  </Pill>
                 )}
                 {entry.retrocesso && (
-                  <span
-                    title="Esta mudança voltou uma etapa no funil."
-                    className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-warning"
-                  >
-                    voltou
+                  <span title="Esta mudança voltou uma etapa no funil.">
+                    <Pill tone="warning" weight="semibold">voltou</Pill>
                   </span>
                 )}
               </div>
@@ -221,10 +219,10 @@ export function SituationHistorySection({
                   <CalendarGlyph />
                   {formatShortDate(entry.changedAt)}
                 </span>
-                {autor && (
+                {author && (
                   <span className="flex min-w-0 items-center gap-1">
                     <PersonGlyph />
-                    <span className="truncate">por {autor}</span>
+                    <span className="truncate">por {author}</span>
                   </span>
                 )}
               </p>

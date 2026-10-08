@@ -13,47 +13,32 @@ import ContributorPipeline, {
   type PipelineCard,
 } from "@/components/home/ContributorPipeline";
 import UpcomingBirthdays from "@/components/home/UpcomingBirthdays";
-import { upcomingBirthdays } from "@/components/home/birthdays";
+import { useUpcomingBirthdays } from "@/components/home/useUpcomingBirthdays";
 import AppointmentsCard from "@/components/home/appointments/AppointmentsCard";
-import {
-  allClients,
-  clients as fetchClients,
-  patchClient,
-} from "@/services/clientService";
-import { loadEveryClient } from "@/lib/clientsCache";
+import { clients as fetchClients, patchClient } from "@/services/clientService";
 import {
   getSituationKeyByLabel,
   type SituationKey,
 } from "@/enums/situation/Situation";
-import { usePermissoes } from "@/hooks/usePermissoes";
+import { usePermissions } from "@/hooks/usePermissions";
 import { listOfficePayments } from "@/services/officePaymentService";
 import { getOfficeExpenseSummary } from "@/services/officeExpenseService";
-import { toRevenueItems } from "@/components/home/proximasReceitas";
+import { toRevenueItems } from "@/components/home/revenueItems";
 import { toBalanceSlices } from "@/components/wallet/walletOverview";
-import { currentMonth, monthName, monthRange, type MonthRef } from "@/lib/period";
+import { currentMonth, monthRange, type MonthRef } from "@/lib/period";
 import type { StatCardProps } from "@/components/home/StatCard";
-import type { PendingDocumentItem } from "@/components/home/PendingDocuments";
-import { listAppointments } from "@/services/appointmentService";
-import {
-  ViewModelPicker,
-  useViewModel,
-} from "@/components/ui/models/ViewModels";
-import { DEFAULT_HOME_MODEL, HOME_MODELS } from "@/components/home/models";
-import type { HomeModelProps } from "@/components/home/models/shared";
 
-/** Modal: fora do pacote da página, como as outras (ver CLAUDE.md). */
+/** Modais: fora do pacote da página, como as outras (ver CLAUDE.md). */
 const PendingLeadsModal = dynamic(
   () => import("@/components/home/PendingLeadsModal").then((m) => m.PendingLeadsModal),
   { ssr: false },
 );
+const ClientDetailsModal = dynamic(
+  () => import("@/components/clients/details/ClientDetailsModal"),
+  { ssr: false },
+);
 
-
-
-/**
- * Indicadores do topo — ainda ilustrativos (não há endpoint de métricas).
- * Saíram do JSX para a home atual e os modelos do estudo visual lerem os
- * mesmos números.
- */
+/** Indicadores do topo — ainda ilustrativos (não há endpoint de métricas). */
 const PENDING_STATS: StatCardProps[] = [
   {
     title: "Formulários preenchidos",
@@ -79,17 +64,6 @@ const PENDING_STATS: StatCardProps[] = [
   },
 ];
 
-/** TODO(backend): derivar de clientFileService (documentos faltantes). */
-const PENDING_DOCUMENTS: PendingDocumentItem[] = [
-  {
-    id: "1",
-    name: "Davis Souza Martins",
-    issue: "RG Expirado",
-    isCritical: true,
-  },
-  { id: "2", name: "Mariana Fontes", issue: "CNIS incompleto" },
-];
-
 /** A esteira: clientes reais agrupados por situação (a API devolve o rótulo da situação). */
 const toPipelineCards = (clients: Clients[]): PipelineCard[] =>
   clients.flatMap((client) => {
@@ -103,27 +77,27 @@ export default function Home() {
   const router = useRouter();
   const [isLeadsOpen, setIsLeadsOpen] = useState(false);
   /**
+   * A ficha aberta a partir da fila de formulários pendentes.
+   *
+   * A fila sai da tela enquanto a ficha está aberta, e volta quando ela fecha:
+   * são duas camadas sobre a mesma página, e empilhar uma na outra deixa duas
+   * molduras e dois "fechar" competindo pelo Esc.
+   */
+  const [leadSheet, setLeadSheet] = useState<{ id: string; name: string } | null>(null);
+  /**
    * O mês do cartão Balanço. Mora aqui, e não no cartão, porque quem consulta
    * é a página: trocar o mês é uma leitura nova de `GET /expenses/summary`.
    */
   const [balanceMonth, setBalanceMonth] = useState<MonthRef>(() => currentMonth());
 
   /** D3: dinheiro é só de quem administra. Sem isso, os cartões pediriam 403. */
-  const { podeVerFinanceiro } = usePermissoes();
-  /** Modelo de visualização (estudo visual). "Atual" é a home de sempre. */
-  const { model, modelId, choose: chooseModel } = useViewModel(
-    "inicio:modelo",
-    HOME_MODELS,
-    DEFAULT_HOME_MODEL,
-  );
-  const Model = model.Component;
-  const isStudy = Model !== null;
+  const { canSeeFinance } = usePermissions();
 
   /**
    * Cada cartão lê a sua consulta, e uma falha não apaga os outros. `null` =
    * ainda carregando — o cartão mostra o seu skeleton no lugar do vazio.
    */
-  const financeKey = podeVerFinanceiro ? "finance" : null;
+  const financeKey = canSeeFinance ? "finance" : null;
   // Ordenada por vencimento no servidor: "próximas" é literal.
   const payments = useSettled(financeKey, () =>
     Promise.allSettled([listOfficePayments({ pageNumber: 1, pageSize: 10 })]),
@@ -149,46 +123,21 @@ export default function Home() {
     Promise.allSettled([fetchClients({ situation: ["FORMULARIO_PREENCHIDO"], pageNumber: 1, pageSize: 1 })]),
   );
   /**
-   * Aniversariantes: a base inteira, uma vez por sessão.
-   *
-   * É a listagem toda porque não há filtro de aniversário na API (nem
-   * `birthDate` no `ClientListResponseDTO` — ver `Birthdays`), e a pergunta é
-   * sobre todos os clientes, não sobre a primeira página. São duas
-   * requisições para as 124 fichas de hoje, guardadas pelo
-   * `loadEveryClient` — voltar à Home não repete.
+   * Aniversariantes: os cinco próximos, hoje incluso, de
+   * `GET /clients/upcoming-birthdays`. Quando o dia vira, quem já passou sai
+   * e a lista é relida — ver `useUpcomingBirthdays`.
    */
-  const everyClient = useSettled("aniversariantes", () =>
-    Promise.allSettled([loadEveryClient("todos", () => allClients())]),
-  );
-  /** Próximos compromissos — só os modelos do estudo pedem; o cartão atual busca os dele. */
-  const appointments = useSettled(isStudy ? "appointments" : null, () =>
-    Promise.allSettled([listAppointments({ from: new Date().toISOString(), pageNumber: 1, pageSize: 8 })]),
-  );
+  const { items: birthdays, failed: birthdaysFailed } = useUpcomingBirthdays();
 
   const upcomingPayments = useMemo(() => settledValue(payments?.[0], null)?.data ?? [], [payments]);
-  const proximasReceitas = useMemo(() => toRevenueItems(upcomingPayments), [upcomingPayments]);
-  const saidasDoMes = useMemo(() => {
-    const resumo = settledValue(outflowSummary?.[0], null)?.data;
-    return { total: resumo?.paidAmount ?? 0, slices: toBalanceSlices(resumo?.byCategory ?? []) };
+  const upcomingRevenues = useMemo(() => toRevenueItems(upcomingPayments), [upcomingPayments]);
+  const monthOutflows = useMemo(() => {
+    const summary = settledValue(outflowSummary?.[0], null)?.data;
+    return { total: summary?.paidAmount ?? 0, slices: toBalanceSlices(summary?.byCategory ?? []) };
   }, [outflowSummary]);
   const cards = useMemo(() => toPipelineCards(settledValue(pipeline?.[0], null)?.data ?? []), [pipeline]);
   // `null` contando; `undefined` falhou (o interceptor já avisou).
   const pendingCount = pending && settledValue(pending[0], null)?.pagination?.totalRecords;
-
-  /** `null` enquanto carrega; lista vazia se a leitura falhou (já sinalizada). */
-  const birthdays = useMemo(
-    () => (everyClient ? upcomingBirthdays(settledValue(everyClient[0], [])) : null),
-    [everyClient],
-  );
-  /**
-   * Clientes na base, nenhum com data de nascimento: a listagem desta
-   * instância não traz o campo. "Não sei" não é "nenhum aniversário".
-   */
-  const birthdaysUnavailable = useMemo(() => {
-    const lista = everyClient ? settledValue(everyClient[0], []) : [];
-    return lista.length > 0 && lista.every((client) => !client.birthDate);
-  }, [everyClient]);
-  const upcomingAppointments = appointments ? (settledValue(appointments[0], null)?.data ?? []) : null;
 
   /** Arrastar um card = PATCH /api/v1/clients/{id} { situation }. */
   const handleMove = useCallback((cardId: string, situation: SituationKey) => {
@@ -197,42 +146,8 @@ export default function Home() {
     });
   }, []);
 
-  /** Tudo o que um modelo do estudo visual precisa — ver `models/shared.ts`. */
-  const modelProps: HomeModelProps = {
-    periodLabel: monthName(currentMonth()),
-    pendingCount: pendingCount ?? null,
-    stats: PENDING_STATS,
-    canSeeFinance: podeVerFinanceiro,
-    upcomingPayments,
-    upcomingItems: proximasReceitas,
-    outflow: saidasDoMes,
-    pendingDocuments: PENDING_DOCUMENTS,
-    birthdays,
-    pipeline: cards,
-    upcomingAppointments,
-    appointmentsCard: <AppointmentsCard />,
-    actions: {
-      openLeads: () => setIsLeadsOpen(true),
-      seeAllPayments: () => router.push("/pagamentos"),
-      openAgenda: () => router.push("/agenda"),
-      openClients: () => router.push("/clientes"),
-      newClient: () => router.push("/clientes/novo"),
-      moveCard: handleMove,
-    },
-  };
-
   return (
     <div className="flex flex-col gap-4 pb-12">
-      <ViewModelPicker
-        models={HOME_MODELS}
-        value={modelId}
-        onChange={chooseModel}
-      />
-
-      {Model ? (
-        <Model {...modelProps} />
-      ) : (
-      <>
       {/* ── Formulários pendentes + Próximas receitas ── */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
         {/* TODO(backend): os três indicadores abaixo continuam ilustrativos —
@@ -249,11 +164,11 @@ export default function Home() {
           O cartão fica na tela para todo mundo; o que depende de papel é o
           **dado**, não a moldura.
 
-          Eu tinha escondido o cartão inteiro atrás de `podeVerFinanceiro`, e
+          Eu tinha escondido o cartão inteiro atrás de `canSeeFinance`, e
           isso fazia duas coisas ruins de uma vez: abria um buraco na grade
           (que é fixa em `[2fr_1fr]`) e fazia a Home mudar de forma conforme
           quem entrava — o que lê como defeito, não como regra. Pior: o
-          `usePermissoes` começa tudo `false` e só lê o storage no `useEffect`,
+          `usePermissions` começa tudo `false` e só lê o storage no `useEffect`,
           então o cartão sumia e reaparecia em toda visita, inclusive para
           ADMIN.
 
@@ -262,8 +177,8 @@ export default function Home() {
           nenhum para vazar — o cartão mostra o vazio que ele já sabe mostrar.
         */}
         <UpcomingRevenues
-          items={proximasReceitas}
-          isLoading={podeVerFinanceiro && payments === null}
+          items={upcomingRevenues}
+          isLoading={canSeeFinance && payments === null}
           onSeeAll={() => router.push("/pagamentos")}
         />
       </section>
@@ -280,18 +195,18 @@ export default function Home() {
             As cores saem de BALANCE_PALETTE (literais: o Chart.js desenha em
             canvas, onde `var(--…)` não resolve). */}
         <MonthlyBalance
-          total={saidasDoMes.total}
+          total={monthOutflows.total}
           month={balanceMonth}
           onMonthChange={setBalanceMonth}
-          slices={saidasDoMes.slices}
-          isLoading={podeVerFinanceiro && outflowSummary === null}
+          slices={monthOutflows.slices}
+          isLoading={canSeeFinance && outflowSummary === null}
         />
 
         {/* No lugar das "Documentações pendentes", que eram três linhas
             inventadas enquanto não há endpoint de documento faltante. Este
             cartão responde algo que a base já sabe — e serve para uma ligação
             no dia certo. */}
-        <UpcomingBirthdays items={birthdays} isUnavailable={birthdaysUnavailable} />
+        <UpcomingBirthdays items={birthdays} failed={birthdaysFailed} />
 
         <AppointmentsCard />
       </section>
@@ -302,13 +217,27 @@ export default function Home() {
         isLoading={pipeline === null}
         onMove={handleMove}
       />
-      </>
-      )}
 
       <PendingLeadsModal
         isOpen={isLeadsOpen}
         onClose={() => setIsLeadsOpen(false)}
+        onViewClient={(lead) => {
+          setIsLeadsOpen(false);
+          setLeadSheet({ id: lead.id, name: lead.name });
+        }}
       />
+
+      {leadSheet && (
+        <ClientDetailsModal
+          isOpen
+          clientId={leadSheet.id}
+          clientName={leadSheet.name}
+          onClose={() => {
+            setLeadSheet(null);
+            setIsLeadsOpen(true);
+          }}
+        />
+      )}
     </div>
   );
 }

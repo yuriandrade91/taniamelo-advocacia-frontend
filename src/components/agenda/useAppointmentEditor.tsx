@@ -33,9 +33,8 @@ const ConflictDecisionModal = dynamic(
 );
 
 /**
- * Criar, editar e reagendar um compromisso — o mesmo fluxo na página da
- * Agenda e no card da Home (cada uma desenha o seu contêiner: modal ou
- * painel lateral).
+ * Criar, editar e reagendar um compromisso na página da Agenda — o modal, a
+ * validação, o aviso de conflito e a decisão de substituir.
  *
  * - Erros aparecem por campo assim que ele é mexido, e todos de uma vez no
  *   "Salvar". O botão fica travado enquanto há erro ou data retroativa sem
@@ -44,14 +43,7 @@ const ConflictDecisionModal = dynamic(
  *   se mantém os dois ou cancela os que batem (`ConflictDecisionModal`).
  * - Os cancelamentos vêm **antes** da gravação: se um falhar, nada foi criado.
  */
-export function useAppointmentEditor({
-  onSaved,
-  compact = false,
-}: {
-  onSaved: () => void;
-  /** Uma coluna só nos campos — o painel lateral da Home (ver `FieldGrid`). */
-  compact?: boolean;
-}) {
+export function useAppointmentEditor({ onSaved }: { onSaved: () => void }) {
   const [isOpen, setIsOpen] = useState(false);
   const [editing, setEditing] = useState<AppointmentResponse | null>(null);
   const [values, setValues] = useState<AppointmentFormValues>(EMPTY_APPOINTMENT_FORM);
@@ -145,7 +137,6 @@ export function useAppointmentEditor({
           conflicts={conflicts}
           onShiftAfter={(conflict) => setValues((current) => shiftAfter(current, conflict.endAt))}
           isDisabled={isSubmitting}
-          compact={compact}
         />
         {pastError && (
           <p role="alert" className="mt-3 text-xs text-danger">

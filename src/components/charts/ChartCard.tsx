@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { Skeleton } from "@heroui/react";
 import { SectionTitle } from "@/components/ui/layout/Card";
+import { Pill } from "@/components/ui/feedback/Badges";
 
 /**
  * Moldura de gráfico: título, legenda e a área de desenho.
@@ -64,9 +65,9 @@ export function ChartCard({
           <span className="flex flex-wrap items-start gap-2">
             <SectionTitle>{title}</SectionTitle>
             {isSample && (
-              <span className="mt-1 rounded-full bg-secondary/15 px-2 py-0.5 text-[10px] font-medium tracking-wide text-secondary uppercase">
+              <Pill tone="soft" className="mt-1 tracking-wide uppercase">
                 dados de exemplo
-              </span>
+              </Pill>
             )}
           </span>
           {isLoading ? (

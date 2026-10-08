@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Svg, type IconProps } from "@/components/ui/icons/Svg";
 
 /**
  * Ícones da agenda — tipo de compromisso, modalidade e ações.
@@ -7,28 +7,6 @@ import type { ReactNode } from "react";
  * usa decide a cor pela classe de texto.
  */
 
-type IconProps = { className?: string };
-
-function Svg({
-  className = "h-4 w-4",
-  strokeWidth = 1.8,
-  children,
-}: IconProps & { strokeWidth?: number; children: ReactNode }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      {children}
-    </svg>
-  );
-}
 
 // ── Tipos de compromisso ──
 
@@ -120,5 +98,27 @@ export const BanIcon = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="10" />
     <path d="m4.9 4.9 14.2 14.2" />
+  </Svg>
+);
+
+export const CancelIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="m9.5 9.5 5 5m0-5-5 5" />
+  </Svg>
+);
+
+/** Seta circular — reagendar um compromisso cancelado. */
+export const RescheduleIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 12a9 9 0 1 1 3 6.7" />
+    <path d="M3 16v-4h4" />
+  </Svg>
+);
+
+export const CalendarIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="3" y="5" width="18" height="16" rx="2" />
+    <path d="M16 3v4M8 3v4M3 11h18" />
   </Svg>
 );

@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   EMPTY_PASSWORD_VALUES,
-  SENHA_MINIMA,
-  erroDoCampo,
-  primeiraMensagem,
-  profileMudou,
+  MIN_PASSWORD_LENGTH,
+  fieldError,
+  firstMessage,
+  profileChanged,
   profileValuesFrom,
-  temErro,
+  hasError,
   toPasswordRequest,
   toProfileRequest,
   validatePassword,
@@ -15,7 +15,7 @@ import {
 } from "./profileForm";
 import type { MyProfile } from "@/interfaces/user/User.interface";
 
-const perfil: MyProfile = {
+const profile: MyProfile = {
   id: "u-1",
   fullName: "Tânia Melo",
   email: "tania@exemplo.com",
@@ -26,7 +26,7 @@ const perfil: MyProfile = {
 
 describe("profileValuesFrom", () => {
   it("traz só o que se edita — username e papel ficam de fora", () => {
-    expect(profileValuesFrom(perfil)).toEqual({
+    expect(profileValuesFrom(profile)).toEqual({
       fullName: "Tânia Melo",
       email: "tania@exemplo.com",
     });
@@ -41,7 +41,7 @@ describe("profileValuesFrom", () => {
 
 describe("validateProfile", () => {
   it("aceita nome e e-mail válidos", () => {
-    expect(validateProfile(profileValuesFrom(perfil))).toEqual({});
+    expect(validateProfile(profileValuesFrom(profile))).toEqual({});
   });
 
   it("nome vazio é obrigatório", () => {
@@ -61,26 +61,26 @@ describe("validateProfile", () => {
 
 describe("profileMudou", () => {
   it("é falso quando nada mudou — salvar à toa é toast de sucesso mentindo", () => {
-    expect(profileMudou(profileValuesFrom(perfil), perfil)).toBe(false);
+    expect(profileChanged(profileValuesFrom(profile), profile)).toBe(false);
   });
 
   it("espaço nas pontas não conta como mudança", () => {
     expect(
-      profileMudou(
+      profileChanged(
         { fullName: "  Tânia Melo  ", email: " tania@exemplo.com " },
-        perfil,
+        profile,
       ),
     ).toBe(false);
   });
 
   it("é verdadeiro quando o nome muda de verdade", () => {
     expect(
-      profileMudou({ fullName: "Tânia M.", email: perfil.email }, perfil),
+      profileChanged({ fullName: "Tânia M.", email: profile.email }, profile),
     ).toBe(true);
   });
 
   it("sem perfil carregado, qualquer coisa digitada conta como mudança", () => {
-    expect(profileMudou({ fullName: "Ana", email: "" }, null)).toBe(true);
+    expect(profileChanged({ fullName: "Ana", email: "" }, null)).toBe(true);
   });
 });
 
@@ -108,14 +108,14 @@ describe("validatePassword", () => {
     expect(errors.currentPassword).toBeTruthy();
   });
 
-  it(`recusa nova senha com menos de ${SENHA_MINIMA} caracteres`, () => {
-    const curta = "a".repeat(SENHA_MINIMA - 1);
+  it(`recusa nova senha com menos de ${MIN_PASSWORD_LENGTH} caracteres`, () => {
+    const short = "a".repeat(MIN_PASSWORD_LENGTH - 1);
     const errors = validatePassword({
       ...base,
-      newPassword: curta,
-      confirmPassword: curta,
+      newPassword: short,
+      confirmPassword: short,
     });
-    expect(errors.newPassword).toContain(String(SENHA_MINIMA));
+    expect(errors.newPassword).toContain(String(MIN_PASSWORD_LENGTH));
   });
 
   it("recusa nova senha igual à atual antes de ir ao servidor", () => {
@@ -168,7 +168,7 @@ describe("toPasswordRequest", () => {
 });
 
 describe("erroDoCampo", () => {
-  const erro = {
+  const error = {
     response: {
       data: {
         success: false,
@@ -181,23 +181,23 @@ describe("erroDoCampo", () => {
   };
 
   it("acha a mensagem do campo pedido", () => {
-    expect(erroDoCampo(erro, "currentPassword")).toBe("Senha atual incorreta.");
+    expect(fieldError(error, "currentPassword")).toBe("Senha atual incorreta.");
   });
 
   it("devolve null para campo que não errou — não empresta a mensagem do vizinho", () => {
-    expect(erroDoCampo(erro, "newPassword")).toBeNull();
+    expect(fieldError(error, "newPassword")).toBeNull();
   });
 
   it("aguenta erro sem envelope (rede caiu, timeout)", () => {
-    expect(erroDoCampo(new Error("Network Error"), "email")).toBeNull();
-    expect(erroDoCampo(undefined, "email")).toBeNull();
+    expect(fieldError(new Error("Network Error"), "email")).toBeNull();
+    expect(fieldError(undefined, "email")).toBeNull();
   });
 });
 
 describe("primeiraMensagem", () => {
   it("usa o primeiro erro do envelope", () => {
     expect(
-      primeiraMensagem({
+      firstMessage({
         response: { data: { errors: [{ message: "Deu ruim." }] } },
       }),
     ).toBe("Deu ruim.");
@@ -205,27 +205,27 @@ describe("primeiraMensagem", () => {
 
   it("cai para message quando não há lista de erros", () => {
     expect(
-      primeiraMensagem({ response: { data: { message: "Sem permissão." } } }),
+      firstMessage({ response: { data: { message: "Sem permissão." } } }),
     ).toBe("Sem permissão.");
   });
 
   it("sem nada aproveitável devolve null, para quem chama usar o texto próprio", () => {
-    expect(primeiraMensagem({})).toBeNull();
+    expect(firstMessage({})).toBeNull();
   });
 });
 
 describe("temErro", () => {
   it("mapa vazio não tem erro", () => {
-    expect(temErro({})).toBe(false);
+    expect(hasError({})).toBe(false);
   });
 
   it("chave existente com undefined não conta como erro", () => {
     // O `setCampo` limpa o erro colocando `undefined` na chave em vez de
     // removê-la; sem esta regra o botão ficaria travado para sempre.
-    expect(temErro({ email: undefined })).toBe(false);
+    expect(hasError({ email: undefined })).toBe(false);
   });
 
   it("qualquer mensagem presente conta", () => {
-    expect(temErro({ email: "inválido" })).toBe(true);
+    expect(hasError({ email: "inválido" })).toBe(true);
   });
 });

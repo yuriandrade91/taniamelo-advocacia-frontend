@@ -1,6 +1,7 @@
 "use client";
 
 import type { LoginResponse } from "@/interfaces/auth/Auth.interface";
+import { STORED_VALUE_EVENT } from "@/hooks/useStoredValue";
 
 /**
  * Usuário da sessão, persistido localmente.
@@ -15,6 +16,12 @@ import type { LoginResponse } from "@/interfaces/auth/Auth.interface";
  */
 
 const STORAGE_KEY = "session_user";
+
+/** Avisa quem está na tela que o usuário da sessão mudou. */
+function announce(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(STORED_VALUE_EVENT));
+}
 
 export type SessionUser = {
   fullName: string;
@@ -41,6 +48,7 @@ export function saveSessionUser(response: LoginResponse): void {
   };
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    announce();
   } catch {
     // Modo privativo ou storage cheio: seguir sem persistir é aceitável,
     // a UI cai no estado "sem dados".
@@ -75,13 +83,14 @@ export function getSessionUser(): SessionUser | null {
  */
 export function patchSessionUser(partial: Partial<SessionUser>): void {
   if (typeof window === "undefined") return;
-  const atual = getSessionUser();
-  if (!atual) return;
+  const current = getSessionUser();
+  if (!current) return;
   try {
     window.localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ ...atual, ...partial }),
+      JSON.stringify({ ...current, ...partial }),
     );
+    announce();
   } catch {
     /* mesmo caso do save: seguir sem persistir */
   }
@@ -91,7 +100,34 @@ export function clearSessionUser(): void {
   if (typeof window === "undefined") return;
   try {
     window.localStorage.removeItem(STORAGE_KEY);
+    announce();
   } catch {
     /* nada a fazer */
   }
+}
+
+/*
+ * Leitura com referência estável.
+ *
+ * `getSessionUser` monta um objeto novo a cada chamada, e `useSyncExternalStore`
+ * compara por identidade: devolver um objeto diferente a cada leitura o faria
+ * concluir "mudou" para sempre, em laço. Guardamos o texto cru e só remontamos
+ * quando ele muda de verdade.
+ */
+let cachedRaw: string | null = null;
+let cachedUser: SessionUser | null = null;
+
+export function sessionUserSnapshot(): SessionUser | null {
+  if (typeof window === "undefined") return null;
+  let raw: string | null = null;
+  try {
+    raw = window.localStorage.getItem(STORAGE_KEY);
+  } catch {
+    return null;
+  }
+  if (raw !== cachedRaw) {
+    cachedRaw = raw;
+    cachedUser = getSessionUser();
+  }
+  return cachedUser;
 }

@@ -33,7 +33,7 @@ import {
   updateClient,
 } from "./clientService";
 
-const chamadas = [
+const calls = [
   ["clientById", (id: string) => clientById(id)],
   ["deleteClient", (id: string) => deleteClient(id)],
   ["revealInssPassword", (id: string) => revealInssPassword(id)],
@@ -41,13 +41,13 @@ const chamadas = [
   ["updateClient", (id: string) => updateClient(id, {} as never)],
 ] as const;
 
-const idsInvalidos = ["undefined", "null", "", "   "];
+const invalidIds = ["undefined", "null", "", "   "];
 
 beforeEach(() => vi.clearAllMocks());
 
 describe("id ausente não vira requisição", () => {
-  for (const [nome, chamar] of chamadas) {
-    for (const id of idsInvalidos) {
+  for (const [nome, chamar] of calls) {
+    for (const id of invalidIds) {
       it(`${nome} recusa ${JSON.stringify(id)} sem chamar a API`, async () => {
         await expect(chamar(id)).rejects.toThrow(/id de cliente ausente/i);
 

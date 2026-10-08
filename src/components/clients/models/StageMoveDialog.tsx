@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Modal, WarningIcon } from "@heroui/react";
+import ModalShell from "@/components/ui/modals/ModalShell";
 import { TextAreaField } from "@/components/ui/form/Field";
 import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import type { Stage } from "./kit";
@@ -34,23 +35,21 @@ type StageMoveDialogProps = {
 
 export function StageMoveDialog({ kind, isSaving, onClose, ...content }: StageMoveDialogProps) {
   return (
-    <Modal isOpen={kind !== null} onOpenChange={(open) => !open && !isSaving && onClose()}>
-      <Modal.Backdrop variant="opaque">
-        <Modal.Container>
-          <Modal.Dialog className="sm:max-w-[480px]">
-            <Modal.CloseTrigger />
-            {/*
-              Conteúdo à parte de propósito: o Modal desmonta o diálogo ao
-              fechar, e o texto digitado some junto — a justificativa de um
-              cliente não vaza para o próximo, sem efeito de limpeza.
-            */}
-            {kind && (
-              <StageMoveContent kind={kind} isSaving={isSaving} onClose={onClose} {...content} />
-            )}
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
+    <ModalShell
+      isOpen={kind !== null}
+      onClose={onClose}
+      isDismissable={!isSaving}
+      className="sm:max-w-[480px]"
+    >
+      {/*
+        Conteúdo à parte de propósito: o Modal desmonta o diálogo ao
+        fechar, e o texto digitado some junto — a justificativa de um
+        cliente não vaza para o próximo, sem efeito de limpeza.
+      */}
+      {kind && (
+        <StageMoveContent kind={kind} isSaving={isSaving} onClose={onClose} {...content} />
+      )}
+    </ModalShell>
   );
 }
 

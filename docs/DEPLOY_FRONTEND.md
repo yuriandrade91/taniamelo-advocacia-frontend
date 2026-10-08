@@ -73,7 +73,7 @@ falha o build por isso: imprime um aviso no meio da saída e segue.
 
 O `src/proxy.ts` era a guarda de rota — quem não tinha token levava um 307
 para o login antes de qualquer HTML sair. Ele foi removido e reescrito em
-`src/components/auth/GuardaDeRota.tsx`, que roda no cliente, dentro do layout
+`src/components/auth/RouteGuard.tsx`, que roda no cliente, dentro do layout
 de `(private)`.
 
 **A diferença é real e está registrada no próprio componente:** antes a tela

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { Tabs, Tooltip } from "@heroui/react";
 import {
   DatePickerField,
   Field,
@@ -11,13 +10,9 @@ import {
 import ActionButton from "@/components/ui/table/ActionButton";
 import { TablePagination } from "@/components/ui/table/TablePagination";
 import { slicePage } from "@/lib/pagination";
+import { SegmentedTabs } from "@/components/ui/tabs/SegmentedTabs";
 import { FormGrid } from "../../../FormSection";
-import {
-  TAB_CLASS,
-  TAB_INDICATOR_CLASS,
-  TAB_LIST_CLASS,
-  TAB_LIST_CONTAINER_CLASS,
-} from "../../../tabs/tabStyle";
+import { FILE_KINDS, FILE_KIND_WORDS, FileKindLabel } from "../FileKindLabel";
 import {
   documentErrors,
   simulationErrors,
@@ -187,12 +182,12 @@ export function FilesUpload({
     (entry) => Object.keys(simulationErrors(entry.sim)).length > 0,
   ).length;
 
-  const tabs = [
-    { id: "documents" as const, label: "Documentos", count: docs.entries.length, pending: pendingDocs },
-    { id: "simulations" as const, label: "Simulações", count: sims.entries.length, pending: pendingSims },
-  ];
+  const counts: Record<FileKind, { count: number; pending: number }> = {
+    documents: { count: docs.entries.length, pending: pendingDocs },
+    simulations: { count: sims.entries.length, pending: pendingSims },
+  };
 
-  const noun = kind === "documents" ? "documento" : "simulação";
+  const words = FILE_KIND_WORDS[kind];
   const total = kind === "documents" ? docs.entries.length : sims.entries.length;
   const isEmpty = total === 0;
   const copy = dropCopy(kind);
@@ -202,141 +197,114 @@ export function FilesUpload({
   const simPage = slicePage(sims.entries, pages.simulations, PAGE_SIZE);
   const current = kind === "documents" ? docPage : simPage;
 
+  /** O corpo de uma aba: a zona viva, o aviso do colado, os cartões. */
+  const panel = (tab: FileKind) => (
+    <>
+      {/* A zona viva: soltar, clicar ou colar. */}
+      <div
+        {...dropProps(add, setIsOver)}
+        role="button"
+        tabIndex={0}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(event) => {
+          if (event.key === "Enter" || event.key === " ") {
+            event.preventDefault();
+            inputRef.current?.click();
+          }
+        }}
+        className={`group/zone flex cursor-pointer items-center gap-4 rounded-3xl border-2 border-dashed text-left transition focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none ${
+          isEmpty ? "flex-col justify-center px-6 py-12 text-center" : "px-5 py-4"
+        } ${
+          isOver
+            ? "scale-[1.01] border-secondary bg-light-secondary motion-reduce:scale-100"
+            : "border-light-gray hover:border-secondary/60 hover:bg-floral"
+        }`}
+      >
+        <span
+          className={`flex shrink-0 items-center justify-center rounded-full bg-light-secondary text-secondary transition ${
+            isEmpty ? "h-14 w-14" : "h-10 w-10"
+          } ${isOver ? "animate-bounce motion-reduce:animate-none" : ""}`}
+        >
+          <UploadGlyph className={isEmpty ? "h-7 w-7" : "h-5 w-5"} />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-semibold text-primary">
+            {isOver
+              ? "Pode soltar"
+              : isEmpty
+                ? `Arraste ${copy.title} para cá`
+                : "Adicionar mais"}
+          </span>
+          <span className="block text-xs text-gray-100">
+            ou clique para escolher · cole com <Kbd>Ctrl</Kbd> + <Kbd>V</Kbd> · {copy.hint}
+          </span>
+        </span>
+        <HiddenFileInput inputRef={inputRef} onFiles={add} />
+      </div>
+
+      <p role="status" className="sr-only">
+        {lastPasted ? `${lastPasted} arquivo(s) colado(s)` : ""}
+      </p>
+      {lastPasted > 0 && (
+        <p
+          aria-hidden="true"
+          className="self-start rounded-full bg-light-green px-3 py-1 text-xs font-medium text-success"
+        >
+          {lastPasted} colado{lastPasted === 1 ? "" : "s"} da área de transferência
+        </p>
+      )}
+
+      {!isEmpty && (
+        <ul aria-label={FILE_KIND_WORDS[tab].label} className="flex flex-col gap-3">
+          {tab === "documents"
+            ? (docPage.slice as DocEntry[]).map((entry) => (
+                <DocumentCard
+                  key={entry.id}
+                  entry={entry}
+                  showErrors={showErrors}
+                  docs={docs}
+                />
+              ))
+            : (simPage.slice as SimEntry[]).map((entry) => (
+                <SimulationCard
+                  key={entry.id}
+                  entry={entry}
+                  showErrors={showErrors}
+                  sims={sims}
+                />
+              ))}
+        </ul>
+      )}
+
+      {total > PAGE_SIZE && (
+        <TablePagination
+          pageNumber={current.current}
+          pageSize={PAGE_SIZE}
+          total={total}
+          totalPages={current.totalPages}
+          onPageChange={setPage}
+          noun={[words.one, words.many]}
+        />
+      )}
+    </>
+  );
+
   return (
-    <Tabs
-      selectedKey={kind}
-      onSelectionChange={(key) => setKind(key as FileKind)}
-      className="gap-5"
-    >
+    <>
       {/* Na largura toda, como as abas das seções e dos endereços: estreita,
           o HeroUI trata a barra como rolável, esmaece a direita e a aba de
           Simulações ficava cortada atrás da seta — sem como abrir. */}
-      <Tabs.ListContainer className={TAB_LIST_CONTAINER_CLASS}>
-        <Tabs.List aria-label="Tipo de arquivo" className={TAB_LIST_CLASS}>
-          {tabs.map((tab) => {
-            const [one, many, attached] =
-              tab.id === "documents"
-                ? ["documento", "documentos", "anexado"]
-                : ["simulação", "simulações", "anexada"];
-            return (
-              <Tabs.Tab key={tab.id} id={tab.id} className={TAB_CLASS}>
-                {tab.label}
-                {/* Quantos há, no selo cinza; quantos faltam completar, no
-                    dourado — o mesmo das abas do cadastro. Cada selo explica
-                    o número no tooltip; o leitor de tela ouve o `sr-only`. */}
-                {tab.count > 0 && (
-                  <CounterTip
-                    tip={`${tab.count} ${tab.count === 1 ? `${one} ${attached}` : `${many} ${attached}s`}`}
-                    className="bg-page text-gray-100 group-data-[selected=true]:bg-white/20 group-data-[selected=true]:text-white"
-                  >
-                    {tab.count}
-                  </CounterTip>
-                )}
-                {tab.pending > 0 && (
-                  <CounterTip
-                    tip={`${tab.pending} ${tab.pending === 1 ? `${one} com campos a preencher` : `${many} com campos a preencher`}`}
-                    className="bg-secondary text-white"
-                  >
-                    {tab.pending}
-                  </CounterTip>
-                )}
-                <Tabs.Indicator className={TAB_INDICATOR_CLASS} />
-              </Tabs.Tab>
-            );
-          })}
-        </Tabs.List>
-      </Tabs.ListContainer>
-
-      {tabs.map((tab) => (
-        <Tabs.Panel key={tab.id} id={tab.id} className="flex flex-col gap-4 p-0">
-          {/* A zona viva: soltar, clicar ou colar. */}
-          <div
-            {...dropProps(add, setIsOver)}
-            role="button"
-            tabIndex={0}
-            onClick={() => inputRef.current?.click()}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                inputRef.current?.click();
-              }
-            }}
-            className={`group/zone flex cursor-pointer items-center gap-4 rounded-3xl border-2 border-dashed text-left transition focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none ${
-              isEmpty ? "flex-col justify-center px-6 py-12 text-center" : "px-5 py-4"
-            } ${
-              isOver
-                ? "scale-[1.01] border-secondary bg-light-secondary motion-reduce:scale-100"
-                : "border-light-gray hover:border-secondary/60 hover:bg-floral"
-            }`}
-          >
-            <span
-              className={`flex shrink-0 items-center justify-center rounded-full bg-light-secondary text-secondary transition ${
-                isEmpty ? "h-14 w-14" : "h-10 w-10"
-              } ${isOver ? "animate-bounce motion-reduce:animate-none" : ""}`}
-            >
-              <UploadGlyph className={isEmpty ? "h-7 w-7" : "h-5 w-5"} />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold text-primary">
-                {isOver
-                  ? "Pode soltar"
-                  : isEmpty
-                    ? `Arraste ${copy.title} para cá`
-                    : "Adicionar mais"}
-              </span>
-              <span className="block text-xs text-gray-100">
-                ou clique para escolher · cole com <Kbd>Ctrl</Kbd> + <Kbd>V</Kbd> · {copy.hint}
-              </span>
-            </span>
-            <HiddenFileInput inputRef={inputRef} onFiles={add} />
-          </div>
-
-          <p role="status" className="sr-only">
-            {lastPasted ? `${lastPasted} arquivo(s) colado(s)` : ""}
-          </p>
-          {lastPasted > 0 && (
-            <p
-              aria-hidden="true"
-              className="self-start rounded-full bg-light-green px-3 py-1 text-xs font-medium text-success"
-            >
-              {lastPasted} colado{lastPasted === 1 ? "" : "s"} da área de transferência
-            </p>
-          )}
-
-          {!isEmpty && (
-            <ul aria-label={tab.label} className="flex flex-col gap-3">
-              {tab.id === "documents"
-                ? (docPage.slice as DocEntry[]).map((entry) => (
-                    <DocumentCard
-                      key={entry.id}
-                      entry={entry}
-                      showErrors={showErrors}
-                      docs={docs}
-                    />
-                  ))
-                : (simPage.slice as SimEntry[]).map((entry) => (
-                    <SimulationCard
-                      key={entry.id}
-                      entry={entry}
-                      showErrors={showErrors}
-                      sims={sims}
-                    />
-                  ))}
-            </ul>
-          )}
-
-          {total > PAGE_SIZE && (
-            <TablePagination
-              pageNumber={current.current}
-              pageSize={PAGE_SIZE}
-              total={total}
-              totalPages={current.totalPages}
-              onPageChange={setPage}
-              noun={kind === "documents" ? ["documento", "documentos"] : ["simulação", "simulações"]}
-            />
-          )}
-        </Tabs.Panel>
-      ))}
+      <SegmentedTabs
+        label="Tipo de arquivo"
+        selectedKey={kind}
+        onSelectionChange={(key) => setKind(key as FileKind)}
+        panelClassName="flex flex-col gap-4 p-0"
+        tabs={FILE_KINDS.map((id) => ({
+          id,
+          label: <FileKindLabel kind={id} {...counts[id]} />,
+          content: panel(id),
+        }))}
+      />
 
       {isDragging &&
         createPortal(
@@ -348,7 +316,7 @@ export function FilesUpload({
               <span className="flex h-20 w-20 animate-bounce items-center justify-center rounded-full bg-white/15 motion-reduce:animate-none">
                 <UploadGlyph className="h-10 w-10" />
               </span>
-              <p className="text-2xl font-semibold">Solte para anexar como {noun}</p>
+              <p className="text-2xl font-semibold">Solte para anexar como {words.one}</p>
               <p className="text-sm text-white/70">
                 {kind === "documents"
                   ? "O tipo de cada arquivo é escolhido pelo nome — confira depois."
@@ -358,40 +326,7 @@ export function FilesUpload({
           </div>,
           document.body,
         )}
-    </Tabs>
-  );
-}
-
-/**
- * Selo de contagem da aba com tooltip. O número sozinho não diz se é "quantos
- * há" ou "quantos faltam"; passar o mouse explica. O texto também vai em
- * `sr-only`, porque o tooltip não é anunciado de dentro de uma aba.
- */
-function CounterTip({
-  tip,
-  className,
-  children,
-}: {
-  tip: string;
-  className: string;
-  children: ReactNode;
-}) {
-  return (
-    <Tooltip delay={0}>
-      <Tooltip.Trigger className="inline-flex">
-        <span
-          aria-hidden="true"
-          className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold tabular-nums ${className}`}
-        >
-          {children}
-        </span>
-        <span className="sr-only"> ({tip})</span>
-      </Tooltip.Trigger>
-      <Tooltip.Content showArrow placement="bottom">
-        <Tooltip.Arrow />
-        <p className="text-xs text-gray-100">{tip}</p>
-      </Tooltip.Content>
-    </Tooltip>
+    </>
   );
 }
 

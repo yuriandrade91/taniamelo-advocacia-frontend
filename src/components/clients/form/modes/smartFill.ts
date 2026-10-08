@@ -16,7 +16,7 @@
  */
 import { BenefitOptions } from "@/enums/benefit/Benefits";
 import {
-  maskCelular,
+  maskMobile,
   maskCEP,
   maskCPF,
   maskNIT,
@@ -177,7 +177,7 @@ export function extractClientData(input: string): ExtractedField[] {
   ].find((match) => digits(match[0]) !== cpfDigits);
   const phone = phoneLabeled?.[1] ?? phoneLoose?.[0];
   if (phone && digits(phone).length >= 10) {
-    put("mobilePhone", maskCelular(phone), (phoneLabeled ?? phoneLoose)![0]);
+    put("mobilePhone", maskMobile(phone), (phoneLabeled ?? phoneLoose)![0]);
   }
 
   // Data de nascimento: perto de "nasc"/"DN"; senão, a data mais antiga que

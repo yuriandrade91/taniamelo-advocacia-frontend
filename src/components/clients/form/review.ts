@@ -42,6 +42,7 @@ import {
   type ProfessionalValues,
   type ServiceValues,
 } from "./schemas";
+import { formatDateBR } from "@/lib/format";
 
 export type ReviewItemState = "filled" | "empty" | "missing";
 
@@ -107,11 +108,8 @@ const labelOf = (
   value: string,
 ) => (value ? (options.find((o) => o.value === value)?.label ?? value) : "");
 
-/** `YYYY-MM-DD` (com ou sem hora) → `DD/MM/AAAA`. */
-const dateBR = (iso: string) => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : iso;
-};
+/** `YYYY-MM-DD` (com ou sem hora) → `DD/MM/AAAA`; fora do formato, como veio. */
+const dateBR = (iso: string) => formatDateBR(iso, iso);
 
 /** `YYYY-MM-DDTHH:mm[:ss]` → `DD/MM/AAAA às HH:mm`. */
 const dateTimeBR = (iso: string) => {

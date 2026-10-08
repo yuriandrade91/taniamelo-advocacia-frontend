@@ -3,6 +3,7 @@
 import { useResetOnOpen } from "@/hooks/useResetOnOpen";
 import {useState} from "react";
 import { Button, Modal, WarningIcon } from "@heroui/react";
+import ModalShell from "@/components/ui/modals/ModalShell";
 import { TextAreaField } from "@/components/ui/form/Field";
 
 /**
@@ -50,65 +51,54 @@ export default function CancelAppointmentDialog({
       : undefined;
 
   return (
-    <Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <Modal.Backdrop
-        variant="opaque"
-        className="data-[entering]:duration-400 data-[entering]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[exiting]:duration-200 data-[exiting]:ease-[cubic-bezier(0.7,0,0.84,0)]"
-      >
-        <Modal.Container className="data-[entering]:animate-in data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[entering]:duration-400 data-[exiting]:animate-out data-[exiting]:fade-out-0 data-[exiting]:zoom-out-95 data-[exiting]:duration-200">
-          <Modal.Dialog className="sm:max-w-[460px]">
-            <Modal.CloseTrigger />
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      className="sm:max-w-[460px]"
+      heading="Cancelar compromisso?"
+      icon={<WarningIcon className="size-5" />}
+      iconClassName="bg-warning/10 text-secondary"
+    >
+      <Modal.Body>
+        <p className="mt-1 text-sm text-gray-100/70">
+          <span className="font-medium">{appointmentTitle}</span> será
+          marcado como cancelado. A justificativa fica registrada no
+          histórico.
+        </p>
 
-            <Modal.Header>
-              <Modal.Icon className="bg-warning/10 text-secondary">
-                <WarningIcon className="size-5" />
-              </Modal.Icon>
-              <Modal.Heading>Cancelar compromisso?</Modal.Heading>
-            </Modal.Header>
+        <div className="mt-4">
+          <TextAreaField
+            label="Justificativa"
+            isRequired
+            rows={4}
+            placeholder="Motivo do cancelamento"
+            value={justification}
+            onChange={setJustification}
+            onBlur={() => setTouched(true)}
+            isInvalid={touched && !!error}
+            errorMessage={touched ? error : undefined}
+          />
+        </div>
+      </Modal.Body>
 
-            <Modal.Body>
-              <p className="mt-1 text-sm text-gray-100/70">
-                <span className="font-medium">{appointmentTitle}</span> será
-                marcado como cancelado. A justificativa fica registrada no
-                histórico.
-              </p>
-
-              <div className="mt-4">
-                <TextAreaField
-                  label="Justificativa"
-                  isRequired
-                  rows={4}
-                  placeholder="Motivo do cancelamento"
-                  value={justification}
-                  onChange={setJustification}
-                  onBlur={() => setTouched(true)}
-                  isInvalid={touched && !!error}
-                  errorMessage={touched ? error : undefined}
-                />
-              </div>
-            </Modal.Body>
-
-            <Modal.Footer>
-              <Button
-                className="w-full"
-                type="button"
-                variant="danger"
-                isDisabled={!!error}
-                onClick={() => {
-                  if (error) return;
-                  onConfirm(trimmed);
-                  onClose();
-                }}
-              >
-                Cancelar compromisso
-              </Button>
-              <Button type="button" variant="secondary" onClick={onClose}>
-                Manter
-              </Button>
-            </Modal.Footer>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
+      <Modal.Footer>
+        <Button
+          className="w-full"
+          type="button"
+          variant="danger"
+          isDisabled={!!error}
+          onClick={() => {
+            if (error) return;
+            onConfirm(trimmed);
+            onClose();
+          }}
+        >
+          Cancelar compromisso
+        </Button>
+        <Button type="button" variant="secondary" onClick={onClose}>
+          Manter
+        </Button>
+      </Modal.Footer>
+    </ModalShell>
   );
 }

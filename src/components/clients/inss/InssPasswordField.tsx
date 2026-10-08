@@ -3,14 +3,12 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { LoadingCircle } from "@/components/ui/feedback/Loading";
 import {
-  copiarSenha,
-  CopyIcon,
-  EyeIcon,
-  EyeOffIcon,
+  copyPassword,
   Field,
   FIELD_ICON_BUTTON_CLASS,
 } from "@/components/ui/form/Field";
-import { usePermissoes } from "@/hooks/usePermissoes";
+import { CopyIcon, EyeIcon, EyeOffIcon } from "@/components/ui/icons/glyphs";
+import { usePermissions } from "@/hooks/usePermissions";
 import { revealInssPassword } from "@/services/clientService";
 
 /**
@@ -27,7 +25,7 @@ import { revealInssPassword } from "@/services/clientService";
  * trilha deixaria de responder "quem foi buscar a senha da dona Maria em
  * março?", que é a pergunta pela qual ela existe.
  *
- * Revelada, reesconde sozinha depois de {@link SEGUNDOS_VISIVEL}s: senha aberta
+ * Revelada, reesconde sozinha depois de {@link VISIBLE_SECONDS}s: senha aberta
  * numa aba esquecida é a mesma exposição que tirá-la do GET evitou. A contagem
  * aparece andando, e não parada em "20s": o número congelado parecia enfeite,
  * e quem ia copiar a senha não tinha como saber se tinha quinze segundos ou
@@ -43,7 +41,7 @@ import { revealInssPassword } from "@/services/clientService";
  * que editar o telefone de um cliente apague o acesso dele ao INSS.
  */
 
-export const SEGUNDOS_VISIVEL = 20;
+export const VISIBLE_SECONDS = 20;
 
 const MASCARA = "••••••••";
 
@@ -52,19 +50,19 @@ type Props = {
   /** Em edição o campo vira entrada de senha nova; fora dela, leitura sob demanda. */
   isEditing: boolean;
   /** Senha nova digitada. String vazia significa "não mexeu". */
-  novaSenha: string;
-  onNovaSenhaChange: (valor: string) => void;
+  newPassword: string;
+  onNewPasswordChange: (valor: string) => void;
   className?: string;
 };
 
 export function InssPasswordField({
   clientId,
   isEditing,
-  novaSenha,
-  onNovaSenhaChange,
+  newPassword,
+  onNewPasswordChange,
   className,
 }: Props) {
-  const { podeVerSenhaDoInss } = usePermissoes();
+  const { canSeeInssPassword } = usePermissions();
   const [revelada, setRevelada] = useState<string | null>(null);
   /** Instante em que a senha se esconde — a contagem lê daqui. */
   const [prazo, setPrazo] = useState(0);
@@ -72,7 +70,7 @@ export function InssPasswordField({
   const [erro, setErro] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const esconder = useCallback(() => {
+  const hide = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
     setRevelada(null);
@@ -81,25 +79,25 @@ export function InssPasswordField({
 
   // Desmontar com a senha na tela (fechar o modal, trocar de cliente) não pode
   // deixar o timer vivo nem o valor em memória.
-  useEffect(() => esconder, [esconder, clientId]);
+  useEffect(() => hide, [hide, clientId]);
 
   // Entrar em edição esconde: o campo passa a ser "senha nova", e o valor antigo
   // ali dentro viraria uma regravação da mesma senha sem ninguém pedir.
   useEffect(() => {
-    if (isEditing) esconder();
-  }, [isEditing, esconder]);
+    if (isEditing) hide();
+  }, [isEditing, hide]);
 
-  async function revelar() {
+  async function reveal() {
     setErro("");
     setCarregando(true);
     try {
-      const senha = await revealInssPassword(clientId);
-      setRevelada(senha);
+      const password = await revealInssPassword(clientId);
+      setRevelada(password);
       // Quem esconde é este `setTimeout`, não a contagem na tela: se o
       // intervalo do contador for estrangulado numa aba em segundo plano, a
       // senha sai da tela na hora certa do mesmo jeito.
-      setPrazo(Date.now() + SEGUNDOS_VISIVEL * 1000);
-      timer.current = setTimeout(esconder, SEGUNDOS_VISIVEL * 1000);
+      setPrazo(Date.now() + VISIBLE_SECONDS * 1000);
+      timer.current = setTimeout(hide, VISIBLE_SECONDS * 1000);
     } catch (e: unknown) {
       const status = (e as { response?: { status?: number } })?.response?.status;
       setErro(
@@ -119,8 +117,8 @@ export function InssPasswordField({
       <Field
         label='Senha "meu inss"'
         type="text"
-        value={novaSenha}
-        onChange={(event) => onNovaSenhaChange(event.target.value)}
+        value={newPassword}
+        onChange={(event) => onNewPasswordChange(event.target.value)}
         placeholder="Deixe em branco para manter a atual"
         className={className}
       />
@@ -145,12 +143,12 @@ export function InssPasswordField({
         isInvalid={!!erro}
         errorMessage={erro}
         trailing={
-          podeVerSenhaDoInss ? (
+          canSeeInssPassword ? (
             <>
               {revelada && (
                 <button
                   type="button"
-                  onClick={() => void copiarSenha(revelada)}
+                  onClick={() => void copyPassword(revelada)}
                   aria-label="Copiar senha"
                   data-testid="inss-password-copy"
                   className={FIELD_ICON_BUTTON_CLASS}
@@ -160,7 +158,7 @@ export function InssPasswordField({
               )}
               <button
                 type="button"
-                onClick={revelada ? esconder : revelar}
+                onClick={revelada ? hide : reveal}
                 disabled={carregando}
                 aria-label={revelada ? "Esconder senha" : "Revelar senha"}
                 data-testid="inss-password-toggle"
@@ -188,7 +186,7 @@ export function InssPasswordField({
 }
 
 /** Quantos segundos inteiros faltam até `prazo` — nunca negativo. */
-const segundosAte = (prazo: number) =>
+const secondsUntil = (prazo: number) =>
   Math.ceil(Math.max(0, prazo - Date.now()) / 1000);
 
 /**
@@ -202,15 +200,15 @@ const segundosAte = (prazo: number) =>
  * arredondamento para cima: a um tique por segundo, a conta e o relógio saem
  * de fase e o contador fica visivelmente parado num número e depois pula dois.
  */
-const TIQUE_MS = 250;
+const TICK_MS = 250;
 
 function SomeEm({ prazo }: { prazo: number }) {
-  const [segundos, setSegundos] = useState(() => segundosAte(prazo));
+  const [segundos, setSegundos] = useState(() => secondsUntil(prazo));
 
   // Sem acerto inicial aqui: quem monta passa `key={prazo}`, então um prazo
   // novo é um componente novo e o valor inicial já vem do próprio prazo.
   useEffect(() => {
-    const id = setInterval(() => setSegundos(segundosAte(prazo)), TIQUE_MS);
+    const id = setInterval(() => setSegundos(secondsUntil(prazo)), TICK_MS);
     return () => clearInterval(id);
   }, [prazo]);
 

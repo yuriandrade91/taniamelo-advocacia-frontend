@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Popover } from "@heroui/react";
 import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import { STAGES, stageOf, type Stage } from "./kit";
 import { StageMoveDialog } from "./StageMoveDialog";
 import { useSituationTrail } from "./situationTrail";
 import { planStageMove, trailSkippedStages, type StageMove } from "./stageMoves";
-import { useDismiss } from "@/hooks/useDismiss";
+import { useHoverCard } from "@/hooks/useHoverCard";
+import { Pill } from "@/components/ui/feedback/Badges";
 
 /**
  * Mudar a situação direto na lista: clicar no selo/trilho abre a esteira em
@@ -37,8 +38,6 @@ type StepState = "done" | "current" | "upcoming" | "skipped";
  * atravessa a coluna não faz pipocar cartão nem buscar trilha), e sair dele
  * fecha com uma folga para dar tempo de ir do trilho ao cartão.
  */
-const HOVER_OPEN_DELAY_MS = 300;
-const HOVER_CLOSE_DELAY_MS = 200;
 
 const STEP_NODE: Record<StepState | "picked", string> = {
   picked: "bg-primary text-white ring-4 ring-primary/15",
@@ -81,44 +80,21 @@ export function StageChanger({
   children: ReactNode;
 }) {
   const current = stageOf(situation);
-  /** Clicado: fica aberto até cancelar/confirmar, como o popover do potencial. */
-  const [isPinned, setIsPinned] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
   const [picked, setPicked] = useState<Stage | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [pending, setPending] = useState<PendingConfirmation | null>(null);
 
-  /** Escolher uma etapa também prende o cartão: sair com o mouse não perde a escolha. */
-  const isOpen = isPinned || isHovering || picked !== null;
-
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearHoverTimer = () => {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    hoverTimer.current = null;
-  };
-  useEffect(() => clearHoverTimer, []);
-
-  /*
-   * O cartão é **não modal** (`isNonModal`): um popover modal cobre a página
-   * com uma camada invisível, e o cursor parado no trilho passava a estar
-   * "fora" dele — o cartão fechava, a camada sumia, o cursor "entrava" de
-   * novo, e o cartão piscava. Sem a camada, clicar fora e Esc ficam por nossa
-   * conta, aqui.
+  /**
+   * Clicado, fica aberto até cancelar/confirmar. Escolher uma etapa também
+   * prende o cartão: sair com o mouse não perde a escolha. Com o diálogo de
+   * confirmação por cima, o hover não reabre.
    */
-  const triggerRef = useRef<HTMLDivElement>(null);
-  /** O fechamento pedido pelo popover veio de um clique no próprio trilho? */
-  const triggerPressed = useRef(false);
-  const cardRef = useRef<HTMLElement>(null);
-
-  const hoverIn = () => {
-    clearHoverTimer();
-    if (isOpen || pending) return;
-    hoverTimer.current = setTimeout(() => setIsHovering(true), HOVER_OPEN_DELAY_MS);
-  };
-  const hoverOut = () => {
-    clearHoverTimer();
-    hoverTimer.current = setTimeout(() => setIsHovering(false), HOVER_CLOSE_DELAY_MS);
-  };
+  const card = useHoverCard({
+    keepOpen: picked !== null,
+    canOpen: pending === null,
+    onClose: () => setPicked(null),
+  });
+  const { isOpen } = card;
 
   const trail = useSituationTrail(clientId, isOpen);
   const skippedKeys = new Set(
@@ -136,21 +112,6 @@ export function StageChanger({
     return current.step > 0 && stage.step < current.step ? "done" : "upcoming";
   };
 
-  const closeCard = () => {
-    clearHoverTimer();
-    setIsPinned(false);
-    setIsHovering(false);
-    setPicked(null);
-  };
-  useDismiss(isOpen, closeCard, [triggerRef, cardRef], (target) => {
-    // Clique no trilho com o cartão aberto (pelo mouse): prende. Se o popover
-    // ainda pedir para fechar logo em seguida, o `onOpenChange` lê esta marca
-    // e não fecha.
-    if (!triggerRef.current?.contains(target)) return;
-    triggerPressed.current = true;
-    setIsPinned(true);
-  });
-
   const closeConfirmation = () => {
     setPending(null);
     setPicked(null);
@@ -160,7 +121,7 @@ export function StageChanger({
     setIsSaving(true);
     try {
       await onConfirm(stage);
-      closeCard();
+      card.close();
       setPending(null);
     } catch {
       // O interceptor já mostrou o erro; cartão/diálogo ficam para tentar de novo.
@@ -177,9 +138,7 @@ export function StageChanger({
     }
     // Pular ou voltar: o cartão dá lugar ao diálogo com justificativa.
     setPending({ stage: picked, move });
-    clearHoverTimer();
-    setIsPinned(false);
-    setIsHovering(false);
+    card.hide();
   };
 
   const confirmLabel = isSaving
@@ -200,40 +159,19 @@ export function StageChanger({
 
   return (
     <>
-      <Popover
-        isOpen={isOpen}
-        onOpenChange={(open) => {
-          // Clique no trilho com o cartão aberto pelo mouse prende em vez de
-          // fechar; qualquer outro fechamento (Esc, fora) fecha de verdade.
-          const pressedTrigger = triggerPressed.current;
-          triggerPressed.current = false;
-          if (open || (pressedTrigger && !isPinned)) setIsPinned(true);
-          else closeCard();
-        }}
-      >
+      <Popover {...card.popoverProps}>
         <Popover.Trigger
-          ref={triggerRef}
+          {...card.triggerProps}
           aria-label={`Mudar a situação de ${clientName}`}
-          onMouseEnter={hoverIn}
-          onMouseLeave={hoverOut}
           className="block w-full cursor-pointer rounded-xl text-left transition outline-none hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-secondary/60"
         >
           {children}
         </Popover.Trigger>
 
-        <Popover.Content
-          ref={cardRef}
-          isNonModal
-          placement="bottom"
-          className="w-80"
-          onMouseEnter={clearHoverTimer}
-          onMouseLeave={hoverOut}
-        >
+        <Popover.Content {...card.contentProps} placement="bottom" className="w-80">
           <Popover.Arrow />
           <Popover.Dialog aria-label="Mudar situação">
-            <span className="inline-flex w-fit items-center rounded-full bg-light-secondary px-2 py-0.5 text-[11px] font-medium text-secondary">
-              Mudar situação
-            </span>
+            <Pill size="sm">Mudar situação</Pill>
             <p className="mt-2 truncate text-sm font-semibold text-primary">{clientName}</p>
             <p className="mt-0.5 text-xs text-gray-100">
               Etapa atual: {current.label}
@@ -284,9 +222,7 @@ export function StageChanger({
                         {stage.label}
                       </span>
                       {state === "skipped" && (
-                        <span className="rounded-full bg-light-gray px-2 py-0.5 text-[10px] font-medium text-gray-100">
-                          pulado
-                        </span>
+                        <Pill tone="muted">pulado</Pill>
                       )}
                     </button>
                   </li>
@@ -315,7 +251,7 @@ export function StageChanger({
             )}
 
             <ActionGroup shape="pill" className="mt-3">
-              <ActionButton shape="pill" tone="neutral" disabled={isSaving} onClick={closeCard}>
+              <ActionButton shape="pill" tone="neutral" disabled={isSaving} onClick={card.close}>
                 Cancelar
               </ActionButton>
               <ActionButton shape="pill" tone="primary" grow disabled={!changed || isSaving} onClick={confirm}>

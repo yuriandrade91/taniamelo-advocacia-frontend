@@ -23,6 +23,7 @@ import {
   today,
 } from "@internationalized/date";
 import { notificationCenter } from "@/services/notificationService";
+import { CopyIcon, EyeIcon, EyeOffIcon } from "@/components/ui/icons/glyphs";
 
 export type FieldProps = {
   label: string;
@@ -408,60 +409,6 @@ export function SwitchField({
   );
 }
 
-export function EyeIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-export function EyeOffIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <path d="M9.9 4.24A10.9 10.9 0 0 1 12 4c7 0 10.5 8 10.5 8a18.5 18.5 0 0 1-2.16 3.19M6.6 6.6C3.4 8.6 1.5 12 1.5 12s3.5 8 10.5 8a10.9 10.9 0 0 0 5.4-1.4M9.9 14.1a3 3 0 0 0 4.2-4.2" />
-      <path d="M2 2l20 20" />
-    </svg>
-  );
-}
-
-export function CopyIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <rect x="9" y="9" width="13" height="13" rx="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
-}
-
 /**
  * Botão de ícone dentro de um campo (o olho, o copiar). Exportado porque o
  * `InssPasswordField` monta os mesmos dois na senha do "meu inss", e dois
@@ -478,7 +425,7 @@ export const FIELD_ICON_BUTTON_CLASS =
  * reimprimi-la na tela — e num canto que fica alguns segundos depois de o
  * campo já ter voltado para a máscara.
  */
-export async function copiarSenha(value: string) {
+export async function copyPassword(value: string) {
   try {
     await navigator.clipboard.writeText(value);
     notificationCenter.success("Senha copiada.");
@@ -569,7 +516,7 @@ export function PasswordField({
             {isVisible && (
               <button
                 type="button"
-                onClick={() => void copiarSenha(value)}
+                onClick={() => void copyPassword(value)}
                 aria-label="Copiar senha"
                 className={FIELD_ICON_BUTTON_CLASS}
               >

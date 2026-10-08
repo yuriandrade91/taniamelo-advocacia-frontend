@@ -14,7 +14,7 @@ test.describe("guarda de rota", () => {
   // Sem storageState: este bloco precisa de um navegador anônimo.
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  for (const rota of [
+  for (const route of [
     "/home",
     "/clientes",
     "/agenda",
@@ -23,34 +23,34 @@ test.describe("guarda de rota", () => {
     "/relatorios",
     "/perfil",
   ]) {
-    test(`sem sessão, ${rota} manda para o login`, async ({ page }) => {
-      await page.goto(rota);
+    test(`sem sessão, ${route} manda para o login`, async ({ page }) => {
+      await page.goto(route);
       await expect(page).toHaveURL(/\/login/);
     });
   }
 });
 
 test.describe("páginas principais carregam autenticadas", () => {
-  const paginas = [
-    { rota: "/clientes", titulo: "Clientes" },
-    { rota: "/agenda", titulo: "Agenda" },
-    { rota: "/pagamentos", titulo: "Pagamentos" },
-    { rota: "/carteira", titulo: "Carteira" },
-    { rota: "/relatorios", titulo: "Relatórios" },
-    { rota: "/perfil", titulo: "Meus dados" },
+  const pages = [
+    { route: "/clientes", titulo: "Clientes" },
+    { route: "/agenda", titulo: "Agenda" },
+    { route: "/pagamentos", titulo: "Pagamentos" },
+    { route: "/carteira", titulo: "Carteira" },
+    { route: "/relatorios", titulo: "Relatórios" },
+    { route: "/perfil", titulo: "Meus dados" },
   ];
 
-  for (const { rota, titulo } of paginas) {
-    test(`${rota} renderiza`, async ({ page }) => {
-      const erros: string[] = [];
-      page.on("pageerror", (e) => erros.push(e.message));
+  for (const { route, titulo } of pages) {
+    test(`${route} renderiza`, async ({ page }) => {
+      const errors: string[] = [];
+      page.on("pageerror", (e) => errors.push(e.message));
 
-      await page.goto(rota);
+      await page.goto(route);
       await expect(page.getByRole("heading", { name: titulo, level: 1 })).toBeVisible();
 
       // Erro de runtime no React não derruba a página inteira no Next; sem esta
       // asserção, um componente quebrado passaria despercebido.
-      expect(erros, `erros de JavaScript em ${rota}`).toEqual([]);
+      expect(errors, `erros de JavaScript em ${route}`).toEqual([]);
     });
   }
 
@@ -65,22 +65,22 @@ test.describe("páginas principais carregam autenticadas", () => {
    * asserção mais fraca e ficar calado seria esconder a lacuna dentro do teste.
    */
   test("/home renderiza (sem h1 — ver comentário)", async ({ page }) => {
-    const erros: string[] = [];
-    page.on("pageerror", (e) => erros.push(e.message));
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
 
     await page.goto("/home");
     await expect(page.getByRole("button", { name: /menu de/i })).toBeVisible();
-    expect(erros, "erros de JavaScript em /home").toEqual([]);
+    expect(errors, "erros de JavaScript em /home").toEqual([]);
   });
 });
 
 test("a listagem de clientes traz dados do backend", async ({ page }) => {
-  const resposta = page.waitForResponse(
+  const response = page.waitForResponse(
     (r) => r.url().includes("/api/v1/clients") && r.request().method() === "GET",
   );
 
   await page.goto("/clientes");
-  expect((await resposta).status()).toBe(200);
+  expect((await response).status()).toBe(200);
 
   await expect(page.getByRole("list", { name: "Clientes" })).toBeVisible();
 });

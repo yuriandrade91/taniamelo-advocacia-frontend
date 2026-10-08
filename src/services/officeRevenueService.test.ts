@@ -51,19 +51,19 @@ describe("a rota", () => {
       dueDate: "2026-03-10",
     });
 
-    const chamadas = [
+    const calls = [
       ...get.mock.calls.map((c) => c[0]),
       ...post.mock.calls.map((c) => c[0]),
     ];
     // Sufixo, e não igualdade: o host vem da env e muda por ambiente; o que
     // não pode mudar é o recurso.
-    expect(chamadas.map((url) => url.replace(/^.*\/api\/v1/, ""))).toEqual([
+    expect(calls.map((url) => url.replace(/^.*\/api\/v1/, ""))).toEqual([
       "/revenues",
       "/revenues/summary",
       "/revenues/timeline",
       "/revenues",
     ]);
-    expect(chamadas.some((url) => url.includes("/payments"))).toBe(false);
+    expect(calls.some((url) => url.includes("/payments"))).toBe(false);
   });
 });
 

@@ -10,6 +10,7 @@ import type {
   ReviewSectionKey,
 } from "../review";
 import { splitBlankOptional, totalMissing } from "../review";
+import { Segmented } from "@/components/ui/filters/FilterBar";
 
 type Filter = "all" | "missing";
 
@@ -183,50 +184,6 @@ function DocumentField({
   );
 }
 
-/** Segmentos em cápsula, no modelo do grupo de botões, sobre fundo branco. */
-function Segmented<T extends string>({
-  label,
-  options,
-  value,
-  onChange,
-  isDisabled,
-}: {
-  label: string;
-  options: readonly (readonly [T, string])[];
-  value: T;
-  onChange: (value: T) => void;
-  isDisabled?: (value: T) => boolean;
-}) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className="flex shrink-0 gap-1 rounded-full p-1 ring-1 ring-light-gray"
-    >
-      {options.map(([option, text]) => {
-        const isSelected = option === value;
-        return (
-          <button
-            key={option}
-            type="button"
-            role="radio"
-            aria-checked={isSelected}
-            disabled={isDisabled?.(option)}
-            onClick={() => onChange(option)}
-            className={`rounded-full px-4 py-2 text-sm whitespace-nowrap transition focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 motion-reduce:active:scale-100 ${
-              isSelected
-                ? "bg-primary font-semibold text-white"
-                : "font-medium text-gray-100 hover:bg-page hover:text-primary"
-            }`}
-          >
-            {text}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
 type View = "document" | "blocks";
 
 /** Cabeçalho de uma seção: título, estado e "Editar". Igual nas duas vistas. */
@@ -337,22 +294,28 @@ export function ReviewPanel({
         <div className="flex flex-wrap gap-2">
           <Segmented
             label="Mostrar na revisão"
-            options={[
-              ["all", "Tudo"],
-              ["missing", "Só pendências"],
+            mode="radio"
+            shape="pill"
+            onPress={(id) => setFilter(id as typeof effectiveFilter)}
+            segments={[
+              { id: "all", label: "Tudo", active: effectiveFilter === "all" },
+              {
+                id: "missing",
+                label: "Só pendências",
+                active: effectiveFilter === "missing",
+                isDisabled: isReady,
+              },
             ]}
-            value={effectiveFilter}
-            onChange={setFilter}
-            isDisabled={(option) => option === "missing" && isReady}
           />
           <Segmented
             label="Visualização da revisão"
-            options={[
-              ["blocks", "Blocos"],
-              ["document", "Documento"],
+            mode="radio"
+            shape="pill"
+            onPress={(id) => setView(id as View)}
+            segments={[
+              { id: "blocks", label: "Blocos", active: view === "blocks" },
+              { id: "document", label: "Documento", active: view === "document" },
             ]}
-            value={view}
-            onChange={setView}
           />
         </div>
       </div>

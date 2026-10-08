@@ -43,7 +43,7 @@ export type DisabilityPeriodErrors = Partial<
   Record<"grade" | "startedOn" | "endedOn", string>
 >;
 
-let contador = 0;
+let counter = 0;
 
 /**
  * Um intervalo em branco.
@@ -54,9 +54,9 @@ let contador = 0;
  * desmarcar algo para descrever a situação normal.
  */
 export function newDisabilityPeriod(): DisabilityPeriodDraft {
-  contador += 1;
+  counter += 1;
   return {
-    key: `disability-${contador}`,
+    key: `disability-${counter}`,
     id: null,
     grade: "",
     startedOn: "",
@@ -92,9 +92,9 @@ export function validateDisabilityPeriods(
   today: string,
 ): Record<string, DisabilityPeriodErrors> {
   const result: Record<string, DisabilityPeriodErrors> = {};
-  const preenchidos = drafts.filter(hasDisabilityInput);
+  const filled = drafts.filter(hasDisabilityInput);
 
-  for (const draft of preenchidos) {
+  for (const draft of filled) {
     const errors: DisabilityPeriodErrors = {};
 
     if (!draft.grade) {
@@ -124,24 +124,24 @@ export function validateDisabilityPeriods(
 
   // Sobreposição: só entre intervalos que já têm início, e sem repetir a
   // acusação nos dois lados — quem chega depois na lista é quem recebe o erro.
-  for (let i = 0; i < preenchidos.length; i += 1) {
-    const atual = preenchidos[i];
-    if (!atual.startedOn || result[atual.key]?.startedOn) continue;
+  for (let i = 0; i < filled.length; i += 1) {
+    const current = filled[i];
+    if (!current.startedOn || result[current.key]?.startedOn) continue;
 
     for (let j = 0; j < i; j += 1) {
-      const anterior = preenchidos[j];
-      if (!anterior.startedOn) continue;
+      const previous = filled[j];
+      if (!previous.startedOn) continue;
 
-      const fimAtual = atual.ongoing || !atual.endedOn ? today : atual.endedOn;
-      const fimAnterior =
-        anterior.ongoing || !anterior.endedOn ? today : anterior.endedOn;
+      const currentEnd = current.ongoing || !current.endedOn ? today : current.endedOn;
+      const previousEnd =
+        previous.ongoing || !previous.endedOn ? today : previous.endedOn;
 
-      const sobrepoe =
-        atual.startedOn <= fimAnterior && anterior.startedOn <= fimAtual;
-      if (sobrepoe) {
-        result[atual.key] = {
-          ...result[atual.key],
-          startedOn: `Este intervalo se sobrepõe ao que começa em ${formatDateBR(anterior.startedOn)}.`,
+      const overlaps =
+        current.startedOn <= previousEnd && previous.startedOn <= currentEnd;
+      if (overlaps) {
+        result[current.key] = {
+          ...result[current.key],
+          startedOn: `Este intervalo se sobrepõe ao que começa em ${formatDateBR(previous.startedOn)}.`,
         };
         break;
       }
@@ -214,10 +214,10 @@ export function disabilityDraftFromResponse(source: {
   endedOn?: string | null;
   ongoing?: boolean;
 }): DisabilityPeriodDraft {
-  contador += 1;
+  counter += 1;
   const ongoing = source.ongoing ?? !source.endedOn;
   return {
-    key: `disability-${contador}`,
+    key: `disability-${counter}`,
     id: source.id ?? null,
     grade: getDisabilityGradeKeyByLabel(source.grade) ?? "",
     startedOn: source.startedOn ?? "",

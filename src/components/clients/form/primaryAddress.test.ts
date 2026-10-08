@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
-  casarIdsDeEndereco,
+  matchAddressIds,
   countPrimaries,
   findPrimaryIndex,
   indexAfterRemoval,
   isValidPrimarySelection,
   nextSelectedIndex,
-  removeSlotAt,
+  removeSlots,
   withPrimaryAt,
 } from "./primaryAddress";
 
@@ -67,15 +67,15 @@ describe("isValidPrimarySelection", () => {
   });
 });
 
-describe("removeSlotAt", () => {
+describe("removeSlots", () => {
   const BLANK = { tag: "vazio", isPrimary: false };
   const v = (tag: string) => ({ tag, isPrimary: false });
 
   it("desloca valores e ids juntos ao remover o do meio", () => {
-    const result = removeSlotAt(
+    const result = removeSlots(
       [v("a"), v("b"), v("c")],
       ["id-a", "id-b", "id-c"],
-      1,
+      [1],
       BLANK,
     );
     expect(result.values.map((x) => x.tag)).toEqual(["a", "c", "vazio"]);
@@ -83,10 +83,10 @@ describe("removeSlotAt", () => {
   });
 
   it("mantém o pareamento valor↔id — é o bug que sobrescreve endereço errado", () => {
-    const result = removeSlotAt(
+    const result = removeSlots(
       [v("a"), v("b"), v("c")],
       ["id-a", "id-b", "id-c"],
-      0,
+      [0],
       BLANK,
     );
     // "b" tem que continuar apontando para id-b depois de andar de posição.
@@ -97,7 +97,7 @@ describe("removeSlotAt", () => {
   });
 
   it("a última posição volta em branco e sem id", () => {
-    const result = removeSlotAt([v("a"), v("b")], ["id-a", null], 0, BLANK);
+    const result = removeSlots([v("a"), v("b")], ["id-a", null], [0], BLANK);
     expect(result.values[1]).toEqual(BLANK);
     expect(result.ids[1]).toBeNull();
   });
@@ -105,16 +105,27 @@ describe("removeSlotAt", () => {
   it("índice fora da faixa não mexe em nada", () => {
     const values = [v("a"), v("b")];
     const ids = ["id-a", "id-b"];
-    expect(removeSlotAt(values, ids, 9, BLANK).ids).toEqual(ids);
-    expect(removeSlotAt(values, ids, -1, BLANK).values.map((x) => x.tag)).toEqual(
+    expect(removeSlots(values, ids, [9], BLANK).ids).toEqual(ids);
+    expect(removeSlots(values, ids, [-1], BLANK).values.map((x) => x.tag)).toEqual(
       ["a", "b"],
     );
+  });
+
+  it("remove várias de uma vez, e o pareamento valor↔id se mantém", () => {
+    const result = removeSlots(
+      [v("a"), v("b"), v("c")],
+      ["id-a", "id-b", "id-c"],
+      [0, 2],
+      BLANK,
+    );
+    expect(result.values.map((x) => x.tag)).toEqual(["b", "vazio", "vazio"]);
+    expect(result.ids).toEqual(["id-b", null, null]);
   });
 
   it("não muta a entrada", () => {
     const values = [v("a"), v("b")];
     const ids = ["id-a", "id-b"];
-    removeSlotAt(values, ids, 0, BLANK);
+    removeSlots(values, ids, [0], BLANK);
     expect(values.map((x) => x.tag)).toEqual(["a", "b"]);
     expect(ids).toEqual(["id-a", "id-b"]);
   });
@@ -122,36 +133,45 @@ describe("removeSlotAt", () => {
 
 describe("nextSelectedIndex", () => {
   it("removendo antes da selecionada, o foco anda um para trás", () => {
-    expect(nextSelectedIndex(0, 2, 2)).toBe(1);
+    expect(nextSelectedIndex([0], 2, 2)).toBe(1);
   });
 
   it("removendo a própria selecionada, fica na mesma posição (agora outra aba)", () => {
-    expect(nextSelectedIndex(1, 1, 2)).toBe(1);
+    expect(nextSelectedIndex([1], 1, 2)).toBe(1);
   });
 
   it("removendo a última selecionada, volta para a anterior", () => {
-    expect(nextSelectedIndex(2, 2, 2)).toBe(1);
+    expect(nextSelectedIndex([2], 2, 2)).toBe(1);
+  });
+
+  it("removendo várias antes da selecionada, anda uma casa por removida", () => {
+    expect(nextSelectedIndex([0, 1], 2, 1)).toBe(0);
   });
 
   it("nunca passa do fim nem fica negativo", () => {
-    expect(nextSelectedIndex(0, 0, 1)).toBe(0);
-    expect(nextSelectedIndex(0, 0, 0)).toBe(0);
+    expect(nextSelectedIndex([0], 0, 1)).toBe(0);
+    expect(nextSelectedIndex([0], 0, 0)).toBe(0);
   });
 });
 
 describe("indexAfterRemoval", () => {
   it("quem estava depois anda uma casa para trás", () => {
-    expect(indexAfterRemoval(2, 0)).toBe(1);
-    expect(indexAfterRemoval(1, 0)).toBe(0);
+    expect(indexAfterRemoval(2, [0])).toBe(1);
+    expect(indexAfterRemoval(1, [0])).toBe(0);
   });
 
   it("quem estava antes não se move", () => {
-    expect(indexAfterRemoval(0, 2)).toBe(0);
-    expect(indexAfterRemoval(1, 2)).toBe(1);
+    expect(indexAfterRemoval(0, [2])).toBe(0);
+    expect(indexAfterRemoval(1, [2])).toBe(1);
   });
 
   it("a própria removida deixa de existir", () => {
-    expect(indexAfterRemoval(1, 1)).toBe(-1);
+    expect(indexAfterRemoval(1, [1])).toBe(-1);
+    expect(indexAfterRemoval(2, [0, 2])).toBe(-1);
+  });
+
+  it("anda uma casa por aba removida antes dela", () => {
+    expect(indexAfterRemoval(2, [0, 1])).toBe(0);
   });
 });
 
@@ -167,38 +187,38 @@ describe("indexAfterRemoval", () => {
  */
 describe("casarIdsDeEndereco", () => {
   it("casa pela ordem de envio, não pela posição da aba", () => {
-    const resultado = casarIdsDeEndereco(
+    const result = matchAddressIds(
       [null, null, null],
       [0, 2],
       [{ id: "end-A" }, { id: "end-C" }],
     );
-    expect(resultado).toEqual(["end-A", null, "end-C"]);
+    expect(result).toEqual(["end-A", null, "end-C"]);
   });
 
   it("aba não enviada conserva o id que já tinha", () => {
-    const resultado = casarIdsDeEndereco(
+    const result = matchAddressIds(
       ["end-antigo", null, null],
       [1],
       [{ id: "end-novo" }],
     );
-    expect(resultado).toEqual(["end-antigo", "end-novo", null]);
+    expect(result).toEqual(["end-antigo", "end-novo", null]);
   });
 
   it("resposta mais curta que o pedido não apaga id existente", () => {
-    const resultado = casarIdsDeEndereco(
+    const result = matchAddressIds(
       ["end-antigo", "outro"],
       [0, 1],
       [{ id: "end-novo" }],
     );
-    expect(resultado).toEqual(["end-novo", "outro"]);
+    expect(result).toEqual(["end-novo", "outro"]);
   });
 
   it("item sem id na resposta não vira undefined na lista", () => {
-    const resultado = casarIdsDeEndereco([null], [0], [{}]);
-    expect(resultado).toEqual([null]);
+    const result = matchAddressIds([null], [0], [{}]);
+    expect(result).toEqual([null]);
   });
 
   it("lote vazio devolve a lista intacta", () => {
-    expect(casarIdsDeEndereco(["a", "b"], [], [])).toEqual(["a", "b"]);
+    expect(matchAddressIds(["a", "b"], [], [])).toEqual(["a", "b"]);
   });
 });

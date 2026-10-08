@@ -4,7 +4,7 @@ import type { SituationKey } from "@/enums/situation/Situation";
 import type { UseClientFiltersResult } from "@/app/(private)/clientes/useClientFilters";
 
 /**
- * O que a página de Clientes entrega à lista (`CompiladoModel`).
+ * O que a página de Clientes entrega à lista (`CompiledModel`).
  *
  * A página é dona da busca, dos filtros, da paginação, do cache, da exclusão
  * com janela de desfazer e dos modais (ficha, edição, exclusão). A lista
@@ -43,7 +43,7 @@ export type ClientsModelProps = {
     onChangeSituation: (client: Clients, situationKey: SituationKey) => Promise<void>;
     /**
      * Abre o financeiro do cliente (benefício e honorários). Só vem para
-     * quem pode ver o financeiro (`podeVerFinanceiro`); sem ela, sem ícone.
+     * quem pode ver o financeiro (`canSeeFinance`); sem ela, sem ícone.
      */
     onViewFinance?: (client: Clients) => void;
   };

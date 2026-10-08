@@ -75,7 +75,7 @@ const endpoints = {
    * `changedByUserId` do histórico de situação). Não expõe e-mail nem
    * credencial — não é um diretório de contatos.
    *
-   * Restrita a ADMIN/LAWYER (`@RequerAdvogado`): ver `podeListarUsuarios`.
+   * Restrita a ADMIN/LAWYER (`@RequerAdvogado`): ver `canListUsers`.
    */
   USERS: {
     /** GET ?includeInactive= — lista completa, ordenada por nome, sem paginação. */
@@ -94,6 +94,11 @@ const endpoints = {
     CREATE: clients.base, // POST
     /** GET — paginado. Filtros: searchTerm, benefitType[], situation[], createdFrom, createdTo */
     LIST: clients.base,
+    /**
+     * GET — próximos aniversariantes (hoje incluso), contados no fuso do
+     * escritório. Params: `days` (0–365, padrão 30), `limit` (1–50, padrão 10).
+     */
+    UPCOMING_BIRTHDAYS: `${clients.base}/upcoming-birthdays`,
     BY_ID: clients.byId, // GET
     UPDATE: clients.byId, // PUT
     PATCH: clients.byId, // PATCH

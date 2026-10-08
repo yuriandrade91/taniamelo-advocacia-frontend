@@ -106,9 +106,9 @@ export type PaymentFormErrors = Partial<
   Record<keyof PaymentFormValues, string>
 >;
 
-const texto = (valor: string | undefined | null): string => valor ?? "";
+const text = (valor: string | undefined | null): string => valor ?? "";
 
-const numeroTexto = (valor: number | undefined | null): string =>
+const numberText = (valor: number | undefined | null): string =>
   valor === undefined || valor === null || Number.isNaN(valor)
     ? ""
     : String(valor);
@@ -124,15 +124,15 @@ export function paymentFormFrom(
 ): PaymentFormValues {
   return {
     ...emptyPaymentForm(),
-    description: texto(payment.description),
+    description: text(payment.description),
     amount: amountToInput(payment.amount),
-    installmentNumber: numeroTexto(payment.installmentNumber),
-    installmentTotal: numeroTexto(payment.installmentTotal),
-    dueDate: texto(payment.dueDate),
+    installmentNumber: numberText(payment.installmentNumber),
+    installmentTotal: numberText(payment.installmentTotal),
+    dueDate: text(payment.dueDate),
     // Do status, nunca da data: uma parcela cancelada pode ter paidDate de
     // antes do cancelamento, e ler a data a reabriria como recebida.
     isSettled: payment.status === PaymentStatusLabelByKey.PAGO,
-    paidDate: texto(payment.paidDate),
+    paidDate: text(payment.paidDate),
     // A API devolve o rótulo ("Boleto"); o select trabalha com a chave
     // ("BOLETO"). Sem converter, o campo abria em "Selecione" numa parcela
     // que tem forma — o mesmo `toKey` do `incomeFormFrom` da Carteira.
@@ -140,8 +140,8 @@ export function paymentFormFrom(
       ? (getPaymentMethodKeyByLabel(payment.paymentMethod) ??
         payment.paymentMethod)
       : "",
-    notes: texto(payment.notes),
-    status: texto(payment.status),
+    notes: text(payment.notes),
+    status: text(payment.status),
   };
 }
 
@@ -158,7 +158,7 @@ export function validatePaymentForm(
  * Igual à Carteira: a caixa manda em Pendente × Pago, e "Cancelado" só se
  * mantém enquanto ninguém marca que o dinheiro entrou.
  */
-export function statusDaParcela(values: PaymentFormValues): PaymentStatusInput {
+export function installmentStatus(values: PaymentFormValues): PaymentStatusInput {
   if (values.isSettled) return PaymentStatusLabelByKey.PAGO;
   if (values.status === PaymentStatusLabelByKey.CANCELADO) {
     return PaymentStatusLabelByKey.CANCELADO;
@@ -166,13 +166,13 @@ export function statusDaParcela(values: PaymentFormValues): PaymentStatusInput {
   return PaymentStatusLabelByKey.PENDENTE;
 }
 
-const opcional = (valor: string): string | undefined =>
+const optional = (valor: string): string | undefined =>
   valor.trim() === "" ? undefined : valor.trim();
 
-const inteiro = (valor: string): number | undefined => {
-  const limpo = valor.trim();
-  if (limpo === "") return undefined;
-  const numero = Number(limpo);
+const whole = (valor: string): number | undefined => {
+  const clean = valor.trim();
+  if (clean === "") return undefined;
+  const numero = Number(clean);
   return Number.isInteger(numero) ? numero : undefined;
 };
 
@@ -198,20 +198,20 @@ export function toPaymentPatch(
   }
   if (values.dueDate !== antes.dueDate) patch.dueDate = values.dueDate;
   if (values.installmentNumber !== antes.installmentNumber) {
-    patch.installmentNumber = inteiro(values.installmentNumber);
+    patch.installmentNumber = whole(values.installmentNumber);
   }
   if (values.installmentTotal !== antes.installmentTotal) {
-    patch.installmentTotal = inteiro(values.installmentTotal);
+    patch.installmentTotal = whole(values.installmentTotal);
   }
   if (values.paymentMethod !== antes.paymentMethod) {
-    patch.paymentMethod = opcional(values.paymentMethod) as
+    patch.paymentMethod = optional(values.paymentMethod) as
       PaymentMethodInput | undefined;
   }
-  if (values.notes !== antes.notes) patch.notes = opcional(values.notes);
+  if (values.notes !== antes.notes) patch.notes = optional(values.notes);
 
-  const status = statusDaParcela(values);
-  const statusAntes = statusDaParcela(antes);
-  if (status !== statusAntes) {
+  const status = installmentStatus(values);
+  const statusBefore = installmentStatus(antes);
+  if (status !== statusBefore) {
     patch.status = status;
     // Só acompanha o status quando ele muda: mandar paidDate sozinho, com a
     // situação intacta, é o caminho de "pendente com data de pagamento".
@@ -230,6 +230,6 @@ export function toPaymentPatch(
 }
 
 /** Nada mudou: não vale requisição, nem um toast de sucesso que não houve. */
-export const patchVazio = (patch: ClientPaymentUpdateRequest): boolean =>
+export const emptyPatch = (patch: ClientPaymentUpdateRequest): boolean =>
   Object.keys(patch).length === 0;
 

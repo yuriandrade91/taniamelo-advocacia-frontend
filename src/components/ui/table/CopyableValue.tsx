@@ -2,6 +2,7 @@
 
 import { Button } from "@heroui/react";
 import { notificationCenter } from "@/services/notificationService";
+import { CopyIcon } from "@/components/ui/icons/glyphs";
 
 /**
  * Valor de célula com botão de copiar — a confirmação sai em toast.
@@ -17,24 +18,6 @@ import { notificationCenter } from "@/services/notificationService";
  * resto da aplicação: some sozinho, não cobre dado e não deixa estado para
  * trás no componente — que volta a ser só apresentação.
  */
-
-function CopyIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect x="9" y="9" width="11" height="11" rx="2" />
-      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
-    </svg>
-  );
-}
 
 /**
  * Copia e avisa. Exportada para quem precisar do mesmo comportamento sem o

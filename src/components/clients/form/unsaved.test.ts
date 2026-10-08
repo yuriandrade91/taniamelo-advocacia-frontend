@@ -9,8 +9,8 @@ describe("sectionHasInput", () => {
   });
 
   it("valor que nasce preenchido não conta como digitado", () => {
-    const comPadrao = { ...initial, situation: "Em análise" };
-    expect(sectionHasInput({ ...comPadrao }, comPadrao)).toBe(false);
+    const withDefaults = { ...initial, situation: "Em análise" };
+    expect(sectionHasInput({ ...withDefaults }, withDefaults)).toBe(false);
   });
 
   it("texto digitado conta; só espaços, não", () => {

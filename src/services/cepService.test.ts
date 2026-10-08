@@ -15,7 +15,7 @@ vi.mock("@/services/axiosService", () => ({
 import axiosInstance from "@/services/axiosService";
 import { isCompleteCep, lookupCep } from "./cepService";
 
-const encontrado = {
+const found = {
   zipCode: "30240-000",
   street: "Rua dos Timbiras",
   complement: "lado ímpar",
@@ -24,7 +24,7 @@ const encontrado = {
   state: "MG",
 };
 
-const falhaHttp = (status: number, headers: Record<string, string> = {}) => ({
+const httpFailure = (status: number, headers: Record<string, string> = {}) => ({
   response: { status, headers },
 });
 
@@ -33,12 +33,12 @@ beforeEach(() => vi.clearAllMocks());
 describe("lookupCep", () => {
   it("consulta /cep/{digitos}, sem pontuação e sem toast de erro", async () => {
     vi.mocked(axiosInstance.get).mockResolvedValue({
-      data: { success: true, data: encontrado },
+      data: { success: true, data: found },
     } as never);
 
     const result = await lookupCep("30.240-000");
 
-    expect(result).toEqual({ status: "found", address: encontrado });
+    expect(result).toEqual({ status: "found", address: found });
     const [url, config] = vi.mocked(axiosInstance.get).mock.calls[0];
     expect(url).toMatch(/\/api\/v1\/cep\/30240000$/);
     expect(config).toMatchObject({ skipErrorToast: true });
@@ -50,13 +50,13 @@ describe("lookupCep", () => {
   });
 
   it("404 é CEP inexistente", async () => {
-    vi.mocked(axiosInstance.get).mockRejectedValue(falhaHttp(404));
+    vi.mocked(axiosInstance.get).mockRejectedValue(httpFailure(404));
     expect(await lookupCep("99999-999")).toEqual({ status: "not-found" });
   });
 
   it("429 diz quando tentar de novo, a partir do Retry-After", async () => {
     vi.mocked(axiosInstance.get).mockRejectedValue(
-      falhaHttp(429, { "retry-after": "60" }),
+      httpFailure(429, { "retry-after": "60" }),
     );
     expect(await lookupCep("30240-000")).toEqual({
       status: "rate-limited",
@@ -65,7 +65,7 @@ describe("lookupCep", () => {
   });
 
   it("429 sem Retry-After não inventa prazo", async () => {
-    vi.mocked(axiosInstance.get).mockRejectedValue(falhaHttp(429));
+    vi.mocked(axiosInstance.get).mockRejectedValue(httpFailure(429));
     const result = await lookupCep("30240-000");
     expect(result).toMatchObject({ status: "rate-limited" });
     expect(result.status === "rate-limited" && result.message).toMatch(
@@ -74,7 +74,7 @@ describe("lookupCep", () => {
   });
 
   it("provedor fora do ar (500) e falha de rede viram indisponível", async () => {
-    vi.mocked(axiosInstance.get).mockRejectedValueOnce(falhaHttp(500));
+    vi.mocked(axiosInstance.get).mockRejectedValueOnce(httpFailure(500));
     expect(await lookupCep("30240-000")).toEqual({ status: "unavailable" });
 
     vi.mocked(axiosInstance.get).mockRejectedValueOnce(new Error("Network"));

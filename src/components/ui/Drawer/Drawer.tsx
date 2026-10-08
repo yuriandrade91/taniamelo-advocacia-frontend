@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Button, Drawer as HeroDrawer } from "@heroui/react";
+import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 
 /**
  * Drawer da aplicação — **para ação rápida**.
@@ -67,6 +68,12 @@ export type DrawerProps = {
 
   /** Esconde o rodapé — útil quando o drawer é só de leitura. */
   hideFooter?: boolean;
+  /**
+   * O rodapé em cápsula (`ActionGroup`), o mesmo do `FormModal` — é o que os
+   * formulários de lançamento usam. O padrão continua sendo os botões do
+   * HeroUI, para os painéis que não pediram para mudar.
+   */
+  actions?: "buttons" | "pill";
   className?: string;
   /**
    * Classes do **painel** (`Drawer.Dialog`) — é aqui que vai a largura.
@@ -92,6 +99,7 @@ export default function Drawer({
   confirmClose = false,
   onRequestClose,
   hideFooter = false,
+  actions = "buttons",
   className = "",
   dialogClassName = "",
 }: DrawerProps) {
@@ -122,6 +130,10 @@ export default function Drawer({
       <HeroDrawer.Backdrop>
         <HeroDrawer.Content placement={placement} className={className}>
           <HeroDrawer.Dialog className={dialogClassName}>
+            {/* Passa pelo `handleOpenChange`: com `confirmClose`, o X também
+                só avisa em vez de fechar. */}
+            <HeroDrawer.CloseTrigger />
+
             <form onSubmit={handleSubmit} className="flex h-full flex-col">
               <HeroDrawer.Header>
                 <HeroDrawer.Heading>{title}</HeroDrawer.Heading>
@@ -136,20 +148,43 @@ export default function Drawer({
 
               {!hideFooter && (
                 <HeroDrawer.Footer className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onPress={() => handleOpenChange(false)}
-                    isDisabled={isSubmitting}
-                  >
-                    {cancelLabel}
-                  </Button>
-                  <Button
-                    type="submit"
-                    isDisabled={isConfirmDisabled || isSubmitting}
-                  >
-                    {isSubmitting ? "Salvando..." : confirmLabel}
-                  </Button>
+                  {actions === "pill" ? (
+                    // Sair à esquerda, em cinza; a ação principal em azul,
+                    // dentro do mesmo grupo — como no `FormModal`.
+                    <ActionGroup shape="pill">
+                      <ActionButton
+                        tone="neutral"
+                        onClick={() => handleOpenChange(false)}
+                        disabled={isSubmitting}
+                      >
+                        {cancelLabel}
+                      </ActionButton>
+                      <ActionButton
+                        tone="primary"
+                        isSubmit
+                        disabled={isConfirmDisabled || isSubmitting}
+                      >
+                        {isSubmitting ? "Salvando..." : confirmLabel}
+                      </ActionButton>
+                    </ActionGroup>
+                  ) : (
+                    <>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onPress={() => handleOpenChange(false)}
+                        isDisabled={isSubmitting}
+                      >
+                        {cancelLabel}
+                      </Button>
+                      <Button
+                        type="submit"
+                        isDisabled={isConfirmDisabled || isSubmitting}
+                      >
+                        {isSubmitting ? "Salvando..." : confirmLabel}
+                      </Button>
+                    </>
+                  )}
                 </HeroDrawer.Footer>
               )}
             </form>

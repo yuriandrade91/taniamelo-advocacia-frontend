@@ -200,9 +200,9 @@ export const DOCUMENT_CATALOG: Partial<
 };
 
 /** Todos os itens de uma categoria, achatados — para contagem e busca. */
-export const itensDaCategoria = (key: DocumentTypeKey): string[] =>
+export const itemsOfCategory = (key: DocumentTypeKey): string[] =>
   (DOCUMENT_CATALOG[key]?.grupos ?? []).flatMap((grupo) => grupo.itens);
 
 /** Quantos documentos a categoria lista. `OUTROS` não lista nenhum. */
 export const totalDeItens = (key: DocumentTypeKey): number =>
-  itensDaCategoria(key).length;
+  itemsOfCategory(key).length;

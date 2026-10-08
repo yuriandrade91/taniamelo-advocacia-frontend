@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { BenefitOptions } from "@/enums/benefit/Benefits";
 import { GenderOptions } from "@/enums/gender/Gender";
 import { SituationOptions } from "@/enums/situation/Situation";
-import { maskCelular, maskCPF, maskNIT, maskRG } from "@/lib/masks/masks";
+import { maskMobile, maskCPF, maskNIT, maskRG } from "@/lib/masks/masks";
 import { ageFromBirthDate } from "@/lib/validators";
 import {
   Caption,
@@ -13,9 +13,8 @@ import {
   InlineSelect,
   type FillModeProps,
 } from "./shared";
-import { digitsOf } from "@/lib/masks/masks";
+import { onlyDigits } from "@/lib/masks/masks";
 
-const onlyDigits = (value: string, max: number) => digitsOf(value).slice(0, max);
 
 /** Anos de contribuição em fração: 33a 6m → 33,5. */
 const contributionYears = (years: string, months: string, days: string) =>
@@ -281,7 +280,7 @@ export function LifelineMode(props: FillModeProps) {
               label="Celular"
               placeholder="(00) 00000-0000"
               value={p.mobilePhone}
-              onChange={(v) => personal.setField("mobilePhone", maskCelular(v))}
+              onChange={(v) => personal.setField("mobilePhone", maskMobile(v))}
               missing
               className="font-mono"
             />

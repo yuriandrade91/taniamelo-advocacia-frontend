@@ -22,7 +22,7 @@ depois, quando ninguém sabe se `client-row-3` ainda significa alguma coisa.
 O projeto tem **dois** `data-testid`, ambos em `InssPasswordField.tsx`:
 `inss-password-field` (numa `div` de embrulho) e `inss-password-toggle` (no
 botão de revelar). São usados em 10 lugares entre `inss-password.spec.ts` e
-`papeis.spec.ts`.
+`roles.spec.ts`.
 
 Os dois estão em elementos **já acessíveis** — exatamente o caso que a regra
 manda evitar:
@@ -38,7 +38,7 @@ suíte. O passo 1 abaixo é aplicar isso no repositório, não descobrir se dá.
 
 O botão é o caso interessante. O nome muda com o estado ("Revelar senha" →
 "Consultando…" → "Esconder"), e é essa variação que empurra quem escreve o
-teste para o `data-testid`. Mas a asserção que importa em `papeis.spec.ts` é
+teste para o `data-testid`. Mas a asserção que importa em `roles.spec.ts` é
 *"o atendente não recebe o botão de revelar"* — e `getByRole("button", { name:
 /revelar senha/i })` diz isso na língua do produto, enquanto
 `getByTestId("inss-password-toggle")` diz na língua do DOM.
@@ -111,7 +111,7 @@ Trocar os dez usos por `getByLabel` / `getByRole` e remover os atributos do
 `InssPasswordField.tsx`. Já validado: 11 testes verdes contra a AWS.
 
 Verificação: `grep -r "data-testid" src` não devolve nada e
-`pnpm test:e2e:dev e2e/inss-password.spec.ts e2e/papeis.spec.ts` passa.
+`pnpm test:e2e:dev e2e/inss-password.spec.ts e2e/roles.spec.ts` passa.
 
 ### 2. Escrever a regra onde ela é consultada
 
@@ -122,7 +122,7 @@ armadilha do `getByLabel`. Esta página passa a ser o lugar da regra, e o
 
 ### 3. Trocar `getByLabel` por `getByRole` nos formulários
 
-Hoje há usos de `getByLabel` em `cadastro-endereco-em-lote.spec.ts` que
+Hoje há usos de `getByLabel` em `signup-address-batch.spec.ts` que
 funcionam por sorte — o nome do campo não é substring de nenhuma lista de
 opções. "Nome completo", "CPF" e "Celular" estão a um benefício novo de
 distância de virar ambíguos.

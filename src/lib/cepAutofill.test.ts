@@ -7,7 +7,7 @@ import {
   type CepFillable,
 } from "./cepAutofill";
 
-const vazio: CepFillable = {
+const empty: CepFillable = {
   zipCode: "30240-000",
   street: "",
   neighborhood: "",
@@ -18,7 +18,7 @@ const vazio: CepFillable = {
 describe("cepPatch", () => {
   it("preenche rua, bairro, cidade e UF com o que o CEP traz", () => {
     expect(
-      cepPatch(vazio, {
+      cepPatch(empty, {
         zipCode: "30240-000",
         street: "Rua dos Timbiras",
         complement: "lado ímpar",
@@ -36,14 +36,14 @@ describe("cepPatch", () => {
   });
 
   it("CEP novo substitui o endereço anterior", () => {
-    const anterior = {
-      ...vazio,
+    const previous = {
+      ...empty,
       street: "Rua Velha",
       neighborhood: "Centro",
       city: "Contagem",
       state: "MG",
     };
-    const next = cepPatch(anterior, {
+    const next = cepPatch(previous, {
       zipCode: "01310-100",
       street: "Avenida Paulista",
       complement: null,
@@ -56,8 +56,8 @@ describe("cepPatch", () => {
   });
 
   it("CEP de município inteiro (sem rua nem bairro) não apaga o que foi digitado", () => {
-    const digitado = { ...vazio, street: "Rua das Flores", neighborhood: "Centro" };
-    const next = cepPatch(digitado, {
+    const typed = { ...empty, street: "Rua das Flores", neighborhood: "Centro" };
+    const next = cepPatch(typed, {
       zipCode: "35460-000",
       street: "",
       complement: null,
@@ -75,7 +75,7 @@ describe("cepPatch", () => {
   });
 
   it("não devolve complemento: o do CEP não é o apartamento do cliente", () => {
-    const next = cepPatch(vazio, {
+    const next = cepPatch(empty, {
       zipCode: "30240-000",
       street: "Rua X",
       complement: "até 999 - lado par",
@@ -96,36 +96,36 @@ describe("isCepLocked", () => {
     city: "Belo Horizonte",
     state: "MG",
   };
-  const preenchido = cepPatch(vazio, found);
+  const filled = cepPatch(empty, found);
 
   it("trava o que veio do CEP enquanto o CEP for o mesmo", () => {
-    expect(isCepLocked(found, preenchido, "street")).toBe(true);
-    expect(isCepLocked(found, preenchido, "city")).toBe(true);
-    expect(isCepLocked(found, preenchido, "state")).toBe(true);
+    expect(isCepLocked(found, filled, "street")).toBe(true);
+    expect(isCepLocked(found, filled, "city")).toBe(true);
+    expect(isCepLocked(found, filled, "state")).toBe(true);
   });
 
   it("CEP trocado (ou incompleto) destrava", () => {
     expect(
-      isCepLocked(found, { ...preenchido, zipCode: "30240-00" }, "street"),
+      isCepLocked(found, { ...filled, zipCode: "30240-00" }, "street"),
     ).toBe(false);
   });
 
   it("não trava o que o CEP não trouxe: a pessoa precisa completar", () => {
-    const municipio = { ...found, street: "", neighborhood: null };
-    const valores = cepPatch(vazio, municipio);
-    expect(isCepLocked(municipio, valores, "street")).toBe(false);
-    expect(isCepLocked(municipio, valores, "neighborhood")).toBe(false);
-    expect(isCepLocked(municipio, valores, "city")).toBe(true);
+    const city = { ...found, street: "", neighborhood: null };
+    const values = cepPatch(empty, city);
+    expect(isCepLocked(city, values, "street")).toBe(false);
+    expect(isCepLocked(city, values, "neighborhood")).toBe(false);
+    expect(isCepLocked(city, values, "city")).toBe(true);
   });
 
   it("valores que não são os do CEP não travam (ex.: aba que herdou outro endereço)", () => {
     expect(
-      isCepLocked(found, { ...preenchido, street: "Rua Outra" }, "street"),
+      isCepLocked(found, { ...filled, street: "Rua Outra" }, "street"),
     ).toBe(false);
   });
 
   it("sem consulta, nada trava", () => {
-    expect(isCepLocked(null, preenchido, "street")).toBe(false);
+    expect(isCepLocked(null, filled, "street")).toBe(false);
   });
 });
 

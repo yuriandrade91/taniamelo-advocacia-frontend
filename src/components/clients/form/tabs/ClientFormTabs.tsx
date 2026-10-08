@@ -7,12 +7,7 @@ import { notificationCenter } from "@/services/notificationService";
 import { revealTop } from "./revealTop";
 import { SectionCard } from "./SectionCard";
 import { ReviewIcon } from "./sectionIcons";
-import {
-  TAB_CLASS,
-  TAB_INDICATOR_CLASS,
-  TAB_LIST_CLASS,
-  TAB_LIST_CONTAINER_CLASS,
-} from "./tabStyle";
+import { CountBadge, TabBar, TabItem } from "@/components/ui/tabs/SegmentedTabs";
 import type { ClientFormSection, SectionFocus } from "./types";
 import { useActiveSection } from "./useActiveSection";
 
@@ -39,14 +34,7 @@ function Enter({ children }: { children: ReactNode }) {
  */
 function TabState({ section }: { section: ClientFormSection }) {
   if (section.missing) {
-    return (
-      <span
-        aria-hidden="true"
-        className="flex h-5 min-w-5 items-center justify-center rounded-full bg-secondary px-1.5 text-[11px] font-semibold text-white tabular-nums"
-      >
-        {section.missing}
-      </span>
-    );
+    return <CountBadge tone="pending" count={section.missing} />;
   }
   if (section.status === "ready" || section.status === "saved") {
     return (
@@ -148,39 +136,40 @@ export function ClientFormTabs({
         onSelectionChange={(key) => advanceTo(String(key))}
         className="gap-4"
       >
-        <Tabs.ListContainer
-          className={`sticky top-3 z-20 bg-white/90! backdrop-blur-md ${TAB_LIST_CONTAINER_CLASS}`}
+        <TabBar
+          label="Seções do cadastro"
+          className="sticky top-3 z-20 bg-white/90! backdrop-blur-md"
         >
-          <Tabs.List aria-label="Seções do cadastro" className={TAB_LIST_CLASS}>
-            {sections.map((section) => (
-              <Tabs.Tab key={section.id} id={section.id} className={TAB_CLASS}>
-                <span className="text-secondary/80 group-data-[selected=true]:text-white/90">
-                  {section.icon}
-                </span>
-                {section.title}
-                <span className="sr-only">
-                  {" "}
-                  ({section.statusLabel}
-                  {section.missing === 1
-                    ? " · falta 1 obrigatório"
-                    : section.missing
-                      ? ` · faltam ${section.missing} obrigatórios`
-                      : ""}
-                  )
-                </span>
-                <TabState section={section} />
-                <Tabs.Indicator className={TAB_INDICATOR_CLASS} />
-              </Tabs.Tab>
-            ))}
-            {review && (
-              <Tabs.Tab id={review.id} className={`${TAB_CLASS} text-secondary`}>
-                <ReviewIcon />
-                {review.title}
-                <Tabs.Indicator className="rounded-xl bg-secondary shadow-none" />
-              </Tabs.Tab>
-            )}
-          </Tabs.List>
-        </Tabs.ListContainer>
+          {sections.map((section) => (
+            <TabItem key={section.id} id={section.id}>
+              <span className="text-secondary/80 group-data-[selected=true]:text-white/90">
+                {section.icon}
+              </span>
+              {section.title}
+              <span className="sr-only">
+                {" "}
+                ({section.statusLabel}
+                {section.missing === 1
+                  ? " · falta 1 obrigatório"
+                  : section.missing
+                    ? ` · faltam ${section.missing} obrigatórios`
+                    : ""}
+                )
+              </span>
+              <TabState section={section} />
+            </TabItem>
+          ))}
+          {review && (
+            <TabItem
+              id={review.id}
+              className="text-secondary"
+              indicatorClassName="rounded-xl bg-secondary shadow-none"
+            >
+              <ReviewIcon />
+              {review.title}
+            </TabItem>
+          )}
+        </TabBar>
 
         {sections.map((section, i) => {
           const previous = sections[i - 1];

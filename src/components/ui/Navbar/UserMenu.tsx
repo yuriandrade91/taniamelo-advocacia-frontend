@@ -1,15 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { logout as authLogout } from "@/services/authService";
 import { publicRoutes } from "@/constants/paths/routes";
-import {
-  getSessionUser,
-  initialsOf,
-  type SessionUser,
-} from "@/lib/sessionUser";
+import { initialsOf } from "@/lib/sessionUser";
+import { useSessionUser } from "@/hooks/useSessionUser";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
 import { useDismiss } from "@/hooks/useDismiss";
 import { LogoutIcon, UserIcon } from "./icons";
@@ -25,9 +22,9 @@ import { LogoutIcon, UserIcon } from "./icons";
  * `LoginResponse` — antes o `fullName`/`email`/`role` chegavam e eram
  * descartados, e o avatar exibia um "TM" fixo no código.
  *
- * A leitura acontece em `useEffect` (e não no `useState` inicial) porque
- * `localStorage` não existe no servidor: ler durante a renderização causaria
- * divergência de hidratação.
+ * A leitura é uma assinatura (`useSessionUser`), não um efeito de montagem: o
+ * navbar não remonta ao navegar, e quem salvasse "Meus dados" continuaria
+ * vendo o nome antigo aqui até sair e entrar de novo.
  */
 
 export type UserMenuProps = {
@@ -37,7 +34,7 @@ export type UserMenuProps = {
 export default function UserMenu({ className = "" }: UserMenuProps) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
-  const [user, setUser] = useState<SessionUser | null>(null);
+  const user = useSessionUser();
   const [isSigningOut, setIsSigningOut] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -48,10 +45,6 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
     exit: "animate__slideOutUp",
     durationMs: 320,
   });
-
-  useEffect(() => {
-    setUser(getSessionUser());
-  }, []);
 
   useDismiss(isOpen, () => setIsOpen(false), containerRef);
 

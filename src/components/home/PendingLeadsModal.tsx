@@ -5,27 +5,24 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, Input, Label, Skeleton } from "@heroui/react";
 
 import FormModal from "@/components/ui/modals/FormModal/FormModal";
-import {
-  MailIcon,
-  PhoneIcon,
-  WhatsappIcon,
-} from "@/components/ui/icons/ContactIcons";
+import { MailIcon, WhatsappIcon } from "@/components/ui/icons/ContactIcons";
+import { EyeIcon } from "@/components/ui/icons/glyphs";
 import { ContactAction } from "@/components/ui/ContactAction";
 import { initials } from "@/lib/format";
 import { clients as fetchClients } from "@/services/clientService";
 import {
+  contactMessage,
   filterLeads,
   formatWaiting,
   groupLeads,
-  mailtoLink,
-  telLink,
   toPendingLead,
   urgencyDot,
   urgencyTile,
-  whatsappLink,
   type LeadUrgency,
   type PendingLead,
 } from "./pendingLeads";
+import { mailtoLink, whatsappLink } from "@/lib/contactLinks";
+import { Notice } from "@/components/ui/feedback/Notice";
 
 /**
  * Quem preencheu o formulário e ainda não virou cliente.
@@ -61,6 +58,12 @@ import {
 export type PendingLeadsModalProps = {
   isOpen: boolean;
   onClose: () => void;
+  /**
+   * Abrir a ficha de quem está na fila. Quem chama decide o que fazer com a
+   * modal (a Home fecha esta e reabre quando a ficha sai, para não empilhar
+   * duas camadas sobre a mesma tela).
+   */
+  onViewClient?: (lead: PendingLead) => void;
 };
 
 /** Quantos carregar. Acima disto, a fila deixou de ser um problema de contato. */
@@ -88,7 +91,14 @@ const FILTERS: { id: "todos" | LeadUrgency; label: string }[] = [
  * e um bloco de linhas de texto puro lê como planilha. A espera é o dado que
  * decide a ordem de ligar, então ela é pílula colorida, não texto cinza.
  */
-function LeadRow({ lead }: { lead: PendingLead }) {
+function LeadRow({
+  lead,
+  onView,
+}: {
+  lead: PendingLead;
+  /** Ausente, a linha não mostra o botão de ficha. */
+  onView?: (lead: PendingLead) => void;
+}) {
   return (
     <li className="flex items-center gap-3 rounded-2xl bg-white px-3 py-2.5 ring-1 ring-black/5 transition hover:bg-secondary/5">
       <span
@@ -121,24 +131,42 @@ function LeadRow({ lead }: { lead: PendingLead }) {
 
       <div className="flex shrink-0 items-center gap-0.5">
         {/*
-          WhatsApp só quando o cadastro afirma que o número tem. Mandar
-          mensagem para um fixo queima o contato.
+          Ver a ficha sem sair da fila: o nome e o benefício da linha dizem
+          pouco quando a conversa começa, e abrir `/clientes` para procurar a
+          mesma pessoa perde o lugar na lista.
         */}
-        {lead.isWhatsapp && (
-          <ContactAction
-            href={whatsappLink(lead.phone)}
-            label={`WhatsApp de ${lead.name}`}
-            tone="success"
+        {onView && (
+          <button
+            type="button"
+            onClick={() => onView(lead)}
+            aria-label={`Ver a ficha de ${lead.name}`}
+            title={`Ver a ficha de ${lead.name}`}
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-secondary transition-colors hover:bg-secondary/10"
           >
-            <WhatsappIcon />
-          </ContactAction>
+            <EyeIcon />
+          </button>
         )}
+        {/*
+          O contato por telefone é o WhatsApp, com a mensagem já escrita: é
+          assim que o escritório aborda quem preencheu o formulário, e digitar
+          o mesmo texto a cada pessoa é onde se erra o nome de quem esperou
+          dois meses. Nada é enviado sozinho — abre a conversa com o texto
+          pronto para revisar.
+
+          Vale mesmo quando o cadastro não afirma que o número tem WhatsApp: a
+          maioria tem, e o custo de descobrir que não é a própria tela do
+          WhatsApp dizendo. O que o `isWhatsapp` muda é o tom do rótulo.
+        */}
         <ContactAction
-          href={telLink(lead.phone)}
-          label={`Ligar para ${lead.name}`}
-          tone="primary"
+          href={whatsappLink(lead.phone, contactMessage(lead))}
+          label={
+            lead.isWhatsapp
+              ? `WhatsApp de ${lead.name}`
+              : `Chamar ${lead.name} no WhatsApp`
+          }
+          tone="success"
         >
-          <PhoneIcon />
+          <WhatsappIcon />
         </ContactAction>
         <ContactAction
           href={mailtoLink(lead.email)}
@@ -152,7 +180,11 @@ function LeadRow({ lead }: { lead: PendingLead }) {
   );
 }
 
-export function PendingLeadsModal({ isOpen, onClose }: PendingLeadsModalProps) {
+export function PendingLeadsModal({
+  isOpen,
+  onClose,
+  onViewClient,
+}: PendingLeadsModalProps) {
   const [search, setSearch] = useState("");
   /** Faixa de espera escolhida no topo — "todos" é o estado inicial. */
   const [urgency, setUrgency] = useState<"todos" | LeadUrgency>("todos");
@@ -187,10 +219,10 @@ export function PendingLeadsModal({ isOpen, onClose }: PendingLeadsModalProps) {
   const hasError = current?.failed ?? false;
 
   const visible = useMemo(() => {
-    const encontrados = filterLeads(leads, search);
+    const found = filterLeads(leads, search);
     return urgency === "todos"
-      ? encontrados
-      : encontrados.filter((lead) => lead.urgency === urgency);
+      ? found
+      : found.filter((lead) => lead.urgency === urgency);
   }, [leads, search, urgency]);
   const groups = useMemo(() => groupLeads(visible), [visible]);
 
@@ -232,9 +264,7 @@ export function PendingLeadsModal({ isOpen, onClose }: PendingLeadsModalProps) {
             Não foi possível carregar a lista. Tente abrir de novo.
           </p>
         ) : leads.length === 0 ? (
-          <p className="rounded-2xl bg-page px-4 py-6 text-center text-sm text-gray-100">
-            Ninguém esperando. Todo formulário preenchido já virou atendimento.
-          </p>
+          <Notice>Ninguém esperando. Todo formulário preenchido já virou atendimento.</Notice>
         ) : (
           <>
             {/*
@@ -291,7 +321,7 @@ export function PendingLeadsModal({ isOpen, onClose }: PendingLeadsModalProps) {
                 <Label className="text-secondary">Buscar</Label>
                 <Input
                   className="form-border-style"
-                  placeholder="Nome, telefone ou e-mail"
+                  placeholder="Nome, telefone ou benefício"
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
                 />
@@ -332,7 +362,7 @@ export function PendingLeadsModal({ isOpen, onClose }: PendingLeadsModalProps) {
 
                   <ul className="flex flex-col gap-2">
                     {group.leads.map((lead) => (
-                      <LeadRow key={lead.id} lead={lead} />
+                      <LeadRow key={lead.id} lead={lead} onView={onViewClient} />
                     ))}
                   </ul>
                 </section>

@@ -2,16 +2,18 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Skeleton } from "@heroui/react";
-import { LoadingCircle, RowSkeleton } from "@/components/ui/feedback/Loading";
+import { RowSkeletons } from "@/components/ui/feedback/Loading";
+import { Segmented } from "@/components/ui/filters/FilterBar";
 import { bucketOf, type PaymentBucket } from "@/components/payments/paymentBuckets";
 import { BucketChip } from "@/components/wallet/WalletEntryList";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type { FinanceSummary } from "@/interfaces/finance/Finance.interface";
 import { formatBRL, formatDateBR, formatInstallment, plural } from "@/lib/format";
 import { daysBetween, todayIso } from "@/lib/period";
-import { integracaoPendente } from "@/services/integracaoPendente";
+import { pendingIntegration } from "@/services/pendingIntegration";
 import { getOfficePaymentSummary, listOfficePayments } from "@/services/officePaymentService";
 import { getOfficeRevenueSummary, listOfficeRevenues } from "@/services/officeRevenueService";
+import { Notice } from "@/components/ui/feedback/Notice";
 
 /**
  * O financeiro de um cliente — no painel lateral da lista (`ClientFinanceDrawer`)
@@ -88,7 +90,7 @@ async function loadBlock<T>(
   summary: () => Promise<ApiEnvelope<FinanceSummary>>,
   toEntry: (item: T) => Entry,
 ): Promise<Block> {
-  if (integracaoPendente(group)) return { state: "paused" };
+  if (pendingIntegration(group)) return { state: "paused" };
   const [listed, summed] = await Promise.allSettled([list(), summary()]);
   if (listed.status === "rejected") return { state: "error" };
 
@@ -204,7 +206,11 @@ const TABS: Record<TabId, TabMeta> = {
   },
 };
 
-/** Segmentos no padrão das abas da casa: fundo branco, ativa em azul. */
+/**
+ * As abas: o `Segmented` das listas, com o total de cada lado no selo. Sem
+ * selo onde não há número (rota em pausa, erro); carregando, o círculo no
+ * lugar dele.
+ */
 function TabSwitch({
   value,
   onChange,
@@ -215,37 +221,21 @@ function TabSwitch({
   data: Loaded | null;
 }) {
   return (
-    <div role="tablist" aria-label="Financeiro do cliente" className="flex rounded-2xl bg-white p-1 ring-1 ring-light-gray">
-      {(Object.keys(TABS) as TabId[]).map((id) => {
-        const active = id === value;
+    <Segmented
+      label="Financeiro do cliente"
+      mode="tab"
+      grow
+      onPress={(id) => onChange(id as TabId)}
+      segments={(Object.keys(TABS) as TabId[]).map((id) => {
         const block = data?.[id];
-        // Sem selo onde não há número (rota em pausa, erro); carregando, o círculo no lugar dele.
-        const showCount = !block || block.state === "ok";
-        return (
-          <button
-            key={id}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(id)}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition ${
-              active ? "bg-primary text-white" : "text-gray-100 hover:bg-page hover:text-primary"
-            }`}
-          >
-            {TABS[id].label}
-            {showCount && (
-              <span
-                className={`inline-flex h-4 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] leading-4 tabular-nums ${
-                  active ? "bg-secondary text-white" : "bg-page text-gray-100"
-                }`}
-              >
-                {block?.state === "ok" ? block.total : <LoadingCircle size={10} label={`Contando ${TABS[id].label}`} />}
-              </span>
-            )}
-          </button>
-        );
+        return {
+          id,
+          label: TABS[id].label,
+          active: id === value,
+          count: !block ? null : block.state === "ok" ? block.total : undefined,
+        };
       })}
-    </div>
+    />
   );
 }
 
@@ -259,7 +249,7 @@ function TabBody({ block, meta }: { block: Block | null; meta: TabMeta }) {
     return <Notice>Esta parte ainda não está no ar neste ambiente.</Notice>;
   }
   if (block.state === "error") {
-    return <Notice danger>Não foi possível carregar. Feche e abra de novo.</Notice>;
+    return <Notice tone="danger">Não foi possível carregar. Feche e abra de novo.</Notice>;
   }
   return (
     <div className="flex flex-col gap-3">
@@ -321,27 +311,12 @@ function TabBodySkeleton({ receivedLabel }: { receivedLabel: string }) {
       </div>
       <Tile className="p-4">
         <p className={EYEBROW}>Lançamentos</p>
-        <ul className="mt-3 flex flex-col gap-3 rounded-xl bg-white p-3 ring-1 ring-light-gray/70">
-          {Array.from({ length: 5 }, (_, i) => (
-            <li key={i}>
-              <RowSkeleton />
-            </li>
-          ))}
-        </ul>
+        <RowSkeletons
+          count={5}
+          className="mt-3 flex flex-col gap-3 rounded-xl bg-white p-3 ring-1 ring-light-gray/70"
+        />
       </Tile>
     </div>
-  );
-}
-
-function Notice({ danger = false, children }: { danger?: boolean; children: ReactNode }) {
-  return (
-    <p
-      className={`rounded-2xl px-4 py-6 text-center text-sm ${
-        danger ? "bg-danger/5 text-danger" : "bg-page text-gray-100"
-      }`}
-    >
-      {children}
-    </p>
   );
 }
 

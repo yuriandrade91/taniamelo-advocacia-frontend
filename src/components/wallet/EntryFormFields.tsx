@@ -5,7 +5,7 @@ import { FieldGrid } from "@/components/ui/form/FieldGrid";
 import { SchemaField } from "@/components/ui/form/SchemaFields";
 import { Segmented } from "@/components/ui/filters/FilterBar";
 import { SharedEntryFields } from "./SharedEntryFields";
-import { estaCancelado, type EntryKind } from "./entryForms";
+import { isCancelled, type EntryKind } from "./entryForms";
 import type { EntryForm } from "./useEntryForm";
 
 /**
@@ -45,7 +45,7 @@ export function EntryFormFields({
       {/* Cancelado não tem caixa que o represente, e o PUT substitui o
           registro inteiro: sem dizer isto, quem só vem corrigir a descrição
           não descobre que pode reabrir o lançamento marcando "já foi pago". */}
-      {isEditing && estaCancelado(values) && (
+      {isEditing && isCancelled(values) && (
         <p
           role="status"
           className="rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3 text-sm text-primary"
@@ -71,6 +71,7 @@ export function EntryFormFields({
           label="Tipo de lançamento"
           mode="radio"
           surface="page"
+          size="lg"
           grow
           segments={[
             {

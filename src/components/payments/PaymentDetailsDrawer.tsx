@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import Drawer from "@/components/ui/Drawer/Drawer";
+import { RecordDrawer } from "@/components/ui/Drawer/RecordDrawer";
 import { DetailBento, DetailBentoSkeleton } from "@/components/wallet/DetailBento";
 import { formatDateBR, formatInstallment } from "@/lib/format";
 import { todayIso } from "@/lib/period";
@@ -118,15 +118,10 @@ export function PaymentDetailsDrawer({
   const isEditing = mode !== "view";
 
   return (
-    <Drawer
-      isOpen
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      // Editando, fechar (Esc, fundo, "Voltar") volta para o detalhe em vez
-      // de fechar o painel e perder o contexto.
-      confirmClose={isEditing}
-      onRequestClose={() => setMode("view")}
+    <RecordDrawer
+      onClose={onClose}
+      onBack={() => setMode("view")}
+      isEditing={isEditing}
       title={
         mode === "settle"
           ? "Registrar recebimento"
@@ -134,32 +129,19 @@ export function PaymentDetailsDrawer({
             ? "Editar parcela"
             : "Detalhes da parcela"
       }
-      description={
-        isEditing
-          ? `${target.clientName} — o que mudar aqui vale só para esta parcela.`
-          : undefined
-      }
-      hideFooter={!isEditing}
-      confirmLabel="Salvar alterações"
-      cancelLabel="Voltar"
-      onConfirm={() => void save()}
+      description={`${target.clientName} — o que mudar aqui vale só para esta parcela.`}
+      onSave={() => void save()}
       isSubmitting={form.isSubmitting}
-      dialogClassName="w-full sm:w-[520px]"
-    >
-      {failed ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-danger/20 bg-danger/5 px-6 py-10 text-center">
-          <p className="text-sm font-medium text-primary">
-            Não foi possível carregar esta parcela
-          </p>
-          <p className="text-xs text-gray-100/70">
-            Feche o painel e tente de novo.
-          </p>
-        </div>
-      ) : !detail ? (
+      failed={failed}
+      failedText="Não foi possível carregar esta parcela"
+      isLoading={!detail}
+      skeleton={
         <DetailBentoSkeleton eyebrow="Parcela" partyLabel="Cliente" factLabels={["Vencimento", "Forma", "Lançado"]} />
-      ) : isEditing ? (
-        <PaymentFormFields form={form} />
-      ) : (
+      }
+      editor={<PaymentFormFields form={form} />}
+      dialogs={confirmEdit.dialog}
+    >
+      {detail && (
         <DetailBento
           entry={detail}
           eyebrow={
@@ -198,7 +180,6 @@ export function PaymentDetailsDrawer({
           onSettle={() => setMode("settle")}
         />
       )}
-      {confirmEdit.dialog}
-    </Drawer>
+    </RecordDrawer>
   );
 }

@@ -1,19 +1,21 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { Button } from "@heroui/react";
+import { useMemo, useState, type ReactNode } from "react";
 import ActionButton from "@/components/ui/table/ActionButton";
 import {
   DetailsIcon,
   DownloadIcon,
   FileIcon,
   PencilIcon,
-  PlusIcon,
   TrashIcon,
 } from "@/components/ui/icons/actions";
 import { ChevronDownIcon } from "@/components/ui/icons/CalendarIcon";
+import { SegmentedTabs } from "@/components/ui/tabs/SegmentedTabs";
 import { formatDateBR } from "@/lib/format";
+import { openInNewTab } from "@/lib/openInNewTab";
+import { AddItemButton } from "../../FormSection";
 import { DocumentCatalogPanel } from "./DocumentCatalogPanel";
+import { FILE_KINDS, FileKindLabel } from "./FileKindLabel";
 import {
   countLabel,
   formatFileSize,
@@ -26,12 +28,15 @@ import type {
   ClientFileDocumentResponse,
   ClientFileSimulationResponse,
 } from "@/interfaces/client/ClientSubResources.interface";
+import { Pill } from "@/components/ui/feedback/Badges";
+import { Notice } from "@/components/ui/feedback/Notice";
 
 /**
  * "Arquivos" — o corpo do accordion.
  *
- * Duas abas, porque são dois recursos distintos no backend
- * (`/files/documents` e `/files/simulations`), com metadados diferentes. Na aba
+ * Duas abas, no desenho das do cadastro (`SegmentedTabs`), porque são dois
+ * recursos distintos no backend (`/files/documents` e `/files/simulations`),
+ * com metadados diferentes. Na aba
  * de documentos os arquivos são agrupados por tipo em blocos recolhíveis, na
  * ordem do enum — o usuário procura "Documentos médicos" no mesmo lugar toda
  * vez.
@@ -41,27 +46,27 @@ import type {
  * distingue é a coluna de data (vazia no que não subiu) e as ações — não dá
  * para baixar o que ainda não existe no servidor.
  *
- * O botão "Novo arquivo" fica na primeira linha do corpo, e não no cabeçalho do
- * accordion: botão dentro do gatilho do accordion aninha elemento interativo
+ * O botão "Novo arquivo" fica na barra das abas, e não no cabeçalho da seção:
+ * botão dentro do gatilho de uma seção recolhível aninha elemento interativo
  * dentro de outro, o que quebra teclado e leitor de tela.
  */
 
+/**
+ * Sem handlers, só leitura (a ficha): abrir e baixar. Cada handler acende a
+ * ação dele — "Novo arquivo", excluir, editar —, e os arquivos escolhidos e
+ * ainda não enviados só existem onde se pode removê-los.
+ */
 export type FilesSectionProps = {
   documents: ClientFileDocumentResponse[];
   simulations: ClientFileSimulationResponse[];
-  stagedDocuments: StagedDocument[];
-  stagedSimulations: StagedSimulation[];
-  onAddFiles: (kind: FileKind) => void;
-  onRemoveStagedDocument: (index: number) => void;
-  onRemoveStagedSimulation: (index: number) => void;
+  stagedDocuments?: StagedDocument[];
+  stagedSimulations?: StagedSimulation[];
+  onAddFiles?: (kind: FileKind) => void;
+  onRemoveStagedDocument?: (index: number) => void;
+  onRemoveStagedSimulation?: (index: number) => void;
   onDelete?: (kind: FileKind, fileId: string) => void;
   onEdit?: (kind: FileKind, fileId: string) => void;
 };
-
-const TABS = [
-  { id: "documents" as const, label: "Documentos" },
-  { id: "simulations" as const, label: "Simulações" },
-];
 
 function GroupBlock({
   title,
@@ -99,6 +104,26 @@ function GroupBlock({
   );
 }
 
+/** Selo de quem ainda não subiu — no lugar da data, ou da marca de principal. */
+const StagedTag = () => <Pill tone="soft">a enviar</Pill>;
+
+/** Célula de dado: texto pequeno; `strong` para o nome do arquivo. */
+function Td({
+  children,
+  strong = false,
+  className = "",
+}: {
+  children?: ReactNode;
+  strong?: boolean;
+  className?: string;
+}) {
+  return (
+    <td className={`px-3 py-2.5 text-xs ${strong ? "max-w-56 truncate text-primary" : "text-gray-100"} ${className}`}>
+      {children}
+    </td>
+  );
+}
+
 /** Cabeçalho de coluna — caixa alta pequena, dourada, como na listagem. */
 function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return (
@@ -114,8 +139,8 @@ function Th({ children, className = "" }: { children: React.ReactNode; className
 export function FilesSection({
   documents,
   simulations,
-  stagedDocuments,
-  stagedSimulations,
+  stagedDocuments = [],
+  stagedSimulations = [],
   onAddFiles,
   onRemoveStagedDocument,
   onRemoveStagedSimulation,
@@ -132,253 +157,204 @@ export function FilesSection({
   const stagedIndexOf = (row: FileRow) =>
     Number(row.id.split("-")[1] ?? -1);
 
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex justify-end">
-        <Button
-          type="button"
-          variant="outline"
-          className="flex items-center gap-2"
-          onClick={() => onAddFiles(tab)}
-        >
-          <PlusIcon className="h-4 w-4" />
-          Novo arquivo
-        </Button>
-      </div>
+  const counts: Record<FileKind, number> = {
+    documents: documents.length + stagedDocuments.length,
+    simulations: simulations.length + stagedSimulations.length,
+  };
 
-      <div role="tablist" aria-label="Tipo de arquivo" className="flex border-b border-light-gray">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            role="tab"
-            type="button"
-            aria-selected={tab === item.id}
-            onClick={() => setTab(item.id)}
-            className={`flex flex-1 items-center justify-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition ${
-              tab === item.id
-                ? "border-secondary text-secondary"
-                : "border-transparent text-gray-100 hover:text-primary"
-            }`}
-          >
-            <FileIcon className="h-4 w-4" />
-            {item.label}
-          </button>
+  const documentsPanel =
+    documentGroups.length === 0 ? (
+      <Notice>Nenhum documento adicionado.</Notice>
+    ) : (
+      <div className="flex flex-col gap-3">
+        {documentGroups.map((group) => (
+          <GroupBlock key={group.type} title={group.type} count={group.items.length}>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[720px] border-collapse">
+                <thead>
+                  <tr className="border-b border-secondary/20">
+                    <Th>Tipo</Th>
+                    <Th>Rótulo</Th>
+                    <Th>Data do registro</Th>
+                    <Th>Observações</Th>
+                    <Th className="text-center">Ações</Th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {group.items.map((row) => (
+                    <tr key={row.id} className="border-b border-secondary/10 last:border-0">
+                      <Td>{row.documentType ?? "—"}</Td>
+                      <Td strong>{row.filename}</Td>
+                      <Td className="whitespace-nowrap">
+                        {row.isStaged ? <StagedTag /> : formatDateBR(row.registeredAt)}
+                      </Td>
+                      <Td className="max-w-64 truncate">{row.notes || "—"}</Td>
+                      <Td>
+                        <div className="flex justify-center gap-0.5">
+                          {/* Ações do que ainda não subiu são só remover:
+                              visualizar e baixar precisam do servidor. */}
+                          {!row.isStaged && (
+                            <>
+                              <ActionButton
+                                label="Visualizar"
+                                tone="primary"
+                                onClick={() => openInNewTab(row.downloadUrl)}
+                              >
+                                <DetailsIcon />
+                              </ActionButton>
+                              <ActionButton
+                                label="Baixar"
+                                tone="secondary"
+                                onClick={() => openInNewTab(row.downloadUrl)}
+                              >
+                                <DownloadIcon />
+                              </ActionButton>
+                              {onEdit && (
+                                <ActionButton
+                                  label="Editar"
+                                  tone="secondary"
+                                  onClick={() => onEdit("documents", row.id)}
+                                >
+                                  <PencilIcon />
+                                </ActionButton>
+                              )}
+                            </>
+                          )}
+                          {(row.isStaged || onDelete) && (
+                            <ActionButton
+                              label="Excluir"
+                              tone="danger"
+                              onClick={() =>
+                                row.isStaged
+                                  ? onRemoveStagedDocument?.(stagedIndexOf(row))
+                                  : onDelete?.("documents", row.id)
+                              }
+                            >
+                              <TrashIcon />
+                            </ActionButton>
+                          )}
+                        </div>
+                      </Td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </GroupBlock>
         ))}
       </div>
+    );
 
-      {tab === "documents" ? (
-        documentGroups.length === 0 ? (
-          <p className="rounded-xl bg-page/60 px-6 py-10 text-center text-sm text-gray-100/70">
-            Nenhum documento adicionado.
-          </p>
-        ) : (
-          <div className="flex flex-col gap-3">
-            {documentGroups.map((group) => (
-              <GroupBlock
-                key={group.type}
-                title={group.type}
-                count={group.items.length}
-              >
-                <div className="overflow-x-auto">
-                  <table className="w-full min-w-[720px] border-collapse">
-                    <thead>
-                      <tr className="border-b border-secondary/20">
-                        <Th>Tipo</Th>
-                        <Th>Rótulo</Th>
-                        <Th>Data do registro</Th>
-                        <Th>Observações</Th>
-                        <Th className="text-center">Ações</Th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {group.items.map((row) => (
-                        <tr key={row.id} className="border-b border-secondary/10 last:border-0">
-                          <td className="px-3 py-2.5 text-xs text-gray-100">
-                            {row.documentType ?? "—"}
-                          </td>
-                          <td className="max-w-56 truncate px-3 py-2.5 text-xs text-primary">
-                            {row.filename}
-                          </td>
-                          <td className="px-3 py-2.5 text-xs whitespace-nowrap text-gray-100">
-                            {row.isStaged ? (
-                              <span className="rounded-full bg-secondary/15 px-2 py-0.5 text-[10px] font-medium text-secondary">
-                                a enviar
-                              </span>
-                            ) : (
-                              formatDateBR(row.registeredAt)
-                            )}
-                          </td>
-                          <td className="max-w-64 truncate px-3 py-2.5 text-xs text-gray-100">
-                            {row.notes || "—"}
-                          </td>
-                          <td className="px-3 py-2.5">
-                            <div className="flex justify-center gap-0.5">
-                              {/* Ações do que ainda não subiu são só remover:
-                                  visualizar e baixar precisam do servidor. */}
-                              {!row.isStaged && (
-                                <>
-                                  <ActionButton
-                                    label="Visualizar"
-                                    tone="primary"
-                                    onClick={() =>
-                                      row.downloadUrl &&
-                                      window.open(row.downloadUrl, "_blank", "noopener,noreferrer")
-                                    }
-                                  >
-                                    <DetailsIcon />
-                                  </ActionButton>
-                                  <ActionButton
-                                    label="Baixar"
-                                    tone="secondary"
-                                    onClick={() =>
-                                      row.downloadUrl &&
-                                      window.open(row.downloadUrl, "_blank", "noopener,noreferrer")
-                                    }
-                                  >
-                                    <DownloadIcon />
-                                  </ActionButton>
-                                  <ActionButton
-                                    label="Editar"
-                                    tone="secondary"
-                                    onClick={() => onEdit?.("documents", row.id)}
-                                  >
-                                    <PencilIcon />
-                                  </ActionButton>
-                                </>
-                              )}
-                              <ActionButton
-                                label="Excluir"
-                                tone="danger"
-                                onClick={() =>
-                                  row.isStaged
-                                    ? onRemoveStagedDocument(stagedIndexOf(row))
-                                    : onDelete?.("documents", row.id)
-                                }
-                              >
-                                <TrashIcon />
-                              </ActionButton>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </GroupBlock>
-            ))}
-          </div>
-        )
-      ) : simulations.length === 0 && stagedSimulations.length === 0 ? (
-        <p className="rounded-xl bg-page/60 px-6 py-10 text-center text-sm text-gray-100/70">
-          Nenhuma simulação adicionada.
-        </p>
-      ) : (
-        <div className="overflow-x-auto rounded-xl border border-secondary/25">
-          <table className="w-full min-w-[760px] border-collapse">
-            <thead className="bg-light-secondary">
-              <tr>
-                <Th>Rótulo</Th>
-                <Th>Data</Th>
-                <Th>Versão</Th>
-                <Th>Vínculos</Th>
-                <Th>Tamanho</Th>
-                <Th>Principal</Th>
-                <Th className="text-center">Ações</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {simulations.map((item) => (
-                <tr key={item.id} className="border-b border-secondary/10 last:border-0">
-                  <td className="max-w-56 truncate px-3 py-2.5 text-xs text-primary">
-                    {item.originalFilename}
-                  </td>
-                  <td className="px-3 py-2.5 text-xs whitespace-nowrap text-gray-100">
-                    {formatDateBR(item.simulationDate)}
-                  </td>
-                  <td className="px-3 py-2.5 text-xs text-gray-100">{item.version ?? "—"}</td>
-                  <td className="px-3 py-2.5 text-xs text-gray-100">{item.vinculos ?? "—"}</td>
-                  <td className="px-3 py-2.5 text-xs text-gray-100">
-                    {formatFileSize(item.fileSizeBytes)}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    {item.isPrincipal && (
-                      <span className="rounded-full bg-light-green px-2 py-0.5 text-[10px] font-medium text-[#238C26]">
-                        Principal
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <div className="flex justify-center gap-0.5">
-                      <ActionButton
-                        label="Baixar"
-                        tone="secondary"
-                        onClick={() =>
-                          item.downloadUrl &&
-                          window.open(item.downloadUrl, "_blank", "noopener,noreferrer")
-                        }
-                      >
-                        <DownloadIcon />
-                      </ActionButton>
+  const simulationsPanel =
+    counts.simulations === 0 ? (
+      <Notice>Nenhuma simulação adicionada.</Notice>
+    ) : (
+      <div className="overflow-x-auto rounded-xl border border-secondary/25">
+        <table className="w-full min-w-[760px] border-collapse">
+          <thead className="bg-light-secondary">
+            <tr>
+              <Th>Rótulo</Th>
+              <Th>Data</Th>
+              <Th>Versão</Th>
+              <Th>Vínculos</Th>
+              <Th>Tamanho</Th>
+              <Th>Principal</Th>
+              <Th className="text-center">Ações</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {simulations.map((item) => (
+              <tr key={item.id} className="border-b border-secondary/10 last:border-0">
+                <Td strong>{item.originalFilename}</Td>
+                <Td className="whitespace-nowrap">{formatDateBR(item.simulationDate)}</Td>
+                <Td>{item.version ?? "—"}</Td>
+                <Td>{item.vinculos ?? "—"}</Td>
+                <Td>{formatFileSize(item.fileSizeBytes)}</Td>
+                <Td>
+                  {item.isPrincipal && (
+                    <Pill tone="success">Principal</Pill>
+                  )}
+                </Td>
+                <Td>
+                  <div className="flex justify-center gap-0.5">
+                    <ActionButton
+                      label="Baixar"
+                      tone="secondary"
+                      onClick={() => openInNewTab(item.downloadUrl)}
+                    >
+                      <DownloadIcon />
+                    </ActionButton>
+                    {onDelete && (
                       <ActionButton
                         label="Excluir"
                         tone="danger"
-                        onClick={() => onDelete?.("simulations", item.id)}
+                        onClick={() => onDelete("simulations", item.id)}
                       >
                         <TrashIcon />
                       </ActionButton>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    )}
+                  </div>
+                </Td>
+              </tr>
+            ))}
 
-              {stagedSimulations.map((item, index) => (
-                <tr key={`staged-${index}`} className="border-b border-secondary/10 last:border-0">
-                  <td className="max-w-56 truncate px-3 py-2.5 text-xs text-primary">
-                    {item.file.name}
-                  </td>
-                  <td className="px-3 py-2.5 text-xs whitespace-nowrap text-gray-100">
-                    {formatDateBR(item.simulationDate)}
-                  </td>
-                  <td className="px-3 py-2.5 text-xs text-gray-100">{item.version || "—"}</td>
-                  <td className="px-3 py-2.5 text-xs text-gray-100">{item.vinculos || "—"}</td>
-                  <td className="px-3 py-2.5 text-xs text-gray-100">
-                    {formatFileSize(item.file.size)}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <span className="rounded-full bg-secondary/15 px-2 py-0.5 text-[10px] font-medium text-secondary">
-                      a enviar
-                    </span>
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <div className="flex justify-center gap-0.5">
-                      <ActionButton
-                        label="Remover"
-                        tone="danger"
-                        onClick={() => onRemoveStagedSimulation(index)}
-                      >
-                        <TrashIcon />
-                      </ActionButton>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            {stagedSimulations.map((item, index) => (
+              <tr key={`staged-${index}`} className="border-b border-secondary/10 last:border-0">
+                <Td strong>{item.file.name}</Td>
+                <Td className="whitespace-nowrap">{formatDateBR(item.simulationDate)}</Td>
+                <Td>{item.version || "—"}</Td>
+                <Td>{item.vinculos || "—"}</Td>
+                <Td>{formatFileSize(item.file.size)}</Td>
+                <Td>
+                  <StagedTag />
+                </Td>
+                <Td>
+                  <div className="flex justify-center gap-0.5">
+                    <ActionButton
+                      label="Remover"
+                      tone="danger"
+                      onClick={() => onRemoveStagedSimulation?.(index)}
+                    >
+                      <TrashIcon />
+                    </ActionButton>
+                  </div>
+                </Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
 
-      {/*
-        Fica na aba de documentos e não acima das abas: é referência de
-        documentação do INSS, não tem relação com simulação de cálculo.
-        Recolhido por padrão — a lista de arquivos do cliente é o conteúdo
-        principal daqui, e cinquenta itens abertos a empurrariam para fora da
-        tela.
-      */}
-      {tab === "documents" && (
-        <div className="mt-4">
-          <DocumentCatalogPanel />
-        </div>
-      )}
-    </div>
+  return (
+    <SegmentedTabs
+      label="Tipo de arquivo"
+      selectedKey={tab}
+      onSelectionChange={(key) => setTab(key as FileKind)}
+      className="gap-4"
+      actions={
+        onAddFiles && <AddItemButton onClick={() => onAddFiles(tab)}>Novo arquivo</AddItemButton>
+      }
+      tabs={FILE_KINDS.map((kind) => ({
+        id: kind,
+        label: <FileKindLabel kind={kind} count={counts[kind]} />,
+        content:
+          kind === "documents" ? (
+            <div className="flex flex-col gap-8">
+              {documentsPanel}
+              {/*
+                Fica na aba de documentos e não acima das abas: é referência
+                de documentação do INSS, não tem relação com simulação de
+                cálculo. Recolhido por padrão — a lista de arquivos do cliente
+                é o conteúdo principal daqui, e cinquenta itens abertos a
+                empurrariam para fora da tela.
+              */}
+              <DocumentCatalogPanel />
+            </div>
+          ) : (
+            simulationsPanel
+          ),
+      }))}
+    />
   );
 }

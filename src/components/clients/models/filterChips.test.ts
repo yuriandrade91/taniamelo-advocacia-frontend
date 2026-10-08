@@ -65,11 +65,11 @@ describe("buildFilterChips", () => {
   });
 
   it("isenção vira chip com o rótulo do botão; remover volta para Todos", () => {
-    const isentos = state({ notBillable: true });
-    const [chip] = buildFilterChips(isentos);
+    const exempt = state({ notBillable: true });
+    const [chip] = buildFilterChips(exempt);
     expect(chip.label).toBe("Isentos");
     chip.remove();
-    expect(isentos.setNotBillable).toHaveBeenCalledWith(null);
+    expect(exempt.setNotBillable).toHaveBeenCalledWith(null);
 
     expect(buildFilterChips(state({ notBillable: false }))[0].label).toBe("Não isentos");
   });

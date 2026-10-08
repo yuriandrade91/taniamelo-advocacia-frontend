@@ -53,69 +53,76 @@ export function isValidPrimarySelection(
 }
 
 /**
- * Remove uma aba de endereço, deslocando valores **e** ids juntos.
+ * Remove abas de endereço — uma ou várias de uma vez —, deslocando valores
+ * **e** ids juntos.
  *
  * Os `useSectionForm` das abas são três hooks fixos — hook não nasce dentro de
  * loop. Então "remover a aba do meio" não é tirar um item de uma lista: é
- * copiar o conteúdo de cada aba seguinte para a anterior e deixar a última em
- * branco.
+ * copiar o conteúdo de cada aba seguinte para a anterior e deixar as últimas
+ * em branco.
  *
  * O perigo mora aí. `addressIds[i]` é o id que o backend deu para o endereço
  * da aba `i`; se valores e ids deslocarem de forma diferente por um índice, o
  * próximo "salvar" manda os dados de um endereço para o `PUT` de outro — e
  * sobrescreve o endereço errado sem erro nenhum. Por isso os dois deslocam na
- * mesma função, com o mesmo índice, e por isso ela é testada.
+ * mesma função, com os mesmos índices, e por isso ela é testada.
+ *
+ * Índice fora da faixa é ignorado.
  */
-export function removeSlotAt<T>(
+export function removeSlots<T>(
   values: readonly T[],
   ids: readonly (string | null)[],
-  index: number,
+  removed: readonly number[],
   blank: T,
 ): { values: T[]; ids: (string | null)[] } {
-  if (index < 0 || index >= values.length) {
-    return { values: [...values], ids: [...ids] };
-  }
+  const keep = (_: unknown, index: number) => !removed.includes(index);
+  const nextValues = values.filter(keep);
+  const nextIds = ids.filter(keep);
 
-  const nextValues = [...values.slice(0, index), ...values.slice(index + 1)];
-  const nextIds = [...ids.slice(0, index), ...ids.slice(index + 1)];
-
-  // Recompõe o tamanho fixo: a última posição volta a ser uma aba em branco,
-  // sem id — senão o array encolheria e o hook da última aba ficaria órfão.
-  nextValues.push(blank);
-  nextIds.push(null);
+  // Recompõe o tamanho fixo: as últimas posições voltam a ser abas em branco,
+  // sem id — senão o array encolheria e o hook das últimas abas ficaria órfão.
+  while (nextValues.length < values.length) nextValues.push(blank);
+  while (nextIds.length < ids.length) nextIds.push(null);
 
   return { values: nextValues, ids: nextIds };
 }
 
 /**
- * Índice a selecionar depois de remover a aba `removed`, dado quantas restam.
+ * Reindexa uma posição depois de remover as abas `removed`.
  *
- * Removida a aba visível, o foco vai para a anterior — não para a primeira.
- * Saltar para o começo faz o usuário perder o lugar numa lista de três.
+ * O diálogo de exclusão devolve o próximo principal na numeração **anterior**
+ * à remoção; quem estava depois de uma aba removida anda uma casa para trás
+ * por aba removida antes dele. Sem essa conversão, escolher "Endereço 3" e
+ * remover o 1 promoveria o endereço errado — e em silêncio, porque o índice
+ * continua válido.
+ *
+ * Uma aba removida devolve `-1`: não existe mais.
+ */
+export function indexAfterRemoval(
+  index: number,
+  removed: readonly number[],
+): number {
+  if (removed.includes(index)) return -1;
+  return index - removed.filter((gone) => gone < index).length;
+}
+
+/**
+ * Índice a selecionar depois de remover as abas `removed`, dado quantas
+ * restam.
+ *
+ * A aba visível que sobrevive continua visível. Removida a visível, o foco
+ * fica na posição em que ela estava (agora a aba seguinte) ou, no fim da
+ * lista, vai para a anterior — não para a primeira: saltar para o começo faz o
+ * usuário perder o lugar.
  */
 export function nextSelectedIndex(
-  removed: number,
+  removed: readonly number[],
   selected: number,
   remainingCount: number,
 ): number {
   if (remainingCount <= 0) return 0;
-  const candidate = selected > removed ? selected - 1 : selected;
+  const candidate = selected - removed.filter((gone) => gone < selected).length;
   return Math.max(0, Math.min(candidate, remainingCount - 1));
-}
-
-/**
- * Reindexa uma posição depois de remover a aba `removed`.
- *
- * O diálogo de escolha do próximo principal devolve um índice na numeração
- * **anterior** à remoção; quem estava depois da aba removida anda uma casa
- * para trás. Sem essa conversão, escolher "Endereço 3" e remover o 1 promoveria
- * o endereço errado — e em silêncio, porque o índice continua válido.
- *
- * A própria aba removida devolve `-1`: não existe mais.
- */
-export function indexAfterRemoval(index: number, removed: number): number {
-  if (index === removed) return -1;
-  return index > removed ? index - 1 : index;
 }
 
 /**
@@ -134,14 +141,14 @@ export function indexAfterRemoval(index: number, removed: number): number {
  * (não deveria acontecer) deixa o que estava, em vez de apagar id de aba já
  * gravada.
  */
-export function casarIdsDeEndereco(
+export function matchAddressIds(
   idsAtuais: readonly (string | null)[],
   enviados: readonly number[],
   criados: readonly { id?: string }[],
 ): (string | null)[] {
   return idsAtuais.map((atual, indiceDaAba) => {
-    const posicaoNoEnvio = enviados.indexOf(indiceDaAba);
-    if (posicaoNoEnvio < 0) return atual;
-    return criados[posicaoNoEnvio]?.id ?? atual;
+    const positionInPayload = enviados.indexOf(indiceDaAba);
+    if (positionInPayload < 0) return atual;
+    return criados[positionInPayload]?.id ?? atual;
   });
 }

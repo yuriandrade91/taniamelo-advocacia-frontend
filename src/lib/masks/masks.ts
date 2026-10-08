@@ -11,6 +11,9 @@
  */
 export const digitsOf = (value: string) => value.replace(/\D/g, "");
 
+/** Só os dígitos, até `max`. */
+export const onlyDigits = (value: string, max: number) => digitsOf(value).slice(0, max);
+
 export function maskCPF(value: string) {
   return digitsOf(value)
     .replace(/(\d{3})(\d)/, "$1.$2")
@@ -26,14 +29,14 @@ export function maskRG(value: string) {
 export function maskEmail(value: string) {
   return value.replace(/\s/g, "");
 }
-export function maskCelular(value: string) {
+export function maskMobile(value: string) {
   return digitsOf(value)
     .replace(/(\d{2})(\d)/, "($1) $2")
     .replace(/(\d{5})(\d)/, "$1-$2")
     .slice(0, 15);
 }
 /** Fixo (10 dígitos) ou celular (11): o hífen depois de 4 ou 5 dígitos, conforme o tamanho. */
-export function maskTelefone(value: string) {
+export function maskPhone(value: string) {
   const digits = digitsOf(value).slice(0, 11);
   const split = digits.length > 10 ? 7 : 6;
   if (digits.length <= 2) return digits;

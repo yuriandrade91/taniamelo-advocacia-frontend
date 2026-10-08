@@ -1,10 +1,9 @@
 "use client";
 
 import { notificationCenter } from "@/services/notificationService";
-import { getTenantHeaderValue, clearTenant } from "@/lib/tenant";
-import { clearSessionCaches } from "@/lib/requestCache";
-import { publicRoutes } from "@/constants/paths/routes";
-import axios from "axios";
+import { getTenantHeaderValue } from "@/lib/tenant";
+import { applySession, expireSession, isSessionEnding, readToken } from "@/lib/session";
+import axios, { type AxiosError } from "axios";
 
 /**
  * Opções extras suportadas por requisição.
@@ -29,21 +28,6 @@ declare module "axios" {
 
 /** Header de tenant exigido pelo backend (app.tenancy.header-name). */
 export const TENANT_HEADER = "X-Tenant-Id";
-
-/**
- * Encerra a sessão local e manda para o login.
- * Implementado aqui (e não via authService) para evitar import circular —
- * `authService` já importa esta instância.
- */
-function endSessionAndRedirect(): void {
-  if (typeof window === "undefined") return;
-  document.cookie = "token=; path=/; max-age=0";
-  clearTenant();
-  clearSessionCaches();
-  if (window.location.pathname !== publicRoutes.login) {
-    window.location.assign(publicRoutes.login);
-  }
-}
 
 const axiosInstance = axios.create({
   // Os endpoints em constants/endpoints/paths.ts são absolutos (já incluem /api/v1);
@@ -86,14 +70,8 @@ function refreshAccessToken(): Promise<string | null> {
         headers: { [TENANT_HEADER]: getTenantHeaderValue() },
       },
     )
-    .then(({ data }) => {
-      const token: string | undefined = data?.data?.token;
-      if (token && typeof document !== "undefined") {
-        document.cookie = `token=${token}; path=/; SameSite=Lax`;
-        return token;
-      }
-      return null;
-    })
+    // Grava como o login grava (com validade): ver `applySession`.
+    .then(({ data }) => applySession(data?.data))
     .catch(() => null)
     .finally(() => {
       refreshInFlight = null;
@@ -104,14 +82,9 @@ function refreshAccessToken(): Promise<string | null> {
 
 // Anexa o access token e o header de tenant em toda requisição.
 axiosInstance.interceptors.request.use((config) => {
-  if (typeof document !== "undefined") {
-    const token = document.cookie
-      .split("; ")
-      .find((row) => row.startsWith("token="))
-      ?.split("=")[1];
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
+  const token = readToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
 
   // Obrigatório em todas as rotas, inclusive login.
@@ -122,34 +95,37 @@ axiosInstance.interceptors.request.use((config) => {
   return config;
 });
 
+/** As rotas de autenticação: um 401 nelas é resposta (senha errada), não sessão vencida. */
+const isAuthRoute = (url?: string) => typeof url === "string" && url.includes("/auth/");
+
 axiosInstance.interceptors.response.use(
   (response) => {
     notificationCenter.notifyResponse(response);
     return response;
   },
-  async (error) => {
-    // ── Refresh automático: em 401, rotaciona o token uma vez e repete ──
+  async (error: AxiosError) => {
+    // A sessão já está acabando (o navegador vai para o login): as respostas
+    // que ainda chegam não viram toast — ver `isSessionEnding`.
+    if (isSessionEnding()) return Promise.reject(error);
+
     const original = error.config;
-    const isAuthRoute =
-      typeof original?.url === "string" && original.url.includes("/auth/");
 
-    if (
-      error.response?.status === 401 &&
-      original &&
-      !original._retry &&
-      !isAuthRoute
-    ) {
-      original._retry = true;
-      const newToken = await refreshAccessToken();
-      if (newToken) {
-        original.headers = original.headers ?? {};
-        original.headers.Authorization = `Bearer ${newToken}`;
-        return axiosInstance(original);
+    // ── 401 fora do login: o access token venceu ──
+    //
+    // Uma tentativa de refresh, e a requisição é repetida com o token novo.
+    // Se o refresh for recusado (refresh vencido ou revogado), ou se a API
+    // recusar até o token novo, a sessão acabou: login, sem toast de erro —
+    // a tela de login diz por que a pessoa está lá.
+    if (error.response?.status === 401 && original && !isAuthRoute(original.url)) {
+      if (!original._retry) {
+        original._retry = true;
+        const newToken = await refreshAccessToken();
+        if (newToken) {
+          original.headers.Authorization = `Bearer ${newToken}`;
+          return axiosInstance(original);
+        }
       }
-
-      // Refresh falhou (expirado/revogado): encerra a sessão e volta ao login,
-      // em vez de deixar o usuário numa tela sem dados.
-      endSessionAndRedirect();
+      expireSession();
       return Promise.reject(error);
     }
 
@@ -159,7 +135,7 @@ axiosInstance.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    notificationCenter.notifyError(error);
+    notificationCenter.notifyError(error as AxiosError<never>);
     return Promise.reject(error);
   },
 );

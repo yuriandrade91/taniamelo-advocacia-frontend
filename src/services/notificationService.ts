@@ -5,6 +5,7 @@ import fallbackMessages from "@/constants/messages/fallbackMessages";
 import type { ApiErrorItem, ApiEnvelope } from "@/interfaces/Envelope.interface";
 import { toast } from "@heroui/react";
 import type { AxiosError, AxiosResponse } from "axios";
+import { isSessionEnding } from "@/lib/session";
 
 /** Monta título/descrição do toast a partir de um array `errors` não vazio. */
 function describeApiErrors(errors: ApiErrorItem[]) {
@@ -55,12 +56,24 @@ export function getApiErrorMessage(
  * especial a mensagem de sucesso de uma requisição, que é responsabilidade
  * de quem a fez (o backend não diz "o que" foi feito, só que deu certo).
  */
+/**
+ * Aviso de problema que se cala enquanto a sessão acaba (`isSessionEnding`):
+ * a tela ainda reage aos 401 das requisições que estavam no ar — um "não foi
+ * possível carregar" por cartão — no instante em que o navegador já está indo
+ * para o login. Quem precisa saber do fim da sessão é avisado lá, uma vez.
+ */
+const unlessSessionEnding =
+  <Args extends unknown[]>(show: (...args: Args) => unknown) =>
+  (...args: Args): void => {
+    if (!isSessionEnding()) show(...args);
+  };
+
 export const notificationCenter = {
   notify: toast,
   success: toast.success,
   info: toast.info,
-  warning: toast.warning,
-  danger: toast.danger,
+  warning: unlessSessionEnding(toast.warning),
+  danger: unlessSessionEnding(toast.danger),
 
   /**
    * Chamado pelo axiosService a cada resposta 2xx.
@@ -115,6 +128,7 @@ export const notificationCenter = {
 
   /** Chamado pelo axiosService a cada erro de requisição não silenciado (`skipErrorToast`). */
   notifyError(error: AxiosError<ApiEnvelope<unknown>>) {
+    if (isSessionEnding()) return;
     if (error.response) {
       const { data, status } = error.response;
       const errors = data?.errors;

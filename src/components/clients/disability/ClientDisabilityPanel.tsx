@@ -26,6 +26,7 @@ import {
   listDisabilityPeriods,
   updateDisabilityPeriod,
 } from "@/services/clientDisabilityPeriodService";
+import { todayIso } from "@/lib/period";
 
 /** O que a ficha pede ao painel: conferir antes de salvar, e salvar. */
 export type ClientDisabilityPanelHandle = {
@@ -50,7 +51,6 @@ export type ClientDisabilityPanelProps = {
   ref?: Ref<ClientDisabilityPanelHandle>;
 };
 
-const hoje = () => new Date().toISOString().slice(0, 10);
 
 /** Gravados viram rascunho editável; sem nenhum, uma linha em branco. */
 const draftsFrom = (list: DisabilityPeriodResponse[]) =>
@@ -87,7 +87,7 @@ export function ClientDisabilityPanel({
   const [conversion, setConversion] = useState<ConversionResult | null>(null);
   const [conversionFailed, setConversionFailed] = useState(false);
   const [removal, setRemoval] = useState<DisabilityPeriodDraft | null>(null);
-  const [today] = useState(hoje);
+  const [today] = useState(() => todayIso());
 
   const load = useCallback(async () => {
     let list: DisabilityPeriodResponse[] = [];
@@ -152,10 +152,10 @@ export function ClientDisabilityPanel({
         return Object.keys(validateDisabilityPeriods(drafts, today)).length === 0;
       },
       save: async () => {
-        const porGravar = drafts.filter(hasDisabilityInput);
-        if (porGravar.length === 0) return;
+        const toSave = drafts.filter(hasDisabilityInput);
+        if (toSave.length === 0) return;
         try {
-          for (const period of porGravar) {
+          for (const period of toSave) {
             const body = toDisabilityPeriodRequest(period);
             if (period.id) {
               await updateDisabilityPeriod(clientId, period.id, body);
@@ -270,7 +270,7 @@ function SavedPeriodsFallback({
   gender?: string;
   explainBasis: boolean;
 }) {
-  const semColuna = !basisFromGender(gender);
+  const withoutColumn = !basisFromGender(gender);
   return (
     <div className="flex flex-col gap-3">
       <ul className="flex flex-col gap-1 text-sm text-gray-100">
@@ -287,7 +287,7 @@ function SavedPeriodsFallback({
       </ul>
       {explainBasis && (
         <p className="rounded-lg bg-light-gray/50 p-3 text-sm text-gray-100">
-          {semColuna
+          {withoutColumn
             ? gender
               ? `A conversão da LC 142/2013 tem tabela apenas para os sexos masculino e feminino — o deste cliente está como "${gender}".`
               : "Informe o sexo do cliente em Dados pessoais para calcular o tempo convertido."

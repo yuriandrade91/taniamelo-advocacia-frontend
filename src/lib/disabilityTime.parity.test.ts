@@ -21,14 +21,14 @@ import type { ConvertibleInterval } from "./disabilityTime";
  * quando o teste roda.
  */
 
-const INTERVALOS: ConvertibleInterval[] = [
+const INTERVALS: ConvertibleInterval[] = [
   { grade: "GRAVE", startedOn: "1990-01-01", endedOn: "2009-12-31" },
   { grade: "MODERADA", startedOn: "2010-01-01", endedOn: "2019-12-31" },
   { grade: "LEVE", startedOn: "2020-01-01", endedOn: "2024-12-31" },
 ];
 
 /** Resposta do backend para uma cliente do sexo feminino (20/24/28 → 30). */
-const BACKEND_FEMININO = {
+const BACKEND_FEMALE = {
   targetYears: 30,
   lines: [
     { gradeYears: 20, days: 7305, factor: 1.5, convertedDays: 10958 },
@@ -47,7 +47,7 @@ const BACKEND_FEMININO = {
  * nenhum: saíram da divisão, e este teste é o registro de que o servidor
  * concorda com eles.
  */
-const BACKEND_MASCULINO = {
+const BACKEND_MALE = {
   targetYears: 35,
   lines: [
     { gradeYears: 25, days: 7305, factor: 1.4, convertedDays: 10227 },
@@ -60,11 +60,11 @@ const BACKEND_MASCULINO = {
 
 describe("paridade com o cálculo do backend", () => {
   it.each([
-    ["FEMININO" as const, BACKEND_FEMININO],
-    ["MASCULINO" as const, BACKEND_MASCULINO],
+    ["FEMININO" as const, BACKEND_FEMALE],
+    ["MASCULINO" as const, BACKEND_MALE],
   ])("%s: reproduz a resposta do servidor linha por linha", (basis, esperado) => {
     const result = convertIntervals(
-      INTERVALOS,
+      INTERVALS,
       "SEM_DEFICIENCIA",
       basis,
       // Irrelevante: nenhum intervalo está em aberto. Passado explicitamente
@@ -91,7 +91,7 @@ describe("paridade com o cálculo do backend", () => {
 
   it("a frase do total é montada igual nos dois lados", () => {
     // O backend monta a frase em ClientDisabilityPeriodService#label.
-    expect(timeLabel(47, 10, 26)).toBe(BACKEND_FEMININO.totalLabel);
-    expect(timeLabel(45, 4, 28)).toBe(BACKEND_MASCULINO.totalLabel);
+    expect(timeLabel(47, 10, 26)).toBe(BACKEND_FEMALE.totalLabel);
+    expect(timeLabel(45, 4, 28)).toBe(BACKEND_MALE.totalLabel);
   });
 });

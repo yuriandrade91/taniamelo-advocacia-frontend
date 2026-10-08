@@ -11,6 +11,7 @@ import type { PaymentActions } from "./types";
 import { InstallmentPopover } from "./InstallmentPopover";
 import { PaymentRowActions } from "./PaymentRowActions";
 import { STATUS_FILL, StatusChip } from "./PaymentStatus";
+import { Pill } from "@/components/ui/feedback/Badges";
 
 /**
  * O cartão de uma parcela: cliente, valor, prazo, onde a parcela está no
@@ -144,9 +145,7 @@ export function PaymentCard({
           <div className="rounded-2xl bg-page px-3 py-2.5">
             <p className="flex items-center justify-between text-xs">
               <span className="text-gray-100">Pagamento único</span>
-              <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-medium text-gray-100 ring-1 ring-black/5">
-                1/1
-              </span>
+              <Pill tone="outline" size="sm">1/1</Pill>
             </p>
           </div>
         )}

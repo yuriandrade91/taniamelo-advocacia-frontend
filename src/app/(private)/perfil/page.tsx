@@ -10,15 +10,15 @@ import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { notificationCenter } from "@/services/notificationService";
 import { patchSessionUser } from "@/lib/sessionUser";
 import {
-  alterarMinhaSenha,
-  atualizarMeuPerfil,
-  meuPerfil,
+  changeMyPassword,
+  updateMyProfile,
+  myProfile,
 } from "@/services/userService";
 import {
   EMPTY_PASSWORD_VALUES,
-  erroDoCampo,
-  primeiraMensagem,
-  profileMudou,
+  fieldError,
+  firstMessage,
+  profileChanged,
   profileValuesFrom,
   toPasswordRequest,
   toProfileRequest,
@@ -51,7 +51,7 @@ import type { MyProfile } from "@/interfaces/user/User.interface";
  * A rota é aberta a qualquer papel de propósito: é a própria pessoa. Não há
  * como pedir o "me" de outra — o servidor lê o usuário do token, não da URL.
  */
-export default function PerfilPage() {
+export default function ProfilePage() {
   const [perfil, setPerfil] = useState<MyProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [falhouAoCarregar, setFalhouAoCarregar] = useState(false);
@@ -68,13 +68,13 @@ export default function PerfilPage() {
   const [senha, setSenha] = useState<PasswordValues>(EMPTY_PASSWORD_VALUES);
   const passwordCheck = useFieldErrors(validatePassword(senha));
   const [senhaServerErrors, setSenhaServerErrors] = useState<PasswordErrors>({});
-  const senhaErrorOf = (campo: keyof PasswordValues) => senhaServerErrors[campo] ?? passwordCheck.errorOf(campo);
+  const passwordErrorOf = (campo: keyof PasswordValues) => senhaServerErrors[campo] ?? passwordCheck.errorOf(campo);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
-  const carregar = useCallback(async () => {
+  const load = useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data } = await meuPerfil();
+      const { data } = await myProfile();
       setPerfil(data ?? null);
       setValues(profileValuesFrom(data ?? null));
       setFalhouAoCarregar(false);
@@ -87,21 +87,21 @@ export default function PerfilPage() {
   }, []);
 
   useEffect(() => {
-    void carregar();
-  }, [carregar]);
+    void load();
+  }, [load]);
 
-  const setCampo = (campo: keyof ProfileValues, valor: string) => {
-    setValues((atual) => ({ ...atual, [campo]: valor }));
+  const setField = (campo: keyof ProfileValues, valor: string) => {
+    setValues((current) => ({ ...current, [campo]: valor }));
     profileCheck.touch(campo);
-    setServerErrors((atual) => ({ ...atual, [campo]: undefined }));
+    setServerErrors((current) => ({ ...current, [campo]: undefined }));
   };
 
-  const salvarDados = async () => {
+  const saveData = async () => {
     if (!profileCheck.revealAll()) return;
 
     setIsSaving(true);
     try {
-      const { data } = await atualizarMeuPerfil(toProfileRequest(values));
+      const { data } = await updateMyProfile(toProfileRequest(values));
       setPerfil(data ?? null);
       setValues(profileValuesFrom(data ?? null));
       // Sem isto o menu segue com o nome antigo até a próxima sessão, e a tela
@@ -111,38 +111,38 @@ export default function PerfilPage() {
       }
     } catch (erro) {
       // E-mail já usado por outra pessoa é erro de campo, não de tela.
-      const doCampo = erroDoCampo(erro, "email");
-      if (doCampo) setServerErrors({ email: doCampo });
+      const ofField = fieldError(erro, "email");
+      if (ofField) setServerErrors({ email: ofField });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const setCampoSenha = (campo: keyof PasswordValues, valor: string) => {
-    setSenha((atual) => ({ ...atual, [campo]: valor }));
+  const setPasswordField = (campo: keyof PasswordValues, valor: string) => {
+    setSenha((current) => ({ ...current, [campo]: valor }));
     passwordCheck.touch(campo);
-    setSenhaServerErrors((atual) => ({ ...atual, [campo]: undefined }));
+    setSenhaServerErrors((current) => ({ ...current, [campo]: undefined }));
   };
 
-  const trocarSenha = async () => {
+  const changePassword = async () => {
     if (!passwordCheck.revealAll()) return;
 
     setIsChangingPassword(true);
     try {
-      await alterarMinhaSenha(toPasswordRequest(senha));
+      await changeMyPassword(toPasswordRequest(senha));
       setSenha(EMPTY_PASSWORD_VALUES);
       passwordCheck.reset();
     } catch (erro) {
-      const atual = erroDoCampo(erro, "currentPassword");
-      const nova = erroDoCampo(erro, "newPassword");
-      if (atual || nova) {
+      const current = fieldError(erro, "currentPassword");
+      const newValue = fieldError(erro, "newPassword");
+      if (current || newValue) {
         setSenhaServerErrors({
-          currentPassword: atual ?? undefined,
-          newPassword: nova ?? undefined,
+          currentPassword: current ?? undefined,
+          newPassword: newValue ?? undefined,
         });
       } else {
         notificationCenter.danger(
-          primeiraMensagem(erro) ?? "Não foi possível alterar a senha.",
+          firstMessage(erro) ?? "Não foi possível alterar a senha.",
         );
       }
     } finally {
@@ -162,13 +162,13 @@ export default function PerfilPage() {
           role="status"
           className="rounded-2xl border border-danger/40 bg-danger/5 px-5 py-4 text-sm text-primary"
         >
-          <p className="font-medium">Não foi possível carregar seus dados</p>
+          <p className="font-medium">Não foi possível load seus dados</p>
           <p className="mt-1 text-gray-100">
             Os campos estão vazios por falta de resposta, não porque o cadastro
             está em branco — salvar agora gravaria vazio por cima.{" "}
             <button
               type="button"
-              onClick={() => void carregar()}
+              onClick={() => void load()}
               className="font-medium text-secondary underline underline-offset-2"
             >
               Tentar de novo
@@ -191,7 +191,7 @@ export default function PerfilPage() {
               <Field
                 label="Nome completo"
                 value={values.fullName}
-                onChange={(e) => setCampo("fullName", e.target.value)}
+                onChange={(e) => setField("fullName", e.target.value)}
                 isRequired
                 isInvalid={Boolean(errorOf("fullName"))}
                 errorMessage={errorOf("fullName")}
@@ -201,7 +201,7 @@ export default function PerfilPage() {
                 label="E-mail"
                 type="email"
                 value={values.email}
-                onChange={(e) => setCampo("email", e.target.value)}
+                onChange={(e) => setField("email", e.target.value)}
                 isRequired
                 isInvalid={Boolean(errorOf("email"))}
                 errorMessage={errorOf("email")}
@@ -235,11 +235,11 @@ export default function PerfilPage() {
               <div className="flex justify-end">
                 <Button
                   type="button"
-                  onPress={() => void salvarDados()}
+                  onPress={() => void saveData()}
                   // Sem mudança não há o que salvar; um sucesso à toa ensina a
                   // clicar por reflexo para conferir se salvou.
                   isDisabled={
-                    isSaving || falhouAoCarregar || !profileMudou(values, perfil)
+                    isSaving || falhouAoCarregar || !profileChanged(values, perfil)
                   }
                 >
                   {isSaving ? "Salvando..." : "Salvar"}
@@ -260,32 +260,32 @@ export default function PerfilPage() {
             <PasswordField
               label="Senha atual"
               value={senha.currentPassword}
-              onChange={(e) => setCampoSenha("currentPassword", e.target.value)}
+              onChange={(e) => setPasswordField("currentPassword", e.target.value)}
               isRequired
-              isInvalid={Boolean(senhaErrorOf("currentPassword"))}
-              errorMessage={senhaErrorOf("currentPassword")}
+              isInvalid={Boolean(passwordErrorOf("currentPassword"))}
+              errorMessage={passwordErrorOf("currentPassword")}
             />
             <PasswordField
               label="Nova senha"
               value={senha.newPassword}
-              onChange={(e) => setCampoSenha("newPassword", e.target.value)}
+              onChange={(e) => setPasswordField("newPassword", e.target.value)}
               isRequired
-              isInvalid={Boolean(senhaErrorOf("newPassword"))}
-              errorMessage={senhaErrorOf("newPassword")}
+              isInvalid={Boolean(passwordErrorOf("newPassword"))}
+              errorMessage={passwordErrorOf("newPassword")}
             />
             <PasswordField
               label="Repita a nova senha"
               value={senha.confirmPassword}
-              onChange={(e) => setCampoSenha("confirmPassword", e.target.value)}
+              onChange={(e) => setPasswordField("confirmPassword", e.target.value)}
               isRequired
-              isInvalid={Boolean(senhaErrorOf("confirmPassword"))}
-              errorMessage={senhaErrorOf("confirmPassword")}
+              isInvalid={Boolean(passwordErrorOf("confirmPassword"))}
+              errorMessage={passwordErrorOf("confirmPassword")}
             />
 
             <div className="flex justify-end">
               <Button
                 type="button"
-                onPress={() => void trocarSenha()}
+                onPress={() => void changePassword()}
                 isDisabled={isChangingPassword}
               >
                 {isChangingPassword ? "Alterando..." : "Alterar senha"}

@@ -11,9 +11,9 @@ import { readFileSync } from "node:fs";
  */
 
 /** Ano à frente: a agenda recusa data no passado sem confirmação explícita. */
-const ANO = new Date().getFullYear() + 1;
-const TITULO = `E2E compromisso ${Date.now()}`;
-const criados: string[] = [];
+const YEAR = new Date().getFullYear() + 1;
+const TITLE = `E2E compromisso ${Date.now()}`;
+const createdIds: string[] = [];
 
 /**
  * Horário sorteado a cada execução.
@@ -27,11 +27,11 @@ const criados: string[] = [];
  * deste mesmo horário, agora ocupado. Sortear um por execução dá as duas coisas
  * sem depender de o banco estar limpo.
  */
-const DIA = String(1 + Math.floor(Math.random() * 28)).padStart(2, "0");
-const MES = String(1 + Math.floor(Math.random() * 12)).padStart(2, "0");
-const HORA = String(8 + Math.floor(Math.random() * 9)).padStart(2, "0");
-const INICIO = [DIA, MES, String(ANO), HORA, "30"];
-const TERMINO = [DIA, MES, String(ANO), String(Number(HORA) + 1).padStart(2, "0"), "30"];
+const DAY = String(1 + Math.floor(Math.random() * 28)).padStart(2, "0");
+const MONTH = String(1 + Math.floor(Math.random() * 12)).padStart(2, "0");
+const HOUR = String(8 + Math.floor(Math.random() * 9)).padStart(2, "0");
+const START = [DAY, MONTH, String(YEAR), HOUR, "30"];
+const END = [DAY, MONTH, String(YEAR), String(Number(HOUR) + 1).padStart(2, "0"), "30"];
 
 /**
  * Preenche um campo de data/hora do react-aria segmento a segmento.
@@ -40,10 +40,10 @@ const TERMINO = [DIA, MES, String(ANO), String(Number(HORA) + 1).padStart(2, "0"
  * spinbutton próprio, não um input de texto. Clicar em cada um e digitar é o
  * que um usuário faz — e é o que o componente entende.
  */
-async function preencherDataHora(page: Page, rotulo: string, partes: string[]) {
-  const segmentos = formulario(page).getByRole("group", { name: rotulo }).getByRole("spinbutton");
+async function fillDateTime(page: Page, rotulo: string, partes: string[]) {
+  const segments = form(page).getByRole("group", { name: rotulo }).getByRole("spinbutton");
   for (let i = 0; i < partes.length; i++) {
-    await segmentos.nth(i).click();
+    await segments.nth(i).click();
     await page.keyboard.type(partes[i]);
   }
 }
@@ -56,7 +56,7 @@ async function preencherDataHora(page: Page, rotulo: string, partes: string[]) {
  * por ambiguidade, apontando para a linha do clique e não para a causa.
  * Buscar dentro do diálogo é, além de mais robusto, o que descreve a intenção.
  */
-function formulario(page: Page) {
+function form(page: Page) {
   return page.getByRole("dialog", { name: /novo compromisso/i });
 }
 
@@ -67,7 +67,7 @@ function formulario(page: Page) {
  * diálogo e fecha o formulário inteiro — o teste segue procurando campos numa
  * tela que não está mais lá, e a falha aponta para qualquer lugar menos aqui.
  */
-async function fecharSugestoes(page: Page) {
+async function closeSuggestions(page: Page) {
   // Tab, e não Esc nem clique.
   //
   // Esc fecha a lista enquanto ela está aberta; se ela já se fechou sozinha, a
@@ -81,63 +81,63 @@ async function fecharSugestoes(page: Page) {
   // um diálogo.
   await page.keyboard.press("Tab");
   await expect(page.getByRole("listbox", { name: /cliente/i })).toBeHidden();
-  await expect(formulario(page)).toBeVisible();
+  await expect(form(page)).toBeVisible();
 }
 
-async function abrirFormulario(page: Page) {
+async function openForm(page: Page) {
   await page.goto("/agenda");
   await page.getByRole("button", { name: "Novo compromisso" }).click();
-  await expect(formulario(page).getByRole("heading", { name: /novo compromisso/i })).toBeVisible();
+  await expect(form(page).getByRole("heading", { name: /novo compromisso/i })).toBeVisible();
 }
 
 test.describe.configure({ mode: "serial" });
 
 test("agendar um compromisso novo", async ({ page }) => {
-  await abrirFormulario(page);
+  await openForm(page);
 
-  await formulario(page).getByLabel("Título").fill(TITULO);
-  await formulario(page).getByLabel("Tipo").click();
+  await form(page).getByLabel("Título").fill(TITLE);
+  await form(page).getByLabel("Tipo").click();
   await page.getByRole("option", { name: "Entrevista" }).click();
 
-  await preencherDataHora(page, "Início", INICIO);
-  await preencherDataHora(page, "Término", TERMINO);
+  await fillDateTime(page, "Início", START);
+  await fillDateTime(page, "Término", END);
 
   // Nome livre (o ComboBox aceita valor fora da lista): não depende de haver
   // cliente cadastrado no banco em que a suíte roda.
-  await formulario(page).getByPlaceholder("Nome da pessoa").fill("Fulano de Teste E2E");
+  await form(page).getByPlaceholder("Nome da pessoa").fill("Fulano de Teste E2E");
   // A lista de sugestões cobre o rodapé do diálogo: sem fechá-la, o clique em
   // "Agendar" vai parar no popover e a falha aparece em cima do botão.
-  await fecharSugestoes(page);
+  await closeSuggestions(page);
 
-  const resposta = page.waitForResponse(
+  const response = page.waitForResponse(
     (r) => r.url().endsWith("/api/v1/appointments") && r.request().method() === "POST",
   );
-  await formulario(page).getByRole("button", { name: "Agendar", exact: true }).click();
+  await form(page).getByRole("button", { name: "Agendar", exact: true }).click();
 
-  const criado = await resposta;
-  expect(criado.status()).toBe(201);
+  const created = await response;
+  expect(created.status()).toBe(201);
   // Compromisso mantém `id` (o rename foi só no id próprio do CLIENTE), mas
   // aceitar os dois evita que a limpeza pare de funcionar em silêncio se esse
   // contrato mudar também — e resíduo de agenda vira conflito no próximo run.
-  const corpo = (await criado.json()).data;
-  const id = corpo.id ?? corpo.appointmentId;
-  expect(id, `resposta do POST sem id: ${JSON.stringify(corpo)}`).toBeTruthy();
-  criados.push(id);
+  const body = (await created.json()).data;
+  const id = body.id ?? body.appointmentId;
+  expect(id, `resposta do POST sem id: ${JSON.stringify(body)}`).toBeTruthy();
+  createdIds.push(id);
 
   // A confirmação é o diálogo fechar e o aviso de sucesso aparecer — não o
   // compromisso surgir na lista. A agenda passou a mostrar uma janela de datas,
   // e este compromisso é do ano que vem (obrigatório: data no passado exige
   // confirmação explícita). Esperar que ele apareça na lista do mês corrente
   // seria afirmar uma coisa errada sobre uma tela certa.
-  await expect(formulario(page)).toBeHidden();
+  await expect(form(page)).toBeHidden();
   await expect(page.getByText(/compromisso agendado com sucesso/i)).toBeVisible();
 });
 
 test("o mesmo horário avisa do conflito, sem impedir", async ({ page }) => {
-  await abrirFormulario(page);
+  await openForm(page);
 
-  await formulario(page).getByLabel("Título").fill(`${TITULO} (segundo)`);
-  await formulario(page).getByLabel("Tipo").click();
+  await form(page).getByLabel("Título").fill(`${TITLE} (segundo)`);
+  await form(page).getByLabel("Tipo").click();
   await page.getByRole("option", { name: "Reunião" }).click();
 
   // Espera a consulta que TEM conflito, não a primeira que passar.
@@ -146,32 +146,32 @@ test("o mesmo horário avisa do conflito, sem impedir", async ({ page }) => {
   // preenchido e o término ainda vazio volta vazia por definição. Esperar
   // "qualquer /conflicts" resolvia nessa — e o teste seguia para a asserção
   // antes de a resposta verdadeira chegar, falhando de forma intermitente.
-  const conflitos = page.waitForResponse(
+  const conflicts = page.waitForResponse(
     async (r) =>
       r.url().includes("/appointments/conflicts") &&
       r.ok() &&
       ((await r.json())?.data?.length ?? 0) > 0,
   );
-  await preencherDataHora(page, "Início", INICIO);
-  await preencherDataHora(page, "Término", TERMINO);
-  await conflitos;
+  await fillDateTime(page, "Início", START);
+  await fillDateTime(page, "Término", END);
+  await conflicts;
 
   // Cliente é obrigatório no formulário. Sem preencher, o botão ficaria
   // desabilitado por campo faltando — e a asserção do fim leria isso como
   // "o conflito bloqueou", que é exatamente a conclusão errada.
-  await formulario(page).getByPlaceholder("Nome da pessoa").fill("Fulano de Teste E2E");
-  await fecharSugestoes(page);
+  await form(page).getByPlaceholder("Nome da pessoa").fill("Fulano de Teste E2E");
+  await closeSuggestions(page);
 
 
   // O aviso diz COM QUEM o horário bate — "existe conflito" sem dizer com o quê
   // obrigaria a abrir outra tela para decidir. Por isso as duas asserções: que
   // o aviso existe, e que ele nomeia o compromisso que já estava lá.
-  const aviso = formulario(page).getByText(/nesse horário/i);
-  await expect(aviso).toBeVisible();
-  await expect(formulario(page).getByText(TITULO, { exact: false }).first()).toBeVisible();
+  const notice = form(page).getByText(/nesse horário/i);
+  await expect(notice).toBeVisible();
+  await expect(form(page).getByText(TITLE, { exact: false }).first()).toBeVisible();
 
   // E não bloqueia: perícia e audiência se sobrepõem de propósito.
-  await expect(formulario(page).getByRole("button", { name: "Agendar", exact: true })).toBeEnabled();
+  await expect(form(page).getByRole("button", { name: "Agendar", exact: true })).toBeEnabled();
 });
 
 /**
@@ -182,10 +182,10 @@ test("o mesmo horário avisa do conflito, sem impedir", async ({ page }) => {
  * o que está sendo testado acima é a tela, não a limpeza.
  */
 test.afterAll(async () => {
-  if (criados.length === 0) return;
+  if (createdIds.length === 0) return;
 
-  const estado = JSON.parse(readFileSync("e2e/.auth/user.json", "utf-8"));
-  const token = estado.cookies?.find((c: { name: string }) => c.name === "token")?.value;
+  const state = JSON.parse(readFileSync("e2e/.auth/user.json", "utf-8"));
+  const token = state.cookies?.find((c: { name: string }) => c.name === "token")?.value;
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   if (!token || !apiUrl) return;
 
@@ -196,7 +196,7 @@ test.afterAll(async () => {
       ...(process.env.E2E_TENANT_ID ? { "X-Tenant-Id": process.env.E2E_TENANT_ID } : {}),
     },
   });
-  for (const id of criados) {
+  for (const id of createdIds) {
     await api.delete(`/api/v1/appointments/${id}`);
   }
   await api.dispose();

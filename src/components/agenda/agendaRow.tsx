@@ -36,6 +36,8 @@ import {
   UsersIcon,
   VideoIcon,
 } from "./agendaIcons";
+import { openInNewTab } from "@/lib/openInNewTab";
+import { Pill } from "@/components/ui/feedback/Badges";
 
 /**
  * O desenho de um compromisso — a linha, o cabeçalho do dia e a cor do tipo.
@@ -52,7 +54,7 @@ import {
 
 /**
  * O que a tela oferece para cada compromisso. `onDelete` só vem de quem pode
- * excluir (`podeDestruir`); sem ela, sem o ícone.
+ * excluir (`canDestroy`); sem ela, sem o ícone.
  */
 export type AgendaActions = {
   onEdit: (appointment: AppointmentResponse) => void;
@@ -301,9 +303,7 @@ export function DayHeading({
         >
           {weekday}
           {isToday && (
-            <span className="rounded-full bg-sky-400 px-2 py-0.5 text-[10px] font-medium text-white">
-              hoje
-            </span>
+            <Pill tone="info">hoje</Pill>
           )}
         </span>
         <span className="mt-0.5 block text-xs text-gray-100">
@@ -321,7 +321,7 @@ export function DayHeading({
  * As ações, na regra que o backend impõe: entrar sempre que houver link;
  * concluir, editar e cancelar só em agendado (um cancelado não se conclui e um
  * concluído não se cancela); excluir só com `onDelete`, que a página só passa
- * para quem pode (`podeDestruir`). Cancelar é de todos: é o que o atendente
+ * para quem pode (`canDestroy`). Cancelar é de todos: é o que o atendente
  * usa quando o cliente desmarca.
  */
 export function appointmentActions(
@@ -334,7 +334,7 @@ export function appointmentActions(
       icon: <VideoIcon className="h-5 w-5" />,
       tone: "primary",
       visible: (a) => Boolean(a.meetingUrl),
-      onPress: (a) => window.open(a.meetingUrl!, "_blank", "noopener,noreferrer"),
+      onPress: (a) => openInNewTab(a.meetingUrl),
     },
     {
       id: "complete",

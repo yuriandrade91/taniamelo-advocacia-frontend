@@ -1,16 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  contactMessage,
   filterLeads,
   formatWaiting,
   groupLeads,
-  mailtoLink,
-  telLink,
   toPendingLead,
-  toPhoneDigits,
   urgencyOf,
-  whatsappLink,
   type PendingLead,
 } from "./pendingLeads";
+import { mailtoLink, telLink, toPhoneDigits, whatsappLink } from "@/lib/contactLinks";
 import type { Clients } from "@/interfaces/Clients.interface";
 
 const TODAY = "2026-09-06";
@@ -177,7 +175,43 @@ describe("filterLeads", () => {
     expect(filterLeads(leads, "97996").map((l) => l.id)).toEqual(["3"]);
   });
 
+  it("busca pelo benefício, que é o que a linha mostra", () => {
+    const comBeneficio = [
+      lead({ id: "4", name: "Diva", benefit: "Aposentadoria rural" }),
+      lead({ id: "5", name: "Elias", benefit: "Aposentadoria por idade" }),
+    ];
+    expect(filterLeads(comBeneficio, "rural").map((l) => l.id)).toEqual(["4"]);
+  });
+
   it("termo vazio devolve tudo", () => {
     expect(filterLeads(leads, "   ")).toHaveLength(3);
+  });
+});
+
+describe("contactMessage", () => {
+  it("usa o primeiro nome e o benefício do formulário", () => {
+    const text = contactMessage({
+      name: "Marcos Pereira Oliveira",
+      benefit: "Aposentadoria rural",
+    });
+    expect(text).toContain("Olá, Marcos!");
+    expect(text).toContain("sobre aposentadoria rural");
+  });
+
+  it("sem benefício, não inventa um", () => {
+    const text = contactMessage({ name: "Ana" });
+    expect(text).toContain("sobre o seu atendimento");
+    expect(text).not.toContain("undefined");
+  });
+});
+
+describe("whatsappLink com mensagem", () => {
+  it("leva o texto pronto na conversa", () => {
+    const link = whatsappLink("(21) 97996-2251", "Olá, Ana!");
+    expect(link).toBe("https://wa.me/5521979962251?text=Ol%C3%A1%2C%20Ana!");
+  });
+
+  it("sem mensagem, continua só a conversa", () => {
+    expect(whatsappLink("(21) 97996-2251")).toBe("https://wa.me/5521979962251");
   });
 });

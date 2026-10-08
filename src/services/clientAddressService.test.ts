@@ -18,7 +18,7 @@ import axiosInstance from "@/services/axiosService";
 import { createAddresses } from "./clientAddressService";
 import type { ClientAddressRequest } from "@/interfaces/client/ClientSubResources.interface";
 
-const endereco = (street: string, isPrimary = false): ClientAddressRequest => ({
+const address = (street: string, isPrimary = false): ClientAddressRequest => ({
   street,
   city: "Belo Horizonte",
   state: "MG",
@@ -33,7 +33,7 @@ describe("createAddresses", () => {
       data: { success: true, data: [] },
     } as never);
 
-    await createAddresses("cli-1", [endereco("Rua A", true), endereco("Rua B")]);
+    await createAddresses("cli-1", [address("Rua A", true), address("Rua B")]);
 
     expect(axiosInstance.post).toHaveBeenCalledTimes(1);
     const [url, body] = vi.mocked(axiosInstance.post).mock.calls[0];
@@ -41,7 +41,7 @@ describe("createAddresses", () => {
     // O backend recebe `ClientAddressBatchRequestDTO`, não um array cru: uma
     // lista solta volta 400 com "Informe ao menos um endereço".
     expect(body).toEqual({
-      addresses: [endereco("Rua A", true), endereco("Rua B")],
+      addresses: [address("Rua A", true), address("Rua B")],
     });
   });
 
@@ -50,11 +50,11 @@ describe("createAddresses", () => {
       data: { success: true, data: [] },
     } as never);
 
-    const enviados = [endereco("Rua A", true)];
-    await createAddresses("cli-1", enviados);
+    const sent = [address("Rua A", true)];
+    await createAddresses("cli-1", sent);
 
     const [, body] = vi.mocked(axiosInstance.post).mock.calls[0];
-    expect((body as { addresses: unknown[] }).addresses).not.toBe(enviados);
+    expect((body as { addresses: unknown[] }).addresses).not.toBe(sent);
   });
 
   it("devolve os criados na ordem enviada", async () => {
@@ -66,8 +66,8 @@ describe("createAddresses", () => {
     } as never);
 
     const envelope = await createAddresses("cli-1", [
-      endereco("Rua A", true),
-      endereco("Rua B"),
+      address("Rua A", true),
+      address("Rua B"),
     ]);
 
     expect(envelope.data?.map((item) => item.id)).toEqual(["end-1", "end-2"]);

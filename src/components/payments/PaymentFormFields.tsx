@@ -4,7 +4,7 @@ import { FieldGrid } from "@/components/ui/form/FieldGrid";
 import { SchemaField } from "@/components/ui/form/SchemaFields";
 import { SharedEntryFields } from "@/components/wallet/SharedEntryFields";
 import { PaymentStatusLabelByKey } from "@/enums/payment/Payment";
-import { statusDaParcela } from "./paymentForm";
+import { installmentStatus } from "./paymentForm";
 import type { PaymentForm } from "./usePaymentForm";
 
 /**
@@ -18,12 +18,12 @@ import type { PaymentForm } from "./usePaymentForm";
  */
 export function PaymentFormFields({ form }: { form: PaymentForm }) {
   const { isSubmitting } = form;
-  const cancelada =
-    statusDaParcela(form.values) === PaymentStatusLabelByKey.CANCELADO;
+  const cancelled =
+    installmentStatus(form.values) === PaymentStatusLabelByKey.CANCELADO;
 
   return (
     <div className="flex flex-col gap-4">
-      {cancelada && (
+      {cancelled && (
         <p
           role="status"
           className="rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3 text-sm text-primary"

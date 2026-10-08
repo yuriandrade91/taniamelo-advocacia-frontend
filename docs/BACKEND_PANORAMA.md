@@ -198,7 +198,9 @@ Todas as respostas usam `ApiResponse<T>`:
 `id`, `fullName`, `birthDate`, `age`, `cpf`, `motherName`, `mobilePhone`, `inssPassword`, `gender`, `rg`, `rgIssuer`, `rgIssueDate`, `email`, `referencePhone`, `referenceResponsible`, `maritalStatus`, `benefit`, `situation`, `beneficiaryNumber`, `nitPis`, `profession`, `ctps`, `ctpsSeries`, **`contributionTime` (String)**, `contributionInMonths` (Integer), `nationality`, `isWhatsapp`, `hasDisability`, `notes`, `responsibleUserId`, `clientType`, `notBillable`, `createdAt`, `updatedAt`, `createdBy`, `updatedBy`
 
 ### `ClientListResponseDTO` (linha da tabela)
-`id`, `fullName`, `cpf`, `mobilePhone`, `benefit`, `situation`, `clientType`, `createdAt`, `beneficiaryNumber`, `updatedAt`
+`clientId`, `fullName`, **`birthDate`**, `cpf`, `mobilePhone`, `benefit`, `situation`, `clientType`, `notBillable`, `beneficiaryNumber`, `createdAt`, `updatedAt`, `deletedAt` (só na lixeira)
+
+> `birthDate` entrou para o cartão "Aniversariantes" da Home: a pergunta é sobre a base inteira e não tem endpoint próprio, então sem o campo na linha seria uma ficha por cliente. Instância uma build atrás responde sem ele — o cartão trata a ausência como "não sei", não como "nenhum aniversário".
 
 ### `ClientCreateRequestDTO` / `ClientUpdateRequestDTO`
 **Obrigatórios:** `fullName`, `birthDate`, `cpf` (validado por `@ValidCPF`), `motherName`, `mobilePhone`, `inssPassword`, `gender`, `benefit`, `situation`.

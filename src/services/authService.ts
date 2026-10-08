@@ -5,9 +5,7 @@ import type {
   LoginRequest,
   LoginResponse,
 } from "@/interfaces/auth/Auth.interface";
-import { setTenant, clearTenant } from "@/lib/tenant";
-import { clearSessionCaches } from "@/lib/requestCache";
-import { saveSessionUser, clearSessionUser } from "@/lib/sessionUser";
+import { applySession, clearSession, readToken } from "@/lib/session";
 
 /**
  * Autenticação — espelha AuthController.
@@ -21,33 +19,7 @@ import { saveSessionUser, clearSessionUser } from "@/lib/sessionUser";
  * Todas as rotas exigem `X-Tenant-Id` (injetado pelo axiosService).
  */
 
-/** Nome do cookie do access token (lido também pela guarda em `proxy.ts`). */
-export const TOKEN_COOKIE = "token";
-
-/**
- * Grava o access token no cookie com validade explícita.
- *
- * Sem `max-age` o cookie seria de sessão e morreria ao fechar o navegador —
- * o usuário cairia no login mesmo com o refresh token (14 dias) ainda válido,
- * porque a guarda de rota redireciona antes de qualquer chamada à API.
- */
-function persistToken(token: string, expiresInSeconds?: number): void {
-  if (typeof document === "undefined") return;
-  // Fallback: 8h (TTL padrão do access token no backend).
-  const maxAge = expiresInSeconds && expiresInSeconds > 0 ? expiresInSeconds : 28800;
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
-  document.cookie = `${TOKEN_COOKIE}=${token}; path=/; max-age=${maxAge}; SameSite=Lax${secure}`;
-}
-
-/** Limpa a sessão local (cookie do token + tenant persistido). */
-export function clearSession(): void {
-  if (typeof document !== "undefined") {
-    document.cookie = `${TOKEN_COOKIE}=; path=/; max-age=0`;
-  }
-  clearTenant();
-  clearSessionCaches();
-  clearSessionUser();
-}
+export { clearSession, TOKEN_COOKIE } from "@/lib/session";
 
 /** POST /api/v1/auth/login — `login` aceita e-mail OU username. */
 export const login = async (
@@ -61,17 +33,10 @@ export const login = async (
     { skipErrorToast: true },
   );
 
-  const data = response.data?.data;
-  if (data?.token) {
-    persistToken(data.token, data.expiresInSeconds);
-  }
-  // Persiste o tenant da sessão para os próximos headers X-Tenant-Id.
-  if (data?.tenantId || data?.tenantSlug) {
-    setTenant(data.tenantId, data.tenantSlug);
-  }
-  // Nome/e-mail/perfil só chegam aqui — sem guardar, o menu do usuário não
-  // teria o que mostrar (e decodificar o JWT não é contrato público).
-  if (data) saveSessionUser(data);
+  // Token (com validade), escritório para o X-Tenant-Id e o usuário — nome,
+  // e-mail e perfil só chegam aqui; sem guardar, o menu do usuário não teria o
+  // que mostrar (e decodificar o JWT não é contrato público).
+  applySession(response.data?.data);
 
   return response.data;
 };
@@ -86,14 +51,7 @@ export const refresh = async (): Promise<ApiEnvelope<LoginResponse>> => {
     {},
   );
 
-  const data = response.data?.data;
-  if (data?.token) {
-    persistToken(data.token, data.expiresInSeconds);
-  }
-  if (data?.tenantId || data?.tenantSlug) {
-    setTenant(data.tenantId, data.tenantSlug);
-  }
-  if (data) saveSessionUser(data);
+  applySession(response.data?.data);
 
   return response.data;
 };
@@ -112,12 +70,7 @@ export const logout = async (): Promise<ApiEnvelope<string>> => {
 };
 
 /** Indica se há access token no cookie (checagem de UI, não de segurança). */
-export const isAuthenticated = (): boolean => {
-  if (typeof document === "undefined") return false;
-  return document.cookie
-    .split("; ")
-    .some((row) => row.startsWith(`${TOKEN_COOKIE}=`));
-};
+export const isAuthenticated = (): boolean => readToken() !== null;
 
 /**
  * Tenta restaurar a sessão sem credenciais, usando o refresh token httpOnly.
@@ -136,15 +89,7 @@ export const tryRestoreSession = async (): Promise<boolean> => {
       { skipErrorToast: true },
     );
 
-    const data = response.data?.data;
-    if (data?.token) {
-      persistToken(data.token, data.expiresInSeconds);
-      if (data.tenantId || data.tenantSlug) {
-        setTenant(data.tenantId, data.tenantSlug);
-      }
-      return true;
-    }
-    return false;
+    return applySession(response.data?.data) !== null;
   } catch {
     return false;
   }

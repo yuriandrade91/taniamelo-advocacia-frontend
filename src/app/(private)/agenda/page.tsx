@@ -12,7 +12,7 @@ import { AGENDA_DEFAULTS, AgendaFilters, agendaFilters } from "@/components/agen
 import { useAppointmentActions } from "@/components/agenda/useAppointmentActions";
 import { useAppointmentEditor } from "@/components/agenda/useAppointmentEditor";
 import { useFilters } from "@/hooks/useFilters";
-import { usePermissoes } from "@/hooks/usePermissoes";
+import { usePermissions } from "@/hooks/usePermissions";
 import { currentMonth, type MonthRef } from "@/lib/period";
 import { applyPendingOverlay } from "@/lib/pendingActions";
 import { listAppointments } from "@/services/appointmentService";
@@ -57,7 +57,7 @@ const PENDING_STATUS_LABELS = {
 
 export default function AgendaPage() {
   /** Excluir é de quem pode (o backend recusa o atendente com 403). */
-  const { podeDestruir } = usePermissoes();
+  const { canDestroy } = usePermissions();
   const [month, setMonth] = useState<MonthRef>(() => currentMonth());
   const filters = useFilters(agendaFilters, AGENDA_DEFAULTS);
   const { status, types } = filters.values;
@@ -140,7 +140,7 @@ export default function AgendaPage() {
           onEdit: editor.openEdit,
           onComplete: actions.requestComplete,
           onCancel: actions.requestCancel,
-          onDelete: podeDestruir ? actions.requestDelete : undefined,
+          onDelete: canDestroy ? actions.requestDelete : undefined,
           onCreate: editor.openCreate,
         }}
       />

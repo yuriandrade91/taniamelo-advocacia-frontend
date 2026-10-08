@@ -7,7 +7,7 @@ import { GenderOptions } from "@/enums/gender/Gender";
 import { MaritalStatusOptions } from "@/enums/maritalStatus/MaritalStatus";
 import { SituationOptions } from "@/enums/situation/Situation";
 import {
-  maskCelular,
+  maskMobile,
   maskCEP,
   maskCPF,
   maskNIT,
@@ -240,7 +240,7 @@ export function PetitionMode(props: FillModeProps) {
             label="Celular"
             placeholder="(00) 00000-0000"
             value={p.mobilePhone}
-            onChange={(value) => setP("mobilePhone", maskCelular(value))}
+            onChange={(value) => setP("mobilePhone", maskMobile(value))}
             missing
           />
           , e-mail{" "}

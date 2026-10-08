@@ -206,3 +206,32 @@ export interface ClientListRequest {
   createdFrom?: string;
   createdTo?: string;
 }
+
+/**
+ * Uma linha de `GET /api/v1/clients/upcoming-birthdays` — espelha
+ * `UpcomingBirthdayDTO`. Datas em `yyyy-MM-dd`; "hoje" é o dia no fuso do
+ * escritório.
+ */
+export interface UpcomingBirthdayResponse {
+  clientId: string;
+  fullName: string;
+  birthDate: string;
+  /** A próxima ocorrência do aniversário (hoje, se for hoje). */
+  nextBirthday: string;
+  /** Dias até `nextBirthday` no dia em que o servidor respondeu — `0` é hoje. */
+  daysUntil: number;
+  /** A idade que completa em `nextBirthday`. */
+  turningAge: number;
+  /** Celular do cliente, para o parabéns pelo WhatsApp. */
+  mobilePhone?: string;
+  /** O celular é WhatsApp (o padrão do cadastro é sim). */
+  isWhatsapp?: boolean;
+}
+
+/** Parâmetros de `GET /api/v1/clients/upcoming-birthdays`. */
+export interface UpcomingBirthdaysRequest {
+  /** Janela em dias a partir de hoje: 0 a 365 (padrão 30). */
+  days?: number;
+  /** Máximo de itens: 1 a 50 (padrão 10). */
+  limit?: number;
+}

@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import {
   amountToInput,
-  patchVazio,
+  emptyPatch,
   paymentFormFrom,
-  statusDaParcela,
+  installmentStatus,
   toPaymentPatch,
   validatePaymentForm,
   type PaymentFormValues,
 } from "./paymentForm";
 import type { ClientPaymentResponse } from "@/interfaces/client/ClientSubResources.interface";
 
-const HOJE = "2026-09-29";
+const TODAY = "2026-09-29";
 
-const parcela: ClientPaymentResponse = {
+const installment: ClientPaymentResponse = {
   id: "p-1",
   description: "Atrasados da concessão",
   amount: 4200.5,
@@ -27,13 +27,13 @@ const parcela: ClientPaymentResponse = {
 };
 
 const form = (extra: Partial<PaymentFormValues> = {}): PaymentFormValues => ({
-  ...paymentFormFrom(parcela),
+  ...paymentFormFrom(installment),
   ...extra,
 });
 
 describe("paymentFormFrom", () => {
   it("traz tudo que se edita, em texto", () => {
-    expect(paymentFormFrom(parcela)).toEqual({
+    expect(paymentFormFrom(installment)).toEqual({
       description: "Atrasados da concessão",
       amount: "4200,50",
       installmentNumber: "1",
@@ -49,30 +49,30 @@ describe("paymentFormFrom", () => {
 
   it("isSettled sai do status, não da data de pagamento", () => {
     // Cancelada com data antiga é caso real: cancelou-se depois de registrar.
-    const cancelada = {
-      ...parcela,
+    const cancelled = {
+      ...installment,
       status: "Cancelado" as const,
       paidDate: "2026-08-01",
     };
-    expect(paymentFormFrom(cancelada).isSettled).toBe(false);
+    expect(paymentFormFrom(cancelled).isSettled).toBe(false);
     expect(
-      paymentFormFrom({ ...parcela, status: "Pago", paidDate: "2026-09-12" })
+      paymentFormFrom({ ...installment, status: "Pago", paidDate: "2026-09-12" })
         .isSettled,
     ).toBe(true);
   });
 
   it("campos ausentes viram vazio, nunca undefined", () => {
-    const magra: ClientPaymentResponse = {
+    const lean: ClientPaymentResponse = {
       id: "p-2",
       description: "Benefício",
       dueDate: "2026-10-01",
       overdue: false,
     };
-    const valores = paymentFormFrom(magra);
-    expect(valores.amount).toBe("");
-    expect(valores.installmentNumber).toBe("");
-    expect(valores.paymentMethod).toBe("");
-    expect(valores.status).toBe("");
+    const values = paymentFormFrom(lean);
+    expect(values.amount).toBe("");
+    expect(values.installmentNumber).toBe("");
+    expect(values.paymentMethod).toBe("");
+    expect(values.status).toBe("");
   });
 });
 
@@ -90,22 +90,22 @@ describe("amountToInput", () => {
 
 describe("validatePaymentForm", () => {
   it("aceita o registro como veio do servidor", () => {
-    expect(validatePaymentForm(form(), HOJE)).toEqual({});
+    expect(validatePaymentForm(form(), TODAY)).toEqual({});
   });
 
   it("descrição vazia é erro", () => {
-    expect(validatePaymentForm(form({ description: "  " }), HOJE).description)
+    expect(validatePaymentForm(form({ description: "  " }), TODAY).description)
       .toBeTruthy();
   });
 
   it("valor zero é erro — o backend exige @DecimalMin(0.01)", () => {
-    expect(validatePaymentForm(form({ amount: "0" }), HOJE).amount).toBeTruthy();
+    expect(validatePaymentForm(form({ amount: "0" }), TODAY).amount).toBeTruthy();
   });
 
   it("parcela maior que o total é erro — '3/2' parece plausível na tabela", () => {
     const errors = validatePaymentForm(
       form({ installmentNumber: "3", installmentTotal: "2" }),
-      HOJE,
+      TODAY,
     );
     expect(errors.installmentNumber).toBeTruthy();
   });
@@ -113,7 +113,7 @@ describe("validatePaymentForm", () => {
   it("marcar recebida sem data acusa a data", () => {
     const errors = validatePaymentForm(
       form({ isSettled: true, paidDate: "" }),
-      HOJE,
+      TODAY,
     );
     expect(errors.paidDate).toBeTruthy();
   });
@@ -121,42 +121,42 @@ describe("validatePaymentForm", () => {
 
 describe("statusDaParcela", () => {
   it("a caixa manda em Pendente × Pago", () => {
-    expect(statusDaParcela(form({ isSettled: false }))).toBe("Pendente");
-    expect(statusDaParcela(form({ isSettled: true }))).toBe("Pago");
+    expect(installmentStatus(form({ isSettled: false }))).toBe("Pendente");
+    expect(installmentStatus(form({ isSettled: true }))).toBe("Pago");
   });
 
   it("cancelada segue cancelada enquanto ninguém marca que entrou", () => {
-    expect(statusDaParcela(form({ status: "Cancelado" }))).toBe("Cancelado");
+    expect(installmentStatus(form({ status: "Cancelado" }))).toBe("Cancelado");
   });
 
   it("marcar recebida numa cancelada a reabre — é decisão explícita", () => {
     expect(
-      statusDaParcela(form({ status: "Cancelado", isSettled: true })),
+      installmentStatus(form({ status: "Cancelado", isSettled: true })),
     ).toBe("Pago");
   });
 });
 
 describe("toPaymentPatch", () => {
   it("sem mudança, patch vazio — PATCH que manda tudo enche a auditoria", () => {
-    const patch = toPaymentPatch(form(), parcela);
+    const patch = toPaymentPatch(form(), installment);
     expect(patch).toEqual({});
-    expect(patchVazio(patch)).toBe(true);
+    expect(emptyPatch(patch)).toBe(true);
   });
 
   it("manda só o campo que mudou", () => {
-    const patch = toPaymentPatch(form({ description: "Benefício de março" }), parcela);
+    const patch = toPaymentPatch(form({ description: "Benefício de março" }), installment);
     expect(patch).toEqual({ description: "Benefício de março" });
   });
 
   it("valor vai como número, não como o texto digitado", () => {
-    const patch = toPaymentPatch(form({ amount: "5.000,00" }), parcela);
+    const patch = toPaymentPatch(form({ amount: "5.000,00" }), installment);
     expect(patch.amount).toBe(5000);
   });
 
   it("marcar recebida manda status e data juntos", () => {
     const patch = toPaymentPatch(
       form({ isSettled: true, paidDate: "2026-09-20" }),
-      parcela,
+      installment,
     );
     expect(patch).toMatchObject({ status: "Pago", paidDate: "2026-09-20" });
   });
@@ -165,7 +165,7 @@ describe("toPaymentPatch", () => {
     // Mandar paidDate junto de Pendente é o caminho de "pendente com data de
     // pagamento" — estado contraditório que o backend limparia, mas que não
     // faz sentido enviar.
-    const paga = { ...parcela, status: "Pago" as const, paidDate: "2026-09-12" };
+    const paga = { ...installment, status: "Pago" as const, paidDate: "2026-09-12" };
     const patch = toPaymentPatch(
       { ...paymentFormFrom(paga), isSettled: false },
       paga,
@@ -175,7 +175,7 @@ describe("toPaymentPatch", () => {
   });
 
   it("corrigir só a data de uma parcela já paga manda só a data", () => {
-    const paga = { ...parcela, status: "Pago" as const, paidDate: "2026-09-12" };
+    const paga = { ...installment, status: "Pago" as const, paidDate: "2026-09-12" };
     const patch = toPaymentPatch(
       { ...paymentFormFrom(paga), paidDate: "2026-09-15" },
       paga,
@@ -184,17 +184,17 @@ describe("toPaymentPatch", () => {
   });
 
   it("editar a descrição de uma cancelada não a ressuscita", () => {
-    const cancelada = { ...parcela, status: "Cancelado" as const };
+    const cancelled = { ...installment, status: "Cancelado" as const };
     const patch = toPaymentPatch(
-      { ...paymentFormFrom(cancelada), description: "Texto novo" },
-      cancelada,
+      { ...paymentFormFrom(cancelled), description: "Texto novo" },
+      cancelled,
     );
     expect(patch).toEqual({ description: "Texto novo" });
     expect(patch).not.toHaveProperty("status");
   });
 
   it("limpar a forma de pagamento manda undefined, não string vazia", () => {
-    const patch = toPaymentPatch(form({ paymentMethod: "" }), parcela);
+    const patch = toPaymentPatch(form({ paymentMethod: "" }), installment);
     expect("paymentMethod" in patch).toBe(true);
     expect(patch.paymentMethod).toBeUndefined();
   });
@@ -202,7 +202,7 @@ describe("toPaymentPatch", () => {
   it("limpar a parcela manda undefined nos dois campos", () => {
     const patch = toPaymentPatch(
       form({ installmentNumber: "", installmentTotal: "" }),
-      parcela,
+      installment,
     );
     expect(patch.installmentNumber).toBeUndefined();
     expect(patch.installmentTotal).toBeUndefined();
@@ -211,7 +211,7 @@ describe("toPaymentPatch", () => {
   it("espaço nas pontas da descrição não conta como mudança", () => {
     const patch = toPaymentPatch(
       form({ description: "  Atrasados da concessão  " }),
-      parcela,
+      installment,
     );
     expect(patch).toEqual({});
   });

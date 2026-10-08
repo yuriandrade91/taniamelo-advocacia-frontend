@@ -290,11 +290,11 @@ precisam entender o porquê de cada bloco → **tela dividida guiada**.
       o menu lateral e a tela guiada.
 - [x] `FormSection` e `.client-form-accordion` **mantidos**: o modal de
       edição ainda usa.
-- [x] e2e: `abrirSecao` de `clientes-crud` e `cadastro-endereco-em-lote`
-      clica na aba; `deficiencia-crud` responde a pergunta de sexo.
+- [x] e2e: `openSection` de `clients-crud` e `signup-address-batch`
+      clica na aba; `disability-crud` responde a pergunta de sexo.
 - [x] Testes: `review.test.ts`, `genderPrompt.test.ts`,
-      `e2e/cadastro-revisao.spec.ts` e dois casos novos em
-      `deficiencia-crud.spec.ts`.
+      `e2e/signup-review.spec.ts` e dois casos novos em
+      `disability-crud.spec.ts`.
 - [x] Atualizar este documento com a decisão.
 - [ ] Opcional: levar as abas (e o acabamento da seção 9) ao modal de
       edição, para as duas telas ficarem iguais.

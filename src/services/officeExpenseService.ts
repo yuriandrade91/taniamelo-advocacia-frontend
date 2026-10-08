@@ -1,12 +1,12 @@
 import endpoints from "@/constants/endpoints/paths";
 import axiosInstance from "@/services/axiosService";
 import {
-  escritaPendente,
-  leituraPendente,
-  listaVaziaPendente,
-  serieVaziaPendente,
-  integracaoPendente,
-} from "@/services/integracaoPendente";
+  pendingWrite,
+  pendingRead,
+  pendingEmptyList,
+  pendingEmptySeries,
+  pendingIntegration,
+} from "@/services/pendingIntegration";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type {
   OfficeExpenseListRequest,
@@ -37,7 +37,7 @@ import type {
 export const listOfficeExpenses = async (
   params?: OfficeExpenseListRequest,
 ): Promise<ApiEnvelope<OfficeExpenseResponse[]>> => {
-  if (integracaoPendente("expenses")) return listaVaziaPendente();
+  if (pendingIntegration("expenses")) return pendingEmptyList();
   const { data } = await axiosInstance.get<ApiEnvelope<OfficeExpenseResponse[]>>(
     endpoints.EXPENSES.LIST,
     { params },
@@ -49,7 +49,7 @@ export const listOfficeExpenses = async (
 export const getOfficeExpense = async (
   expenseId: string,
 ): Promise<ApiEnvelope<OfficeExpenseResponse>> => {
-  if (integracaoPendente("expenses")) return leituraPendente("GET /api/v1/expenses/{id}");
+  if (pendingIntegration("expenses")) return pendingRead("GET /api/v1/expenses/{id}");
   const { data } = await axiosInstance.get<ApiEnvelope<OfficeExpenseResponse>>(
     endpoints.EXPENSES.BY_ID(expenseId),
   );
@@ -62,7 +62,7 @@ export const getOfficeExpenseSummary = async (
     "dueFrom" | "dueTo" | "paidFrom" | "paidTo"
   >,
 ): Promise<ApiEnvelope<OfficeExpenseSummary>> => {
-  if (integracaoPendente("expenses")) return leituraPendente("GET /api/v1/expenses/summary");
+  if (pendingIntegration("expenses")) return pendingRead("GET /api/v1/expenses/summary");
   const { data } = await axiosInstance.get<ApiEnvelope<OfficeExpenseSummary>>(
     endpoints.EXPENSES.SUMMARY,
     { params },
@@ -73,7 +73,7 @@ export const getOfficeExpenseSummary = async (
 export const createOfficeExpense = async (
   body: OfficeExpenseRequest,
 ): Promise<ApiEnvelope<OfficeExpenseResponse>> => {
-  if (integracaoPendente("expenses")) return escritaPendente("POST /api/v1/expenses");
+  if (pendingIntegration("expenses")) return pendingWrite("POST /api/v1/expenses");
   const { data } = await axiosInstance.post<ApiEnvelope<OfficeExpenseResponse>>(
     endpoints.EXPENSES.CREATE,
     body,
@@ -86,7 +86,7 @@ export const updateOfficeExpense = async (
   expenseId: string,
   body: OfficeExpenseRequest,
 ): Promise<ApiEnvelope<OfficeExpenseResponse>> => {
-  if (integracaoPendente("expenses")) return escritaPendente("PUT /api/v1/expenses/{id}");
+  if (pendingIntegration("expenses")) return pendingWrite("PUT /api/v1/expenses/{id}");
   const { data } = await axiosInstance.put<ApiEnvelope<OfficeExpenseResponse>>(
     endpoints.EXPENSES.UPDATE(expenseId),
     body,
@@ -96,7 +96,7 @@ export const updateOfficeExpense = async (
 };
 
 export const deleteOfficeExpense = async (expenseId: string): Promise<void> => {
-  if (integracaoPendente("expenses")) return escritaPendente("DELETE /api/v1/expenses/{id}");
+  if (pendingIntegration("expenses")) return pendingWrite("DELETE /api/v1/expenses/{id}");
   await axiosInstance.delete(endpoints.EXPENSES.DELETE(expenseId), {
     successMessage: "Despesa excluída.",
   });
@@ -108,7 +108,7 @@ export const getOfficeExpenseTimeline = async (params: {
   to: string;
   basis?: "due" | "paid";
 }): Promise<ApiEnvelope<ExpenseTimelinePoint[]>> => {
-  if (integracaoPendente("expenses")) return serieVaziaPendente();
+  if (pendingIntegration("expenses")) return pendingEmptySeries();
   const { data } = await axiosInstance.get<ApiEnvelope<ExpenseTimelinePoint[]>>(
     endpoints.EXPENSES.TIMELINE,
     { params },

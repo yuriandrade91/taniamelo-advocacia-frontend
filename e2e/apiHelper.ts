@@ -13,14 +13,14 @@ import { readFileSync } from "node:fs";
  * sessão do usuário de teste, então o que a API recusar aqui a tela também
  * recusaria.
  */
-export async function apiComSessaoDoNavegador(): Promise<APIRequestContext | null> {
+export async function apiWithBrowserSession(): Promise<APIRequestContext | null> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL;
   if (!apiUrl) return null;
 
   let token: string | undefined;
   try {
-    const estado = JSON.parse(readFileSync("e2e/.auth/user.json", "utf-8"));
-    token = estado.cookies?.find((c: { name: string }) => c.name === "token")?.value;
+    const state = JSON.parse(readFileSync("e2e/.auth/user.json", "utf-8"));
+    token = state.cookies?.find((c: { name: string }) => c.name === "token")?.value;
   } catch {
     return null;
   }
@@ -46,31 +46,31 @@ export async function apiComSessaoDoNavegador(): Promise<APIRequestContext | nul
  * O backend valida os dígitos verificadores, então um número inventado seria
  * recusado com 400 — e o teste falharia por um motivo que não é o testado.
  */
-export function cpfValido(): string {
+export function validCpf(): string {
   const base = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
-  const digito = (nums: number[]) => {
-    const peso = nums.length + 1;
-    const soma = nums.reduce((total, n, i) => total + n * (peso - i), 0);
-    const resto = (soma * 10) % 11;
-    return resto === 10 ? 0 : resto;
+  const digit = (nums: number[]) => {
+    const weight = nums.length + 1;
+    const sum = nums.reduce((total, n, i) => total + n * (weight - i), 0);
+    const remainder = (sum * 10) % 11;
+    return remainder === 10 ? 0 : remainder;
   };
-  const d1 = digito(base);
-  const d2 = digito([...base, d1]);
+  const d1 = digit(base);
+  const d2 = digit([...base, d1]);
   return [...base, d1, d2].join("");
 }
 
 /** Tudo que os testes criam nasce marcado, para resíduo ser reconhecível. */
-export const MARCA = "[e2e]";
+export const TAG = "[e2e]";
 
 /**
  * A integração está em pausa neste ambiente (`NEXT_PUBLIC_INTEGRACOES_PENDENTES`)?
- * O mesmo critério do front (`services/integracaoPendente.ts`): sem a rota,
+ * O mesmo critério do front (`services/pendingIntegration.ts`): sem a rota,
  * o fluxo não tem o que exercitar e o teste se pula — em vez de um `skip`
  * fixo que esquece de religar quando a rota sobe.
  */
-export const integracaoPausada = (...nomes: string[]): boolean => {
-  const pausadas = (process.env.NEXT_PUBLIC_INTEGRACOES_PENDENTES ?? "")
+export const integrationPaused = (...nomes: string[]): boolean => {
+  const paused = (process.env.NEXT_PUBLIC_INTEGRACOES_PENDENTES ?? "")
     .split(",")
-    .map((nome) => nome.trim().toLowerCase());
-  return nomes.some((nome) => pausadas.includes(nome));
+    .map((name) => name.trim().toLowerCase());
+  return nomes.some((name) => paused.includes(name));
 };

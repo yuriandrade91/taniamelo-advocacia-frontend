@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { conversionFromServer } from "./disabilityConversion";
 import type { DisabilityConversionResponse } from "@/services/clientDisabilityPeriodService";
 
-const resposta: DisabilityConversionResponse = {
+const response: DisabilityConversionResponse = {
   convertedTo: "Sem deficiência",
   targetYears: 35,
   lines: [
@@ -36,7 +36,7 @@ const resposta: DisabilityConversionResponse = {
 
 describe("conversionFromServer", () => {
   it("troca rótulo por chave e monta o total no formato da tela", () => {
-    const result = conversionFromServer(resposta);
+    const result = conversionFromServer(response);
     expect(result?.convertedTo).toBe("SEM_DEFICIENCIA");
     expect(result?.lines.map((line) => line.grade)).toEqual(["GRAVE", "LEVE"]);
     expect(result?.lines[1]).toMatchObject({
@@ -54,11 +54,11 @@ describe("conversionFromServer", () => {
   });
 
   it("grau desconhecido não vira linha sem nome: a conta inteira fica de fora", () => {
-    const estranha = {
-      ...resposta,
-      lines: [{ ...resposta.lines[0], grade: "Gravíssima" }],
+    const odd = {
+      ...response,
+      lines: [{ ...response.lines[0], grade: "Gravíssima" }],
     } as unknown as DisabilityConversionResponse;
-    expect(conversionFromServer(estranha)).toBeNull();
+    expect(conversionFromServer(odd)).toBeNull();
   });
 
   it("sem resposta, sem conversão", () => {

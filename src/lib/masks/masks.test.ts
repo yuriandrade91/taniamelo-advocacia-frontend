@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { maskCEP, maskCPF, maskCTPS, maskCelular, maskEmail, maskNIT, maskRG, maskTelefone } from "./masks";
+import { maskCEP, maskCPF, maskCTPS, maskMobile, maskEmail, maskNIT, maskRG, maskPhone } from "./masks";
 
 describe("máscaras", () => {
   it("CPF", () => {
@@ -13,9 +13,9 @@ describe("máscaras", () => {
   });
 
   it("celular e telefone fixo", () => {
-    expect(maskCelular("31988881111")).toBe("(31) 98888-1111");
-    expect(maskTelefone("3133334444")).toBe("(31) 3333-4444");
-    expect(maskCelular("319888811119999")).toHaveLength(15);
+    expect(maskMobile("31988881111")).toBe("(31) 98888-1111");
+    expect(maskPhone("3133334444")).toBe("(31) 3333-4444");
+    expect(maskMobile("319888811119999")).toHaveLength(15);
   });
 
   it("e-mail perde os espaços", () => {

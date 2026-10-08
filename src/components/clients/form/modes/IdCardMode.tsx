@@ -7,7 +7,7 @@ import svgPaths from "@/constants/svg/paths";
 import { BenefitOptions } from "@/enums/benefit/Benefits";
 import { GenderOptions } from "@/enums/gender/Gender";
 import { SituationOptions } from "@/enums/situation/Situation";
-import { maskCelular, maskCPF, maskCTPS, maskNIT } from "@/lib/masks/masks";
+import { maskMobile, maskCPF, maskCTPS, maskNIT } from "@/lib/masks/masks";
 import {
   Caption,
   InlineDate,
@@ -15,20 +15,10 @@ import {
   InlineSelect,
   type FillModeProps,
 } from "./shared";
-import { digitsOf } from "@/lib/masks/masks";
+import { onlyDigits } from "@/lib/masks/masks";
+import { initials } from "@/lib/format";
 
-const initialsOf = (name: string) => {
-  const words = name
-    .trim()
-    .split(/\s+/)
-    .filter((word) => word.length > 2);
-  if (!words.length) return "?";
-  return (
-    words[0][0] + (words.length > 1 ? words[words.length - 1][0] : "")
-  ).toUpperCase();
-};
 
-const onlyDigits = (value: string, max: number) => digitsOf(value).slice(0, max);
 
 function FlipIcon() {
   return (
@@ -109,7 +99,7 @@ export function IdCardMode(props: FillModeProps) {
             <div className="relative mt-6 grid gap-6 sm:grid-cols-[110px_minmax(0,1fr)]">
               <div className="flex flex-col items-center gap-3">
                 <span className="flex h-24 w-24 items-center justify-center rounded-3xl bg-secondary text-3xl font-semibold tracking-wide text-white">
-                  {initialsOf(p.fullName)}
+                  {initials(p.fullName)}
                 </span>
                 <div className="w-full text-center">
                   <Caption tone="card">Sexo</Caption>
@@ -189,7 +179,7 @@ export function IdCardMode(props: FillModeProps) {
                     placeholder="(00) 00000-0000"
                     value={p.mobilePhone}
                     onChange={(value) =>
-                      personal.setField("mobilePhone", maskCelular(value))
+                      personal.setField("mobilePhone", maskMobile(value))
                     }
                     missing
                     className="font-mono"

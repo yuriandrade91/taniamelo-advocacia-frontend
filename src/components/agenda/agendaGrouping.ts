@@ -1,5 +1,6 @@
 import type { AppointmentResponse } from "@/interfaces/appointment/Appointment.interface";
 import { AppointmentStatusLabelByKey } from "@/enums/appointment/Appointment";
+import { pad } from "@/lib/period";
 
 /**
  * Agrupamento da agenda por dia.
@@ -23,7 +24,6 @@ export type AgendaDay = {
   items: AppointmentResponse[];
 };
 
-const pad = (value: number) => String(value).padStart(2, "0");
 
 /** Dia local de um instante ISO, como `yyyy-MM-dd`. */
 export function localDayOf(iso: string): string {

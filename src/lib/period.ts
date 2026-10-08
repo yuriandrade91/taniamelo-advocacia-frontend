@@ -30,7 +30,8 @@ const MONTH_NAMES = [
   "Dezembro",
 ];
 
-const pad = (value: number) => String(value).padStart(2, "0");
+/** Dois dígitos: `7` → `"07"`. */
+export const pad = (value: number) => String(value).padStart(2, "0");
 
 /** Mês atual segundo o relógio local do usuário — só para posição inicial. */
 /**

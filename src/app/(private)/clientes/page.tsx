@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { ActionButton } from "@/components/ui/actions/ActionGroup";
 import { PlusIcon } from "@/components/ui/icons/actions";
 import { TablePagination } from "@/components/ui/table/TablePagination";
-import { CompiladoModel } from "@/components/clients/models/CompiladoModel";
+import { CompiledModel } from "@/components/clients/models/CompiledModel";
 import type { ClientsModelProps } from "@/components/clients/models/shared";
 import { invalidateSituationTrail } from "@/components/clients/models/situationTrail";
 import { DateRangeField } from "@/components/ui/filters/DateRangeField";
@@ -21,7 +21,7 @@ import {
 import { SituationLabelByKey, type SituationKey } from "@/enums/situation/Situation";
 import type { Clients } from "@/interfaces/Clients.interface";
 import { usePendingAction } from "@/hooks/usePendingAction";
-import { usePermissoes } from "@/hooks/usePermissoes";
+import { usePermissions } from "@/hooks/usePermissions";
 import { clearClientsCache, getCachedClients, loadClients } from "@/lib/clientsCache";
 import { clampPage } from "@/lib/pagination";
 import { applyPendingOverlay, applyPendingTotal } from "@/lib/pendingActions";
@@ -32,6 +32,7 @@ import {
 } from "@/services/clientService";
 import { notificationCenter } from "@/services/notificationService";
 import { useClientFilters } from "./useClientFilters";
+import { messageOf } from "@/lib/errorMessage";
 
 /**
  * Clientes — a listagem.
@@ -39,7 +40,7 @@ import { useClientFilters } from "./useClientFilters";
  * A página é só orquestração: busca (com cache e descarte de resposta
  * atrasada), paginação, exclusão com janela de desfazer, mudança de situação,
  * os modais de ficha e exclusão e o painel do financeiro do cliente. O
- * desenho está em `CompiladoModel`, que recebe `ClientsModelProps`.
+ * desenho está em `CompiledModel`, que recebe `ClientsModelProps`.
  */
 
 /** Ficha e financeiro só existem depois do clique: fora do JS inicial da lista. */
@@ -68,9 +69,6 @@ type LoadedPage = {
   error: string;
 };
 
-const messageOf = (reason: unknown) =>
-  reason instanceof Error ? reason.message : String(reason);
-
 /**
  * `applyPendingOverlay` pede os rótulos de "concluído"/"cancelado", mas aqui
  * só existe exclusão pendente — nunca são usados.
@@ -83,7 +81,7 @@ export default function ClientsPage() {
    * Excluir é de ADMIN/SUPPORT: os demais não veem o botão. O financeiro do
    * cliente é só de quem vê o financeiro (ADMIN).
    */
-  const { podeDestruir, podeVerFinanceiro } = usePermissoes();
+  const { canDestroy, canSeeFinance } = usePermissions();
 
   const [page, setPage] = useState(1);
   const [loaded, setLoaded] = useState<LoadedPage | null>(null);
@@ -146,7 +144,7 @@ export default function ClientsPage() {
           key: requestKey,
           clients: [],
           pagination: previous?.pagination ?? INITIAL_CLIENTS_PAGINATION,
-          error: messageOf(reason),
+          error: messageOf(reason, String(reason)),
         }));
       });
     return () => {
@@ -215,6 +213,7 @@ export default function ClientsPage() {
    * `GET /clients/undefined`. O aviso é um toast, não o erro da lista: um
    * registro ruim não pode esconder a página inteira.
    */
+  /** Visualizar abre a ficha em leitura; editar, a mesma ficha já editando. */
   const openClient = (client: Clients, edit: boolean) => {
     if (!client.id) {
       console.error("Cliente sem id na listagem — ficha não aberta.", client);
@@ -285,14 +284,14 @@ export default function ClientsPage() {
         noun={["cliente", "clientes"]}
       />
     ),
-    canDelete: podeDestruir,
+    canDelete: canDestroy,
     actions: {
       onCreate: () => router.push("/clientes/novo"),
       onView: (client) => openClient(client, false),
       onEdit: (client) => openClient(client, true),
       onDelete: requestDelete,
       onChangeSituation: changeSituation,
-      onViewFinance: podeVerFinanceiro
+      onViewFinance: canSeeFinance
         ? (client) => {
             if (client.id) setFinanceTarget({ id: String(client.id), name: client.fullName });
           }
@@ -317,7 +316,7 @@ export default function ClientsPage() {
         }
       />
 
-      <CompiladoModel {...listProps} />
+      <CompiledModel {...listProps} />
 
       <DeleteClientModal
         isOpen={deleteTarget !== null}

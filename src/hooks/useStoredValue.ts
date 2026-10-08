@@ -12,7 +12,13 @@ import { useCallback, useSyncExternalStore } from "react";
  *   chega às outras abas).
  * - Sem storage (aba privada, bloqueio): fica `null` e gravar não faz nada.
  */
-const LOCAL_EVENT = "stored-value";
+/**
+ * "Algo mudou no storage **desta** aba" — o evento nativo `storage` só chega
+ * às outras. Exportado porque o usuário da sessão (`lib/sessionUser`) grava
+ * fora deste hook e precisa avisar pela mesma porta.
+ */
+export const STORED_VALUE_EVENT = "stored-value";
+const LOCAL_EVENT = STORED_VALUE_EVENT;
 
 const subscribe = (onChange: () => void) => {
   window.addEventListener("storage", onChange);

@@ -133,21 +133,21 @@ backend **local** enquanto o processo de teste acreditava estar na AWS.
 - `e2e/inss-password.spec.ts` — a ficha não busca a senha sozinha, revelar
   grava auditoria, copiar confirma em toast com a contagem andando, e salvar
   sem tocar no campo não apaga a senha.
-- `e2e/ficha-cliente.spec.ts` — a ficha grava pelas seções do cadastro: o PUT
+- `e2e/client-sheet.spec.ts` — a ficha grava pelas seções do cadastro: o PUT
   de substituição total não apaga o que a tela não desenha, o CPF inválido é
   barrado como no cadastro, as seções aparecem todas (o painel ancora, não
   esconde) e Pagamentos só busca o financeiro quando é aberta.
 - `e2e/login-throttle.spec.ts` — o 429 vira "tente novamente em X" em vez de
   "credenciais inválidas", que mandaria a pessoa tentar de novo e aprofundar o
   bloqueio.
-- `e2e/papeis.spec.ts` — o que o atendente não vê, com a contraprova de que
+- `e2e/roles.spec.ts` — o que o atendente não vê, com a contraprova de que
   para o admin os mesmos botões aparecem.
-- `e2e/financeiro-restrito.spec.ts` — Pagamentos e Carteira somem do menu para
+- `e2e/restricted-finance.spec.ts` — Pagamentos e Carteira somem do menu para
   quem não é admin, e o endereço digitado direto explica em vez de mostrar uma
   lista vazia.
-- `e2e/cadastro-endereco-em-lote.spec.ts` — dois endereços no cadastro saem em
+- `e2e/signup-address-batch.spec.ts` — dois endereços no cadastro saem em
   UMA requisição (`/addresses/batch`), e nenhum POST avulso.
-- `e2e/trilha-de-situacao.spec.ts` — a trilha diz de onde para onde, marca
+- `e2e/situation-trail.spec.ts` — a trilha diz de onde para onde, marca
   "voltou" no retrocesso e mostra nome em vez de UUID.
 
 ## Convenções
@@ -167,7 +167,7 @@ backend **local** enquanto o processo de teste acreditava estar na AWS.
 - **Título único** (`Date.now()`) em tudo que é criado, para uma execução não
   enxergar o resíduo da anterior.
 - Campo de data/hora do react-aria não aceita `fill`: cada parte é um
-  spinbutton. Use o helper `preencherDataHora`.
+  spinbutton. Use o helper `fillDateTime`.
 
 ## Playwright MCP — para ESCREVER teste, não para rodar
 
@@ -255,7 +255,7 @@ login de novo, rode o setup outra vez.
   enquanto a instância remota for a única publicada: código arbitrário com
   sessão de ADMIN é a ferramenta mais afiada da caixa, e a máquina local é
   onde um engano custa um `pnpm dev` reiniciado.
-- `--isolated` mantém o perfil em memória: não suja o navegador de ninguém.
+- `--isolated` mantém o profile em memória: não suja o navegador de ninguém.
 
 ### Conferido
 
@@ -271,7 +271,7 @@ tela de clientes. Esta versão **não** tem ferramenta de gravação/codegen
 Por ordem de valor, não de esforço:
 
 1. Cadastro de cliente ponta a ponta (a página em abas, endereços, entrevista)
-   — é o formulário mais longo do sistema e o que mais quebra. `clientes-crud`
+   — é o formulário mais longo do sistema e o que mais quebra. `clients-crud`
    cobre o caminho feliz; faltam os erros de validação entre abas.
 2. Substituir/cancelar na modal de decisão de conflito.
 3. Exclusão e restauração (cliente e compromisso), agora que o backend tem

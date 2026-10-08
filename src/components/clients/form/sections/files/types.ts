@@ -43,11 +43,6 @@ export const newStagedSimulation = (file: File): StagedSimulation => ({
   isPrincipal: false,
 });
 
-/** Documento só pode subir com tipo — é `@NotBlank` no metadado. */
-export const isDocumentReady = (item: StagedDocument) =>
-  Boolean(item.documentType);
-
-
 /**
  * No cadastro, todo campo do arquivo é obrigatório — o tipo e as observações
  * do documento; data, versão, vínculos e observações da simulação. Só a marca

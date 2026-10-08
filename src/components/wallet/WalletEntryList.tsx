@@ -29,7 +29,7 @@ import { formatBRL, formatDateBR } from "@/lib/format";
  *   sinal. Texto das linhas sempre em `gray-100`; só o valor tem cor.
  * - Ações por schema (`RowActions`) com os nomes acessíveis de antes
  *   ("Editar despesa", "Excluir receita"…). Sem guarda extra no excluir:
- *   chegar aqui exige `podeVerFinanceiro` (ADMIN), o papel do `@RequerAdmin`.
+ *   chegar aqui exige `canSeeFinance` (ADMIN), o papel do `@RequerAdmin`.
  * - O desenho da lista é o `DataList`, o mesmo de Clientes.
  *
  * Reaproveita `bucketOf` de pagamentos: um lançamento também está atrasado,

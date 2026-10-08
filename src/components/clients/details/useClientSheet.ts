@@ -3,17 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSectionForm } from "@/hooks/useSectionForm";
 import type { SectionSchema } from "@/components/ui/form/schema";
-import type { Clients } from "@/interfaces/Clients.interface";
-import type { ClientSituationHistory } from "@/interfaces/client/Client.interface";
-import type {
-  ClientFileDocumentResponse,
-  ClientFileSimulationResponse,
-} from "@/interfaces/client/ClientSubResources.interface";
-import { clientById, clientSituationHistory, updateClient } from "@/services/clientService";
-import { createAddress, listAddresses, updateAddress } from "@/services/clientAddressService";
-import { createInterview, listInterviews, updateInterview } from "@/services/clientInterviewService";
-import { listDocuments, listSimulations } from "@/services/clientFileService";
+import { clientSituationHistory, updateClient } from "@/services/clientService";
+import { createAddress, updateAddress } from "@/services/clientAddressService";
+import { createInterview, updateInterview } from "@/services/clientInterviewService";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
+import { messageOf } from "@/lib/errorMessage";
 import {
   toAddressValues,
   toInterviewValues,
@@ -21,6 +15,12 @@ import {
   toProfessionalValues,
   toServiceValues,
 } from "../form/fromResponse";
+import {
+  loadClient,
+  loadClientFiles,
+  newestFirst,
+  type LoadedClient,
+} from "../form/loadClient";
 import { toAddressRequest, toInterviewRequest } from "../form/payloads";
 import {
   addressInitial,
@@ -48,8 +48,7 @@ import { toUpdateRequest, type KeptFields, type SheetSections } from "./clientSh
  * emissão do RG, notas, responsável, tipo de endereço).
  *
  * Requisições:
- * - abrir: as seis leituras saem juntas (`allSettled`: um 404 de arquivos não
- *   esconde a ficha);
+ * - abrir: as leituras saem juntas (`loadClient`);
  * - salvar: cada recurso só é gravado se mudou, e a resposta do PUT vira o
  *   estado novo — sem reler a ficha inteira; o histórico só é relido se a
  *   situação mudou;
@@ -58,44 +57,28 @@ import { toUpdateRequest, type KeptFields, type SheetSections } from "./clientSh
 
 type Snapshot = SheetSections & { address: AddressValues; interview: InterviewValues };
 
-type SheetRecord = {
+type SheetRecord = LoadedClient & {
   clientId: string;
-  client: Clients | null;
   kept: KeptFields;
   addressId: string | null;
   interviewId: string | null;
   interviewCount: number;
-  history: ClientSituationHistory[];
-  historyFailed: boolean;
-  documents: ClientFileDocumentResponse[];
-  simulations: ClientFileSimulationResponse[];
   snapshot: Snapshot;
-  error: string;
 };
-
-const messageOf = (reason: unknown, fallback: string) => {
-  const e = reason as { message?: string; response?: { data?: { message?: string } } };
-  return e?.response?.data?.message || e?.message || fallback;
-};
-
-const valueOf = <T,>(result: PromiseSettledResult<T>): T | undefined =>
-  result.status === "fulfilled" ? result.value : undefined;
-
-/** Mais recente primeiro: é onde o cliente está hoje. */
-const newestFirst = <T,>(items: T[] = [], at: (item: T) => string | undefined) =>
-  [...items].sort((a, b) => (at(b) ?? "").localeCompare(at(a) ?? ""));
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
-function snapshotOf(client: Clients | null, address?: AddressValues, interview?: InterviewValues): Snapshot {
-  const source = client ?? {};
+function snapshotOf(loaded: LoadedClient): Snapshot {
+  const source = loaded.client ?? {};
+  const [primary] = loaded.addresses;
+  const [latest] = loaded.interviews;
   return {
     service: toServiceValues(source),
     personal: toPersonalValues(source),
     professional: toProfessionalValues(source),
     // A ficha edita um endereço: o principal (ou o primeiro). Salvar o mantém principal.
-    address: address ?? { ...addressInitial, isPrimary: true },
-    interview: interview ?? interviewInitial,
+    address: primary ? { ...toAddressValues(primary), isPrimary: true } : { ...addressInitial, isPrimary: true },
+    interview: latest ? toInterviewValues(latest) : interviewInitial,
   };
 }
 
@@ -133,43 +116,19 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
   useEffect(() => {
     if (!isOpen || !clientId) return;
     let active = true;
-    void Promise.allSettled([
-      clientById(clientId),
-      clientSituationHistory(clientId, { pageNumber: 1, pageSize: 50 }),
-      listAddresses(clientId),
-      listInterviews(clientId),
-      listDocuments(clientId),
-      listSimulations(clientId),
-    ]).then(([client, history, addresses, interviews, documents, simulations]) => {
+    void loadClient(clientId).then((loaded) => {
       if (!active) return;
-      const data = valueOf(client) ?? null;
-      const addressList = valueOf(addresses)?.data ?? [];
-      const primary = addressList.find((item) => item.isPrimary) ?? addressList[0];
-      const interviewList = newestFirst(valueOf(interviews)?.data, (item) => item.occurredAt);
-      const latest = interviewList[0];
-      const snapshot = snapshotOf(
-        data,
-        primary && { ...toAddressValues(primary), isPrimary: true },
-        latest && toInterviewValues(latest),
-      );
+      const snapshot = snapshotOf(loaded);
       apply(snapshot);
       setSaveError("");
       setRecord({
+        ...loaded,
         clientId,
-        client: data,
-        kept: { notes: data?.notes, responsibleUserId: data?.responsibleUserId },
-        addressId: primary?.id ?? null,
-        interviewId: latest?.id ?? null,
-        interviewCount: interviewList.length,
-        history: newestFirst(valueOf(history)?.data, (item) => item.changedAt),
-        historyFailed: history.status === "rejected",
-        documents: valueOf(documents)?.data ?? [],
-        simulations: valueOf(simulations)?.data ?? [],
+        kept: { notes: loaded.client?.notes, responsibleUserId: loaded.client?.responsibleUserId },
+        addressId: loaded.addresses[0]?.id ?? null,
+        interviewId: loaded.interviews[0]?.id ?? null,
+        interviewCount: loaded.interviews.length,
         snapshot,
-        error:
-          client.status === "rejected"
-            ? messageOf(client.reason, fallbackMessages.CLIENTS.LOAD_FAILED)
-            : "",
       });
     });
     return () => {
@@ -181,6 +140,7 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
   const loaded = record && record.clientId === clientId ? record : null;
   const isLoading = Boolean(isOpen && clientId && !loaded);
 
+  /** Desfaz o que foi digitado: volta ao que está gravado. */
   const cancel = useCallback(() => {
     if (loaded) apply(loaded.snapshot);
     setSaveError("");
@@ -188,22 +148,19 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
 
   const refreshFiles = useCallback(async () => {
     if (!clientId) return;
-    const [documents, simulations] = await Promise.allSettled([
-      listDocuments(clientId),
-      listSimulations(clientId),
-    ]);
+    const files = await loadClientFiles(clientId);
     setRecord((current) =>
       current && {
         ...current,
-        documents: valueOf(documents)?.data ?? current.documents,
-        simulations: valueOf(simulations)?.data ?? current.simulations,
+        documents: files.documents ?? current.documents,
+        simulations: files.simulations ?? current.simulations,
       },
     );
   }, [clientId]);
 
   /**
    * Valida tudo (revela os erros de todas as seções de uma vez) e grava o que
-   * mudou. `beforeSave` valida o que vive fora das seções (períodos de
+   * mudou. `validateExtra` valida o que vive fora das seções (períodos de
    * deficiência); `afterSave` grava depois do cliente — os períodos dependem
    * do sexo que este PUT pode ter acabado de corrigir.
    */

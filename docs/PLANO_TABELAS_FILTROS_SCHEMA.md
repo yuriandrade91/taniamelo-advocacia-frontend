@@ -58,7 +58,7 @@ primeiro, porque o que está duplicado não é o estilo, é a **regra**.
 - **Células**: selo de status por balde, parcela, CPF copiável, chips de
   situação, botões de contato.
 - **Ações por linha**: "registrar recebimento" só em aberto; "excluir" só para
-  quem pode (`podeDestruir`); "ver detalhes" sempre primeiro.
+  quem pode (`canDestroy`); "ver detalhes" sempre primeiro.
 
 É essa diferença que o desenho precisa acomodar sem virar exceção.
 
@@ -309,8 +309,8 @@ tests verdes, e2e verdes e prints iguais aos da Fase 0.
   detalhes) e Clientes, com **API mockada** via `context.route` no Playwright
   — o mesmo método usado para validar o painel de detalhes, que não depende do
   backend estar no ar.
-- Lista dos seletores dos e2e que dependem de rótulo (`carteira-crud`,
-  `pagamentos-crud`, `financeiro-restrito`).
+- Lista dos seletores dos e2e que dependem de rótulo (`wallet-crud`,
+  `payments-crud`, `restricted-finance`).
 
 ### Fase 1 — peças pequenas
 - `src/hooks/useDebouncedValue.ts`; trocar as 6 cópias e padronizar em 400 ms.

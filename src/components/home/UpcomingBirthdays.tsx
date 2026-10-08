@@ -2,9 +2,17 @@
 
 import { Skeleton } from "@heroui/react";
 import { Card, SectionTitle } from "@/components/ui/layout/Card";
+import { ContactAction } from "@/components/ui/ContactAction";
+import { WhatsappIcon } from "@/components/ui/icons/ContactIcons";
+import { whatsappLink } from "@/lib/contactLinks";
 import { MONTH_SHORT } from "@/constants/date/months";
 import { plural } from "@/lib/format";
-import { BIRTHDAY_LIMIT, birthdayCountdown, type BirthdayPerson } from "./birthdays";
+import {
+  BIRTHDAY_LIMIT,
+  birthdayCountdown,
+  birthdayMessage,
+  type BirthdayPerson,
+} from "./birthdays";
 
 /**
  * Aniversariantes — quem completa idade nos próximos dias.
@@ -20,6 +28,10 @@ import { BIRTHDAY_LIMIT, birthdayCountdown, type BirthdayPerson } from "./birthd
  * 30 dias" é verdade e não serve para nada. Quem é o próximo serve sempre, e
  * a contagem ao lado já diz se ele está longe.
  *
+ * E a lista anda com o calendário: quem fez aniversário ontem sai quando o
+ * dia vira, mesmo com a página aberta desde ontem, e os cinco são relidos
+ * para o dia novo (`useUpcomingBirthdays`).
+ *
  * O ladrilho de data é o mesmo da Agenda (mês em cima, dia embaixo; azul
  * cheio quando é hoje): é a mesma pergunta — "quando" —, e duas respostas com
  * desenhos diferentes na mesma tela custam atenção sem dar nada.
@@ -29,17 +41,19 @@ import { BIRTHDAY_LIMIT, birthdayCountdown, type BirthdayPerson } from "./birthd
  */
 
 export type UpcomingBirthdaysProps = {
-  /** `null` enquanto a listagem não respondeu. */
+  /**
+   * `null` enquanto a primeira leitura não respondeu. Já vem sem quem fez
+   * aniversário antes de hoje — ver `useUpcomingBirthdays`.
+   */
   items: BirthdayPerson[] | null;
   /**
-   * A listagem respondeu, mas sem `birthDate` em ninguém — o campo não está no
-   * `ClientListResponseDTO` desta instância do backend.
+   * A leitura falhou (o interceptor já avisou).
    *
    * É um estado próprio porque "não sei" não é "não tem": dizer "nenhum
-   * aniversário nos próximos 30 dias" com 124 clientes na base seria uma
-   * afirmação falsa, e quem lê não tem como desconfiar dela.
+   * cliente com data de nascimento" com a base cheia seria uma afirmação
+   * falsa, e quem lê não tem como desconfiar dela.
    */
-  isUnavailable?: boolean;
+  failed?: boolean;
   className?: string;
 };
 
@@ -48,7 +62,7 @@ const SKELETON_ROWS = BIRTHDAY_LIMIT;
 
 export default function UpcomingBirthdays({
   items,
-  isUnavailable = false,
+  failed = false,
   className = "",
 }: UpcomingBirthdaysProps) {
   const isLoading = items === null;
@@ -57,9 +71,6 @@ export default function UpcomingBirthdays({
     <Card className={`flex flex-col ${className}`}>
       <header>
         <SectionTitle>Aniversariantes</SectionTitle>
-        <p className="mt-2 text-xs text-gray-100/70">
-          Os próximos {BIRTHDAY_LIMIT}
-        </p>
       </header>
 
       {isLoading ? (
@@ -75,14 +86,13 @@ export default function UpcomingBirthdays({
             </li>
           ))}
         </ul>
-      ) : isUnavailable ? (
+      ) : failed ? (
         <p className="mt-4 py-6 text-sm text-gray-100/60">
-          Os aniversários dependem da data de nascimento, que a listagem de
-          clientes ainda não traz.
+          Não foi possível carregar os aniversariantes agora.
         </p>
       ) : items.length === 0 ? (
-        // Sem janela, isto só acontece com a base vazia: qualquer cliente com
-        // data de nascimento tem um próximo aniversário.
+        // A janela é o ano inteiro: isto só acontece quando nenhum cliente
+        // ativo tem data de nascimento — todo aniversário cai em 365 dias.
         <p className="mt-4 py-6 text-sm text-gray-100/60">
           Nenhum cliente com data de nascimento cadastrada.
         </p>
@@ -100,11 +110,12 @@ export default function UpcomingBirthdays({
 }
 
 /**
- * Uma linha: quando, quem, quantos anos faz e quanto falta.
+ * Uma linha: quando, quem, quantos anos faz, quanto falta — e o parabéns.
  *
- * Sem ação: não há como abrir a ficha de um cliente a partir de outra tela —
- * a listagem não lê id nem busca da URL. Um botão que não leva a lugar nenhum
- * é pior que texto, e era o que o cartão anterior fazia.
+ * No dia do aniversário, o WhatsApp — antes do selo — abre a conversa com a
+ * mensagem do escritório já escrita (`birthdayMessage`); nada sai sozinho, a
+ * pessoa revisa e envia. Sem celular no cadastro, o botão não aparece em vez
+ * de virar link quebrado.
  */
 function BirthdayRow({ person }: { person: BirthdayPerson }) {
   const [, month, day] = person.date.split("-").map(Number);
@@ -127,13 +138,30 @@ function BirthdayRow({ person }: { person: BirthdayPerson }) {
       </span>
 
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm text-primary">{person.name}</span>
+        <span className="block truncate text-sm text-primary">
+          {person.name}
+        </span>
         {person.turning !== null && (
           <span className="block text-xs text-gray-100/70 tabular-nums">
             faz {plural(person.turning, "ano", "anos")}
           </span>
         )}
       </span>
+
+      {/* Só no dia: parabéns antes da data soa a lembrete, não a carinho. */}
+      {isToday && (
+        <ContactAction
+          href={whatsappLink(person.phone ?? undefined, birthdayMessage(person))}
+          label={
+            person.isWhatsapp
+              ? `Mandar parabéns para ${person.name} no WhatsApp`
+              : `Chamar ${person.name} no WhatsApp para dar parabéns`
+          }
+          tone="success"
+        >
+          <WhatsappIcon className="h-5 w-5" />
+        </ContactAction>
+      )}
 
       {/* "hoje" ganha o dourado da marca; o resto é um selo neutro, para a
           contagem não competir com o nome. */}

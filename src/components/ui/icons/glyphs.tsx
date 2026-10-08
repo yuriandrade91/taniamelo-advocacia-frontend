@@ -1,30 +1,9 @@
-import type { ReactNode } from "react";
+import { Svg, type IconProps } from "@/components/ui/icons/Svg";
 
 /**
  * Ícones dos seletores de modelo (e de uso geral nos modelos).
  * Inline, traço em `currentColor` — a cor vem da classe de texto de quem usa.
  */
-type IconProps = { className?: string };
-
-function Svg({
-  className = "h-4 w-4",
-  children,
-}: IconProps & { children: ReactNode }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      {children}
-    </svg>
-  );
-}
 
 export const ListIcon = (p: IconProps) => (
   <Svg {...p}><path d="M8 6h13M8 12h13M8 18h13M3.5 6h.01M3.5 12h.01M3.5 18h.01" /></Svg>
@@ -113,7 +92,13 @@ export const SearchIcon = (p: IconProps) => (
   <Svg {...p}><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></Svg>
 );
 export const EyeIcon = (p: IconProps) => (
-  <Svg {...p}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" /></Svg>
+  <Svg {...p}><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z" /><circle cx="12" cy="12" r="3" /></Svg>
+);
+export const EyeOffIcon = (p: IconProps) => (
+  <Svg {...p}><path d="M9.9 4.24A10.9 10.9 0 0 1 12 4c7 0 10.5 8 10.5 8a18.5 18.5 0 0 1-2.16 3.19M6.6 6.6C3.4 8.6 1.5 12 1.5 12s3.5 8 10.5 8a10.9 10.9 0 0 0 5.4-1.4M9.9 14.1a3 3 0 0 0 4.2-4.2" /><path d="M2 2l20 20" /></Svg>
+);
+export const CopyIcon = (p: IconProps) => (
+  <Svg {...p}><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></Svg>
 );
 export const CheckIcon = (p: IconProps) => (
   <Svg {...p}><path d="m4.5 12.5 5 5 10-11" /></Svg>

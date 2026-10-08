@@ -9,7 +9,7 @@ import {
   paymentFormFrom,
   paymentRules,
   paymentSchema,
-  patchVazio,
+  emptyPatch,
   toPaymentPatch,
   type PaymentFormValues,
 } from "./paymentForm";
@@ -70,7 +70,7 @@ export function usePaymentForm(editing: PaymentEditing | null) {
     if (!form.revealErrors() || !editing) return null;
 
     const patch = toPaymentPatch(form.values, editing.payment);
-    if (patchVazio(patch)) {
+    if (emptyPatch(patch)) {
       // Sucesso sem mudança ensina a clicar em "Salvar" por reflexo só para
       // conferir se salvou.
       notificationCenter.info("Nada foi alterado.");

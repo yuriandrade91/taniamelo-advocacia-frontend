@@ -6,6 +6,7 @@
  * botão "Copiar qualificação".
  */
 import { MaritalStatusOptions } from "@/enums/maritalStatus/MaritalStatus";
+import { formatDateBR } from "@/lib/format";
 
 export type QualificationInput = {
   fullName: string;
@@ -50,11 +51,6 @@ export function maritalWord(maritalStatus: string, gender: string) {
   return word;
 }
 
-const dateBR = (iso: string) => {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : "";
-};
-
 const or = (value: string) => value.trim() || BLANK;
 
 export function qualificationText(v: QualificationInput) {
@@ -72,7 +68,7 @@ export function qualificationText(v: QualificationInput) {
   return (
     `${or(v.fullName).toUpperCase()}, ${or(v.nationality).toLowerCase()}, ` +
     `${or(maritalWord(v.maritalStatus, v.gender))}, ${or(v.profession).toLowerCase()}, ` +
-    `nascid${g} em ${or(dateBR(v.birthDate))}, filh${g} de ${or(v.motherName)}, ` +
+    `nascid${g} em ${or(formatDateBR(v.birthDate, ""))}, filh${g} de ${or(v.motherName)}, ` +
     `inscrit${g} no CPF sob o nº ${or(v.cpf)}, ${bearer} do RG nº ${rg}, ` +
     `NIT/PIS nº ${or(v.nitPis)}, residente e domiciliad${g} na ${or(v.street)}, ` +
     `nº ${or(v.addressNumber)}, bairro ${or(v.neighborhood)}, ${cityUf}, ` +

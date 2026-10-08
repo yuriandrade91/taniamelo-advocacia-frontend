@@ -142,14 +142,14 @@ describe("a revisão do cadastro", () => {
   it("nunca mostra a senha do INSS", () => {
     const input = blank();
     input.professional.inssPassword = "segredo-123";
-    const senha = itemOf(
+    const password = itemOf(
       buildClientReview(input),
       "professional",
       "Senha do INSS (meu INSS)",
     );
 
-    expect(senha.state).toBe("filled");
-    expect(senha.value).not.toContain("segredo");
+    expect(password.state).toBe("filled");
+    expect(password.value).not.toContain("segredo");
   });
 
   it("junta o tempo de contribuição numa frase", () => {
@@ -162,10 +162,10 @@ describe("a revisão do cadastro", () => {
         .value,
     ).toBe("33 anos, 1 mês e 5 dias");
 
-    const soAnos = blank();
-    soAnos.professional.contributionYears = "1";
+    const onlyYears = blank();
+    onlyYears.professional.contributionYears = "1";
     expect(
-      itemOf(buildClientReview(soAnos), "professional", "Tempo de contribuição")
+      itemOf(buildClientReview(onlyYears), "professional", "Tempo de contribuição")
         .value,
     ).toBe("1 ano");
   });
@@ -200,22 +200,22 @@ describe("as seções opcionais na revisão", () => {
   });
 
   it("entrevista começada exige o conteúdo e mostra o relato sem HTML", () => {
-    const vazia = blank();
-    vazia.interview = {
+    const empty = blank();
+    empty.interview = {
       values: { occurredAt: "2026-10-01T14:30:00", durationMinutes: "45", content: "" },
       hasInput: true,
     };
-    const semRelato = buildClientReview(vazia);
-    expect(itemOf(semRelato, "interview", "Conteúdo").state).toBe("missing");
-    expect(itemOf(semRelato, "interview", "Data e hora").value).toBe(
+    const withoutReport = buildClientReview(empty);
+    expect(itemOf(withoutReport, "interview", "Conteúdo").state).toBe("missing");
+    expect(itemOf(withoutReport, "interview", "Data e hora").value).toBe(
       "01/10/2026 às 14:30",
     );
-    expect(itemOf(semRelato, "interview", "Duração (minutos)").value).toBe(
+    expect(itemOf(withoutReport, "interview", "Duração (minutos)").value).toBe(
       "45 min",
     );
 
-    const comRelato = blank();
-    comRelato.interview = {
+    const withReport = blank();
+    withReport.interview = {
       values: {
         occurredAt: "",
         durationMinutes: "",
@@ -224,7 +224,7 @@ describe("as seções opcionais na revisão", () => {
       hasInput: true,
     };
     expect(
-      itemOf(buildClientReview(comRelato), "interview", "Conteúdo").value,
+      itemOf(buildClientReview(withReport), "interview", "Conteúdo").value,
     ).toBe("Trouxe a CTPS.\nFalta o CNIS & laudo.");
   });
 
@@ -308,11 +308,11 @@ describe("a revisão compacta", () => {
   it("separa os opcionais em branco numa lista de rótulos", () => {
     const input = blank();
     input.personal.fullName = "Maria";
-    const identificacao = buildClientReview(input)
+    const identification = buildClientReview(input)
       .find((section) => section.key === "personal")!
       .groups.find((group) => group.title === "Identificação")!;
 
-    const { shown, blank: emBranco } = splitBlankOptional(identificacao.items);
+    const { shown, blank: emBranco } = splitBlankOptional(identification.items);
 
     // Preenchido e obrigatórios faltando continuam como campo...
     expect(shown.map((entry) => entry.label)).toEqual([

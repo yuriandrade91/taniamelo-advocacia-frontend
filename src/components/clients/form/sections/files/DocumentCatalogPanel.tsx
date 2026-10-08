@@ -35,14 +35,14 @@ import { DOCUMENT_CATALOG, totalDeItens } from "./documentCatalog";
  */
 
 /** Ordem do enum, menos `OUTROS`, que não tem lista. */
-const CATEGORIAS = DOCUMENT_TYPE_ENTRIES.filter(
+const CATEGORIES = DOCUMENT_TYPE_ENTRIES.filter(
   ([key]) => DOCUMENT_CATALOG[key as DocumentTypeKey] !== undefined,
 );
 
 export function DocumentCatalogPanel() {
   const [isOpen, setIsOpen] = useState(false);
 
-  const total = CATEGORIAS.reduce(
+  const total = CATEGORIES.reduce(
     (sum, [key]) => sum + totalDeItens(key as DocumentTypeKey),
     0,
   );
@@ -55,7 +55,7 @@ export function DocumentCatalogPanel() {
             Documentação do INSS por categoria
           </h3>
           <p className="mt-0.5 text-xs text-gray-100">
-            {CATEGORIAS.length} categorias, {total} documentos. Referência para
+            {CATEGORIES.length} categorias, {total} documentos. Referência para
             montar o pedido — não indica o que já foi entregue.
           </p>
         </div>
@@ -71,7 +71,7 @@ export function DocumentCatalogPanel() {
 
       {isOpen && (
         <div className="grid grid-cols-1 gap-3 border-t border-black/5 px-4 py-4 md:grid-cols-2">
-          {CATEGORIAS.map(([key, label], index) => {
+          {CATEGORIES.map(([key, label], index) => {
             const section = DOCUMENT_CATALOG[key as DocumentTypeKey];
             if (!section) return null;
             return (

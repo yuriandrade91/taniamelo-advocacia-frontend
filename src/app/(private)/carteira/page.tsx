@@ -24,11 +24,11 @@ import { useEditConfirmation } from "@/components/payments/useEditConfirmation";
 import { TablePagination } from "@/components/ui/table/TablePagination";
 import { MonthPicker } from "@/components/ui/MonthPicker";
 import { PageHeader } from "@/components/ui/layout/PageHeader";
-import { SemAcessoFinanceiro } from "@/components/ui/feedback/SemAcessoFinanceiro";
+import { NoFinanceAccess } from "@/components/ui/feedback/NoFinanceAccess";
 import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
 import { useFilters } from "@/hooks/useFilters";
 import { usePagedList, type ListPage } from "@/hooks/usePagedList";
-import { usePermissoes } from "@/hooks/usePermissoes";
+import { usePermissions } from "@/hooks/usePermissions";
 import { currentMonth, monthRange, todayIso, type MonthRef } from "@/lib/period";
 import type { PaymentMethodInput } from "@/enums/payment/Payment";
 import type { ExpenseCategoryInput } from "@/enums/expenseCategory/ExpenseCategory";
@@ -121,7 +121,7 @@ export default function WalletPage() {
    * — as rotas são `@RequerAdmin` — e segura as chamadas até a permissão ser
    * conhecida: sem ela, saíam no mount e tomavam 403 de quem não é ADMIN.
    */
-  const { podeVerFinanceiro } = usePermissoes();
+  const { canSeeFinance } = usePermissions();
   const [month, setMonth] = useState<MonthRef>(() => currentMonth());
   const range = useMemo(() => monthRange(month), [month]);
   /** Aba da lista. Despesa primeiro: é a que pede ação (pagar). */
@@ -134,7 +134,7 @@ export default function WalletPage() {
   /** Recebido/pago ou cancelado: o lápis confirma antes de editar. */
   const confirmEdit = useEditConfirmation();
 
-  const monthData = useWalletMonth(range, podeVerFinanceiro);
+  const monthData = useWalletMonth(range, canSeeFinance);
 
   /** Cada aba com os seus filtros: categoria só existe em despesa. */
   const expenseFilters = useFilters(EXPENSE_FILTERS);
@@ -156,12 +156,12 @@ export default function WalletPage() {
    * despesas, e as entradas só no clique. A contagem das abas vem do resumo.
    */
   const expenses = usePagedList({
-    enabled: podeVerFinanceiro && tab === "saida",
+    enabled: canSeeFinance && tab === "saida",
     params: expenseParams,
     fetchPage: (params: Params, page) => listOfficeExpenses({ ...params, pageNumber: page, pageSize: PAGE_SIZE }).then(toPage),
   });
   const revenues = usePagedList({
-    enabled: podeVerFinanceiro && tab === "entrada",
+    enabled: canSeeFinance && tab === "entrada",
     params: revenueParams,
     fetchPage: (params: Params, page) => listOfficeRevenues({ ...params, pageNumber: page, pageSize: PAGE_SIZE }).then(toPage),
   });
@@ -176,7 +176,7 @@ export default function WalletPage() {
    * Excluir é soft delete sem rota de restaurar: confirma antes, em vez da
    * janela de desfazer da agenda — desfazer depois do fato só poderia falhar.
    */
-  const confirmarExclusao = async () => {
+  const confirmDelete = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
@@ -209,7 +209,7 @@ export default function WalletPage() {
     },
   };
 
-  if (!podeVerFinanceiro) return <SemAcessoFinanceiro titulo="Carteira" />;
+  if (!canSeeFinance) return <NoFinanceAccess titulo="Carteira" />;
 
   const list = tab === "saida" ? expenses : revenues;
   const filters = tab === "saida" ? expenseFilters : revenueFilters;
@@ -321,7 +321,7 @@ export default function WalletPage() {
             </>
           )
         }
-        onConfirm={() => void confirmarExclusao()}
+        onConfirm={() => void confirmDelete()}
       />
     </div>
   );

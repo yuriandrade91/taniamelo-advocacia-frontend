@@ -24,7 +24,7 @@ export interface Clients {
    * seguem com `id` próprio; quem mudou foi só o id DO CLIENTE.
    *
    * Este `id` continua existindo porque é o que a tela inteira usa. Quem o
-   * preenche é `normalizarCliente`, no `clientService` — a camada que já
+   * preenche é `normalizeClient`, no `clientService` — a camada que já
    * traduz contrato em shape de tela.
    */
   id?: string;

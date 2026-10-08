@@ -3,11 +3,11 @@ import {
   carryShared,
   emptyExpenseForm,
   emptyIncomeForm,
-  estaCancelado,
+  isCancelled,
   expenseFormFrom,
   formatAmountInput,
   incomeFormFrom,
-  statusDoLancamento,
+  entryStatus,
   toExpenseRequest,
   toRevenueRequest,
   validateExpenseForm,
@@ -174,7 +174,7 @@ describe("validateExpenseForm", () => {
 });
 
 describe("carryShared", () => {
-  const preenchida = (): IncomeFormValues => ({
+  const filled = (): IncomeFormValues => ({
     ...emptyIncomeForm(),
     clientId: "c-1",
     clientName: "Maria",
@@ -188,39 +188,39 @@ describe("carryShared", () => {
   });
 
   it("leva os sete campos comuns para o outro tipo", () => {
-    const saida = carryShared(emptyExpenseForm(), preenchida());
-    expect(saida.description).toBe("Honorários");
-    expect(saida.amount).toBe("1.500,00");
-    expect(saida.dueDate).toBe("2026-09-10");
-    expect(saida.isSettled).toBe(true);
-    expect(saida.paidDate).toBe("2026-09-01");
-    expect(saida.paymentMethod).toBe("PIX");
-    expect(saida.notes).toBe("combinado em reunião");
+    const expense = carryShared(emptyExpenseForm(), filled());
+    expect(expense.description).toBe("Honorários");
+    expect(expense.amount).toBe("1.500,00");
+    expect(expense.dueDate).toBe("2026-09-10");
+    expect(expense.isSettled).toBe(true);
+    expect(expense.paidDate).toBe("2026-09-01");
+    expect(expense.paymentMethod).toBe("PIX");
+    expect(expense.notes).toBe("combinado em reunião");
   });
 
   it("não inventa tradução entre campos próprios de cada tipo", () => {
-    const saida = carryShared(emptyExpenseForm(), preenchida());
+    const expense = carryShared(emptyExpenseForm(), filled());
     // Cliente não vira fornecedor: são coisas diferentes, não sinônimos.
-    expect(saida.supplier).toBe("");
-    expect(saida.category).toBe("");
+    expect(expense.supplier).toBe("");
+    expect(expense.category).toBe("");
   });
 
   it("preserva o que o destino já tinha nos campos próprios", () => {
-    const saida = { ...emptyExpenseForm(), supplier: "Imobiliária", category: "ALUGUEL" };
-    const depois = carryShared(saida, preenchida());
-    expect(depois.supplier).toBe("Imobiliária");
-    expect(depois.category).toBe("ALUGUEL");
+    const expense = { ...emptyExpenseForm(), supplier: "Imobiliária", category: "ALUGUEL" };
+    const after = carryShared(expense, filled());
+    expect(after.supplier).toBe("Imobiliária");
+    expect(after.category).toBe("ALUGUEL");
   });
 
   it("é reversível: voltar não perde o que era do outro lado", () => {
-    const income = preenchida();
-    const saida = carryShared(
+    const income = filled();
+    const expense = carryShared(
       { ...emptyExpenseForm(), supplier: "Imobiliária" },
       income,
     );
-    const devolta = carryShared(income, saida);
-    expect(devolta.clientId).toBe("c-1");
-    expect(devolta.clientName).toBe("Maria");
+    const backAgain = carryShared(income, expense);
+    expect(backAgain.clientId).toBe("c-1");
+    expect(backAgain.clientName).toBe("Maria");
   });
 });
 
@@ -230,30 +230,30 @@ describe("statusDoLancamento", () => {
   const base = { ...emptyExpenseForm() };
 
   it("não liquidado vira Pendente", () => {
-    expect(statusDoLancamento({ ...base, isSettled: false })).toBe("Pendente");
+    expect(entryStatus({ ...base, isSettled: false })).toBe("Pendente");
   });
 
   it("liquidado vira Pago", () => {
-    expect(statusDoLancamento({ ...base, isSettled: true })).toBe("Pago");
+    expect(entryStatus({ ...base, isSettled: true })).toBe("Pago");
   });
 
   it("cancelado continua cancelado — o PUT substitui o registro inteiro", () => {
     // Sem isto, corrigir a descrição de um lançamento cancelado o devolveria
     // para "a pagar" e ele voltaria a somar no total do mês.
     expect(
-      statusDoLancamento({ ...base, status: "Cancelado", isSettled: false }),
+      entryStatus({ ...base, status: "Cancelado", isSettled: false }),
     ).toBe("Cancelado");
   });
 
   it("marcar liquidado num cancelado reabre como Pago — é decisão explícita", () => {
     expect(
-      statusDoLancamento({ ...base, status: "Cancelado", isSettled: true }),
+      entryStatus({ ...base, status: "Cancelado", isSettled: true }),
     ).toBe("Pago");
   });
 
   it("um Pago que perde a marcação volta a Pendente, não fica Pago", () => {
     expect(
-      statusDoLancamento({ ...base, status: "Pago", isSettled: false }),
+      entryStatus({ ...base, status: "Pago", isSettled: false }),
     ).toBe("Pendente");
   });
 });
@@ -284,7 +284,7 @@ describe("o status vai no corpo das duas rotas", () => {
 });
 
 describe("incomeFormFrom", () => {
-  const receita: OfficeRevenueResponse = {
+  const revenue: OfficeRevenueResponse = {
     id: "r-1",
     description: "Honorário de êxito",
     amount: 1234.5,
@@ -299,7 +299,7 @@ describe("incomeFormFrom", () => {
   };
 
   it("traz o registro para o formulário sem perder nada editável", () => {
-    expect(incomeFormFrom(receita)).toMatchObject({
+    expect(incomeFormFrom(revenue)).toMatchObject({
       description: "Honorário de êxito",
       amount: "1234,50",
       dueDate: "2026-03-10",
@@ -317,20 +317,20 @@ describe("incomeFormFrom", () => {
   it("isSettled sai do status, não da data de pagamento", () => {
     // Cancelado com data de pagamento antiga é real: cancelou-se depois de
     // registrar. Ler a data faria a edição reabri-lo como pago.
-    const cancelado = { ...receita, status: "Cancelado" as const };
-    expect(incomeFormFrom(cancelado).isSettled).toBe(false);
-    expect(incomeFormFrom(receita).isSettled).toBe(true);
+    const cancelled = { ...revenue, status: "Cancelado" as const };
+    expect(incomeFormFrom(cancelled).isSettled).toBe(false);
+    expect(incomeFormFrom(revenue).isSettled).toBe(true);
   });
 
   it("campos ausentes viram string vazia, nunca undefined", () => {
-    const magro: OfficeRevenueResponse = {
+    const lean: OfficeRevenueResponse = {
       id: "r-2",
       description: "Parecer",
       amount: 500,
       dueDate: "2026-04-01",
       overdue: false,
     };
-    const form = incomeFormFrom(magro);
+    const form = incomeFormFrom(lean);
     expect(form.clientId).toBe("");
     expect(form.clientName).toBe("");
     expect(form.paidDate).toBe("");
@@ -371,8 +371,8 @@ describe("formatAmountInput", () => {
   });
 
   it("ida e volta preserva o valor", () => {
-    for (const valor of [0.01, 99.9, 1234.56, 1000000]) {
-      expect(parseAmountBRL(formatAmountInput(valor))).toBeCloseTo(valor, 2);
+    for (const amount of [0.01, 99.9, 1234.56, 1000000]) {
+      expect(parseAmountBRL(formatAmountInput(amount))).toBeCloseTo(amount, 2);
     }
   });
 
@@ -385,10 +385,10 @@ describe("formatAmountInput", () => {
 
 describe("estaCancelado", () => {
   it("só o rótulo Cancelado conta", () => {
-    expect(estaCancelado({ ...emptyExpenseForm(), status: "Cancelado" })).toBe(
+    expect(isCancelled({ ...emptyExpenseForm(), status: "Cancelado" })).toBe(
       true,
     );
-    expect(estaCancelado({ ...emptyExpenseForm(), status: "Pago" })).toBe(false);
-    expect(estaCancelado(emptyExpenseForm())).toBe(false);
+    expect(isCancelled({ ...emptyExpenseForm(), status: "Pago" })).toBe(false);
+    expect(isCancelled(emptyExpenseForm())).toBe(false);
   });
 });

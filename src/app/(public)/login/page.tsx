@@ -22,42 +22,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import svgPaths from "@/constants/svg/paths";
 import { privateRoutes } from "@/constants/paths/routes";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
-import { mensagemDeMuitasTentativas } from "@/lib/retryAfter";
-
-/** A lib só expõe 15 ícones e nenhum deles é de olho — mesmo motivo do CopyIcon em clientes/page.tsx. */
-function EyeIcon({
-  open,
-  className = "",
-}: {
-  open: boolean;
-  className?: string;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      {open ? (
-        <>
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z" />
-          <circle cx="12" cy="12" r="3" />
-        </>
-      ) : (
-        <>
-          <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a20.6 20.6 0 0 1 5.06-5.94M9.9 4.24A9.13 9.13 0 0 1 12 4c7 0 11 8 11 8a20.6 20.6 0 0 1-2.16 3.19" />
-          <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
-          <path d="M1 1l22 22" />
-        </>
-      )}
-    </svg>
-  );
-}
+import { tooManyAttemptsMessage } from "@/lib/retryAfter";
+import { EyeIcon, EyeOffIcon } from "@/components/ui/icons/glyphs";
 
 function LoginForm() {
   const [login, setLogin] = useState("");
@@ -80,6 +46,13 @@ function LoginForm() {
     return privateRoutes.home;
   }, [searchParams]);
 
+  /**
+   * Chegou aqui porque a sessão venceu no meio do uso (`expireSession`): a
+   * tela diz isso uma vez, em vez de a pessoa achar que o sistema a expulsou
+   * sem motivo — e no lugar dos toasts de erro que a tela anterior daria.
+   */
+  const isExpired = searchParams.get("expired") === "1";
+
   // O backend exige apenas que os campos não sejam vazios (@NotBlank).
   const validateLogin = (value: string) => value.trim() !== "";
   const validatePassword = (value: string) => value !== "";
@@ -98,7 +71,7 @@ function LoginForm() {
    * Encontrado pelo teste da rajada: seis senhas erradas seguidas produziam uma
    * requisição só.
    */
-  const limparErroDoServidor = () => {
+  const clearServerError = () => {
     setFormErrors((atuais) => (Object.keys(atuais).length ? {} : atuais));
   };
 
@@ -170,7 +143,7 @@ function LoginForm() {
         //
         // A mensagem é a mesma para conta bloqueada e conta inexistente, de
         // propósito: diferenciar entregaria a lista de quem tem login aqui.
-        const message = mensagemDeMuitasTentativas(
+        const message = tooManyAttemptsMessage(
           error.response?.headers?.["retry-after"],
         );
         setFormErrors({ login: message, password: message });
@@ -224,13 +197,18 @@ function LoginForm() {
           validationErrors={formErrors}
           className="w-full lg:w-1/2 flex flex-col gap-5 align-middle"
         >
+          {isExpired && (
+            <p role="status" className="w-full rounded-2xl bg-light-secondary px-4 py-3 text-sm text-primary">
+              Sua sessão expirou. Entre de novo para continuar de onde parou.
+            </p>
+          )}
           <TextField
             className="w-full"
             name="login"
             type="text"
             value={login}
             onChange={(valor) => {
-              limparErroDoServidor();
+              clearServerError();
               setLogin(valor);
             }}
             validate={(value) =>
@@ -254,7 +232,7 @@ function LoginForm() {
             type={isVisible ? "text" : "password"}
             value={password}
             onChange={(valor) => {
-              limparErroDoServidor();
+              clearServerError();
               setPassword(valor);
             }}
             validate={(value) =>
@@ -274,7 +252,7 @@ function LoginForm() {
                   onClick={toggleVisibility}
                   aria-label={isVisible ? "Ocultar senha" : "Mostrar senha"}
                 >
-                  <EyeIcon open={isVisible} className="h-5 w-5" />
+                  {isVisible ? <EyeIcon className="h-5 w-5" /> : <EyeOffIcon className="h-5 w-5" />}
                 </Button>
               </InputGroup.Suffix>
             </InputGroup>

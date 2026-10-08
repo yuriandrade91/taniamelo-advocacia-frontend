@@ -8,7 +8,7 @@ import { REPORT_VIEWS } from "@/components/reports/views";
 import { ReportViewSwitcher } from "@/components/reports/ReportViewSwitcher";
 import { useReportViewOrder } from "@/components/reports/useReportViewOrder";
 import { useReportsData } from "@/components/reports/useReportsData";
-import { usePermissoes } from "@/hooks/usePermissoes";
+import { usePermissions } from "@/hooks/usePermissions";
 import { currentMonth, type MonthRef } from "@/lib/period";
 
 /**
@@ -57,9 +57,9 @@ import { currentMonth, type MonthRef } from "@/lib/period";
  */
 
 export default function ReportsPage() {
-  const { podeVerFinanceiro } = usePermissoes();
+  const { canSeeFinance } = usePermissions();
   const [month, setMonth] = useState<MonthRef>(() => currentMonth());
-  const data = useReportsData(month, podeVerFinanceiro);
+  const data = useReportsData(month, canSeeFinance);
   /** As abas na ordem do usuário; sem visão escolhida, abre a primeira. */
   const viewOrder = useReportViewOrder(REPORT_VIEWS);
   const { model: view, choose: chooseView } = useViewModel("relatorios:modelo", viewOrder.ordered, viewOrder.ordered[0]?.id);

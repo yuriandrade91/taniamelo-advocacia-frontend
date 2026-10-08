@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Button, Modal } from "@heroui/react";
+import ModalShell from "@/components/ui/modals/ModalShell";
 import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 
 /**
@@ -115,81 +116,71 @@ export default function FormModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onOpenChange={handleOpenChange}>
-      {/* Mesmas curvas do `ConfirmDialog` — entrada longa e desacelerando,
-          saída curta. Ter dois modais com tempos diferentes é o tipo de
-          diferença que ninguém nomeia mas todo mundo sente. */}
-      <Modal.Backdrop
-        variant="opaque"
-        className="data-[entering]:duration-400 data-[entering]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[exiting]:duration-200 data-[exiting]:ease-[cubic-bezier(0.7,0,0.84,0)]"
-      >
-        <Modal.Container className="data-[entering]:animate-in data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[entering]:duration-400 data-[entering]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[exiting]:animate-out data-[exiting]:fade-out-0 data-[exiting]:zoom-out-95 data-[exiting]:duration-200 data-[exiting]:ease-[cubic-bezier(0.7,0,0.84,0)]">
-          <Modal.Dialog className={`${SIZES[size]} ${className}`}>
-            <Modal.CloseTrigger />
+    <ModalShell
+      isOpen={isOpen}
+      onClose={() => handleOpenChange(false)}
+      className={`${SIZES[size]} ${className}`}
+    >
+      <form onSubmit={handleSubmit} className="flex min-h-0 flex-col">
+        <Modal.Header>
+          <Modal.Heading>{title}</Modal.Heading>
+          {description && (
+            <p className="mt-1 text-sm text-gray-100/70">{description}</p>
+          )}
+        </Modal.Header>
 
-            <form onSubmit={handleSubmit} className="flex min-h-0 flex-col">
-              <Modal.Header>
-                <Modal.Heading>{title}</Modal.Heading>
-                {description && (
-                  <p className="mt-1 text-sm text-gray-100/70">{description}</p>
-                )}
-              </Modal.Header>
+        {/*
+          O teto de altura é o que o drawer não precisava ter: ele ocupa a
+          tela inteira por natureza, o modal não. Sem `max-h` + `overflow`,
+          um formulário longo empurra o rodapé para fora da janela e o
+          botão de salvar fica inalcançável em tela de notebook.
+        */}
+        <Modal.Body className="max-h-[65vh] overflow-y-auto">
+          {children}
+        </Modal.Body>
 
-              {/*
-                O teto de altura é o que o drawer não precisava ter: ele ocupa a
-                tela inteira por natureza, o modal não. Sem `max-h` + `overflow`,
-                um formulário longo empurra o rodapé para fora da janela e o
-                botão de salvar fica inalcançável em tela de notebook.
-              */}
-              <Modal.Body className="max-h-[65vh] overflow-y-auto">
-                {children}
-              </Modal.Body>
-
-              {!hideFooter && (
-                <Modal.Footer className="flex justify-end gap-2">
-                  {actions === "pill" ? (
-                    // Sair à esquerda, em cinza, e a ação principal em azul,
-                    // dentro do mesmo grupo.
-                    <ActionGroup shape="pill">
-                      <ActionButton
-                        tone="neutral"
-                        onClick={() => handleOpenChange(false)}
-                        disabled={isSubmitting}
-                      >
-                        {cancelLabel}
-                      </ActionButton>
-                      <ActionButton
-                        tone="primary"
-                        isSubmit
-                        disabled={isConfirmDisabled || isSubmitting}
-                      >
-                        {isSubmitting ? "Salvando..." : confirmLabel}
-                      </ActionButton>
-                    </ActionGroup>
-                  ) : (
-                    <>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onPress={() => handleOpenChange(false)}
-                        isDisabled={isSubmitting}
-                      >
-                        {cancelLabel}
-                      </Button>
-                      <Button
-                        type="submit"
-                        isDisabled={isConfirmDisabled || isSubmitting}
-                      >
-                        {isSubmitting ? "Salvando..." : confirmLabel}
-                      </Button>
-                    </>
-                  )}
-                </Modal.Footer>
-              )}
-            </form>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
+        {!hideFooter && (
+          <Modal.Footer className="flex justify-end gap-2">
+            {actions === "pill" ? (
+              // Sair à esquerda, em cinza, e a ação principal em azul,
+              // dentro do mesmo grupo.
+              <ActionGroup shape="pill">
+                <ActionButton
+                  tone="neutral"
+                  onClick={() => handleOpenChange(false)}
+                  disabled={isSubmitting}
+                >
+                  {cancelLabel}
+                </ActionButton>
+                <ActionButton
+                  tone="primary"
+                  isSubmit
+                  disabled={isConfirmDisabled || isSubmitting}
+                >
+                  {isSubmitting ? "Salvando..." : confirmLabel}
+                </ActionButton>
+              </ActionGroup>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onPress={() => handleOpenChange(false)}
+                  isDisabled={isSubmitting}
+                >
+                  {cancelLabel}
+                </Button>
+                <Button
+                  type="submit"
+                  isDisabled={isConfirmDisabled || isSubmitting}
+                >
+                  {isSubmitting ? "Salvando..." : confirmLabel}
+                </Button>
+              </>
+            )}
+          </Modal.Footer>
+        )}
+      </form>
+    </ModalShell>
   );
 }

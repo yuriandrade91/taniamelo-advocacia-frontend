@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Button, Modal, WarningIcon } from "@heroui/react";
+import ModalShell from "../ModalShell";
 
 /**
  * Confirmação genérica.
@@ -32,6 +33,10 @@ export type ConfirmDialogProps = {
   /** `danger` para ação irreversível; `primary` para escolha comum. */
   tone?: "danger" | "primary";
   icon?: ReactNode;
+  /** O que a confirmação pede para escolher, abaixo da descrição. */
+  children?: ReactNode;
+  /** Enquanto a escolha em `children` não está completa. */
+  isConfirmDisabled?: boolean;
 };
 
 export default function ConfirmDialog({
@@ -44,6 +49,8 @@ export default function ConfirmDialog({
   cancelLabel = "Cancelar",
   tone = "primary",
   icon,
+  children,
+  isConfirmDisabled = false,
 }: ConfirmDialogProps) {
   const iconTone =
     tone === "danger"
@@ -51,49 +58,40 @@ export default function ConfirmDialog({
       : "bg-primary/10 text-primary";
 
   return (
-    <Modal isOpen={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <Modal.Backdrop
-        variant="opaque"
-        className="data-[entering]:duration-400 data-[entering]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[exiting]:duration-200 data-[exiting]:ease-[cubic-bezier(0.7,0,0.84,0)]"
-      >
-        <Modal.Container className="data-[entering]:animate-in data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[entering]:duration-400 data-[entering]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[exiting]:animate-out data-[exiting]:fade-out-0 data-[exiting]:zoom-out-95 data-[exiting]:duration-200 data-[exiting]:ease-[cubic-bezier(0.7,0,0.84,0)]">
-          <Modal.Dialog className="sm:max-w-[420px]">
-            <Modal.CloseTrigger />
+    <ModalShell
+      isOpen={isOpen}
+      onClose={onClose}
+      className={children ? "sm:max-w-[460px]" : "sm:max-w-[420px]"}
+      heading={heading}
+      icon={icon ?? <WarningIcon className="size-5" />}
+      iconClassName={iconTone}
+    >
+      {(description || children) && (
+        <Modal.Body>
+          {description && (
+            <div className="mt-1 text-sm text-gray-100/70">{description}</div>
+          )}
+          {children}
+        </Modal.Body>
+      )}
 
-            <Modal.Header>
-              <Modal.Icon className={iconTone}>
-                {icon ?? <WarningIcon className="size-5" />}
-              </Modal.Icon>
-              <Modal.Heading>{heading}</Modal.Heading>
-            </Modal.Header>
-
-            {description && (
-              <Modal.Body>
-                <div className="mt-1 text-sm text-gray-100/70">
-                  {description}
-                </div>
-              </Modal.Body>
-            )}
-
-            <Modal.Footer>
-              <Button
-                className="w-full"
-                type="button"
-                variant={tone}
-                onClick={() => {
-                  onConfirm();
-                  onClose();
-                }}
-              >
-                {confirmLabel}
-              </Button>
-              <Button type="button" variant="secondary" onClick={onClose}>
-                {cancelLabel}
-              </Button>
-            </Modal.Footer>
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
+      <Modal.Footer>
+        <Button
+          className="w-full"
+          type="button"
+          variant={tone}
+          isDisabled={isConfirmDisabled}
+          onClick={() => {
+            onConfirm();
+            onClose();
+          }}
+        >
+          {confirmLabel}
+        </Button>
+        <Button type="button" variant="secondary" onClick={onClose}>
+          {cancelLabel}
+        </Button>
+      </Modal.Footer>
+    </ModalShell>
   );
 }

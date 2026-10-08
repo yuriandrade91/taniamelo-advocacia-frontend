@@ -6,6 +6,7 @@ import { ActionButton } from "@/components/ui/actions/ActionGroup";
 import { LoadingCircle } from "@/components/ui/feedback/Loading";
 import dynamic from "next/dynamic";
 import { useSlideHover } from "@/hooks/useSlideHover";
+import { SearchIcon } from "@/components/ui/icons/glyphs";
 import type { DateRange } from "./DateRangeField";
 import type { DateSpan, FilterChip, FilterSchema, FilterValues } from "./filters";
 
@@ -23,15 +24,6 @@ import type { DateSpan, FilterChip, FilterSchema, FilterValues } from "./filters
  */
 export const FIELD_SURFACE =
   "[&_.form-border-style]:h-12! [&_.form-border-style]:rounded-2xl! [&_.form-border-style]:border-transparent! [&_.form-border-style]:bg-white! [&_.form-border-style]:px-4! [&_.form-border-style]:transition [&_.form-border-style:hover]:bg-primary/5!";
-
-export function SearchIcon({ className = "h-5 w-5" }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true" className={className}>
-      <circle cx="11" cy="11" r="7" />
-      <path d="m20 20-3.5-3.5" />
-    </svg>
-  );
-}
 
 /** Busca grande; a lupa fica azul enquanto o campo está ativo. */
 export function SearchInput({
@@ -67,6 +59,8 @@ export function SearchInput({
  * `count`: número no selo; `null` carregando (círculo no lugar do número);
  * ausente, sem selo. `hint`: a linha de baixo, quando o rótulo sozinho não diz
  * o que a opção significa ("Entrada" / "Honorário do escritório").
+ * `isDisabled`: a opção existe mas não se aplica agora ("Só pendências" sem
+ * pendência nenhuma).
  */
 export type Segment = {
   id: string;
@@ -74,6 +68,7 @@ export type Segment = {
   active: boolean;
   count?: number | null;
   hint?: string;
+  isDisabled?: boolean;
 };
 
 /**
@@ -100,6 +95,23 @@ const SEGMENTED_SHAPE = {
 export type SegmentedShape = keyof typeof SEGMENTED_SHAPE;
 
 /**
+ * A altura do trilho. `md` é a das barras de filtro, onde o segmentado fica
+ * na linha da busca e do "Limpar filtros" (todos com 48px).
+ *
+ * `lg` é para dentro de uma modal: ali o segmentado encosta na grade de
+ * campos, e 58px é exatamente a altura da caixa de um campo
+ * (`formFields.css`) — com a dica em duas linhas, os 48px deixavam o texto
+ * espremido contra a borda e mais baixo que tudo o que vem abaixo.
+ *
+ * Mapa de classes literais pelo mesmo motivo da superfície e do formato: o
+ * Tailwind só gera o que encontra escrito, e duas utilitárias da mesma camada
+ * não têm vencedor garantido.
+ */
+const SEGMENTED_HEIGHT = { md: "min-h-12", lg: "min-h-[58px]" } as const;
+
+export type SegmentedSize = keyof typeof SEGMENTED_HEIGHT;
+
+/**
  * Botões segmentados. `radio` (um entre vários), `tab` (abas da lista) ou
  * `toggle` (cada um liga e desliga o seu).
  */
@@ -110,6 +122,7 @@ export function Segmented({
   onPress,
   surface = "white",
   shape = "rounded",
+  size = "md",
   grow = false,
   className = "",
 }: {
@@ -119,6 +132,7 @@ export function Segmented({
   onPress: (id: string) => void;
   surface?: keyof typeof SEGMENTED_SURFACE;
   shape?: SegmentedShape;
+  size?: SegmentedSize;
   /** Divide a largura entre as opções, em vez de cada uma ocupar o seu texto. */
   grow?: boolean;
   className?: string;
@@ -132,7 +146,7 @@ export function Segmented({
       // esticam pelo `align-items: stretch` do flex, e não por `h-full` —
       // altura em porcentagem contra um pai de altura indefinida vira `auto`,
       // e o segmento marcado encolhia para o tamanho do texto.
-      className={`flex min-h-12 shrink-0 overflow-x-auto p-1 ${SEGMENTED_SHAPE[shape].track} ${SEGMENTED_SURFACE[surface]} ${grow ? "w-full" : ""} ${className}`}
+      className={`flex shrink-0 overflow-x-auto p-1 ${SEGMENTED_HEIGHT[size]} ${SEGMENTED_SHAPE[shape].track} ${SEGMENTED_SURFACE[surface]} ${grow ? "w-full" : ""} ${className}`}
     >
       {segments.map((segment) => (
         <SegmentButton
@@ -173,8 +187,9 @@ function SegmentButton({
         ? { "aria-pressed": segment.active }
         : { role: mode, [mode === "tab" ? "aria-selected" : "aria-checked"]: segment.active })}
       {...handlers}
+      disabled={segment.isDisabled}
       onClick={() => onPress(segment.id)}
-      className={`relative flex items-center overflow-hidden px-4 text-xs font-medium whitespace-nowrap transition-colors ${
+      className={`relative flex items-center overflow-hidden px-4 text-xs font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
         SEGMENTED_SHAPE[shape].button
       } ${grow ? "flex-1" : ""} ${segment.active ? "text-white" : "text-gray-100 hover:text-primary"}`}
     >

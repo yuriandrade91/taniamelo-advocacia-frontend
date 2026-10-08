@@ -40,3 +40,32 @@ export function RowSkeleton({ className = "" }: { className?: string }) {
 
 /** Quantas linhas uma lista ou tabela mostra enquanto carrega. */
 export const SKELETON_ROW_COUNT = 10;
+
+/**
+ * Várias `RowSkeleton` empilhadas — a lista enquanto carrega. Com `label`, é
+ * a região que anuncia o carregamento (`role="status"`); sem, é só desenho.
+ */
+export function RowSkeletons({
+  count = SKELETON_ROW_COUNT,
+  label,
+  className = "flex flex-col gap-3",
+  itemClassName = "",
+}: {
+  count?: number;
+  label?: string;
+  className?: string;
+  itemClassName?: string;
+}) {
+  return (
+    <ul
+      className={className}
+      {...(label ? { role: "status", "aria-label": label } : { "aria-hidden": true })}
+    >
+      {Array.from({ length: count }, (_, i) => (
+        <li key={i} className={itemClassName}>
+          <RowSkeleton />
+        </li>
+      ))}
+    </ul>
+  );
+}

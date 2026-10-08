@@ -2,17 +2,19 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { Button, Modal } from "@heroui/react";
 import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
-import { LoadingCircle, RowSkeleton } from "@/components/ui/feedback/Loading";
+import { LoadingCircle, RowSkeletons } from "@/components/ui/feedback/Loading";
 import { PencilIcon, TrashIcon } from "@/components/ui/icons/actions";
-import { CheckIcon, ClockIcon, CloseIcon, WalletIcon } from "@/components/ui/icons/glyphs";
+import { CheckIcon, ClockIcon, WalletIcon } from "@/components/ui/icons/glyphs";
+import ModalShell from "@/components/ui/modals/ModalShell";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
 import { formatValue } from "@/components/ui/form/schema";
-import { usePermissoes } from "@/hooks/usePermissoes";
-import { useAutoresDoEscritorio } from "@/hooks/useAutoresDoEscritorio";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useOfficeAuthors } from "@/hooks/useOfficeAuthors";
 import { GenderLabelByKey, type GenderKey } from "@/enums/gender/Gender";
 import { deleteClient } from "@/services/clientService";
-import { deleteFile, uploadDocuments, uploadSimulations } from "@/services/clientFileService";
+import { deleteFile } from "@/services/clientFileService";
+import { plural } from "@/lib/format";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
 import { InssPasswordField } from "../inss/InssPasswordField";
 import {
@@ -36,14 +38,14 @@ import { ProfessionalDataSection } from "../form/sections/ProfessionalDataSectio
 import { ServiceSection } from "../form/sections/ServiceSection";
 import { SituationHistorySection } from "../form/sections/SituationHistorySection";
 import { FilesSection } from "../form/sections/files/FilesSection";
-import FileUploadModal from "../form/sections/files/FileUploadModal";
+import { FilesUpload } from "../form/sections/files/upload/FilesUpload";
+import { uploadStagedFiles } from "../form/sections/files/uploadStaged";
 import {
-  isDocumentReady,
-  type FileKind,
+  isDocumentComplete,
+  isSimulationComplete,
   type StagedDocument,
   type StagedSimulation,
 } from "../form/sections/files/types";
-import { buildDocumentsFormData, buildSimulationsFormData } from "../form/documentsFormData";
 import {
   addressSchema,
   interviewSchema,
@@ -53,33 +55,36 @@ import {
 } from "../form/schemas";
 import DeleteClientModal from "../DeleteClientModal";
 import {
-  CompiladoHero,
-  CompiladoSection,
-  CompiladoTabs,
+  CompiledHero,
+  CompiledSection,
+  CompiledTabs,
   HeroTipButton,
   useSectionAnchors,
   type HeroNavItem,
-} from "./CompiladoHero";
+} from "./CompiledHero";
 import { sectionFill, sheetProgress } from "./clientSheet";
 import { useClientSheet } from "./useClientSheet";
 
 /** Os pagamentos só carregam (código e dados) quando a seção é aberta. */
 const ClientFinancePanel = dynamic(
   () => import("../finance/ClientFinancePanel").then((m) => m.ClientFinancePanel),
-  { ssr: false, loading: () => <LinesSkeleton count={3} /> },
+  { ssr: false, loading: () => <RowSkeletons count={3} /> },
 );
 
 /**
- * A ficha do cliente: leitura e edição no mesmo modal, no mesmo lugar.
+ * A ficha do cliente: leitura e edição no mesmo desenho, no mesmo lugar.
  *
- * O painel da esquerda (`CompiladoHero`) guarda a identidade, o preenchimento
+ * O painel da esquerda (`CompiledHero`) guarda a identidade, o preenchimento
  * e as ações; a coluna da direita traz as seções do **cadastro** — as mesmas
  * peças, os mesmos schemas, as mesmas máscaras e validações —, uma embaixo da
- * outra, com o painel ancorando a leitura. "Editar" não troca de tela: os
- * campos saem de `isReadOnly` onde já estavam.
+ * outra, com o painel ancorando a leitura.
  *
- * Estado, validação e gravação ficam em `useClientSheet`. Esta tela não conhece
- * service nenhum além de excluir, enviar e apagar arquivo.
+ * **Lendo, nada se mexe**: campos travados, deficiência e arquivos sem
+ * adicionar nem excluir — só abrir e baixar. "Editar cadastro" (ou o editar da
+ * lista, que já abre assim) solta os campos onde eles estão; "Salvar" grava
+ * tudo de uma vez, arquivos novos inclusive, e "Cancelar" volta ao gravado.
+ *
+ * Estado, validação e gravação ficam em `useClientSheet`.
  */
 
 /** Altura útil: o `Modal.Dialog` corta o que passa, então quem rola é a coluna. */
@@ -97,7 +102,7 @@ type SheetSection = {
   /**
    * Não se aplica ao caso. A seção sai da navegação e da pilha, mas continua
    * **montada** fora de vista: é o painel de deficiência que conta os períodos
-   * gravados, e é a ref dele que o Salvar chama.
+   * gravados.
    */
   isHidden?: boolean;
   content: ReactNode;
@@ -110,6 +115,7 @@ type Props = {
   clientId?: number | string;
   /** Avisado depois de salvar ou excluir: a lista pode ter mudado. */
   onConfirm?: () => void;
+  /** Abre já editando (o "editar" da lista). A página remonta a ficha por alvo. */
   editOnOpen?: boolean;
 };
 
@@ -122,33 +128,36 @@ export default function ClientDetailsModal({
   editOnOpen = false,
 }: Props) {
   const clientId = rawId === undefined ? undefined : String(rawId);
-  const { podeDestruir, podeVerFinanceiro } = usePermissoes();
-  const autores = useAutoresDoEscritorio();
+  const { canDestroy, canSeeFinance } = usePermissions();
+  const authors = useOfficeAuthors();
   const sheet = useClientSheet(clientId, isOpen);
   const { service, personal, professional, address, interview } = sheet.forms;
   const record = sheet.record;
 
-  /** `editOnOpen` vale para cada abertura: a ficha é remontada pela página a cada alvo. */
   const [isEditing, setIsEditing] = useState(editOnOpen);
   const [showDelete, setShowDelete] = useState(false);
-  const [isBusy, setIsBusy] = useState(false);
-  const [uploadKind, setUploadKind] = useState<FileKind | null>(null);
+  const [actionError, setActionError] = useState("");
+  /** Arquivos escolhidos na edição — sobem no "Salvar". */
   const [stagedDocuments, setStagedDocuments] = useState<StagedDocument[]>([]);
   const [stagedSimulations, setStagedSimulations] = useState<StagedSimulation[]>([]);
+  const [filesRevealed, setFilesRevealed] = useState(false);
+  /** Arquivo gravado à espera de confirmação para sair do servidor. */
+  const [fileRemoval, setFileRemoval] = useState<string | null>(null);
+  const disabilityRef = useRef<ClientDisabilityPanelHandle>(null);
   const [disabilityCount, setDisabilityCount] = useState(0);
   /**
-   * Pagamentos já foi visitada. Trava num `ref`, e não em estado: a visita é
-   * descoberta durante a renderização (a rolagem acendeu a seção no painel), e
-   * o que ela precisa é não voltar atrás — não um novo render.
+   * Pagamentos já foi visitada. A visita é descoberta durante a renderização
+   * (a rolagem acendeu a seção no painel), então o estado é ajustado ali
+   * mesmo, uma vez — e não volta atrás.
    */
-  const financeSeen = useRef(false);
-  const disabilityRef = useRef<ClientDisabilityPanelHandle>(null);
+  const [financeSeen, setFinanceSeen] = useState(false);
 
   const sections = { service: service.values, personal: personal.values, professional: professional.values };
   const progress = sheetProgress(sections);
   const benefitLabel = formatValue(serviceSchema.benefit, service.values.benefit);
   const showDisability = service.values.benefit === DISABILITY_BENEFIT || disabilityCount > 0;
-  const busy = sheet.isSaving || isBusy;
+  const error = sheet.error || actionError;
+  const busy = sheet.isSaving;
 
   // A ancoragem vem antes das seções porque é ela quem diz qual está em foco —
   // e é esse foco que acende os Pagamentos pela primeira vez. A chave só muda
@@ -158,86 +167,67 @@ export default function ClientDetailsModal({
     "atendimento",
     `${sheet.isLoading}|${showDisability}`,
   );
-  if (active === "pagamentos") financeSeen.current = true;
+  if (active === "pagamentos" && !financeSeen) setFinanceSeen(true);
+
+  /** Volta ao que está gravado e à leitura: campos, arquivos escolhidos, erros. */
+  const leaveEdit = () => {
+    sheet.cancel();
+    setStagedDocuments([]);
+    setStagedSimulations([]);
+    setFilesRevealed(false);
+    setActionError("");
+    setIsEditing(false);
+  };
 
   const close = () => {
-    sheet.cancel();
-    setIsEditing(false);
+    leaveEdit();
     onClose();
   };
 
+  const filesComplete = () =>
+    stagedDocuments.every(isDocumentComplete) && stagedSimulations.every(isSimulationComplete);
+
   const save = async () => {
+    setFilesRevealed(true);
     const saved = await sheet.save({
-      validateExtra: () => disabilityRef.current?.validate() ?? true,
+      validateExtra: () => (disabilityRef.current?.validate() ?? true) && filesComplete(),
       afterSave: async () => {
         await disabilityRef.current?.save();
+        if (!clientId || (stagedDocuments.length === 0 && stagedSimulations.length === 0)) return;
+        const sent = await uploadStagedFiles(clientId, stagedDocuments, stagedSimulations);
+        if (sent.documents) setStagedDocuments([]);
+        if (sent.simulations) setStagedSimulations([]);
+        await sheet.refreshFiles();
+        if (!sent.documents || !sent.simulations) throw new Error("Nem todos os arquivos foram enviados.");
       },
     });
     if (!saved) return;
+    setFilesRevealed(false);
     setIsEditing(false);
     onConfirm?.();
   };
 
-  const cancelEdit = () => {
-    sheet.cancel();
-    setIsEditing(false);
-  };
-
   const remove = async () => {
     if (!clientId) return;
-    setIsBusy(true);
     try {
       await deleteClient(clientId);
       setShowDelete(false);
       onClose();
       onConfirm?.();
     } catch (reason) {
-      sheet.setError((reason as Error)?.message || fallbackMessages.CLIENTS.DELETE_FAILED);
-    } finally {
-      setIsBusy(false);
+      setActionError((reason as Error)?.message || fallbackMessages.CLIENTS.DELETE_FAILED);
     }
   };
 
-  /** Arquivos sobem na hora: o cliente já existe, e esperar o Salvar só criaria a chance de fechar sem enviar. */
-  const uploadStaged = async () => {
-    if (!clientId) return;
-    if (!stagedDocuments.every(isDocumentReady)) {
-      sheet.setError("Escolha o tipo de cada documento antes de enviar.");
-      return;
-    }
-    setIsBusy(true);
-    try {
-      if (stagedDocuments.length) {
-        await uploadDocuments(clientId, buildDocumentsFormData(stagedDocuments));
-        setStagedDocuments([]);
-      }
-      if (stagedSimulations.length) {
-        await uploadSimulations(
-          clientId,
-          buildSimulationsFormData(
-            stagedSimulations.map((item) => ({
-              ...item,
-              vinculos: item.vinculos ? Number(item.vinculos) : undefined,
-            })),
-          ),
-        );
-        setStagedSimulations([]);
-      }
-      await sheet.refreshFiles();
-    } catch {
-      sheet.setError(fallbackMessages.CLIENTS.UPDATE_FAILED);
-    } finally {
-      setIsBusy(false);
-    }
-  };
-
-  const removeFile = async (_kind: FileKind, fileId: string) => {
-    if (!clientId) return;
+  const confirmFileRemoval = async () => {
+    const fileId = fileRemoval;
+    setFileRemoval(null);
+    if (!fileId || !clientId) return;
     try {
       await deleteFile(clientId, fileId);
       await sheet.refreshFiles();
     } catch {
-      sheet.setError(fallbackMessages.CLIENTS.UPDATE_FAILED);
+      setActionError(fallbackMessages.CLIENTS.UPDATE_FAILED);
     }
   };
 
@@ -251,8 +241,7 @@ export default function ClientDetailsModal({
   };
 
   const fileCount = (record?.documents.length ?? 0) + (record?.simulations.length ?? 0);
-  const plural = (count: number, one: string, many: string) =>
-    `${count} ${count === 1 ? one : many}`;
+  const interviewCount = record?.interviewCount ?? 0;
 
   const sheetSections: SheetSection[] = [
     {
@@ -288,8 +277,8 @@ export default function ClientDetailsModal({
             <InssPasswordField
               clientId={clientId ?? ""}
               isEditing={isEditing}
-              novaSenha={professional.values.inssPassword}
-              onNovaSenhaChange={(value) => professional.setField("inssPassword", value)}
+              newPassword={professional.values.inssPassword}
+              onNewPasswordChange={(value) => professional.setField("inssPassword", value)}
             />
           }
         />
@@ -308,7 +297,7 @@ export default function ClientDetailsModal({
           clientId={clientId}
           gender={GenderLabelByKey[personal.values.gender as GenderKey] ?? personal.values.gender}
           isEditing={isEditing}
-          canDeleteSaved={podeDestruir}
+          canDeleteSaved={canDestroy}
           onSavedCountChange={setDisabilityCount}
         />
       ) : null,
@@ -326,8 +315,8 @@ export default function ClientDetailsModal({
       title: "Entrevista",
       description: "O relato do atendimento: histórico, pendências e documentos a trazer.",
       icon: <InterviewIcon />,
-      ...(record && record.interviewCount > 1
-        ? { badge: `${record.interviewCount} registros` }
+      ...(interviewCount > 1
+        ? { badge: `${interviewCount} registros` }
         : fill(interviewSchema, interview.values)),
       content: <InterviewSection form={interview} isReadOnly={!isEditing} isLoading={sheet.isLoading} />,
     },
@@ -338,31 +327,30 @@ export default function ClientDetailsModal({
       icon: <FilesIcon />,
       badge: fileCount ? plural(fileCount, "arquivo", "arquivos") : "Sem arquivos",
       content: sheet.isLoading ? (
-        <LinesSkeleton count={2} />
+        <RowSkeletons count={2} />
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-6">
+          {/* Lendo, só abrir e baixar; editando, excluir o gravado e
+              escolher novos — no mesmo desenho do cadastro. */}
           <FilesSection
             documents={record?.documents ?? []}
             simulations={record?.simulations ?? []}
-            stagedDocuments={stagedDocuments}
-            stagedSimulations={stagedSimulations}
-            onAddFiles={setUploadKind}
-            onRemoveStagedDocument={(index) => setStagedDocuments((items) => items.filter((_, i) => i !== index))}
-            onRemoveStagedSimulation={(index) => setStagedSimulations((items) => items.filter((_, i) => i !== index))}
-            onDelete={isEditing ? removeFile : undefined}
+            onDelete={isEditing ? (_kind, fileId) => setFileRemoval(fileId) : undefined}
           />
-          {(stagedDocuments.length > 0 || stagedSimulations.length > 0) && (
-            <div className="flex justify-end">
-              <Button type="button" variant="primary" onPress={() => void uploadStaged()} isDisabled={busy}>
-                Enviar arquivos
-              </Button>
-            </div>
+          {isEditing && (
+            <FilesUpload
+              documents={stagedDocuments}
+              simulations={stagedSimulations}
+              onDocumentsChange={setStagedDocuments}
+              onSimulationsChange={setStagedSimulations}
+              showErrors={filesRevealed}
+            />
           )}
         </div>
       ),
     },
     // Dinheiro é de quem vê o financeiro (D3): para os demais a seção nem existe.
-    ...(podeVerFinanceiro && clientId
+    ...(canSeeFinance && clientId
       ? [
           {
             id: "pagamentos",
@@ -370,7 +358,7 @@ export default function ClientDetailsModal({
             description: "Benefício que o INSS paga ao cliente e honorários do escritório.",
             icon: <WalletIcon className="h-5 w-5" />,
             badge: "Só leitura",
-            content: financeSeen.current ? <ClientFinancePanel clientId={clientId} /> : <LinesSkeleton count={3} />,
+            content: financeSeen ? <ClientFinancePanel clientId={clientId} /> : <RowSkeletons count={3} />,
           } satisfies SheetSection,
         ]
       : []),
@@ -381,12 +369,12 @@ export default function ClientDetailsModal({
       icon: <ClockIcon className="h-5 w-5" />,
       badge: record?.history.length ? plural(record.history.length, "mudança", "mudanças") : undefined,
       content: sheet.isLoading ? (
-        <LinesSkeleton count={4} />
+        <RowSkeletons count={4} />
       ) : (
         <SituationHistorySection
           items={record?.history ?? []}
           hasError={record?.historyFailed ?? false}
-          autores={autores}
+          authors={authors}
         />
       ),
     },
@@ -403,124 +391,105 @@ export default function ClientDetailsModal({
   }));
 
   return (
-    <Modal isOpen={isOpen} onOpenChange={(open) => !open && close()}>
-      <Modal.Backdrop
-        variant="blur"
-        className="data-[entering]:duration-400 data-[entering]:ease-[cubic-bezier(0.16,1,0.3,1)] data-[exiting]:duration-200 data-[exiting]:ease-[cubic-bezier(0.7,0,0.84,0)]"
-      >
-        <Modal.Container
-          size="cover"
-          className="data-[entering]:animate-in data-[entering]:fade-in-0 data-[entering]:zoom-in-95 data-[entering]:duration-400 data-[exiting]:animate-out data-[exiting]:fade-out-0 data-[exiting]:zoom-out-95 data-[exiting]:duration-200"
-        >
-          <Modal.Dialog className="min-h-[80vh] max-w-[1440px] bg-[#F4F4F5]">
-            {/* `data-readonly`: em leitura, o campo travado continua legível
-                (`ui/form/formFields.css`). */}
-            <div
-              data-readonly={isEditing ? undefined : ""}
-              className={`flex ${SHEET_HEIGHT} flex-col gap-4 py-4 md:flex-row`}
-            >
-              <CompiladoHero
-                name={personal.values.fullName || clientName}
-                benefit={benefitLabel}
-                progress={progress}
-                isLoading={sheet.isLoading}
-                items={items}
-                activeId={active}
-                onSelect={goTo}
-                error={
-                  sheet.error ? (
-                    <p role="alert" className="rounded-xl bg-danger/25 px-4 py-3 text-sm text-white">
-                      {sheet.error}
-                    </p>
-                  ) : null
-                }
-                actions={<SheetActions
-                  isEditing={isEditing}
-                  isSaving={busy}
-                  isLoading={sheet.isLoading}
-                  canDelete={podeDestruir}
-                  onEdit={() => setIsEditing(true)}
-                  onDelete={() => setShowDelete(true)}
-                  onCancel={cancelEdit}
-                  onSave={() => void save()}
-                  onClose={close}
-                />}
-              />
+    <ModalShell
+      isOpen={isOpen}
+      onClose={close}
+      isDismissable={!busy}
+      backdrop="blur"
+      size="cover"
+      className="min-h-[80vh] max-w-[1440px] bg-[#F4F4F5]"
+    >
+      {/* `data-readonly`: em leitura, o campo travado continua legível
+          (`ui/form/formFields.css`). */}
+      <div data-readonly={isEditing ? undefined : ""} className={`flex ${SHEET_HEIGHT} flex-col gap-4 py-4 md:flex-row`}>
+        <CompiledHero
+          name={personal.values.fullName || clientName}
+          benefit={benefitLabel}
+          progress={progress}
+          isLoading={sheet.isLoading}
+          items={items}
+          activeId={active}
+          onSelect={goTo}
+          error={
+            error ? (
+              <p role="alert" className="rounded-xl bg-danger/25 px-4 py-3 text-sm text-white">
+                {error}
+              </p>
+            ) : null
+          }
+          actions={
+            <SheetActions
+              isEditing={isEditing}
+              isSaving={busy}
+              isLoading={sheet.isLoading}
+              canDelete={canDestroy}
+              onEdit={() => setIsEditing(true)}
+              onCancel={leaveEdit}
+              onSave={() => void save()}
+              onDelete={() => setShowDelete(true)}
+            />
+          }
+        />
 
-              <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-                <CompiladoTabs items={items} activeId={active} onSelect={goTo} />
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+          <CompiledTabs items={items} activeId={active} onSelect={goTo} />
 
-                {/*
-                  Quem rola não é quem empilha. Com o `overflow-y-auto` no
-                  próprio `flex-col`, cada cartão vira item flex de um
-                  contêiner de altura fixa — e item flex encolhe: os cartões
-                  achatavam até sobrar só a faixa do cabeçalho.
-                */}
-                <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto">
-                  <div className="flex flex-col gap-4 pb-6">
-                    {visible.map((section) => (
-                      <CompiladoSection
-                        key={section.id}
-                        id={section.id}
-                        label={section.title}
-                        blurb={section.description}
-                        icon={section.icon}
-                        badge={section.badge}
-                      >
-                        {section.content}
-                      </CompiladoSection>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Montadas e fora de vista — ver `isHidden`. */}
-              {hidden.map((section) => (
-                <div key={section.id} hidden>
+          {/*
+            Quem rola não é quem empilha. Com o `overflow-y-auto` no próprio
+            `flex-col`, cada cartão vira item flex de um contêiner de altura
+            fixa — e item flex encolhe: os cartões achatavam até sobrar só a
+            faixa do cabeçalho.
+          */}
+          <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex flex-col gap-4 pb-6">
+              {visible.map((section) => (
+                <CompiledSection
+                  key={section.id}
+                  id={section.id}
+                  label={section.title}
+                  blurb={section.description}
+                  icon={section.icon}
+                  badge={section.badge}
+                >
                   {section.content}
-                </div>
+                </CompiledSection>
               ))}
             </div>
+          </div>
+        </div>
 
-            <FileUploadModal
-              isOpen={uploadKind !== null}
-              initialKind={uploadKind ?? "documents"}
-              onClose={() => setUploadKind(null)}
-              onConfirm={({ documents, simulations }) => {
-                setStagedDocuments((items) => [...items, ...documents]);
-                setStagedSimulations((items) => [...items, ...simulations]);
-              }}
-            />
-            <DeleteClientModal
-              isOpen={showDelete}
-              onClose={() => setShowDelete(false)}
-              clientName={clientName}
-              onConfirm={() => void remove()}
-            />
-          </Modal.Dialog>
-        </Modal.Container>
-      </Modal.Backdrop>
-    </Modal>
-  );
-}
+        {/* Montadas e fora de vista — ver `isHidden`. */}
+        {hidden.map((section) => (
+          <div key={section.id} hidden>
+            {section.content}
+          </div>
+        ))}
+      </div>
 
-/** Linhas de dado carregando (arquivos, histórico, pagamentos). */
-function LinesSkeleton({ count }: { count: number }) {
-  return (
-    <ul className="flex flex-col gap-3" aria-hidden="true">
-      {Array.from({ length: count }, (_, i) => (
-        <li key={i}>
-          <RowSkeleton />
-        </li>
-      ))}
-    </ul>
+      <ConfirmDialog
+        isOpen={fileRemoval !== null}
+        onClose={() => setFileRemoval(null)}
+        onConfirm={() => void confirmFileRemoval()}
+        tone="danger"
+        heading="Excluir este arquivo?"
+        confirmLabel="Excluir"
+        cancelLabel="Manter"
+        description="O arquivo sai da ficha do cliente, e não há como desfazer."
+      />
+      <DeleteClientModal
+        isOpen={showDelete}
+        onClose={() => setShowDelete(false)}
+        clientName={clientName}
+        onConfirm={() => void remove()}
+      />
+    </ModalShell>
   );
 }
 
 /**
- * As ações no pé do painel: Editar, Excluir e Fechar na leitura; Cancelar e
- * Salvar na edição. Excluir e Fechar são só ícone, com dica — o nome delas não
- * disputa espaço com a ação principal, que é a larga.
+ * As ações no pé do painel: "Editar cadastro" na leitura; "Cancelar" e
+ * "Salvar" na edição. Excluir é só ícone, com dica — o nome dele não disputa
+ * espaço com a ação principal, que é a larga. Fechar fica no canto da ficha.
  */
 function SheetActions({
   isEditing,
@@ -528,21 +497,19 @@ function SheetActions({
   isLoading,
   canDelete,
   onEdit,
-  onDelete,
   onCancel,
   onSave,
-  onClose,
+  onDelete,
 }: {
   isEditing: boolean;
   isSaving: boolean;
-  /** Sem os dados ainda, não há o que salvar. */
+  /** Sem os dados ainda, não há o que editar nem salvar. */
   isLoading: boolean;
   canDelete: boolean;
   onEdit: () => void;
-  onDelete: () => void;
   onCancel: () => void;
   onSave: () => void;
-  onClose: () => void;
+  onDelete: () => void;
 }) {
   return (
     <ActionGroup shape="pill" surface="dark">
@@ -569,6 +536,7 @@ function SheetActions({
           grow
           className="font-semibold"
           onClick={onEdit}
+          disabled={isLoading}
           icon={<PencilIcon className="h-4 w-4" />}
         >
           Editar cadastro
@@ -580,9 +548,6 @@ function SheetActions({
           <TrashIcon className="h-4 w-4" />
         </HeroTipButton>
       )}
-      <HeroTipButton label="Fechar ficha" onPress={onClose} isDisabled={isSaving}>
-        <CloseIcon className="h-5 w-5" />
-      </HeroTipButton>
     </ActionGroup>
   );
 }

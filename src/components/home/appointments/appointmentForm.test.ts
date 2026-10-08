@@ -236,23 +236,23 @@ describe("shiftAfter — reagendar logo após o conflito", () => {
 
   it("é no-op quando falta início ou término", () => {
     const iso = isoOf(at(nextYear, 8, 20, 16, 0));
-    const semInicio = validForm({ startAt: null });
-    const semFim = validForm({ endAt: null });
+    const withoutStart = validForm({ startAt: null });
+    const withoutEnd = validForm({ endAt: null });
 
-    expect(shiftAfter(semInicio, iso)).toBe(semInicio);
-    expect(shiftAfter(semFim, iso)).toBe(semFim);
+    expect(shiftAfter(withoutStart, iso)).toBe(withoutStart);
+    expect(shiftAfter(withoutEnd, iso)).toBe(withoutEnd);
   });
 
   it("é no-op quando a duração não é positiva", () => {
     // Formulário inconsistente (o usuário ainda não corrigiu o término):
     // deslocar aqui produziria um intervalo invertido em outro horário.
-    const invertido = validForm({
+    const inverted = validForm({
       startAt: at(nextYear, 8, 20, 15, 0),
       endAt: at(nextYear, 8, 20, 14, 0),
     });
 
-    expect(shiftAfter(invertido, isoOf(at(nextYear, 8, 20, 16, 0)))).toBe(
-      invertido,
+    expect(shiftAfter(inverted, isoOf(at(nextYear, 8, 20, 16, 0)))).toBe(
+      inverted,
     );
   });
 

@@ -1,9 +1,9 @@
 import endpoints from "@/constants/endpoints/paths";
 import axiosInstance from "@/services/axiosService";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
-import { esperaLegivel } from "@/lib/retryAfter";
+import { readableWait } from "@/lib/retryAfter";
 import { digitsOf } from "@/lib/masks/masks";
-import { integracaoPendente } from "@/services/integracaoPendente";
+import { pendingIntegration } from "@/services/pendingIntegration";
 
 /**
  * Consulta de CEP — CepController. Rota: GET /api/v1/cep/{cep}
@@ -60,7 +60,7 @@ export const lookupCep = async (value: string): Promise<CepLookupResult> => {
   // Ambiente sem a rota: um 404 de rota inexistente seria lido como "CEP não
   // encontrado" — mentira para quem digitou um CEP válido. Pausada, a consulta
   // nem sai, e a tela diz que não deu para consultar.
-  if (integracaoPendente("cep")) return { status: "unavailable" };
+  if (pendingIntegration("cep")) return { status: "unavailable" };
 
   try {
     const { data } = await axiosInstance.get<ApiEnvelope<CepLookupResponse>>(
@@ -80,13 +80,13 @@ export const lookupCep = async (value: string): Promise<CepLookupResult> => {
       case 404:
         return { status: "not-found" };
       case 429: {
-        const espera = esperaLegivel(
+        const wait = readableWait(
           response.headers?.["retry-after"] as string | undefined,
         );
         return {
           status: "rate-limited",
-          message: espera
-            ? `Muitas consultas de CEP. Tente novamente ${espera}.`
+          message: wait
+            ? `Muitas consultas de CEP. Tente novamente ${wait}.`
             : "Muitas consultas de CEP. Tente novamente em instantes.",
         };
       }

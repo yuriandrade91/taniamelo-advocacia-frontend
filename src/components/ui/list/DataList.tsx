@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { RowSkeleton, SKELETON_ROW_COUNT } from "@/components/ui/feedback/Loading";
+import { RowSkeletons } from "@/components/ui/feedback/Loading";
 
 /**
  * Lista em linhas com colunas por schema — o desenho das listas da Carteira e
@@ -74,13 +74,11 @@ export function DataList<T>({
             </div>
           </div>
           {isLoading ? (
-            <ul role="status" aria-label={`Carregando ${ariaLabel.toLowerCase()}`}>
-              {Array.from({ length: SKELETON_ROW_COUNT }, (_, i) => (
-                <li key={i} className="border-b border-black/5 px-5 py-4 last:border-b-0 sm:px-6">
-                  <RowSkeleton />
-                </li>
-              ))}
-            </ul>
+            <RowSkeletons
+              label={`Carregando ${ariaLabel.toLowerCase()}`}
+              className=""
+              itemClassName="border-b border-black/5 px-5 py-4 last:border-b-0 sm:px-6"
+            />
           ) : (
           <ul aria-label={ariaLabel}>
             {items.map((row, index) => (

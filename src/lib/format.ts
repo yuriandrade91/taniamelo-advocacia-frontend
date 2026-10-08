@@ -33,10 +33,10 @@ export const formatBRLCompact = (value: number): string =>
  * data de vencimento aparece um dia antes. O backend manda `LocalDate` — data
  * sem hora e sem fuso — então tratá-la como texto é o que preserva o sentido.
  */
-export const formatDateBR = (iso?: string | null): string => {
-  if (!iso) return "—";
+export const formatDateBR = (iso?: string | null, fallback = "—"): string => {
+  if (!iso) return fallback;
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!match) return "—";
+  if (!match) return fallback;
   const [, year, month, day] = match;
   return `${day}/${month}/${year}`;
 };

@@ -21,6 +21,7 @@
  */
 
 import { daysBetween, todayIso } from "@/lib/period";
+import { OFFICE_NAME } from "@/constants/office";
 import type { Clients } from "@/interfaces/Clients.interface";
 
 export type LeadUrgency = "critical" | "warning" | "recent";
@@ -88,29 +89,31 @@ const URGENCY_TILE: Record<LeadUrgency, string> = {
 export const urgencyDot = (urgency: LeadUrgency) => URGENCY_DOT[urgency];
 export const urgencyTile = (urgency: LeadUrgency) => URGENCY_TILE[urgency];
 
-/** Só os dígitos, com o 55 do Brasil na frente quando falta. */
-export function toPhoneDigits(phone?: string): string | null {
-  if (!phone) return null;
-  const digits = phone.replace(/\D/g, "");
-  // 10 (fixo com DDD) ou 11 (celular com DDD) dígitos é número nacional.
-  if (digits.length === 10 || digits.length === 11) return `55${digits}`;
-  // 12/13 já vem com o código do país.
-  if (digits.length === 12 || digits.length === 13) return digits;
-  return null;
+/**
+ * O primeiro contato, escrito.
+ *
+ * Quem abre a fila vai mandar a mesma mensagem dezenas de vezes, e escrever à
+ * mão é onde se erra o nome de quem esperou dois meses. O texto já sai com o
+ * nome e com o motivo — o benefício que a pessoa marcou no formulário —, que
+ * é o que faz a mensagem parecer retomada de conversa e não disparo.
+ *
+ * Sem benefício no cadastro, a frase cai para "sobre o seu atendimento": é
+ * melhor ser genérico do que afirmar um benefício que ninguém escolheu.
+ */
+export function contactMessage(lead: {
+  name: string;
+  benefit?: string;
+}): string {
+  const first = lead.name.trim().split(/\s+/)[0] ?? lead.name;
+  const subject = lead.benefit?.trim()
+    ? `sobre ${lead.benefit.trim().toLowerCase()}`
+    : "sobre o seu atendimento";
+  return (
+    `Olá, ${first}! Aqui é do escritório ${OFFICE_NAME}. ` +
+    `Recebemos o seu formulário ${subject} e queremos dar andamento ao seu caso. ` +
+    `Podemos conversar?`
+  );
 }
-
-export const whatsappLink = (phone?: string): string | null => {
-  const digits = toPhoneDigits(phone);
-  return digits ? `https://wa.me/${digits}` : null;
-};
-
-export const telLink = (phone?: string): string | null => {
-  const digits = toPhoneDigits(phone);
-  return digits ? `tel:+${digits}` : null;
-};
-
-export const mailtoLink = (email?: string): string | null =>
-  email && email.includes("@") ? `mailto:${email}` : null;
 
 export function toPendingLead(
   client: Clients,
@@ -191,8 +194,12 @@ export function filterLeads(leads: PendingLead[], term: string): PendingLead[] {
     .replace(/[̀-ͯ]/g, "");
   if (!query) return leads;
 
+  // O benefício entra porque é o que a linha mostra ao lado do nome: procurar
+  // por "rural" e não achar ninguém, com "Aposentadoria rural" na tela, é a
+  // busca contradizendo a lista. O e-mail continua valendo, ainda que não
+  // apareça — quem tem o endereço na mão acha por ele.
   return leads.filter((lead) =>
-    [lead.name, lead.phone ?? "", lead.email ?? ""]
+    [lead.name, lead.phone ?? "", lead.benefit ?? "", lead.email ?? ""]
       .join(" ")
       .toLowerCase()
       .normalize("NFD")

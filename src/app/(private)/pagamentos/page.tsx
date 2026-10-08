@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { Button } from "@heroui/react";
 
 import { PageHeader } from "@/components/ui/layout/PageHeader";
-import { SemAcessoFinanceiro } from "@/components/ui/feedback/SemAcessoFinanceiro";
+import { NoFinanceAccess } from "@/components/ui/feedback/NoFinanceAccess";
 import { TablePagination } from "@/components/ui/table/TablePagination";
 import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
 import type { PaymentDetailsTarget } from "@/components/payments/PaymentDetailsDrawer";
@@ -22,7 +22,7 @@ import { useEditConfirmation } from "@/components/payments/useEditConfirmation";
 import { invalidateInstallmentTrail } from "@/components/payments/installmentTrail";
 import { useFilters } from "@/hooks/useFilters";
 import { usePagedList } from "@/hooks/usePagedList";
-import { usePermissoes } from "@/hooks/usePermissoes";
+import { usePermissions } from "@/hooks/usePermissions";
 import { todayIso } from "@/lib/period";
 import { deletePayment } from "@/services/clientPaymentService";
 import { listOfficePayments } from "@/services/officePaymentService";
@@ -111,7 +111,7 @@ export default function PaymentsPage() {
    * sem esta guarda a tela tomava 403 em silêncio e mostrava lista vazia —
    * que se lê como "não há pagamentos", não como "você não tem acesso".
    */
-  const { podeVerFinanceiro } = usePermissoes();
+  const { canSeeFinance } = usePermissions();
   const filters = useFilters(paymentFilters);
   const { bucket, period, paymentMethod } = filters.values;
 
@@ -140,7 +140,7 @@ export default function PaymentsPage() {
   }, [filters.search, bucket, period, paymentMethod]);
 
   const list = usePagedList({
-    enabled: podeVerFinanceiro,
+    enabled: canSeeFinance,
     params,
     fetchPage: (query: NonNullable<typeof params>, page) =>
       listOfficePayments({
@@ -186,7 +186,7 @@ export default function PaymentsPage() {
   /** Recebido ou cancelado: confirma antes de abrir a edição. */
   const confirmEdit = useEditConfirmation();
 
-  const confirmarExclusao = async () => {
+  const confirmDelete = async () => {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
@@ -200,8 +200,8 @@ export default function PaymentsPage() {
     }
   };
 
-  if (!podeVerFinanceiro)
-    return <SemAcessoFinanceiro titulo="Pagamentos aos clientes" />;
+  if (!canSeeFinance)
+    return <NoFinanceAccess titulo="Pagamentos aos clientes" />;
 
   const emptyMessage =
     state === "missing-endpoint"
@@ -362,7 +362,7 @@ export default function PaymentsPage() {
             </>
           )
         }
-        onConfirm={() => void confirmarExclusao()}
+        onConfirm={() => void confirmDelete()}
       />
     </div>
   );

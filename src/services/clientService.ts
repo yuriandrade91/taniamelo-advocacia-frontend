@@ -10,6 +10,8 @@ import type {
   ClientPatchResponse,
   ClientSituationHistory,
   ClientInssPassword,
+  UpcomingBirthdayResponse,
+  UpcomingBirthdaysRequest,
 } from "@/interfaces/client/Client.interface";
 
 /**
@@ -37,35 +39,25 @@ export const clients = async (
   );
   return {
     ...response.data,
-    data: (response.data?.data ?? []).map(normalizarCliente),
+    data: (response.data?.data ?? []).map(normalizeClient),
   };
 };
 
 /**
- * GET /api/v1/clients — **todas** as páginas, concatenadas.
+ * GET /api/v1/clients/upcoming-birthdays — os próximos aniversariantes.
  *
- * Para a pergunta que é do escritório inteiro e não de uma página: hoje, os
- * aniversariantes da Home. O backend limita `pageSize` a 100 (pedir 200
- * devolve 100), então "todos" é um laço, não um parâmetro.
- *
- * `maxPages` é freio, não paginação: uma base que cresce não pode transformar
- * a abertura da Home numa rajada de requisições. Estourando o limite devolve o
- * que juntou — melhor uma resposta parcial do que uma tela travada.
- *
- * Quem chama deve guardar o resultado (`loadEveryClient`, em `clientsCache`):
- * sem isso é uma varredura por visita.
+ * A conta é do servidor: a próxima ocorrência de cada aniversário no fuso do
+ * escritório, ordenada, cortada em `limit`. Substitui a varredura da listagem
+ * inteira (todas as páginas) que a Home fazia para responder a mesma pergunta.
  */
-export const allClients = async (
-  params?: Omit<ClientListRequest, "pageNumber" | "pageSize">,
-  maxPages = 10,
-): Promise<Clients[]> => {
-  const todos: Clients[] = [];
-  for (let pageNumber = 1; pageNumber <= maxPages; pageNumber += 1) {
-    const envelope = await clients({ ...params, pageNumber, pageSize: 100 });
-    todos.push(...(envelope.data ?? []));
-    if (!envelope.pagination?.hasNextPage) break;
-  }
-  return todos;
+export const listUpcomingBirthdays = async (
+  params?: UpcomingBirthdaysRequest,
+): Promise<ApiEnvelope<UpcomingBirthdayResponse[]>> => {
+  const response = await axiosInstance.get<ApiEnvelope<UpcomingBirthdayResponse[]>>(
+    endpoints.CLIENTS.UPCOMING_BIRTHDAYS,
+    { params },
+  );
+  return response.data;
 };
 
 /**
@@ -88,7 +80,7 @@ export const allClients = async (
  * local já renomeou e a da AWS pode estar num build anterior. Quando todo mundo
  * estiver no contrato novo, o `?? bruto.id` pode cair.
  */
-function normalizarCliente<T extends { id?: string; clientId?: string }>(
+function normalizeClient<T extends { id?: string; clientId?: string }>(
   bruto: T,
 ): T {
   if (bruto == null) return bruto;
@@ -107,7 +99,7 @@ function normalizarCliente<T extends { id?: string; clientId?: string }>(
  *
  * Falhar aqui aponta para o lugar certo na primeira tentativa.
  */
-function exigirId(clientId: string | number, operacao: string): string {
+function requireId(clientId: string | number, operacao: string): string {
   const id = String(clientId ?? "").trim();
   if (!id || id === "undefined" || id === "null") {
     throw new Error(
@@ -123,12 +115,12 @@ export const clientById = async (
   clientId: string | number,
 ): Promise<Clients> => {
   const response = await axiosInstance.get<ApiEnvelope<Clients>>(
-    endpoints.CLIENTS.BY_ID(exigirId(clientId, "clientById")),
+    endpoints.CLIENTS.BY_ID(requireId(clientId, "clientById")),
   );
   // backend às vezes retorna objeto cru para recurso único
-  const cliente =
+  const client =
     (response.data?.data as Clients) ?? (response.data as unknown as Clients);
-  return normalizarCliente(cliente);
+  return normalizeClient(client);
 };
 
 /** POST /api/v1/clients */
@@ -145,7 +137,7 @@ export const createClient = async (
   // funciona.
   return {
     ...response.data,
-    data: normalizarCliente(response.data?.data ?? ({} as Clients)),
+    data: normalizeClient(response.data?.data ?? ({} as Clients)),
   };
 };
 
@@ -155,7 +147,7 @@ export const updateClient = async (
   body: ClientUpdateRequest,
 ): Promise<ApiEnvelope<Clients>> => {
   const response = await axiosInstance.put<ApiEnvelope<Clients>>(
-    endpoints.CLIENTS.UPDATE(exigirId(clientId, "updateClient")),
+    endpoints.CLIENTS.UPDATE(requireId(clientId, "updateClient")),
     body,
   );
   // Quem cria um cliente costuma usar o id da resposta em seguida (abrir a
@@ -164,7 +156,7 @@ export const updateClient = async (
   // funciona.
   return {
     ...response.data,
-    data: normalizarCliente(response.data?.data ?? ({} as Clients)),
+    data: normalizeClient(response.data?.data ?? ({} as Clients)),
   };
 };
 
@@ -174,7 +166,7 @@ export const patchClient = async (
   body: ClientPatchRequest,
 ): Promise<ApiEnvelope<ClientPatchResponse>> => {
   const response = await axiosInstance.patch<ApiEnvelope<ClientPatchResponse>>(
-    endpoints.CLIENTS.PATCH(exigirId(clientId, "patchClient")),
+    endpoints.CLIENTS.PATCH(requireId(clientId, "patchClient")),
     body,
   );
   return response.data;
@@ -204,7 +196,7 @@ export const deleteClient = async (
   options?: SilenceableRequest,
 ): Promise<ApiEnvelope<ClientPatchResponse>> => {
   const response = await axiosInstance.delete<ApiEnvelope<ClientPatchResponse>>(
-    endpoints.CLIENTS.DELETE(exigirId(clientId, "deleteClient")),
+    endpoints.CLIENTS.DELETE(requireId(clientId, "deleteClient")),
     {
       successMessage: "Cliente excluído com sucesso.",
       skipSuccessToast: options?.silent,
@@ -222,7 +214,7 @@ export const deleteClient = async (
  * dona Maria em março?" — que é a pergunta pela qual a rota existe.
  *
  * Restrita a ADMIN/LAWYER: para atendente o backend devolve 403. A tela esconde
- * o botão (ver `podeVerSenhaDoInss`), mas quem chama isto direto trate o 403.
+ * o botão (ver `canSeeInssPassword`), mas quem chama isto direto trate o 403.
  *
  * `skipErrorToast` porque a tela mostra a falha no próprio campo — um toast
  * global aqui ficaria longe de onde o usuário está olhando.
@@ -231,7 +223,7 @@ export const revealInssPassword = async (
   clientId: string,
 ): Promise<string> => {
   const response = await axiosInstance.get<ApiEnvelope<ClientInssPassword>>(
-    endpoints.CLIENTS.INSS_PASSWORD(exigirId(clientId, "revealInssPassword")),
+    endpoints.CLIENTS.INSS_PASSWORD(requireId(clientId, "revealInssPassword")),
     { skipErrorToast: true },
   );
   return response.data?.data?.inssPassword ?? "";
@@ -244,6 +236,6 @@ export const clientSituationHistory = async (
 ): Promise<ApiEnvelope<ClientSituationHistory[]>> => {
   const response = await axiosInstance.get<
     ApiEnvelope<ClientSituationHistory[]>
-  >(endpoints.CLIENTS.SITUATION_HISTORY(exigirId(clientId, "clientSituationHistory")), { params });
+  >(endpoints.CLIENTS.SITUATION_HISTORY(requireId(clientId, "clientSituationHistory")), { params });
   return response.data;
 };

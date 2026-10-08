@@ -5,7 +5,7 @@ import { useState } from "react";
 import { createInFlight } from "@/lib/requestCache";
 import { useRecordDetail } from "@/hooks/useRecordDetail";
 
-import Drawer from "@/components/ui/Drawer/Drawer";
+import { RecordDrawer } from "@/components/ui/Drawer/RecordDrawer";
 import { todayIso } from "@/lib/period";
 import { getOfficeExpense } from "@/services/officeExpenseService";
 import { getOfficeRevenue } from "@/services/officeRevenueService";
@@ -90,20 +90,20 @@ const fetchDetail = (target: EntryDetailsTarget): Promise<Detail | null> =>
 function editingFrom(detail: Detail, mode: "edit" | "settle"): EntryEditing {
   // "Marcar como pago": a mesma edição, já com o pagamento marcado e a data
   // de hoje — a pessoa confere e salva; nada grava sozinho.
-  const liquidado = <T extends SharedValues>(values: T): T =>
+  const settled = <T extends SharedValues>(values: T): T =>
     mode === "settle" ? { ...values, isSettled: true, paidDate: todayIso() } : values;
 
   return detail.kind === "saida"
     ? {
         kind: "saida",
         id: detail.data.id,
-        values: liquidado(expenseFormFrom(detail.data)),
+        values: settled(expenseFormFrom(detail.data)),
         seed: mode,
       }
     : {
         kind: "entrada",
         id: detail.data.id,
-        values: liquidado(incomeFormFrom(detail.data)),
+        values: settled(incomeFormFrom(detail.data)),
         seed: mode,
       };
 }
@@ -156,15 +156,10 @@ export function EntryDetailsDrawer({
   const isIncome = target.kind === "entrada";
 
   return (
-    <Drawer
-      isOpen
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-      // Editando, fechar (Esc, fundo, "Cancelar") volta para o detalhe em
-      // vez de fechar o painel e perder o contexto.
-      confirmClose={isEditing}
-      onRequestClose={backToView}
+    <RecordDrawer
+      onClose={onClose}
+      onBack={backToView}
+      isEditing={isEditing}
       title={
         mode === "settle"
           ? isIncome
@@ -176,53 +171,37 @@ export function EntryDetailsDrawer({
               : "Editar saída"
             : "Detalhes do lançamento"
       }
-      description={
-        isEditing
-          ? "O registro é substituído pelo que estiver aqui ao salvar."
-          : undefined
-      }
-      hideFooter={!isEditing}
-      confirmLabel="Salvar alterações"
-      cancelLabel="Voltar"
-      onConfirm={() => void save()}
+      description="O registro é substituído pelo que estiver aqui ao salvar."
+      onSave={() => void save()}
       isSubmitting={form.isSubmitting}
-      dialogClassName="w-full sm:w-[520px]"
-    >
-      {failed ? (
-        <div className="flex flex-col items-center gap-2 rounded-2xl border border-danger/20 bg-danger/5 px-6 py-10 text-center">
-          <p className="text-sm font-medium text-primary">
-            Não foi possível carregar este lançamento
-          </p>
-          <p className="text-xs text-gray-100/70">
-            Feche o painel e tente de novo.
-          </p>
-        </div>
-      ) : !detail ? (
+      failed={failed}
+      failedText="Não foi possível carregar este lançamento"
+      isLoading={!detail}
+      skeleton={
         <DetailBentoSkeleton
           eyebrow={isIncome ? "Entrada" : "Saída"}
           partyLabel={isIncome ? "Cliente" : "Fornecedor"}
           factLabels={["Vencimento", "Forma", isIncome ? "Lançado" : "Categoria"]}
         />
-      ) : isEditing ? (
-        <EntryFormFields form={form} compact />
-      ) : (
-        <>
-          <EntryBentoView
-            detail={detail}
-            onEdit={() =>
-              confirmEdit.request(
-                editWarning(
-                  detail.data,
-                  detail.kind === "entrada" ? "recebido" : "pago",
-                ),
-                () => setMode("edit"),
-              )
-            }
-            onSettle={() => setMode("settle")}
-          />
-        </>
+      }
+      editor={<EntryFormFields form={form} compact />}
+      dialogs={confirmEdit.dialog}
+    >
+      {detail && (
+        <EntryBentoView
+          detail={detail}
+          onEdit={() =>
+            confirmEdit.request(
+              editWarning(
+                detail.data,
+                detail.kind === "entrada" ? "recebido" : "pago",
+              ),
+              () => setMode("edit"),
+            )
+          }
+          onSettle={() => setMode("settle")}
+        />
       )}
-      {confirmEdit.dialog}
-    </Drawer>
+    </RecordDrawer>
   );
 }

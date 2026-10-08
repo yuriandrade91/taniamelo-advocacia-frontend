@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { Popover, Skeleton } from "@heroui/react";
 import { PulseHalo } from "@/components/wallet/PulseHalo";
 import { formatBRL, formatDateBR, plural } from "@/lib/format";
-import { useDismiss } from "@/hooks/useDismiss";
+import { useHoverCard } from "@/hooks/useHoverCard";
 import { BUCKET_BADGE, bucketOf, type PaymentBucket } from "../paymentBuckets";
 import type { Payment } from "../paymentDisplay";
 import { AgreementTotal } from "../AgreementTotal";
 import { agreementOf, useInstallmentTrail } from "../installmentTrail";
 import { STATUS_FILL } from "./PaymentStatus";
 import type { PaymentActions } from "./types";
+import { Pill } from "@/components/ui/feedback/Badges";
 
 /**
  * As parcelas do acordo num cartão, no desenho do de mudar situação de
@@ -27,9 +28,6 @@ import type { PaymentActions } from "./types";
  *   do `StageChanger`: a camada do modal fazia o cartão piscar com o cursor
  *   parado no gatilho.
  */
-
-const HOVER_OPEN_DELAY_MS = 300;
-const HOVER_CLOSE_DELAY_MS = 200;
 
 const NODE: Record<PaymentBucket, string> = {
   paid: "bg-success text-white",
@@ -63,45 +61,8 @@ export function InstallmentPopover({
   /** O gatilho — o bloco da parcela no cartão. */
   children: ReactNode;
 }) {
-  const [isPinned, setIsPinned] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
-  const isOpen = isPinned || isHovering;
-
-  const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const clearHoverTimer = () => {
-    if (hoverTimer.current) clearTimeout(hoverTimer.current);
-    hoverTimer.current = null;
-  };
-  useEffect(() => clearHoverTimer, []);
-
-  const close = () => {
-    clearHoverTimer();
-    setIsPinned(false);
-    setIsHovering(false);
-  };
-  // Não modal: clicar fora e Esc ficam por nossa conta (`useDismiss`).
-  const triggerRef = useRef<HTMLDivElement>(null);
-  /** O fechamento pedido pelo popover veio de um clique no próprio gatilho? */
-  const triggerPressed = useRef(false);
-  const cardRef = useRef<HTMLElement>(null);
-  useDismiss(isOpen, close, [triggerRef, cardRef], (target) => {
-    // Clique no gatilho com o cartão aberto (pelo mouse): prende. Se o popover
-    // ainda pedir para fechar logo em seguida, o `onOpenChange` lê esta marca
-    // e não fecha.
-    if (!triggerRef.current?.contains(target)) return;
-    triggerPressed.current = true;
-    setIsPinned(true);
-  });
-
-  const hoverIn = () => {
-    clearHoverTimer();
-    if (isOpen) return;
-    hoverTimer.current = setTimeout(() => setIsHovering(true), HOVER_OPEN_DELAY_MS);
-  };
-  const hoverOut = () => {
-    clearHoverTimer();
-    hoverTimer.current = setTimeout(() => setIsHovering(false), HOVER_CLOSE_DELAY_MS);
-  };
+  const card = useHoverCard();
+  const { isOpen } = card;
 
   const trail = useInstallmentTrail(payment.clientId, isOpen);
   const total = payment.installmentTotal ?? 1;
@@ -115,38 +76,19 @@ export function InstallmentPopover({
   }
 
   return (
-    <Popover
-      isOpen={isOpen}
-      onOpenChange={(open) => {
-        const pressedTrigger = triggerPressed.current;
-        triggerPressed.current = false;
-        if (open || (pressedTrigger && !isPinned)) setIsPinned(true);
-        else close();
-      }}
-    >
+    <Popover {...card.popoverProps}>
       <Popover.Trigger
-        ref={triggerRef}
+        {...card.triggerProps}
         aria-label={`Ver as parcelas do acordo de ${payment.clientName}`}
-        onMouseEnter={hoverIn}
-        onMouseLeave={hoverOut}
         className="block w-full cursor-pointer rounded-2xl text-left transition outline-none hover:ring-1 hover:ring-primary/15 focus-visible:ring-2 focus-visible:ring-secondary/60"
       >
         {children}
       </Popover.Trigger>
 
-      <Popover.Content
-        ref={cardRef}
-        isNonModal
-        placement="bottom"
-        className="w-80"
-        onMouseEnter={clearHoverTimer}
-        onMouseLeave={hoverOut}
-      >
+      <Popover.Content {...card.contentProps} placement="bottom" className="w-80">
         <Popover.Arrow />
         <Popover.Dialog aria-label="Parcelas do acordo">
-          <span className="inline-flex w-fit items-center rounded-full bg-light-secondary px-2 py-0.5 text-[11px] font-medium text-secondary">
-            Parcelas do acordo
-          </span>
+          <Pill size="sm">Parcelas do acordo</Pill>
           <p className="mt-2 truncate text-sm font-semibold text-gray-100">{payment.clientName}</p>
           <p className="mt-0.5 truncate text-xs text-gray-100">
             {payment.description} · parcela {payment.installmentNumber} de {total}

@@ -33,7 +33,7 @@ import { getGenderKeyByLabel } from "@/enums/gender/Gender";
 import { getMaritalStatusKeyByLabel } from "@/enums/maritalStatus/MaritalStatus";
 import { getSituationKeyByLabel } from "@/enums/situation/Situation";
 
-import { maskCEP, maskCPF, maskNIT, maskRG, maskTelefone } from "@/lib/masks/masks";
+import { maskCEP, maskCPF, maskNIT, maskRG, maskPhone } from "@/lib/masks/masks";
 import type { ClientDetails } from "@/interfaces/client/Client.interface";
 import type {
   ClientAddressResponse,
@@ -77,7 +77,7 @@ const masked = (mask: (value: string) => string, value?: string | null): string 
 const phone = (value?: string | null): string => {
   const raw = text(value);
   const digits = raw.replace(/\D/g, "");
-  return digits.length === 10 || digits.length === 11 ? maskTelefone(raw) : raw;
+  return digits.length === 10 || digits.length === 11 ? maskPhone(raw) : raw;
 };
 
 /** Número → texto do input. `0` é valor, `undefined` é campo em branco. */

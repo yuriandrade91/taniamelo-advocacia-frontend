@@ -12,7 +12,7 @@ import NotificationCenter, {
 } from "./NotificationCenter";
 import UserMenu from "./UserMenu";
 import { SearchIcon } from "./icons";
-import { usePermissoes } from "@/hooks/usePermissoes";
+import { usePermissions } from "@/hooks/usePermissions";
 
 /**
  * Barra superior da área autenticada.
@@ -88,15 +88,15 @@ const SAMPLE_NOTIFICATIONS: NotificationItem[] = [
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
-  const { podeVerFinanceiro } = usePermissoes();
+  const { canSeeFinance } = usePermissions();
   /**
-   * Enquanto as permissões não chegam do storage, `podeVerFinanceiro` é
+   * Enquanto as permissões não chegam do storage, `canSeeFinance` é
    * `false` e os itens de dinheiro ficam de fora. Para um ADMIN isso é um
    * instante sem dois itens, em vez de dois itens que aparecem e somem — o
    * segundo é bem mais estranho de ver.
    */
-  const itensVisiveis = MENU_ITEMS.filter(
-    (item) => !item.somenteAdmin || podeVerFinanceiro,
+  const visibleItems = MENU_ITEMS.filter(
+    (item) => !item.somenteAdmin || canSeeFinance,
   );
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -172,7 +172,7 @@ export default function Navbar() {
           ref={menuRef}
           className="flex items-center gap-1 rounded-full bg-primary"
         >
-          {itensVisiveis.map((item) => (
+          {visibleItems.map((item) => (
             <li key={item.href}>
               <NavMenuItem
                 href={item.href}

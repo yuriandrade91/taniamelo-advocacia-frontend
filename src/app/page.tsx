@@ -20,7 +20,7 @@ import { privateRoutes, publicRoutes } from "@/constants/paths/routes";
  * Redireciona pelo cliente porque `redirect()` de servidor não existe num
  * export estático: o HTML é gerado uma vez, no build, sem saber quem pediu.
  */
-export default function Raiz() {
+export default function Root() {
   const router = useRouter();
 
   useEffect(() => {

@@ -15,16 +15,16 @@ vi.mock("@/services/axiosService", () => ({
 
 import axiosInstance from "@/services/axiosService";
 import {
-  alterarMinhaSenha,
-  atualizarMeuPerfil,
-  indexarPorId,
+  changeMyPassword,
+  updateMyProfile,
+  indexById,
   listUsers,
-  meuPerfil,
-  nomeDoAutor,
+  myProfile,
+  authorName,
 } from "./userService";
 import type { UserSummary } from "@/interfaces/user/User.interface";
 
-const usuarios: UserSummary[] = [
+const users: UserSummary[] = [
   { id: "u-1", fullName: "Ana Souza", username: "ana", role: "STAFF", active: true },
   { id: "u-2", fullName: "Dr. Almeida", username: "almeida", role: "ADMIN", active: true },
   { id: "u-3", fullName: "Quem Saiu", username: "saiu", role: "LAWYER", active: false },
@@ -34,7 +34,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("indexarPorId", () => {
   it("vira um mapa id -> nome", () => {
-    expect(indexarPorId(usuarios)).toEqual({
+    expect(indexById(users)).toEqual({
       "u-1": "Ana Souza",
       "u-2": "Dr. Almeida",
       "u-3": "Quem Saiu",
@@ -42,27 +42,27 @@ describe("indexarPorId", () => {
   });
 
   it("lista ausente não explode — atendente recebe 403 e fica sem lista", () => {
-    expect(indexarPorId(undefined)).toEqual({});
+    expect(indexById(undefined)).toEqual({});
   });
 
   it("ignora registro sem id ou sem nome em vez de indexar lixo", () => {
-    const sujo = [
+    const dirty = [
       { id: "", fullName: "Sem id", username: "x", role: "STAFF", active: true },
       { id: "u-9", fullName: "", username: "y", role: "STAFF", active: true },
     ] as UserSummary[];
-    expect(indexarPorId(sujo)).toEqual({});
+    expect(indexById(dirty)).toEqual({});
   });
 });
 
 describe("nomeDoAutor", () => {
-  const indice = indexarPorId(usuarios);
+  const index = indexById(users);
 
   it("resolve quem está na lista", () => {
-    expect(nomeDoAutor(indice, "u-2")).toBe("Dr. Almeida");
+    expect(authorName(index, "u-2")).toBe("Dr. Almeida");
   });
 
   it("resolve também quem foi desativado — é quem assina registro antigo", () => {
-    expect(nomeDoAutor(indice, "u-3")).toBe("Quem Saiu");
+    expect(authorName(index, "u-3")).toBe("Quem Saiu");
   });
 
   /**
@@ -71,19 +71,19 @@ describe("nomeDoAutor", () => {
    * não responde a pergunta que a linha faz — quem mudou isto.
    */
   it("id desconhecido devolve undefined, e não o UUID", () => {
-    expect(nomeDoAutor(indice, "u-desconhecido")).toBeUndefined();
+    expect(authorName(index, "u-desconhecido")).toBeUndefined();
   });
 
   it("sem id não há o que resolver", () => {
-    expect(nomeDoAutor(indice, null)).toBeUndefined();
-    expect(nomeDoAutor(indice, undefined)).toBeUndefined();
+    expect(authorName(index, null)).toBeUndefined();
+    expect(authorName(index, undefined)).toBeUndefined();
   });
 });
 
 describe("listUsers", () => {
   it("repassa includeInactive e não mostra toast de erro", async () => {
     vi.mocked(axiosInstance.get).mockResolvedValue({
-      data: { success: true, data: usuarios },
+      data: { success: true, data: users },
     } as never);
 
     await listUsers({ includeInactive: true });
@@ -121,7 +121,7 @@ describe("/me", () => {
   });
 
   it("não leva id na URL — o servidor lê a pessoa do token", async () => {
-    await meuPerfil();
+    await myProfile();
     const url = get.mock.calls[0][0];
     expect(url).toMatch(/\/users\/me$/);
   });
@@ -129,7 +129,7 @@ describe("/me", () => {
   it("ler o próprio cadastro NÃO silencia erro, ao contrário da lista", async () => {
     // A lista é enfeite (resolver nome de autoria); esta tela inteira depende
     // da resposta. Formulário em branco sem aviso convida a salvar por cima.
-    await meuPerfil();
+    await myProfile();
     // Sem config nenhuma também serve — o que não pode é pedir silêncio.
     const config = get.mock.calls[0][1] ?? {};
     expect(config).not.toHaveProperty("skipErrorToast", true);
@@ -141,7 +141,7 @@ describe("/me", () => {
   });
 
   it("atualizar manda só nome e e-mail — username e papel não se editam daqui", async () => {
-    await atualizarMeuPerfil({ fullName: "Ana", email: "ana@x.com" });
+    await updateMyProfile({ fullName: "Ana", email: "ana@x.com" });
     expect(put.mock.calls[0][1]).toEqual({
       fullName: "Ana",
       email: "ana@x.com",
@@ -149,13 +149,13 @@ describe("/me", () => {
   });
 
   it("trocar senha silencia o toast: o erro pertence a um campo", async () => {
-    await alterarMinhaSenha({ currentPassword: "a", newPassword: "b" });
+    await changeMyPassword({ currentPassword: "a", newPassword: "b" });
     expect(patch.mock.calls[0][0]).toMatch(/\/users\/me\/password$/);
     expect(patch.mock.calls[0][2]).toMatchObject({ skipErrorToast: true });
   });
 
   it("a senha vai no corpo, nunca na URL", async () => {
-    await alterarMinhaSenha({
+    await changeMyPassword({
       currentPassword: "segredo",
       newPassword: "outroSegredo",
     });

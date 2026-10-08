@@ -1,10 +1,10 @@
 import endpoints from "@/constants/endpoints/paths";
 import axiosInstance from "@/services/axiosService";
 import {
-  escritaPendente,
-  leituraPendente,
-  integracaoPendente,
-} from "@/services/integracaoPendente";
+  pendingWrite,
+  pendingRead,
+  pendingIntegration,
+} from "@/services/pendingIntegration";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type {
   ChangePasswordRequest,
@@ -53,14 +53,14 @@ export const listUsers = async (
  * resolve autoria em vários lugares (histórico, responsável, quem editou) e
  * uma busca por lugar seria a mesma requisição três vezes na mesma tela.
  */
-export const indexarPorId = (
+export const indexById = (
   users: readonly UserSummary[] | undefined,
 ): Record<string, string> => {
-  const indice: Record<string, string> = {};
+  const index: Record<string, string> = {};
   for (const user of users ?? []) {
-    if (user?.id && user.fullName) indice[user.id] = user.fullName;
+    if (user?.id && user.fullName) index[user.id] = user.fullName;
   }
-  return indice;
+  return index;
 };
 
 /**
@@ -74,12 +74,12 @@ export const indexarPorId = (
  * O caso sem correspondência é real: usuário desativado só aparece com
  * `includeInactive`, e um id de outro escritório nunca aparece.
  */
-export const nomeDoAutor = (
-  indice: Record<string, string>,
+export const authorName = (
+  index: Record<string, string>,
   userId?: string | null,
 ): string | undefined => {
   if (!userId) return undefined;
-  return indice[userId];
+  return index[userId];
 };
 
 /**
@@ -93,8 +93,8 @@ export const nomeDoAutor = (
  * resposta, e formulário em branco sem aviso convida a pessoa a preencher tudo
  * de novo e salvar por cima do que não carregou.
  */
-export const meuPerfil = async (): Promise<ApiEnvelope<MyProfile>> => {
-  if (integracaoPendente("users-me")) return leituraPendente("GET /api/v1/users/me");
+export const myProfile = async (): Promise<ApiEnvelope<MyProfile>> => {
+  if (pendingIntegration("users-me")) return pendingRead("GET /api/v1/users/me");
   const { data } = await axiosInstance.get<ApiEnvelope<MyProfile>>(
     endpoints.USERS.ME,
   );
@@ -102,10 +102,10 @@ export const meuPerfil = async (): Promise<ApiEnvelope<MyProfile>> => {
 };
 
 /** PUT /api/v1/users/me — nome e e-mail. Username e papel não se editam daqui. */
-export const atualizarMeuPerfil = async (
+export const updateMyProfile = async (
   body: MyProfileUpdateRequest,
 ): Promise<ApiEnvelope<MyProfile>> => {
-  if (integracaoPendente("users-me")) return escritaPendente("PUT /api/v1/users/me");
+  if (pendingIntegration("users-me")) return pendingWrite("PUT /api/v1/users/me");
   const { data } = await axiosInstance.put<ApiEnvelope<MyProfile>>(
     endpoints.USERS.ME,
     body,
@@ -121,10 +121,10 @@ export const atualizarMeuPerfil = async (
  * senha igual à atual — e pertencem ao campo, não a um toast vermelho no canto
  * que não diz qual dos dois errou. A tela trata.
  */
-export const alterarMinhaSenha = async (
+export const changeMyPassword = async (
   body: ChangePasswordRequest,
 ): Promise<void> => {
-  if (integracaoPendente("users-me")) return escritaPendente("PATCH /api/v1/users/me/password", {
+  if (pendingIntegration("users-me")) return pendingWrite("PATCH /api/v1/users/me/password", {
     silent: true,
   });
   await axiosInstance.patch(endpoints.USERS.ME_PASSWORD, body, {

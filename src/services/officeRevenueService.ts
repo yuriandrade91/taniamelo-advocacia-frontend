@@ -1,12 +1,12 @@
 import endpoints from "@/constants/endpoints/paths";
 import axiosInstance from "@/services/axiosService";
 import {
-  escritaPendente,
-  leituraPendente,
-  listaVaziaPendente,
-  serieVaziaPendente,
-  integracaoPendente,
-} from "@/services/integracaoPendente";
+  pendingWrite,
+  pendingRead,
+  pendingEmptyList,
+  pendingEmptySeries,
+  pendingIntegration,
+} from "@/services/pendingIntegration";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type {
   OfficeRevenueListRequest,
@@ -40,7 +40,7 @@ import type {
 export const listOfficeRevenues = async (
   params?: OfficeRevenueListRequest,
 ): Promise<ApiEnvelope<OfficeRevenueResponse[]>> => {
-  if (integracaoPendente("revenues")) return listaVaziaPendente();
+  if (pendingIntegration("revenues")) return pendingEmptyList();
   const { data } = await axiosInstance.get<ApiEnvelope<OfficeRevenueResponse[]>>(
     endpoints.REVENUES.LIST,
     { params },
@@ -51,7 +51,7 @@ export const listOfficeRevenues = async (
 export const getOfficeRevenue = async (
   revenueId: string,
 ): Promise<ApiEnvelope<OfficeRevenueResponse>> => {
-  if (integracaoPendente("revenues")) return leituraPendente("GET /api/v1/revenues/{id}");
+  if (pendingIntegration("revenues")) return pendingRead("GET /api/v1/revenues/{id}");
   const { data } = await axiosInstance.get<ApiEnvelope<OfficeRevenueResponse>>(
     endpoints.REVENUES.BY_ID(revenueId),
   );
@@ -70,7 +70,7 @@ export const getOfficeRevenueSummary = async (
     "dueFrom" | "dueTo" | "paidFrom" | "paidTo" | "clientId"
   >,
 ): Promise<ApiEnvelope<OfficeRevenueSummary>> => {
-  if (integracaoPendente("revenues")) return leituraPendente("GET /api/v1/revenues/summary");
+  if (pendingIntegration("revenues")) return pendingRead("GET /api/v1/revenues/summary");
   const { data } = await axiosInstance.get<ApiEnvelope<OfficeRevenueSummary>>(
     endpoints.REVENUES.SUMMARY,
     { params },
@@ -84,7 +84,7 @@ export const getOfficeRevenueTimeline = async (params: {
   to: string;
   basis?: "due" | "paid";
 }): Promise<ApiEnvelope<RevenueTimelinePoint[]>> => {
-  if (integracaoPendente("revenues")) return serieVaziaPendente();
+  if (pendingIntegration("revenues")) return pendingEmptySeries();
   const { data } = await axiosInstance.get<ApiEnvelope<RevenueTimelinePoint[]>>(
     endpoints.REVENUES.TIMELINE,
     { params },
@@ -95,7 +95,7 @@ export const getOfficeRevenueTimeline = async (params: {
 export const createOfficeRevenue = async (
   body: OfficeRevenueRequest,
 ): Promise<ApiEnvelope<OfficeRevenueResponse>> => {
-  if (integracaoPendente("revenues")) return escritaPendente("POST /api/v1/revenues");
+  if (pendingIntegration("revenues")) return pendingWrite("POST /api/v1/revenues");
   const { data } = await axiosInstance.post<ApiEnvelope<OfficeRevenueResponse>>(
     endpoints.REVENUES.CREATE,
     body,
@@ -108,7 +108,7 @@ export const updateOfficeRevenue = async (
   revenueId: string,
   body: OfficeRevenueRequest,
 ): Promise<ApiEnvelope<OfficeRevenueResponse>> => {
-  if (integracaoPendente("revenues")) return escritaPendente("PUT /api/v1/revenues/{id}");
+  if (pendingIntegration("revenues")) return pendingWrite("PUT /api/v1/revenues/{id}");
   const { data } = await axiosInstance.put<ApiEnvelope<OfficeRevenueResponse>>(
     endpoints.REVENUES.UPDATE(revenueId),
     body,
@@ -118,7 +118,7 @@ export const updateOfficeRevenue = async (
 };
 
 export const deleteOfficeRevenue = async (revenueId: string): Promise<void> => {
-  if (integracaoPendente("revenues")) return escritaPendente("DELETE /api/v1/revenues/{id}");
+  if (pendingIntegration("revenues")) return pendingWrite("DELETE /api/v1/revenues/{id}");
   await axiosInstance.delete(endpoints.REVENUES.DELETE(revenueId), {
     successMessage: "Receita excluída.",
   });
