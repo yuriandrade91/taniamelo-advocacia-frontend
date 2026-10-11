@@ -44,7 +44,7 @@ import {
 } from "./schemas";
 import { formatDateBR } from "@/lib/format";
 
-export type ReviewItemState = "filled" | "empty" | "missing";
+type ReviewItemState = "filled" | "empty" | "missing";
 
 export type ReviewItem = {
   label: string;
@@ -349,15 +349,15 @@ export function buildClientReview(input: ClientReviewInput): ReviewSection[] {
       },
       {
         title: "Simulações",
-        items: input.simulations.map((sim) =>
+        items: input.simulations.map((simulation) =>
           item(
-            sim.file.name,
-            isSimulationComplete(sim)
+            simulation.file.name,
+            isSimulationComplete(simulation)
               ? [
-                  `de ${dateBR(sim.simulationDate)}`,
-                  `versão ${sim.version}`,
-                  `${sim.vinculos} vínculos`,
-                  sim.isPrincipal && "principal",
+                  `de ${dateBR(simulation.simulationDate)}`,
+                  `versão ${simulation.version}`,
+                  `${simulation.vinculos} vínculos`,
+                  simulation.isPrincipal && "principal",
                 ]
                   .filter(Boolean)
                   .join(" · ")

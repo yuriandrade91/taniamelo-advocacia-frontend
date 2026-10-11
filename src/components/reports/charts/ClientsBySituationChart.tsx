@@ -11,7 +11,7 @@ import {
 import { Bar } from "react-chartjs-2";
 import { ChartCard } from "@/components/charts/ChartCard";
 import { REPORT_BAR, baseBarOptions } from "@/components/charts/chartTheme";
-import { stageOpacity } from "../views/kit";
+import { stageOpacity } from "@/components/ui/feedback/stageRamp";
 import type { SituationCount } from "../reportSeries";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
@@ -28,8 +28,8 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
  *
  * As etapas são ordinais, então a cor acompanha a posição na esteira e não
  * um "tipo": o azul da marca, do escuro (primeira etapa) ao claro (última),
- * a mesma rampa da visão Jornada do cliente (`stageOpacity` em
- * `models/kit.tsx`). Sem contorno, como lá. O nome da etapa está no eixo, ao
+ * a mesma rampa da visão Jornada do cliente (`stageOpacity`, em
+ * `ui/feedback/stageRamp`). Sem contorno, como lá. O nome da etapa está no eixo, ao
  * lado da barra, então não há legenda.
  *
  * RGB literal, não a classe do Tailwind: o Chart.js desenha em canvas. É o

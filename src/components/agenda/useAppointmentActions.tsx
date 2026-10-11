@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
 import { usePendingAction } from "@/hooks/usePendingAction";
 import type { PendingKind } from "@/lib/pendingActions";
 import type { AppointmentResponse } from "@/interfaces/appointment/Appointment.interface";
@@ -10,6 +10,7 @@ import {
   completeAppointment,
   deleteAppointment,
 } from "@/services/appointmentService";
+import { AppointmentDetailsModal } from "./AppointmentDetailsModal";
 import CancelAppointmentDialog from "./CancelAppointmentDialog";
 
 /**
@@ -22,12 +23,15 @@ import CancelAppointmentDialog from "./CancelAppointmentDialog";
  * Concluir o que ainda não começou pergunta antes: o backend recusa com 422
  * `EARLY_COMPLETION_NOT_CONFIRMED`, e perguntar aqui poupa a ida e o toast de
  * erro — quem manda continua sendo o servidor.
+ *
+ * `requestDetails` abre a descrição, que a linha não tem espaço para mostrar.
  */
 export function useAppointmentActions({ onSettled }: { onSettled: () => void }) {
   const { pending, schedule } = usePendingAction();
   const [cancelTarget, setCancelTarget] = useState<AppointmentResponse | null>(null);
   const [earlyTarget, setEarlyTarget] = useState<AppointmentResponse | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<AppointmentResponse | null>(null);
+  const [detailsTarget, setDetailsTarget] = useState<AppointmentResponse | null>(null);
 
   const run = (target: AppointmentResponse, kind: PendingKind, message: string, commit: () => Promise<unknown>) =>
     schedule({ key: target.id, kind, message, commit, onSettled });
@@ -45,8 +49,10 @@ export function useAppointmentActions({ onSettled }: { onSettled: () => void }) 
     },
     requestCancel: setCancelTarget,
     requestDelete: setDeleteTarget,
+    requestDetails: setDetailsTarget,
     dialogs: (
       <>
+        <AppointmentDetailsModal appointment={detailsTarget} onClose={() => setDetailsTarget(null)} />
         <CancelAppointmentDialog
           isOpen={cancelTarget !== null}
           onClose={() => setCancelTarget(null)}

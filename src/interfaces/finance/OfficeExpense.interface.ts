@@ -78,34 +78,6 @@ export interface OfficeExpenseSummary extends FinanceSummary {
   byCategory: ExpenseCategoryTotal[];
 }
 
-/**
- * Visão de caixa do período, composta no front a partir dos dois resumos.
- *
- * ## Competência × caixa
- *
- * Esta é a distinção que faz a Carteira ser outra tela, e não um filtro de
- * Pagamentos:
- *
- * - **Pagamentos** recorta por `dueDate` — responde "o que vence", que é a
- *   pergunta da cobrança.
- * - **Carteira** recorta por `paidDate` — responde "o que entrou e saiu", que
- *   é a pergunta do caixa.
- *
- * Somar recebimento por vencimento e chamar de "entrou" conta dinheiro que não
- * chegou. É o erro mais comum em tela financeira, e é silencioso: os números
- * parecem plausíveis.
- */
-export interface WalletOverview {
-  /** Recebido de clientes no período (por data de pagamento). */
-  inflowAmount: number;
-  inflowCount: number;
-  /** Despesas pagas no período (por data de pagamento). */
-  outflowAmount: number;
-  outflowCount: number;
-  /** `inflow - outflow`. Negativo é resultado válido, não erro. */
-  balance: number;
-}
-
 /** Um mês da linha do tempo de despesas — `GET /api/v1/expenses/timeline`. */
 export type ExpenseTimelinePoint = FinanceTimelinePoint;
 

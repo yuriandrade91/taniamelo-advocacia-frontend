@@ -24,7 +24,7 @@ import type { ChartOptions, TooltipItem } from "chart.js";
  */
 
 /** Superfície dos cards. Os separadores de 2px são desenhados com ela. */
-export const CHART_SURFACE = "#ffffff";
+const CHART_SURFACE = "#ffffff";
 
 /**
  * Paleta de estado dos recebimentos/despesas.
@@ -125,7 +125,7 @@ export const REPORT_BAR = {
  *
  * No hover a barra fica cheia: é o retorno de "esta é a que você apontou".
  */
-export const BAR_FILL_ALPHA = "80"; // 0x80 / 0xFF ≈ 50%
+const BAR_FILL_ALPHA = "80"; // 0x80 / 0xFF ≈ 50%
 
 export const barColors = (hex: string) => ({
   backgroundColor: `${hex}${BAR_FILL_ALPHA}`,

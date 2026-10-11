@@ -18,7 +18,7 @@ import {
   areaFill,
   baseLineOptions,
 } from "@/components/charts/chartTheme";
-import { formatMonthAxis } from "@/components/wallet/walletOverview";
+import { formatMonthAxis } from "@/lib/period";
 import { formatBRLCompact } from "@/lib/format";
 import type { PaymentTimelinePoint } from "@/interfaces/payment/OfficePayment.interface";
 
@@ -47,13 +47,11 @@ export type PaymentsTrendChartProps = {
   /** Ainda carregando: o cartão mostra o skeleton no lugar do gráfico. */
   isLoading?: boolean;
   points: PaymentTimelinePoint[];
-  isSample?: boolean;
 };
 
 export function PaymentsTrendChart({
   isLoading = false,
   points,
-  isSample,
 }: PaymentsTrendChartProps) {
   const data = useMemo(
     () => ({
@@ -83,7 +81,6 @@ export function PaymentsTrendChart({
       isLoading={isLoading}
       title="Evolução do recebido"
       subtitle="Quanto entrou em cada mês."
-      isSample={isSample}
       isEmpty={points.length === 0}
     >
       <Line data={data} options={options} />

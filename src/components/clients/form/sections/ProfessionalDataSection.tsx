@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { SchemaField } from "@/components/ui/form/SchemaFields";
 import type { SectionForm } from "@/hooks/useSectionForm";
-import { FormGroup } from "../FormSection";
+import { FormGroup } from "@/components/clients/form/FormGroup";
 import {
   PROFESSIONAL_GROUPS,
   professionalSchema,

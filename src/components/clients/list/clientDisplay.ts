@@ -1,4 +1,4 @@
-import type { Clients } from "@/interfaces/Clients.interface";
+import type { ClientListItem } from "@/interfaces/client/Client.interface";
 import { getClientTypeKeyByLabel } from "@/enums/clientType/ClientType";
 import { maskCPF } from "@/lib/masks/masks";
 
@@ -29,20 +29,20 @@ export function formatDate(iso?: string | null): string {
  * `updatedAt` igual a `createdAt` na criação — mostrar a mesma data duas
  * vezes sugeriria uma edição que não houve.
  */
-export const updatedOf = (client: Pick<Clients, "createdAt" | "updatedAt">): string =>
+export const updatedOf = (client: Pick<ClientListItem, "createdAt" | "updatedAt">): string =>
   client.updatedAt && client.updatedAt !== client.createdAt
     ? formatDate(client.updatedAt)
     : EMPTY_VALUE;
 
 /** CPF com máscara, ou "" (o `CopyableValue` mostra o traço sozinho). */
-export const cpfOf = (client: Pick<Clients, "cpf">): string =>
+export const cpfOf = (client: Pick<ClientListItem, "cpf">): string =>
   client.cpf ? maskCPF(client.cpf) : "";
 
 /**
  * "Potencial" = lead: preencheu o formulário, ainda não é cliente. A API manda
  * o rótulo (@JsonValue); aceita também a chave, por tolerância.
  */
-export function isLead(client: Pick<Clients, "clientType">): boolean {
+export function isLead(client: Pick<ClientListItem, "clientType">): boolean {
   if (!client.clientType) return false;
   const key = getClientTypeKeyByLabel(client.clientType) ?? client.clientType;
   return key === "POTENCIAL";
@@ -52,5 +52,9 @@ export function isLead(client: Pick<Clients, "clientType">): boolean {
  * Isento do serviço: o `notBillable` que a API manda — o mesmo campo do
  * cadastro ("Cliente isento do serviço?") e do filtro de isenção da lista.
  */
-export const isExempt = (client: Pick<Clients, "notBillable">): boolean =>
+export const isExempt = (client: Pick<ClientListItem, "notBillable">): boolean =>
   client.notBillable === true;
+
+/** Chave estável da linha: `id` → `clientId` → CPF + posição. */
+export const clientKey = (client: ClientListItem, index: number): string =>
+  client.id ?? client.clientId ?? `${client.cpf || "sem-cpf"}-${index}`;

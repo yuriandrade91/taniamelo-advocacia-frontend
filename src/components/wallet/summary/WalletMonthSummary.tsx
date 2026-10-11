@@ -3,13 +3,13 @@
 import type { ReactNode } from "react";
 import { Skeleton } from "@heroui/react";
 import { LoadingCircle } from "@/components/ui/feedback/Loading";
+import { formatBRLSigned } from "@/lib/format";
 import { formatMonthLabel, type MonthRef } from "@/lib/period";
 import {
   balanceStatus,
   balanceTone,
   countLabel,
   exact,
-  money,
   percent,
   realized,
   type MonthSummary,
@@ -77,7 +77,7 @@ export function WalletMonthSummary({
           {isLoading ? (
             <Skeleton className="h-5 w-24 rounded-md" />
           ) : (
-            <span className={`font-semibold tabular-nums ${balanceTone(projected)}`}>{money(projected)}</span>
+            <span className={`font-semibold tabular-nums ${balanceTone(projected)}`}>{formatBRLSigned(projected)}</span>
           )}
         </div>
       </Tile>
@@ -110,7 +110,7 @@ export function WalletMonthSummary({
         label="Previsto a pagar"
         dot="bg-rose-500"
         isLoading={isLoading}
-        note={overdue > 0 ? <span className="text-danger">{money(overdue)} em atraso no mês</span> : countLabel(expectedOut, "no prazo")}
+        note={overdue > 0 ? <span className="text-danger">{formatBRLSigned(overdue)} em atraso no mês</span> : countLabel(expectedOut, "no prazo")}
       >
         <Num value={expectedOut ? -expectedOut.amount : null} isLoading={isLoading} className="text-xl text-rose-500" />
       </SmallTile>
@@ -184,7 +184,7 @@ function Num({
   if (isLoading) return <Skeleton className={`rounded-lg ${skeleton}`} />;
   return (
     <span title={exact(value)} className={`leading-none font-semibold whitespace-nowrap tabular-nums ${className}`}>
-      {money(value, { plus })}
+      {formatBRLSigned(value, { plus })}
     </span>
   );
 }

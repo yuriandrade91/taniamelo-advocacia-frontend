@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useDebouncedValue } from "./useDebouncedValue";
 import { clients as fetchClients } from "@/services/clientService";
-import type { Clients } from "@/interfaces/Clients.interface";
+import type { ClientListItem } from "@/interfaces/client/Client.interface";
 
 /**
  * Busca de clientes por nome, com debounce.
@@ -22,7 +22,7 @@ import type { Clients } from "@/interfaces/Clients.interface";
 const MIN_QUERY_LENGTH = 2;
 const MAX_SUGGESTIONS = 8;
 
-export type UseClientSearchOptions = {
+type UseClientSearchOptions = {
   /** Texto digitado pelo usuário. */
   query: string;
   /** Quando preenchido, a busca é suspensa (já há cliente vinculado). */
@@ -30,8 +30,8 @@ export type UseClientSearchOptions = {
   enabled?: boolean;
 };
 
-export type UseClientSearchResult = {
-  suggestions: Clients[];
+type UseClientSearchResult = {
+  suggestions: ClientListItem[];
   isSearching: boolean;
 };
 
@@ -43,7 +43,7 @@ export function useClientSearch({
   const term = useDebouncedValue(query.trim());
   const active = enabled && !linkedClientId && term.length >= MIN_QUERY_LENGTH;
   /** A resposta marcada com o termo que a pediu: resposta de termo antigo não vale. */
-  const [result, setResult] = useState<{ term: string; suggestions: Clients[] } | null>(null);
+  const [result, setResult] = useState<{ term: string; suggestions: ClientListItem[] } | null>(null);
 
   useEffect(() => {
     if (!active) return;

@@ -4,7 +4,7 @@ import { Field } from "@/components/ui/form/Field";
 import { FieldSkeleton, SchemaField } from "@/components/ui/form/SchemaFields";
 import type { SectionForm } from "@/hooks/useSectionForm";
 import { ageFromBirthDate } from "@/lib/validators";
-import { FormGroup } from "../FormSection";
+import { FormGroup } from "@/components/clients/form/FormGroup";
 import { PERSONAL_GROUPS, personalSchema, type PersonalValues } from "../schemas";
 
 /**

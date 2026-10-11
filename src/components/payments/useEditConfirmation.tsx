@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
 import type { EditWarning } from "./editWarning";
 
 /**

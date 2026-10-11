@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import { useMemo } from "react";
 import { formatBRLCompact } from "@/lib/format";
 import { Card, SectionTitle } from "@/components/ui/layout/Card";
-import { MonthPicker } from "@/components/ui/MonthPicker";
+import { MonthPicker } from "@/components/ui/filters/MonthPicker";
 import { currentMonth, formatMonthLabel, type MonthRef } from "@/lib/period";
 
 const RING = <Skeleton className="h-36 w-36 shrink-0 rounded-full" />;
@@ -17,7 +17,7 @@ const BalanceDoughnut = dynamic(() => import("./BalanceDoughnut"), { ssr: false,
  * Paleta do gráfico — degradê do azul da marca até o azul claro.
  * Valores literais: o Chart.js desenha em canvas, onde `var(--…)` não resolve.
  */
-export const BALANCE_PALETTE = [
+const BALANCE_PALETTE = [
   "#0F1A4A",
   "#2E3FA8",
   "#3B6FE0",
@@ -25,7 +25,7 @@ export const BALANCE_PALETTE = [
   "#DDE5EC",
 ] as const;
 
-export type BalanceSlice = {
+type BalanceSlice = {
   label: string;
   /** Percentual de 0 a 100. */
   percentage: number;

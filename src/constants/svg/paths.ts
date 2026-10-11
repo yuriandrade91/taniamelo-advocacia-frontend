@@ -1,29 +1,14 @@
 /**
- * Mapa central dos SVGs estáticos servidos via `public/svg`.
+ * Os logos servidos de `public/svg`. Caminho absoluto (a partir da raiz), o
+ * formato que o Next exige para asset de `public/` em qualquer profundidade.
  *
- * Caminhos sempre absolutos (a partir da raiz) — é o formato exigido pelo
- * Next.js para assets de `public/`, independente da profundidade do
- * componente que os consome.
+ * Ícone não mora aqui: é de traço, inline, em `components/ui/icons` — herda a
+ * cor de quem usa, o que um `<img>` não faz.
  */
 const svgPaths = {
   LOGOS: {
     GOLD: "/svg/gold-logo.svg",
     BLUE: "/svg/blue-logo.svg",
-    WHITE: "/svg/white-logo.svg",
-  },
-
-  ICONS: {
-    ADD: "/svg/icons/add.svg",
-    ARCHIVE: "/svg/icons/archive.svg",
-    CALENDAR: "/svg/icons/calendar.svg",
-    CONFETTI: "/svg/icons/confetti.svg",
-    DETAILS: "/svg/icons/details.svg",
-    EDIT: "/svg/icons/edit.svg",
-    LETTER: "/svg/icons/letter.svg",
-    PHONE: "/svg/icons/phone.svg",
-    PROFILE: "/svg/icons/profile.svg",
-    TRASH: "/svg/icons/trash.svg",
-    USER_ID: "/svg/icons/user_id.svg",
   },
 } as const;
 

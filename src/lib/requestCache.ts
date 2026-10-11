@@ -10,7 +10,7 @@
  * todas. Ao estourar, sai a mais antiga — `Map` guarda a ordem de inserção, e
  * reler uma chave a move para o fim (é a recém-usada).
  */
-export type ListCache<V> = {
+type ListCache<V> = {
   get: (key: string) => V | undefined;
   set: (key: string, value: V) => void;
   delete: (key: string) => void;

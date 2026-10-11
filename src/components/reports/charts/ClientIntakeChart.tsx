@@ -25,7 +25,7 @@ import {
   baseBarOptions,
   barColors,
 } from "@/components/charts/chartTheme";
-import { formatMonthAxis } from "@/components/wallet/walletOverview";
+import { formatMonthAxis } from "@/lib/period";
 import type { IntakeTrendPoint } from "../reportSeries";
 
 // Gráfico misto: os controllers precisam estar registrados, não só os

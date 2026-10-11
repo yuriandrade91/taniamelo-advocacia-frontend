@@ -16,7 +16,7 @@
  */
 
 /** Pares `[chave, label]` — a chave é o nome da constante no backend. */
-export type EnumEntries = readonly (readonly [string, string])[];
+type EnumEntries = readonly (readonly [string, string])[];
 
 export function createEnum<const E extends EnumEntries>(entries: E) {
   type Key = E[number][0];

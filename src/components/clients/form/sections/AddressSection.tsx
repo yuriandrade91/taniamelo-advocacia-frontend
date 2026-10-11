@@ -13,7 +13,7 @@ import {
   type CepLockable,
 } from "@/lib/cepAutofill";
 import { maskCEP } from "@/lib/masks/masks";
-import { FormGrid } from "../FormSection";
+import { FieldGrid } from "@/components/ui/form/FieldGrid";
 import { addressSchema, type AddressValues } from "../schemas";
 
 /**
@@ -38,7 +38,7 @@ export type AddressSectionProps = {
  * preenche campo a campo (sem passar por cima de `isPrimary` nem do tipo),
  * trava o que veio da consulta e leva o foco ao Número.
  */
-export function useAddressCep(form: SectionForm<AddressValues>) {
+function useAddressCep(form: SectionForm<AddressValues>) {
   const { values, setField } = form;
   const numberRef = useRef<HTMLInputElement>(null);
   const cep = useCepLookup((found) => {
@@ -80,7 +80,7 @@ export function AddressSection({ form, onRequestPrimary, isReadOnly, isLoading }
   );
 
   return (
-    <FormGrid>
+    <FieldGrid columns={4}>
       {field("addressType")}
       <SchemaField
         form={form}
@@ -109,6 +109,6 @@ export function AddressSection({ form, onRequestPrimary, isReadOnly, isLoading }
         }}
       />
       )}
-    </FormGrid>
+    </FieldGrid>
   );
 }

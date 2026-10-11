@@ -1,5 +1,5 @@
 import type { MonthRef } from "@/lib/period";
-import type { BalanceSlice } from "@/components/wallet/walletOverview";
+import type { BalanceSlice } from "@/components/reports/financeSeries";
 import type {
   IntakeTrendPoint,
   SituationCount,
@@ -15,10 +15,10 @@ import type {
  * O que a página de Relatórios entrega a cada visão.
  *
  * Tudo já vem carregado e na forma de série; a visão só desenha. As séries
- * mensais usam a chave `YYYY-MM` — `formatMonthAxis` (em
- * `@/components/wallet/walletOverview`) a transforma em "out/26".
+ * mensais usam a chave `YYYY-MM` — `formatMonthAxis` (em `@/lib/period`) a
+ * transforma em "out/26".
  *
- * Os gráficos das visões usam as primitivas de `@/components/ui/models/viz`
+ * Os gráficos das visões usam as primitivas de `@/components/charts/svgCharts`
  * (SVG e CSS próprios, com as cores dos tokens) — não o Chart.js.
  */
 

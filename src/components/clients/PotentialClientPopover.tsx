@@ -1,21 +1,20 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Image from "next/image";
 import { Popover } from "@heroui/react";
-import { PhoneIcon, WhatsappIcon } from "@/components/ui/icons/ContactIcons";
-import { ContactAction } from "@/components/ui/ContactAction";
-import ActionButton from "@/components/ui/table/ActionButton";
-import svgPaths from "@/constants/svg/paths";
+import { PhoneIcon } from "@/components/ui/icons/ContactIcons";
+import { ContactAction } from "@/components/ui/actions/ContactAction";
+import { IconButton } from "@/components/ui/actions/IconButton";
+import { ROW_ICONS } from "@/components/ui/table/RowActions";
 import {
   formatWaiting,
   toPendingLead,
   urgencyDot,
   urgencyTile,
 } from "@/components/home/pendingLeads";
-import { telLink, whatsappLink } from "@/lib/contactLinks";
+import { telLink } from "@/lib/contactLinks";
 import { initials } from "@/lib/format";
-import type { Clients } from "@/interfaces/Clients.interface";
+import type { ClientListItem } from "@/interfaces/client/Client.interface";
 import { Pill } from "@/components/ui/feedback/Badges";
 import { useHoverCard } from "@/hooks/useHoverCard";
 
@@ -31,7 +30,7 @@ export function PotentialClientPopover({
   onViewDetails,
   children,
 }: {
-  client: Clients;
+  client: ClientListItem;
   /** "Visualizar" — mesmo ícone e ação da coluna "Ações" da tabela. */
   onViewDetails: () => void;
   children: ReactNode;
@@ -83,30 +82,15 @@ export function PotentialClientPopover({
               {lead.phone ?? "Sem telefone"}
             </span>
             <div className="flex shrink-0 items-center gap-0.5">
-              <ActionButton
+              <IconButton
                 label="Visualizar este cliente"
                 tone="neutral"
                 onClick={onViewDetails}
               >
-                <Image
-                  src={svgPaths.ICONS.DETAILS}
-                  alt=""
-                  height={20}
-                  width={20}
-                  className="h-5 w-5"
-                />
-              </ActionButton>
-              {/* WhatsApp só quando o cadastro afirma que o número tem —
-                  mandar mensagem para um fixo queima o contato. */}
-              {lead.isWhatsapp && (
-                <ContactAction
-                  href={whatsappLink(lead.phone)}
-                  label={`WhatsApp de ${lead.name}`}
-                  tone="success"
-                >
-                  <WhatsappIcon />
-                </ContactAction>
-              )}
+                {ROW_ICONS.view}
+              </IconButton>
+              {/* Ligação, e não WhatsApp: a listagem não diz se o número tem
+                  WhatsApp, e mandar mensagem para um fixo queima o contato. */}
               <ContactAction
                 href={telLink(lead.phone)}
                 label={`Ligar para ${lead.name}`}

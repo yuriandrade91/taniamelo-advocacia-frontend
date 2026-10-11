@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Checkbox } from "@heroui/react";
-import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
 import { useResetOnOpen } from "@/hooks/useResetOnOpen";
 import { Pill } from "@/components/ui/feedback/Badges";
 
@@ -20,7 +20,7 @@ import { Pill } from "@/components/ui/feedback/Badges";
  * semântica e teclado garantidos pelo navegador, e a aparência vem por cima.
  */
 
-export type AddressOption = {
+type AddressOption = {
   /** Índice da aba. */
   index: number;
   label: string;

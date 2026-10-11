@@ -33,7 +33,7 @@ const method = {
 /** Saídas: a busca olha descrição e fornecedor; só despesa tem categoria. */
 export const expenseFilters = defineFilters({
   searchTerm: { kind: "search", label: "Pesquisar lançamento", placeholder: "Pesquisar descrição ou fornecedor…" },
-  bucket: status("saida"),
+  bucket: status("expense"),
   category: {
     kind: "multi",
     label: "Categoria",
@@ -46,6 +46,6 @@ export const expenseFilters = defineFilters({
 /** Entradas: a busca olha descrição e cliente. */
 export const revenueFilters = defineFilters({
   searchTerm: { kind: "search", label: "Pesquisar lançamento", placeholder: "Pesquisar descrição ou cliente…" },
-  bucket: status("entrada"),
+  bucket: status("income"),
   paymentMethod: method,
 });

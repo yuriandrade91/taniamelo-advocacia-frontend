@@ -1,6 +1,6 @@
 "use client";
 
-import FormModal from "@/components/ui/modals/FormModal/FormModal";
+import FormModal from "@/components/ui/modals/FormModal";
 import { PaymentFormFields } from "./PaymentFormFields";
 import { usePaymentForm } from "./usePaymentForm";
 import type { OfficePaymentResponse } from "@/interfaces/payment/OfficePayment.interface";

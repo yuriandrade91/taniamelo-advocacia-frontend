@@ -21,8 +21,8 @@ import {
 import {
   type ConvertibleInterval,
   daysBetween,
-  formatDateBR,
 } from "@/lib/disabilityTime";
+import { formatDateBR } from "@/lib/format";
 
 export type DisabilityPeriodDraft = {
   /** Chave de lista no React. Local, não vem do servidor. */

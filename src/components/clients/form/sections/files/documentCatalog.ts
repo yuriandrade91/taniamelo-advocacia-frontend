@@ -27,16 +27,16 @@
 
 import type { DocumentTypeKey } from "@/enums/documentType/DocumentType";
 
-export interface DocumentCatalogEntry {
+interface DocumentCatalogEntry {
   /** Subtítulo, quando a categoria cobre mais de uma situação. */
-  grupo?: string;
-  itens: string[];
+  group?: string;
+  items: string[];
 }
 
-export interface DocumentCatalogSection {
+interface DocumentCatalogSection {
   /** Para que serve a categoria, quando não é óbvio pelo nome. */
   finalidade?: string;
-  grupos: DocumentCatalogEntry[];
+  groups: DocumentCatalogEntry[];
   /** O que os documentos precisam demonstrar para servirem de prova. */
   requisitos?: string[];
 }
@@ -45,9 +45,9 @@ export const DOCUMENT_CATALOG: Partial<
   Record<DocumentTypeKey, DocumentCatalogSection>
 > = {
   IDENTIFICACAO_SEGURADO: {
-    grupos: [
+    groups: [
       {
-        itens: [
+        items: [
           "RG ou documento oficial com foto",
           "CNH",
           "Passaporte",
@@ -61,9 +61,9 @@ export const DOCUMENT_CATALOG: Partial<
 
   CADASTRAIS_DADOS_PESSOAIS: {
     finalidade: "Regularização e atualização do CNIS.",
-    grupos: [
+    groups: [
       {
-        itens: [
+        items: [
           "CPF",
           "Certidão de nascimento, casamento ou óbito",
           "Título de eleitor",
@@ -76,10 +76,10 @@ export const DOCUMENT_CATALOG: Partial<
   },
 
   VINCULO_TEMPO_CONTRIBUICAO: {
-    grupos: [
+    groups: [
       {
-        grupo: "Empregado / vínculo CLT",
-        itens: [
+        group: "Empregado / vínculo CLT",
+        items: [
           "CTPS",
           "Ficha ou livro de registro de empregados",
           "Contrato de trabalho",
@@ -93,9 +93,9 @@ export const DOCUMENT_CATALOG: Partial<
   },
 
   CONTRIBUINTE_INDIVIDUAL_FACULTATIVO: {
-    grupos: [
+    groups: [
       {
-        itens: [
+        items: [
           "Carnês (GPS)",
           "Comprovantes de pagamento",
           "Declarações de atividade",
@@ -106,10 +106,10 @@ export const DOCUMENT_CATALOG: Partial<
   },
 
   SEGURADO_ESPECIAL: {
-    grupos: [
+    groups: [
       {
-        grupo: "Rural",
-        itens: [
+        group: "Rural",
+        items: [
           "Autodeclaração rural",
           "Documentos do grupo familiar",
           "Bloco de produtor rural",
@@ -124,9 +124,9 @@ export const DOCUMENT_CATALOG: Partial<
 
   ATIVIDADE_ESPECIAL: {
     finalidade: "Insalubridade e periculosidade.",
-    grupos: [
+    groups: [
       {
-        itens: [
+        items: [
           "PPP (Perfil Profissiográfico Previdenciário)",
           "LTCAT",
           "Formulários antigos (SB-40, DSS-8030 e equivalentes)",
@@ -144,9 +144,9 @@ export const DOCUMENT_CATALOG: Partial<
 
   DOCUMENTOS_MEDICOS: {
     finalidade: "Benefícios por incapacidade.",
-    grupos: [
+    groups: [
       {
-        itens: [
+        items: [
           "Atestados médicos",
           "Laudos",
           "Exames",
@@ -160,9 +160,9 @@ export const DOCUMENT_CATALOG: Partial<
 
   DEPENDENTES_RELACAO_FAMILIAR: {
     finalidade: "Pensão por morte, salário-família.",
-    grupos: [
+    groups: [
       {
-        itens: [
+        items: [
           "Certidão de casamento",
           "Certidão de nascimento",
           "Declaração de união estável",
@@ -173,9 +173,9 @@ export const DOCUMENT_CATALOG: Partial<
   },
 
   JUDICIAIS_ADMINISTRATIVOS: {
-    grupos: [
+    groups: [
       {
-        itens: [
+        items: [
           "Sentenças trabalhistas",
           "Certidão de tempo de contribuição (CTC)",
           "Justificação administrativa",
@@ -186,9 +186,9 @@ export const DOCUMENT_CATALOG: Partial<
   },
 
   DECLARACOES_AUTODECLARACOES: {
-    grupos: [
+    groups: [
       {
-        itens: [
+        items: [
           "Declaração de exercício de atividade",
           "Declaração de não exercício (facultativo)",
           "Autodeclaração rural",
@@ -201,8 +201,8 @@ export const DOCUMENT_CATALOG: Partial<
 
 /** Todos os itens de uma categoria, achatados — para contagem e busca. */
 export const itemsOfCategory = (key: DocumentTypeKey): string[] =>
-  (DOCUMENT_CATALOG[key]?.grupos ?? []).flatMap((grupo) => grupo.itens);
+  (DOCUMENT_CATALOG[key]?.groups ?? []).flatMap((group) => group.items);
 
 /** Quantos documentos a categoria lista. `OUTROS` não lista nenhum. */
-export const totalDeItens = (key: DocumentTypeKey): number =>
+export const totalItems = (key: DocumentTypeKey): number =>
   itemsOfCategory(key).length;

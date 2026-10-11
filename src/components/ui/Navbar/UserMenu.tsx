@@ -5,11 +5,13 @@ import React, { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { logout as authLogout } from "@/services/authService";
 import { publicRoutes } from "@/constants/paths/routes";
-import { initialsOf } from "@/lib/sessionUser";
+import { initials } from "@/lib/format";
+import { getRoleLabel } from "@/enums/role/Role";
 import { useSessionUser } from "@/hooks/useSessionUser";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
 import { useDismiss } from "@/hooks/useDismiss";
-import { LogoutIcon, UserIcon } from "./icons";
+import { LogoutIcon } from "./navIcons";
+import { UserIcon } from "@/components/ui/icons/glyphs";
 
 /**
  * Avatar + painel com os dados do usuário logado.
@@ -59,7 +61,7 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
     }
   };
 
-  const initials = initialsOf(user?.fullName) || "TM";
+  const avatarInitials = initials(user?.fullName, "TM");
 
   return (
     /* Sem `relative` pelo mesmo motivo da central: ambos ancoram no grupo de
@@ -75,7 +77,7 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
         }
         className="flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-xs font-medium text-white hover:bg-white/25 cursor-pointer"
       >
-        {initials}
+        {avatarInitials}
       </button>
 
       {panel.shouldRender && (
@@ -85,7 +87,7 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
            sombreada enquanto o conteúdo já subiu. */
         <div
           style={panel.style}
-          className={`absolute right-0 z-30 mt-3 w-64 overflow-hidden rounded-2xl shadow-xl animate__animated ${
+          className={`absolute right-0 z-30 mt-3 w-64 overflow-hidden rounded-2xl ring-1 ring-black/10 animate__animated ${
             panel.isLeaving ? "animate__fadeOut" : "animate__fadeIn"
           }`}
         >
@@ -98,7 +100,7 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
           {/* ── Identificação ── */}
           <div className="flex items-center gap-3 border-b border-black/5 px-4 py-4">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-sm font-medium text-white">
-              {initials}
+              {avatarInitials}
             </span>
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium text-primary">
@@ -109,7 +111,7 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
               </span>
               {user?.role && (
                 <span className="mt-1 inline-flex rounded-md bg-light-secondary px-2 py-0.5 text-[11px] font-medium text-secondary">
-                  {user.role}
+                  {getRoleLabel(user.role)}
                 </span>
               )}
             </span>

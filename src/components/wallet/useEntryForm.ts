@@ -47,8 +47,8 @@ import {
  * rotas (e schemas) diferentes, e o id sozinho não diz em qual.
  */
 export type EntryEditing = (
-  | { kind: "entrada"; values: IncomeFormValues }
-  | { kind: "saida"; values: ExpenseFormValues }
+  | { kind: "income"; values: IncomeFormValues }
+  | { kind: "expense"; values: ExpenseFormValues }
 ) & {
   id: string;
   /**
@@ -61,7 +61,7 @@ export type EntryEditing = (
 };
 
 export function useEntryForm({
-  initialKind = "entrada",
+  initialKind = "income",
   lockedKind,
   editing = null,
 }: {
@@ -90,7 +90,7 @@ export function useEntryForm({
     rules: expenseRules(),
   });
 
-  const isIncome = kind === "entrada";
+  const isIncome = kind === "income";
   const active = isIncome ? income : expense;
   const values: SharedValues = active.values;
 
@@ -108,7 +108,7 @@ export function useEntryForm({
     setSeededKey(seedKey);
     if (editing) {
       setKind(editing.kind);
-      if (editing.kind === "entrada") income.reset(editing.values);
+      if (editing.kind === "income") income.reset(editing.values);
       else expense.reset(editing.values);
     }
   }
@@ -120,7 +120,7 @@ export function useEntryForm({
    */
   const switchKind = (next: EntryKind) => {
     if (next === kind) return;
-    if (next === "saida") expense.reset(carryShared(expense.values, income.values));
+    if (next === "expense") expense.reset(carryShared(expense.values, income.values));
     else income.reset(carryShared(income.values, expense.values));
     setKind(next);
   };

@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createRequestCache, listKey } from "@/lib/requestCache";
+import type { ListPage } from "@/lib/pagination";
+import { createRequestCache, listKey, type RequestCache } from "@/lib/requestCache";
 
 /**
  * Uma lista paginada do servidor que só vai buscar quando precisa.
@@ -17,25 +18,31 @@ import { createRequestCache, listKey } from "@/lib/requestCache";
  *   permissão). `params` `null` = consulta sem resultado possível: lista
  *   vazia, sem requisição.
  * - Resposta de uma consulta antiga não pisa na nova.
+ * - **O rodapé não salta**: enquanto a página nova da mesma consulta carrega,
+ *   `total` e `totalPages` continuam os da última resposta.
+ * - `cache` externo (`createSessionCache`) para a lista que sobrevive à
+ *   navegação — sem ele, o cache é desta montagem.
  *
  * `invalidate()` descarta o cache e relê — chamado depois de gravar ou
  * excluir. Enquanto relê, as linhas atuais ficam na tela.
  */
 
-export type ListPage<T> = { items: T[]; total: number; totalPages: number };
 
-type Loaded<T> = ListPage<T> & { key: string };
+type Loaded<T> = ListPage<T> & { key: string; queryKey: string };
 
 export function usePagedList<T, P>({
   enabled = true,
   params,
   fetchPage,
+  cache: sharedCache,
 }: {
   enabled?: boolean;
   params: P | null;
   fetchPage: (params: P, page: number) => Promise<ListPage<T>>;
+  cache?: RequestCache<ListPage<T>>;
 }) {
-  const [cache] = useState(() => createRequestCache<ListPage<T>>());
+  const [ownCache] = useState(() => createRequestCache<ListPage<T>>());
+  const cache = sharedCache ?? ownCache;
   // A função muda de identidade a cada render; o que importa é a consulta.
   const fetchRef = useRef(fetchPage);
   useEffect(() => {
@@ -62,7 +69,7 @@ export function usePagedList<T, P>({
           setPaging({ key: queryKey, page: result.totalPages });
           return;
         }
-        setLoaded({ ...result, key });
+        setLoaded({ ...result, key, queryKey });
         setFailure(null);
       },
       (reason: unknown) => {
@@ -86,10 +93,11 @@ export function usePagedList<T, P>({
   // Página já vista sai do cache já no render: voltar a ela não pisca o carregando.
   const cached = loaded?.key === key ? loaded : cache.peek(key);
   const current = isEmptyQuery || failed ? null : cached;
+  const lastOfQuery = !isEmptyQuery && loaded?.queryKey === queryKey ? loaded : null;
   return {
     items: current?.items ?? [],
-    total: current?.total ?? 0,
-    totalPages: current?.totalPages ?? 0,
+    total: current?.total ?? lastOfQuery?.total ?? 0,
+    totalPages: current?.totalPages ?? lastOfQuery?.totalPages ?? 0,
     isLoading: enabled && !isEmptyQuery && !failed && !cached,
     failed,
     /** O motivo da falha (ex.: para distinguir 404 de erro). */

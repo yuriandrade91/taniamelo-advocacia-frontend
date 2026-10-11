@@ -8,7 +8,9 @@ import {
   type SituationKey,
 } from "@/enums/situation/Situation";
 import type { ClientSituationHistory } from "@/interfaces/client/Client.interface";
+import { formatInstantDateBR } from "@/lib/format";
 import { Pill } from "@/components/ui/feedback/Badges";
+import { Timeline, TimelineItem, TimelineMeta } from "@/components/ui/list/Timeline";
 
 /**
  * Histórico de situações do cliente.
@@ -55,11 +57,6 @@ export type SituationHistorySectionProps = {
   authors?: Record<string, string>;
 };
 
-/**
- * `new Date` é correto aqui: `changedAt` é `Instant`, tem fuso, e o certo é
- * mostrar no horário de quem olha. É o oposto do que fazemos com `LocalDate`,
- * onde converter é justamente o erro.
- */
 /** A API pode devolver a chave ou o rótulo; a tela mostra sempre o rótulo. */
 const situationLabel = (value?: string): string => {
   if (!value) return "—";
@@ -89,46 +86,7 @@ const dotColor = (value?: string): string => {
   return DOT_COLOR[key] ?? "bg-gray-100/50 ring-gray-100/15";
 };
 
-function PersonGlyph() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.3"
-      aria-hidden="true"
-      className="h-3.5 w-3.5 shrink-0"
-    >
-      <circle cx="8" cy="5.5" r="2.5" />
-      <path d="M3 13.5c.8-2.3 2.7-3.5 5-3.5s4.2 1.2 5 3.5" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function CalendarGlyph() {
-  return (
-    <svg
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.3"
-      aria-hidden="true"
-      className="h-3.5 w-3.5 shrink-0"
-    >
-      <rect x="2" y="3.5" width="12" height="10.5" rx="2" />
-      <path d="M2 6.5h12M5.5 2v3M10.5 2v3" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 /** `Instant` → `dd/MM/yyyy`, no formato curto que a coluna comporta. */
-const formatShortDate = (iso?: string): string => {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "—";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
-};
 
 export function SituationHistorySection({
   items,
@@ -165,71 +123,49 @@ export function SituationHistorySection({
   }
 
   return (
-    <ol className="flex flex-col">
+    <Timeline label="Mudanças de situação">
       {items.map((entry, index) => {
-        const author = authors[entry.changedByUserId ?? ""];
         const isCurrent = index === 0;
-        const isLast = index === items.length - 1;
         return (
-          <li key={entry.id} className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-3">
-            {/* O trilho: o nó da etapa e a linha até a mudança anterior. */}
-            <div className="flex flex-col items-center">
+          <TimelineItem
+            key={entry.id}
+            dotClassName={dotColor(entry.currentSituation)}
+            isCurrent={isCurrent}
+            isLast={index === items.length - 1}
+          >
+            <div className="flex flex-wrap items-center gap-1.5">
               <span
-                aria-hidden="true"
-                className={`mt-4 shrink-0 rounded-full ring-4 ${dotColor(entry.currentSituation)} ${
-                  isCurrent ? "h-3.5 w-3.5" : "h-2.5 w-2.5"
-                }`}
-              />
-              {!isLast && <span aria-hidden="true" className="mt-1 w-px flex-1 bg-light-gray" />}
-            </div>
-
-            <div
-              className={`mb-2 flex min-w-0 flex-col gap-1.5 rounded-2xl px-3.5 py-3 ${
-                isCurrent ? "bg-floral ring-1 ring-secondary/15" : ""
-              }`}
-            >
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span
-                  className={`min-w-0 text-sm text-primary ${isCurrent ? "font-semibold" : "font-medium"}`}
-                >
-                  {situationLabel(entry.currentSituation)}
-                </span>
-                {isCurrent && (
-                  <Pill tone="solid" weight="semibold">
-                    atual
-                  </Pill>
-                )}
-                {entry.retrocesso && (
-                  <span title="Esta mudança voltou uma etapa no funil.">
-                    <Pill tone="warning" weight="semibold">voltou</Pill>
-                  </span>
-                )}
-              </div>
-              {/*
-                "de …" só quando há anterior: a primeira mudança de um cliente
-                nunca tem, e uma linha fixa com "—" não informaria nada.
-              */}
-              {entry.previousSituation && (
-                <p className="text-xs text-gray-100">
-                  de {situationLabel(entry.previousSituation)}
-                </p>
+                className={`min-w-0 text-sm text-primary ${isCurrent ? "font-semibold" : "font-medium"}`}
+              >
+                {situationLabel(entry.currentSituation)}
+              </span>
+              {isCurrent && (
+                <Pill tone="solid" weight="semibold">
+                  atual
+                </Pill>
               )}
-              <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-100/80">
-                <span className="flex items-center gap-1 whitespace-nowrap">
-                  <CalendarGlyph />
-                  {formatShortDate(entry.changedAt)}
+              {entry.retrocesso && (
+                <span title="Esta mudança voltou uma etapa no funil.">
+                  <Pill tone="warning" weight="semibold">voltou</Pill>
                 </span>
-                {author && (
-                  <span className="flex min-w-0 items-center gap-1">
-                    <PersonGlyph />
-                    <span className="truncate">por {author}</span>
-                  </span>
-                )}
-              </p>
+              )}
             </div>
-          </li>
+            {/*
+              "de …" só quando há anterior: a primeira mudança de um cliente
+              nunca tem, e uma linha fixa com "—" não informaria nada.
+            */}
+            {entry.previousSituation && (
+              <p className="text-xs text-gray-100">
+                de {situationLabel(entry.previousSituation)}
+              </p>
+            )}
+            <TimelineMeta
+              date={formatInstantDateBR(entry.changedAt)}
+              author={authors[entry.changedByUserId ?? ""]}
+            />
+          </TimelineItem>
         );
       })}
-    </ol>
+    </Timeline>
   );
 }

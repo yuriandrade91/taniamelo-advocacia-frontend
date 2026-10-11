@@ -4,7 +4,7 @@ import { Svg, type IconProps } from "./Svg";
  * Ícones de ação de linha.
  *
  * Inline (e não `<Image src="/svg/...">`) por dois motivos: herdam
- * `currentColor`, então o `ActionButton` consegue colori-los por intenção; e
+ * `currentColor`, então o `IconButton` consegue colori-los por intenção; e
  * não custam uma requisição cada. Server Components — só props para JSX.
  */
 
@@ -45,18 +45,17 @@ export const DownloadIcon = (p: IconProps) => (
   </Svg>
 );
 
-/** Nuvem com seta — o alvo do arraste-e-solte. */
-export const UploadCloudIcon = (p: IconProps) => (
-  <Svg {...p} strokeWidth={1.5}>
-    <path d="M6.5 17a3.5 3.5 0 0 1-.3-6.99A5 5 0 0 1 16 8.6a3.7 3.7 0 0 1 1.9 6.9" />
-    <path d="M12 20v-8m0 0 2.8 2.8M12 12 9.2 14.8" />
-  </Svg>
-);
-
 /** Folha de documento — usada na lista de arquivos e no cabeçalho dos grupos. */
 export const FileIcon = (p: IconProps) => (
   <Svg {...p} viewBox="0 0 20 20" strokeWidth={1.5}>
     <path d="M11.5 2.5H6A1.5 1.5 0 0 0 4.5 4v12A1.5 1.5 0 0 0 6 17.5h8a1.5 1.5 0 0 0 1.5-1.5V6.5l-4-4Z" />
     <path d="M11.5 2.5v4h4" />
+  </Svg>
+);
+
+/** Seta saindo da bandeja — enviar arquivo. */
+export const UploadIcon = (p: IconProps) => (
+  <Svg {...p} strokeWidth={1.6}>
+    <path d="M12 15V4m0 0L8 8m4-4 4 4M5 15v3a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-3" />
   </Svg>
 );

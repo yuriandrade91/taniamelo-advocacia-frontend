@@ -8,22 +8,19 @@ import {
   TONE,
   TONE_BG,
   type Tone,
-} from "@/components/ui/models/viz";
-import { ConcentricRings, type Ring } from "./extraViz";
+} from "@/components/charts/svgCharts";
+import { ConcentricRings, type Ring } from "../../charts/ConcentricRings";
 import {
   AGENDA_LABELS,
   AGENDA_TONES,
   FLOW_TONES,
   INTAKE_TONES,
-  LoadingBlock,
   PAYMENT_TONES,
-  STAGE_BG,
-  stageOpacity,
-  SeriesGate,
-  money,
-  moneyShort,
   useReport,
-} from "./kit";
+} from "./useReport";
+import { LoadingBlock, SeriesGate } from "./ReportBlocks";
+import { STAGE_BG, stageOpacity } from "@/components/ui/feedback/stageRamp";
+import { formatBRLShort, formatBRLSigned } from "@/lib/format";
 import type { ReportViewProps } from "./types";
 
 /**
@@ -49,7 +46,7 @@ function RingCard({
 }) {
   return (
     <section
-      className={`flex min-w-0 flex-col items-center gap-4 rounded-3xl bg-white p-5 text-center ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/5 motion-reduce:hover:translate-y-0 ${className}`}
+      className={`flex min-w-0 flex-col items-center gap-4 rounded-3xl bg-white p-5 text-center ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:ring-secondary/40 motion-reduce:hover:translate-y-0 ${className}`}
     >
       <header className="w-full">
         <h3 className="text-sm font-medium text-primary">{title}</h3>
@@ -168,7 +165,7 @@ export function ProportionsView(props: ReportViewProps) {
                     <Center value={`${r.payments.paidRate ?? 0}%`} label="pago" />
                   </RadialProgress>
                   <p className="text-xs text-gray-100 tabular-nums">
-                    {moneyShort(r.payments.sum.paid)} de {moneyShort(r.payments.sum.total)}
+                    {formatBRLShort(r.payments.sum.paid)} de {formatBRLShort(r.payments.sum.total)}
                   </p>
                 </>
               )}
@@ -181,7 +178,7 @@ export function ProportionsView(props: ReportViewProps) {
                   <RadialProgress value={(r.payments.overdueRate ?? 0) / 100} size={140} thickness={12} tone={PAYMENT_TONES.overdue}>
                     <Center value={`${r.payments.overdueRate ?? 0}%`} label="atrasado" />
                   </RadialProgress>
-                  <p className="text-xs text-gray-100 tabular-nums">{money(r.payments.sum.overdue)} em atraso</p>
+                  <p className="text-xs text-gray-100 tabular-nums">{formatBRLSigned(r.payments.sum.overdue)} em atraso</p>
                 </>
               )}
             </SeriesGate>
@@ -200,7 +197,7 @@ export function ProportionsView(props: ReportViewProps) {
                   </RadialProgress>
                   <p className="text-xs text-gray-100 tabular-nums">
                     saldo da janela{" "}
-                    <span className={r.flow.sum.net < 0 ? "text-danger" : "text-primary"}>{money(r.flow.sum.net)}</span>
+                    <span className={r.flow.sum.net < 0 ? "text-danger" : "text-primary"}>{formatBRLSigned(r.flow.sum.net)}</span>
                   </p>
                 </>
               )}
@@ -222,7 +219,7 @@ export function ProportionsView(props: ReportViewProps) {
                       tone: s.tone,
                     }))}
                   >
-                    <Center value={moneyShort(r.expenses.total)} label="total" />
+                    <Center value={formatBRLShort(r.expenses.total)} label="total" />
                   </ConcentricRings>
                   <ol className="flex min-w-0 flex-col gap-1.5 text-left text-xs">
                     {r.expenses.slices.map((s) => (

@@ -15,6 +15,7 @@ import type {
   OfficeExpenseSummary,
   ExpenseTimelinePoint,
 } from "@/interfaces/finance/OfficeExpense.interface";
+import { feedback, type RequestFeedback } from "@/services/requestFeedback";
 
 /**
  * Despesas do escritório — `OfficeExpenseController`, tabela `office_expenses`.
@@ -29,7 +30,7 @@ import type {
  * ## O `if` antes do código de verdade
  *
  * Cada função começa perguntando se este grupo de rotas está pausado **neste
- * ambiente** (`NEXT_PUBLIC_INTEGRACOES_PENDENTES`). Onde o backend serve as
+ * ambiente** (`NEXT_PUBLIC_PENDING_INTEGRATIONS`). Onde o backend serve as
  * rotas — o local, por exemplo — a pergunta é falsa e a integração funciona
  * normalmente. Onde não serve, a chamada não chega a sair para a rede.
  */
@@ -72,12 +73,13 @@ export const getOfficeExpenseSummary = async (
 
 export const createOfficeExpense = async (
   body: OfficeExpenseRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<OfficeExpenseResponse>> => {
   if (pendingIntegration("expenses")) return pendingWrite("POST /api/v1/expenses");
   const { data } = await axiosInstance.post<ApiEnvelope<OfficeExpenseResponse>>(
     endpoints.EXPENSES.CREATE,
     body,
-    { successMessage: "Despesa lançada." },
+    feedback("Despesa lançada.", options),
   );
   return data;
 };
@@ -85,21 +87,20 @@ export const createOfficeExpense = async (
 export const updateOfficeExpense = async (
   expenseId: string,
   body: OfficeExpenseRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<OfficeExpenseResponse>> => {
   if (pendingIntegration("expenses")) return pendingWrite("PUT /api/v1/expenses/{id}");
   const { data } = await axiosInstance.put<ApiEnvelope<OfficeExpenseResponse>>(
     endpoints.EXPENSES.UPDATE(expenseId),
     body,
-    { successMessage: "Despesa atualizada." },
+    feedback("Despesa atualizada.", options),
   );
   return data;
 };
 
-export const deleteOfficeExpense = async (expenseId: string): Promise<void> => {
+export const deleteOfficeExpense = async (expenseId: string, options?: RequestFeedback): Promise<void> => {
   if (pendingIntegration("expenses")) return pendingWrite("DELETE /api/v1/expenses/{id}");
-  await axiosInstance.delete(endpoints.EXPENSES.DELETE(expenseId), {
-    successMessage: "Despesa excluída.",
-  });
+  await axiosInstance.delete(endpoints.EXPENSES.DELETE(expenseId), feedback("Despesa excluída.", options));
 };
 
 /** Série mensal das despesas — mesmo contrato do lado dos recebimentos. */

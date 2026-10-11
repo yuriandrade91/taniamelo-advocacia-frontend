@@ -21,6 +21,5 @@ export type DocumentTypeKey = (typeof DOCUMENT_TYPE_ENTRIES)[number][0];
 /** Label PT-BR — valor devolvido pela API (@JsonValue). */
 export type DocumentTypeLabel = (typeof DOCUMENT_TYPE_ENTRIES)[number][1];
 export const DocumentTypeOptions = documentType.optionsWithId;
-export const DocumentTypeLabelByKey = documentType.labelByKey;
 
 export { DOCUMENT_TYPE_ENTRIES };

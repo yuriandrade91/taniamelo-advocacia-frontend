@@ -1,10 +1,11 @@
 "use client";
 
 import { useResetOnOpen } from "@/hooks/useResetOnOpen";
-import {useState} from "react";
+import { useState } from "react";
 import { Button, Modal, WarningIcon } from "@heroui/react";
 import ModalShell from "@/components/ui/modals/ModalShell";
 import { TextAreaField } from "@/components/ui/form/Field";
+import { validateJustification } from "@/lib/validators";
 
 /**
  * Cancelamento com justificativa.
@@ -15,9 +16,6 @@ import { TextAreaField } from "@/components/ui/form/Field";
  * obrigatório, e um confirm com texto livre embutido viraria um confirm com
  * cinco flags.
  */
-
-/** Mesmo mínimo que o `AppointmentsCard` já usava. */
-export const MIN_CANCEL_JUSTIFICATION_LENGTH = 10;
 
 export type CancelAppointmentDialogProps = {
   isOpen: boolean;
@@ -44,11 +42,7 @@ export default function CancelAppointmentDialog({
   });
 
   const trimmed = justification.trim();
-  const error = !trimmed
-    ? "Informe a justificativa."
-    : trimmed.length < MIN_CANCEL_JUSTIFICATION_LENGTH
-      ? `A justificativa precisa ter pelo menos ${MIN_CANCEL_JUSTIFICATION_LENGTH} caracteres.`
-      : undefined;
+  const error = validateJustification(justification) ?? undefined;
 
   return (
     <ModalShell

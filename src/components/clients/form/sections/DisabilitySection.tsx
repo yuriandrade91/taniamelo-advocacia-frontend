@@ -15,7 +15,6 @@ import {
 import {
   basisFromGender,
   convertIntervals,
-  formatDateBR,
   formatFactor,
 } from "@/lib/disabilityTime";
 import {
@@ -23,7 +22,8 @@ import {
   type DisabilityPeriodDraft,
   type DisabilityPeriodErrors,
 } from "../disabilityPeriods";
-import { AddItemButton, FormGroup } from "../FormSection";
+import { AddItemButton, FormGroup } from "@/components/clients/form/FormGroup";
+import { formatDateBR } from "@/lib/format";
 
 /**
  * "Períodos de deficiência" — os intervalos e o tempo convertido (LC 142/2013).

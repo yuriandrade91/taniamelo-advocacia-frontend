@@ -1,6 +1,6 @@
 "use client";
 
-import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
 
 /**
  * Confirmação de exclusão de cliente — o `ConfirmDialog` com o texto do caso.

@@ -26,7 +26,6 @@ import {
   defineSection,
   initialValues,
   rulesOf,
-  validateValues,
   type FieldRules,
   type SectionValues,
 } from "@/components/ui/form/schema";
@@ -48,6 +47,7 @@ import type {
   PaymentMethodInput,
   PaymentStatusInput,
 } from "@/enums/payment/Payment";
+import { amountTextOf, enumKeyOf, numberTextOf, optionalInteger, optionalText, textOf } from "@/lib/formValues";
 
 /**
  * Os campos da parcela: o mesmo núcleo da Carteira — descrição, valor,
@@ -102,54 +102,27 @@ export const paymentRules = (
   paidDate: paidDateRule(today),
 });
 
-export type PaymentFormErrors = Partial<
-  Record<keyof PaymentFormValues, string>
->;
-
-const text = (valor: string | undefined | null): string => valor ?? "";
-
-const numberText = (valor: number | undefined | null): string =>
-  valor === undefined || valor === null || Number.isNaN(valor)
-    ? ""
-    : String(valor);
-
-/** Mesmo formato do `AmountField`: vírgula decimal, sem separador de milhar. */
-export function amountToInput(valor: number | undefined | null): string {
-  if (valor === undefined || valor === null || Number.isNaN(valor)) return "";
-  return valor.toFixed(2).replace(".", ",");
-}
-
 export function paymentFormFrom(
   payment: ClientPaymentResponse,
 ): PaymentFormValues {
   return {
     ...emptyPaymentForm(),
-    description: text(payment.description),
-    amount: amountToInput(payment.amount),
-    installmentNumber: numberText(payment.installmentNumber),
-    installmentTotal: numberText(payment.installmentTotal),
-    dueDate: text(payment.dueDate),
+    description: textOf(payment.description),
+    amount: amountTextOf(payment.amount),
+    installmentNumber: numberTextOf(payment.installmentNumber),
+    installmentTotal: numberTextOf(payment.installmentTotal),
+    dueDate: textOf(payment.dueDate),
     // Do status, nunca da data: uma parcela cancelada pode ter paidDate de
     // antes do cancelamento, e ler a data a reabriria como recebida.
     isSettled: payment.status === PaymentStatusLabelByKey.PAGO,
-    paidDate: text(payment.paidDate),
+    paidDate: textOf(payment.paidDate),
     // A API devolve o rótulo ("Boleto"); o select trabalha com a chave
     // ("BOLETO"). Sem converter, o campo abria em "Selecione" numa parcela
-    // que tem forma — o mesmo `toKey` do `incomeFormFrom` da Carteira.
-    paymentMethod: payment.paymentMethod
-      ? (getPaymentMethodKeyByLabel(payment.paymentMethod) ??
-        payment.paymentMethod)
-      : "",
-    notes: text(payment.notes),
-    status: text(payment.status),
+    // que tem forma.
+    paymentMethod: enumKeyOf(payment.paymentMethod, getPaymentMethodKeyByLabel),
+    notes: textOf(payment.notes),
+    status: textOf(payment.status),
   };
-}
-
-export function validatePaymentForm(
-  values: PaymentFormValues,
-  today: string = todayIso(),
-): PaymentFormErrors {
-  return validateValues(paymentRules(today), values);
 }
 
 /**
@@ -166,16 +139,6 @@ export function installmentStatus(values: PaymentFormValues): PaymentStatusInput
   return PaymentStatusLabelByKey.PENDENTE;
 }
 
-const optional = (valor: string): string | undefined =>
-  valor.trim() === "" ? undefined : valor.trim();
-
-const whole = (valor: string): number | undefined => {
-  const clean = valor.trim();
-  if (clean === "") return undefined;
-  const numero = Number(clean);
-  return Number.isInteger(numero) ? numero : undefined;
-};
-
 /**
  * Só o que mudou.
  *
@@ -187,30 +150,30 @@ export function toPaymentPatch(
   values: PaymentFormValues,
   original: ClientPaymentResponse,
 ): ClientPaymentUpdateRequest {
-  const antes = paymentFormFrom(original);
+  const previous = paymentFormFrom(original);
   const patch: ClientPaymentUpdateRequest = {};
 
-  if (values.description.trim() !== antes.description.trim()) {
+  if (values.description.trim() !== previous.description.trim()) {
     patch.description = values.description.trim();
   }
-  if (values.amount !== antes.amount) {
+  if (values.amount !== previous.amount) {
     patch.amount = parseAmountBRL(values.amount) ?? undefined;
   }
-  if (values.dueDate !== antes.dueDate) patch.dueDate = values.dueDate;
-  if (values.installmentNumber !== antes.installmentNumber) {
-    patch.installmentNumber = whole(values.installmentNumber);
+  if (values.dueDate !== previous.dueDate) patch.dueDate = values.dueDate;
+  if (values.installmentNumber !== previous.installmentNumber) {
+    patch.installmentNumber = optionalInteger(values.installmentNumber);
   }
-  if (values.installmentTotal !== antes.installmentTotal) {
-    patch.installmentTotal = whole(values.installmentTotal);
+  if (values.installmentTotal !== previous.installmentTotal) {
+    patch.installmentTotal = optionalInteger(values.installmentTotal);
   }
-  if (values.paymentMethod !== antes.paymentMethod) {
-    patch.paymentMethod = optional(values.paymentMethod) as
+  if (values.paymentMethod !== previous.paymentMethod) {
+    patch.paymentMethod = optionalText(values.paymentMethod) as
       PaymentMethodInput | undefined;
   }
-  if (values.notes !== antes.notes) patch.notes = optional(values.notes);
+  if (values.notes !== previous.notes) patch.notes = optionalText(values.notes);
 
   const status = installmentStatus(values);
-  const statusBefore = installmentStatus(antes);
+  const statusBefore = installmentStatus(previous);
   if (status !== statusBefore) {
     patch.status = status;
     // Só acompanha o status quando ele muda: mandar paidDate sozinho, com a
@@ -220,7 +183,7 @@ export function toPaymentPatch(
     }
   } else if (
     status === PaymentStatusLabelByKey.PAGO &&
-    values.paidDate !== antes.paidDate
+    values.paidDate !== previous.paidDate
   ) {
     // Continua paga, só corrigiram a data do recebimento.
     patch.paidDate = values.paidDate || todayIso();

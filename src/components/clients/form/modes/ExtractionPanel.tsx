@@ -4,7 +4,7 @@ import { useState } from "react";
 import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import { notificationCenter } from "@/services/notificationService";
 import type { ExtractedField, SmartFieldKey } from "./smartFill";
-import { applyExtracted, currentValueOf, type FillModeProps } from "./shared";
+import { applyExtracted, currentValueOf, type FillModeProps } from "./fillModeForms";
 
 /**
  * O que o texto revelou, antes de virar cadastro: cada dado com o trecho de

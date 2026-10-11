@@ -41,21 +41,6 @@ export const login = async (
   return response.data;
 };
 
-/**
- * POST /api/v1/auth/refresh — rotaciona o refresh token e renova o access token.
- * Usa o cookie httpOnly; funciona enquanto o refresh estiver válido (14 dias).
- */
-export const refresh = async (): Promise<ApiEnvelope<LoginResponse>> => {
-  const response = await axiosInstance.post<ApiEnvelope<LoginResponse>>(
-    endpoints.AUTH.REFRESH,
-    {},
-  );
-
-  applySession(response.data?.data);
-
-  return response.data;
-};
-
 /** POST /api/v1/auth/logout — revoga o refresh token e limpa a sessão local. */
 export const logout = async (): Promise<ApiEnvelope<string>> => {
   try {

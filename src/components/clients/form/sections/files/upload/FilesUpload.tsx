@@ -7,11 +7,11 @@ import {
   Field,
   SelectField,
 } from "@/components/ui/form/Field";
-import ActionButton from "@/components/ui/table/ActionButton";
+import { IconButton } from "@/components/ui/actions/IconButton";
 import { TablePagination } from "@/components/ui/table/TablePagination";
 import { slicePage } from "@/lib/pagination";
 import { SegmentedTabs } from "@/components/ui/tabs/SegmentedTabs";
-import { FormGrid } from "../../../FormSection";
+import { FieldGrid } from "@/components/ui/form/FieldGrid";
 import { FILE_KINDS, FILE_KIND_WORDS, FileKindLabel } from "../FileKindLabel";
 import {
   documentErrors,
@@ -20,20 +20,23 @@ import {
 } from "../types";
 import {
   DOC_TYPES,
+  useDocuments,
+  useSimulations,
+  type DocEntry,
+  type SimulationEntry,
+  type StagedFilesProps,
+} from "./useStagedFiles";
+import {
   FileName,
   FileThumb,
   HiddenFileInput,
   RemoveButton,
-  UploadGlyph,
   WrongSideHint,
   dropCopy,
   dropProps,
-  useDocuments,
-  useSimulations,
-  type DocEntry,
-  type SimEntry,
-  type UploadModelProps,
-} from "./shared";
+} from "./UploadParts";
+import { UploadIcon } from "@/components/ui/icons/actions";
+import { Svg } from "@/components/ui/icons/Svg";
 
 /**
  * A aba Arquivos do cadastro: **tela inteira + colar**, com a zona viva.
@@ -80,24 +83,19 @@ const Kbd = ({ children }: { children: string }) => (
   </kbd>
 );
 
-function StarIcon({ isFilled }: { isFilled: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5">
-      <path
-        d="m12 3.5 2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"
-        fill={isFilled ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+const StarIcon = ({ isFilled }: { isFilled: boolean }) => (
+  <Svg className="h-5 w-5" strokeWidth={1.6}>
+    <path
+      d="m12 3.5 2.6 5.3 5.9.9-4.25 4.1 1 5.8L12 16.9l-5.25 2.7 1-5.8L3.5 9.7l5.9-.9z"
+      fill={isFilled ? "currentColor" : "none"}
+    />
+  </Svg>
+);
 
 export function FilesUpload({
   showErrors,
   ...props
-}: UploadModelProps & {
+}: StagedFilesProps & {
   /** Mostra os campos que faltam — depois de tentar avançar ou salvar. */
   showErrors: boolean;
 }) {
@@ -179,7 +177,7 @@ export function FilesUpload({
     (entry) => Object.keys(documentErrors(entry.doc)).length > 0,
   ).length;
   const pendingSims = sims.entries.filter(
-    (entry) => Object.keys(simulationErrors(entry.sim)).length > 0,
+    (entry) => Object.keys(simulationErrors(entry.simulation)).length > 0,
   ).length;
 
   const counts: Record<FileKind, { count: number; pending: number }> = {
@@ -194,8 +192,8 @@ export function FilesUpload({
   const setPage = (next: number) => setPages((current) => ({ ...current, [kind]: next }));
 
   const docPage = slicePage(docs.entries, pages.documents, PAGE_SIZE);
-  const simPage = slicePage(sims.entries, pages.simulations, PAGE_SIZE);
-  const current = kind === "documents" ? docPage : simPage;
+  const simulationPage = slicePage(sims.entries, pages.simulations, PAGE_SIZE);
+  const current = kind === "documents" ? docPage : simulationPage;
 
   /** O corpo de uma aba: a zona viva, o aviso do colado, os cartões. */
   const panel = (tab: FileKind) => (
@@ -225,7 +223,7 @@ export function FilesUpload({
             isEmpty ? "h-14 w-14" : "h-10 w-10"
           } ${isOver ? "animate-bounce motion-reduce:animate-none" : ""}`}
         >
-          <UploadGlyph className={isEmpty ? "h-7 w-7" : "h-5 w-5"} />
+          <UploadIcon className={isEmpty ? "h-7 w-7" : "h-5 w-5"} />
         </span>
         <span className="min-w-0">
           <span className="block text-sm font-semibold text-primary">
@@ -265,7 +263,7 @@ export function FilesUpload({
                   docs={docs}
                 />
               ))
-            : (simPage.slice as SimEntry[]).map((entry) => (
+            : (simulationPage.slice as SimulationEntry[]).map((entry) => (
                 <SimulationCard
                   key={entry.id}
                   entry={entry}
@@ -314,7 +312,7 @@ export function FilesUpload({
           >
             <div className="flex h-full w-full flex-col items-center justify-center gap-4 rounded-[2rem] border-2 border-dashed border-white/50 text-center text-white">
               <span className="flex h-20 w-20 animate-bounce items-center justify-center rounded-full bg-white/15 motion-reduce:animate-none">
-                <UploadGlyph className="h-10 w-10" />
+                <UploadIcon className="h-10 w-10" />
               </span>
               <p className="text-2xl font-semibold">Solte para anexar como {words.one}</p>
               <p className="text-sm text-white/70">
@@ -369,7 +367,7 @@ function DocumentCard({
         />
         <RemoveButton name={entry.file.name} onClick={() => docs.remove(entry)} />
       </CardHeader>
-      <FormGrid>
+      <FieldGrid columns={4}>
         <SelectField
           className="sm:col-span-2"
           label="Tipo do documento"
@@ -391,7 +389,7 @@ function DocumentCard({
           isInvalid={!!errors.notes}
           errorMessage={errors.notes}
         />
-      </FormGrid>
+      </FieldGrid>
     </li>
   );
 }
@@ -401,12 +399,12 @@ function SimulationCard({
   showErrors,
   sims,
 }: {
-  entry: SimEntry;
+  entry: SimulationEntry;
   showErrors: boolean;
   sims: ReturnType<typeof useSimulations>;
 }) {
-  const errors = showErrors ? simulationErrors(entry.sim) : {};
-  const { sim, file } = entry;
+  const errors = showErrors ? simulationErrors(entry.simulation) : {};
+  const { simulation: simulation, file } = entry;
   return (
     <li className={CARD_CLASS}>
       <CardHeader file={file}>
@@ -417,20 +415,20 @@ function SimulationCard({
         />
         {/* Principal é escolha entre as simulações: só o ícone, e o
             tooltip diz o que o clique faz. */}
-        <ActionButton
-          label={sim.isPrincipal ? "Simulação principal" : "Tornar principal"}
-          tone={sim.isPrincipal ? "secondary" : "neutral"}
+        <IconButton
+          label={simulation.isPrincipal ? "Simulação principal" : "Tornar principal"}
+          tone={simulation.isPrincipal ? "secondary" : "neutral"}
           onClick={() => sims.setPrincipal(entry)}
         >
-          <StarIcon isFilled={sim.isPrincipal} />
-        </ActionButton>
+          <StarIcon isFilled={simulation.isPrincipal} />
+        </IconButton>
         <RemoveButton name={file.name} onClick={() => sims.remove(entry)} />
       </CardHeader>
-      <FormGrid>
+      <FieldGrid columns={4}>
         <DatePickerField
           label="Data da simulação"
           isRequired
-          value={sim.simulationDate}
+          value={simulation.simulationDate}
           onChange={(value) => sims.update(entry, { simulationDate: value })}
           isInvalid={!!errors.simulationDate}
           errorMessage={errors.simulationDate}
@@ -439,7 +437,7 @@ function SimulationCard({
           label="Versão"
           isRequired
           placeholder="1"
-          value={sim.version}
+          value={simulation.version}
           onChange={(event) => sims.update(entry, { version: event.target.value })}
           isInvalid={!!errors.version}
           errorMessage={errors.version}
@@ -449,7 +447,7 @@ function SimulationCard({
           isRequired
           placeholder="3"
           maxLength={3}
-          value={sim.vinculos}
+          value={simulation.vinculos}
           // Só dígitos: `type="number"` deixaria passar "e", "+" e "-".
           onChange={(event) =>
             sims.update(entry, { vinculos: event.target.value.replace(/\D/g, "") })
@@ -461,12 +459,12 @@ function SimulationCard({
           label="Observações"
           isRequired
           placeholder="Cenário com tempo especial"
-          value={sim.notes}
+          value={simulation.notes}
           onChange={(event) => sims.update(entry, { notes: event.target.value })}
           isInvalid={!!errors.notes}
           errorMessage={errors.notes}
         />
-      </FormGrid>
+      </FieldGrid>
     </li>
   );
 }

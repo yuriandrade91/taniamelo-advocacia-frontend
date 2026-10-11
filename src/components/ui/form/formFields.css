@@ -6,10 +6,10 @@
    a Agenda o usam nas suas modais.
 
    Vale só dentro de `[data-form-fields]` — a grade de campos, que a tela
-   declara (`FormGrid` no cadastro, uma grade de duas colunas nas modais).
+   declara (`FieldGrid`: quatro colunas no cadastro, duas ou uma nas modais).
    Abas, cartões, Revisão e botões ficam com o desenho de sempre.
 
-   Âncoras (ver `Field.tsx` e `FormGrid`):
+   Âncoras (ver `Field.tsx` e `FieldGrid`):
    - `[data-form-fields] > *`     um campo (rótulo + caixa + erro). Precisa ser
                                   filho direto: é o que posiciona o rótulo;
    - `[data-slot="label"]`        o rótulo;

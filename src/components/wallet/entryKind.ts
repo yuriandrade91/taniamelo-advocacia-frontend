@@ -19,14 +19,14 @@ export const KIND_META: Record<
     paidDateLabel: string;
   }
 > = {
-  entrada: {
+  income: {
     label: "Entradas",
     noun: "receita",
     paidVerb: "Recebido",
     partyLabel: "Cliente",
     paidDateLabel: "Recebimento",
   },
-  saida: {
+  expense: {
     label: "Saídas",
     noun: "despesa",
     paidVerb: "Pago",

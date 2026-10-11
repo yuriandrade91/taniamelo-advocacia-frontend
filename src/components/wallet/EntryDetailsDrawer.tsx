@@ -5,7 +5,7 @@ import { useState } from "react";
 import { createInFlight } from "@/lib/requestCache";
 import { useRecordDetail } from "@/hooks/useRecordDetail";
 
-import { RecordDrawer } from "@/components/ui/Drawer/RecordDrawer";
+import { RecordDrawer } from "@/components/ui/drawer/RecordDrawer";
 import { todayIso } from "@/lib/period";
 import { getOfficeExpense } from "@/services/officeExpenseService";
 import { getOfficeRevenue } from "@/services/officeRevenueService";
@@ -54,12 +54,12 @@ export type EntryDetailsTarget = {
   kind: EntryKind;
   id: string;
   /** Mostrado no título enquanto o detalhe carrega. */
-  descricao: string;
+  description: string;
 };
 
 export type Detail =
-  | { kind: "saida"; data: OfficeExpenseResponse }
-  | { kind: "entrada"; data: OfficeRevenueResponse };
+  | { kind: "expense"; data: OfficeExpenseResponse }
+  | { kind: "income"; data: OfficeRevenueResponse };
 
 /**
  * O mesmo detalhe pedido duas vezes ao mesmo tempo (o StrictMode monta o
@@ -71,12 +71,12 @@ const inFlight = createInFlight<Detail | null>();
 
 const fetchDetail = (target: EntryDetailsTarget): Promise<Detail | null> =>
   inFlight(`${target.kind}:${target.id}`, () =>
-    target.kind === "saida"
+    target.kind === "expense"
       ? getOfficeExpense(target.id).then((envelope) =>
-          envelope.data ? { kind: "saida" as const, data: envelope.data } : null,
+          envelope.data ? { kind: "expense" as const, data: envelope.data } : null,
         )
       : getOfficeRevenue(target.id).then((envelope) =>
-          envelope.data ? { kind: "entrada" as const, data: envelope.data } : null,
+          envelope.data ? { kind: "income" as const, data: envelope.data } : null,
         ),
   );
 
@@ -93,15 +93,15 @@ function editingFrom(detail: Detail, mode: "edit" | "settle"): EntryEditing {
   const settled = <T extends SharedValues>(values: T): T =>
     mode === "settle" ? { ...values, isSettled: true, paidDate: todayIso() } : values;
 
-  return detail.kind === "saida"
+  return detail.kind === "expense"
     ? {
-        kind: "saida",
+        kind: "expense",
         id: detail.data.id,
         values: settled(expenseFormFrom(detail.data)),
         seed: mode,
       }
     : {
-        kind: "entrada",
+        kind: "income",
         id: detail.data.id,
         values: settled(incomeFormFrom(detail.data)),
         seed: mode,
@@ -153,7 +153,7 @@ export function EntryDetailsDrawer({
   const isEditing = mode !== "view";
   // Recebido/pago ou cancelado: confirma antes de abrir a edição.
   const confirmEdit = useEditConfirmation();
-  const isIncome = target.kind === "entrada";
+  const isIncome = target.kind === "income";
 
   return (
     <RecordDrawer
@@ -194,7 +194,7 @@ export function EntryDetailsDrawer({
             confirmEdit.request(
               editWarning(
                 detail.data,
-                detail.kind === "entrada" ? "recebido" : "pago",
+                detail.kind === "income" ? "recebido" : "pago",
               ),
               () => setMode("edit"),
             )

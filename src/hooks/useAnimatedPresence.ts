@@ -30,7 +30,7 @@ import { useEffect, useRef, useState } from "react";
  * classe de animação nenhuma, e o desmonte é imediato.
  */
 
-export type AnimatedPresenceOptions = {
+type AnimatedPresenceOptions = {
   /** Classe do animate.css na entrada (ex.: `animate__slideInLeft`). */
   enter: string;
   /** Classe do animate.css na saída (ex.: `animate__slideOutRight`). */
@@ -39,7 +39,7 @@ export type AnimatedPresenceOptions = {
   durationMs?: number;
 };
 
-export type AnimatedPresence = {
+type AnimatedPresence = {
   shouldRender: boolean;
   className: string;
   style: React.CSSProperties;

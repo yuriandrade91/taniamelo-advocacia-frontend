@@ -5,6 +5,7 @@ import type {
   ClientAddressRequest,
   ClientAddressResponse,
 } from "@/interfaces/client/ClientSubResources.interface";
+import { feedback, type RequestFeedback } from "@/services/requestFeedback";
 
 /** Endereços — ClientAddressController. Base: /clients/{clientId}/addresses */
 
@@ -22,10 +23,12 @@ export const listAddresses = async (
 export const createAddress = async (
   clientId: string,
   body: ClientAddressRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<ClientAddressResponse>> => {
   const { data } = await axiosInstance.post<ApiEnvelope<ClientAddressResponse>>(
     endpoints.CLIENT_ADDRESSES.CREATE(clientId),
     body,
+    feedback("Endereço salvo.", options),
   );
   return data;
 };
@@ -47,12 +50,13 @@ export const createAddress = async (
 export const createAddresses = async (
   clientId: string,
   addresses: readonly ClientAddressRequest[],
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<ClientAddressResponse[]>> => {
   const { data } = await axiosInstance.post<
     ApiEnvelope<ClientAddressResponse[]>
   >(endpoints.CLIENT_ADDRESSES.CREATE_BATCH(clientId), {
     addresses: [...addresses],
-  });
+  }, feedback("Endereços salvos.", options));
   return data;
 };
 
@@ -60,10 +64,12 @@ export const updateAddress = async (
   clientId: string,
   addressId: string,
   body: ClientAddressRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<ClientAddressResponse>> => {
   const { data } = await axiosInstance.put<ApiEnvelope<ClientAddressResponse>>(
     endpoints.CLIENT_ADDRESSES.UPDATE(clientId, addressId),
     body,
+    feedback("Endereço atualizado.", options),
   );
   return data;
 };
@@ -72,8 +78,7 @@ export const updateAddress = async (
 export const deleteAddress = async (
   clientId: string,
   addressId: string,
+  options?: RequestFeedback,
 ): Promise<void> => {
-  await axiosInstance.delete(
-    endpoints.CLIENT_ADDRESSES.DELETE(clientId, addressId),
-  );
+  await axiosInstance.delete(endpoints.CLIENT_ADDRESSES.DELETE(clientId, addressId), feedback("Endereço excluído.", options));
 };

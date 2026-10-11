@@ -11,8 +11,8 @@ import NotificationCenter, {
   type NotificationItem,
 } from "./NotificationCenter";
 import UserMenu from "./UserMenu";
-import { SearchIcon } from "./icons";
 import { usePermissions } from "@/hooks/usePermissions";
+import { SearchIcon } from "@/components/ui/icons/glyphs";
 
 /**
  * Barra superior da área autenticada.
@@ -47,9 +47,9 @@ import { usePermissions } from "@/hooks/usePermissions";
 const MENU_ITEMS = [
   { label: "Início", href: "/home" },
   { label: "Clientes", href: "/clientes" },
-  { label: "Pagamentos", href: "/pagamentos", somenteAdmin: true },
+  { label: "Pagamentos", href: "/pagamentos", adminOnly: true },
   { label: "Agenda", href: "/agenda" },
-  { label: "Carteira", href: "/carteira", somenteAdmin: true },
+  { label: "Carteira", href: "/carteira", adminOnly: true },
   // Para todos: clientes e agenda são de todo mundo; a página esconde sozinha
   // as seções de dinheiro de quem não é ADMIN.
   { label: "Relatórios", href: "/relatorios" },
@@ -96,7 +96,7 @@ export default function Navbar() {
    * segundo é bem mais estranho de ver.
    */
   const visibleItems = MENU_ITEMS.filter(
-    (item) => !item.somenteAdmin || canSeeFinance,
+    (item) => !item.adminOnly || canSeeFinance,
   );
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -202,7 +202,7 @@ export default function Navbar() {
           aria-expanded={isSearchOpen}
           className="flex h-9 w-9 items-center justify-center rounded-full text-white/80 hover:bg-white/15 hover:text-white cursor-pointer"
         >
-          <SearchIcon />
+          <SearchIcon className="h-[18px] w-[18px]" />
         </button>
 
         <NotificationCenter

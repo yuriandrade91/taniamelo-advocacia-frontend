@@ -278,3 +278,20 @@ export function ageFromBirthDate(value: string): number | null {
   }
   return age < 0 ? null : age;
 }
+
+/** O menor texto que conta como justificativa — abaixo disso vira "ok". */
+export const MIN_JUSTIFICATION_LENGTH = 10;
+
+/**
+ * Justificativa de algo que fica no histórico: cancelar um compromisso
+ * (`appointment_history`) ou mudar a etapa de um cliente fora do caminho
+ * normal. Obrigatória, com um mínimo, contada sem os espaços das pontas.
+ */
+export function validateJustification(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return "Informe a justificativa.";
+  if (trimmed.length < MIN_JUSTIFICATION_LENGTH) {
+    return `A justificativa precisa ter pelo menos ${MIN_JUSTIFICATION_LENGTH} caracteres.`;
+  }
+  return null;
+}

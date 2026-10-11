@@ -1,24 +1,27 @@
 import { uploadDocuments, uploadSimulations } from "@/services/clientFileService";
+import type { RequestFeedback } from "@/services/requestFeedback";
 import { buildDocumentsFormData, buildSimulationsFormData } from "../../documentsFormData";
 import type { StagedDocument, StagedSimulation } from "./types";
 
 /**
  * Envia os arquivos escolhidos de um cliente que já existe — no "Salvar
- * cliente" e no "Enviar arquivos" da edição.
+ * cliente" do cadastro e no "Salvar" da ficha.
  *
  * Documentos e simulações são dois envios, e um falhar não segura o outro:
  * cada lado volta dizendo se entrou, para a tela limpar só o que subiu.
+ * `options` vale para os dois (`silent` no fluxo que avisa uma vez no fim).
  */
 export async function uploadStagedFiles(
   clientId: string,
   documents: readonly StagedDocument[],
   simulations: readonly StagedSimulation[],
+  options?: RequestFeedback,
 ): Promise<{ documents: boolean; simulations: boolean }> {
   const sent = { documents: true, simulations: true };
 
   if (documents.length > 0) {
     try {
-      await uploadDocuments(clientId, buildDocumentsFormData(documents));
+      await uploadDocuments(clientId, buildDocumentsFormData(documents), options);
     } catch (error) {
       console.error("Erro ao enviar documentos:", error);
       sent.documents = false;
@@ -38,6 +41,7 @@ export async function uploadStagedFiles(
             notes: item.notes,
           })),
         ),
+        options,
       );
     } catch (error) {
       console.error("Erro ao enviar simulações:", error);

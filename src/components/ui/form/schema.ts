@@ -43,7 +43,7 @@ export type FieldRule<V> = (value: string, values: V) => string | null;
 
 export type FieldRules<V> = Partial<Record<keyof V, FieldRule<V>>>;
 
-export type FieldKind =
+type FieldKind =
   | "text"
   | "cpf"
   | "rg"
@@ -64,7 +64,7 @@ export type FieldKind =
   | "textarea";
 
 /** O controle que desenha cada tipo. */
-export type FieldControl =
+type FieldControl =
   | "text"
   | "textarea"
   | "amount"
@@ -108,7 +108,7 @@ export const FIELD_STRATEGIES: Record<FieldKind, Strategy> = {
   textarea: { control: "textarea" },
 };
 
-export type FieldDef<V = Record<string, string | boolean>> = {
+type FieldDef<V = Record<string, string | boolean>> = {
   kind: FieldKind;
   label: string;
   /**
@@ -122,7 +122,7 @@ export type FieldDef<V = Record<string, string | boolean>> = {
   options?: readonly SelectFieldOption[];
   placeholder?: string;
   maxLength?: number;
-  /** Colunas na grade de 4 (`FormGrid`). */
+  /** Colunas na grade de 4 (`FieldGrid columns={4}`). */
   span?: 2 | 4;
   /** Datas: libera o futuro (vencimento); o padrão trava em hoje. */
   allowFuture?: boolean;
@@ -144,6 +144,10 @@ export type SectionValues<S extends SectionSchema> = {
  * preservar as chaves e os tipos de cada campo (`SectionValues<typeof s>`).
  */
 export const defineSection = <const S extends SectionSchema>(schema: S): S => schema;
+
+/** As chaves obrigatórias de uma ou mais seções, na ordem dos schemas. */
+export const requiredKeysOf = (...schemas: SectionSchema[]): string[] =>
+  schemas.flatMap((schema) => Object.keys(schema).filter((key) => Boolean(schema[key].required)));
 
 /** Valores iniciais de uma seção. */
 export function initialValues<S extends SectionSchema>(schema: S): SectionValues<S> {

@@ -7,7 +7,7 @@ import {
   DOCUMENT_TYPE_ENTRIES,
   type DocumentTypeKey,
 } from "@/enums/documentType/DocumentType";
-import { DOCUMENT_CATALOG, totalDeItens } from "./documentCatalog";
+import { DOCUMENT_CATALOG, totalItems } from "./documentCatalog";
 
 /**
  * A documentação do INSS inteira, por categoria.
@@ -43,7 +43,7 @@ export function DocumentCatalogPanel() {
   const [isOpen, setIsOpen] = useState(false);
 
   const total = CATEGORIES.reduce(
-    (sum, [key]) => sum + totalDeItens(key as DocumentTypeKey),
+    (sum, [key]) => sum + totalItems(key as DocumentTypeKey),
     0,
   );
 
@@ -90,18 +90,18 @@ export function DocumentCatalogPanel() {
                   </p>
                 )}
 
-                {section.grupos.map((grupo, grupoIndex) => (
+                {section.groups.map((group, groupIndex) => (
                   <div
-                    key={grupo.grupo ?? grupoIndex}
-                    className={grupoIndex > 0 ? "mt-2" : "mt-2"}
+                    key={group.group ?? groupIndex}
+                    className={groupIndex > 0 ? "mt-2" : "mt-2"}
                   >
-                    {grupo.grupo && (
+                    {group.group && (
                       <p className="text-xs font-medium text-primary">
-                        {grupo.grupo}
+                        {group.group}
                       </p>
                     )}
                     <ul className="mt-1 list-disc pl-4 text-xs text-gray-100 marker:text-secondary/50">
-                      {grupo.itens.map((item) => (
+                      {group.items.map((item) => (
                         <li key={item} className="py-0.5">
                           {item}
                         </li>

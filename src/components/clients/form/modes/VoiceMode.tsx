@@ -11,8 +11,9 @@ import {
   type RecognitionCtor,
 } from "./dictation";
 import { ExtractionPanel } from "./ExtractionPanel";
-import type { FillModeProps } from "./shared";
+import type { FillModeProps } from "./fillModeForms";
 import { extractClientData } from "./smartFill";
+import { Svg, type IconProps } from "@/components/ui/icons/Svg";
 
 const recognitionCtor = (): RecognitionCtor | null => {
   const w = window as unknown as {
@@ -22,32 +23,12 @@ const recognitionCtor = (): RecognitionCtor | null => {
   return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
 };
 
-function MicIcon({ className = "h-9 w-9" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      className={className}
-      aria-hidden="true"
-    >
-      <rect
-        x="9"
-        y="3"
-        width="6"
-        height="11"
-        rx="3"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <path
-        d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-      />
-    </svg>
-  );
-}
+const MicIcon = ({ className = "h-9 w-9" }: IconProps) => (
+  <Svg className={className}>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21" />
+  </Svg>
+);
 
 /**
  * Medidor de volume ao vivo: prova que o microfone está captando som, que

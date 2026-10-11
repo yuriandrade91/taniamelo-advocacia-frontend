@@ -6,18 +6,17 @@ import {
   Legend,
   RadialProgress,
   SegmentBar,
-} from "@/components/ui/models/viz";
+} from "@/components/charts/svgCharts";
 import { ArrowDownIcon } from "@/components/ui/icons/glyphs";
 import {
   AGENDA_LABELS,
   AGENDA_TONES,
   INTAKE_TONES,
-  FinanceSummary,
-  SeriesGate,
-  stageBg,
   useReport,
   type Report,
-} from "./kit";
+} from "./useReport";
+import { FinanceSummary, SeriesGate } from "./ReportBlocks";
+import { stageBg } from "@/components/ui/feedback/stageRamp";
 import type { ReportViewProps } from "./types";
 
 /**

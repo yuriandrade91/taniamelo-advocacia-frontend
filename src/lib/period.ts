@@ -10,25 +10,13 @@
  * derivado dele — nunca o contrário.
  */
 
+import { MONTH_LABELS, MONTH_SHORT } from "@/constants/date/months";
+
 export type MonthRef = { year: number; month: number }; // month: 1-12
 /** `yyyy-MM-dd`, ou qualquer ISO que comece por ele. */
-export type IsoDateLike = string;
-export type DateRange = { from: string; to: string };
+type IsoDateLike = string;
+type DateRange = { from: string; to: string };
 
-const MONTH_NAMES = [
-  "Janeiro",
-  "Fevereiro",
-  "Março",
-  "Abril",
-  "Maio",
-  "Junho",
-  "Julho",
-  "Agosto",
-  "Setembro",
-  "Outubro",
-  "Novembro",
-  "Dezembro",
-];
 
 /** Dois dígitos: `7` → `"07"`. */
 export const pad = (value: number) => String(value).padStart(2, "0");
@@ -111,10 +99,18 @@ export function shiftMonth({ year, month }: MonthRef, delta: number): MonthRef {
 
 /** "Setembro de 2026". */
 export function formatMonthLabel({ year, month }: MonthRef): string {
-  return `${MONTH_NAMES[month - 1]} de ${year}`;
+  return `${MONTH_LABELS[month - 1]} de ${year}`;
 }
 
 /** "Setembro" — para onde o ano já está claro pelo contexto. */
 export function monthName({ month }: MonthRef): string {
-  return MONTH_NAMES[month - 1];
+  return MONTH_LABELS[month - 1];
+}
+
+/** `2026-03` → `mar/26`: o rótulo curto do eixo dos gráficos mensais. */
+export function formatMonthAxis(month: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(month);
+  if (!match) return month;
+  const [, year, monthNumber] = match;
+  return `${MONTH_SHORT[Number(monthNumber) - 1]}/${year.slice(2)}`;
 }

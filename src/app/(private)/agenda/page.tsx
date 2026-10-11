@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@heroui/react";
 
-import FormModal from "@/components/ui/modals/FormModal/FormModal";
-import { MonthPicker } from "@/components/ui/MonthPicker";
+import FormModal from "@/components/ui/modals/FormModal";
+import { MonthPicker } from "@/components/ui/filters/MonthPicker";
 import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { groupByDay } from "@/components/agenda/agendaGrouping";
 import { AgendaAccordion } from "@/components/agenda/AgendaAccordion";
@@ -24,20 +24,16 @@ import {
 } from "@/enums/appointment/Appointment";
 
 /**
- * Agenda — página própria. O "Visualizar todos" do card da Home traz para
- * cá; o modal que fazia esse papel (e o `?openAgenda=true`) saiu.
+ * Agenda — a visão completa dos compromissos, por dia. O "Visualizar todos" do
+ * cartão da Home traz para cá.
  *
- * ## Por que não reaproveitei o `AppointmentsCard`
+ * ## O que é compartilhado com o cartão da Home
  *
- * Ele resolve o mesmo domínio, mas é o componente-Deus que o
- * `REVISAO_ARQUITETURA_2026` aponta: eram 1.797 linhas, 25 `useState`, três
- * caches e o formulário inteiro no mesmo escopo. Colocá-lo numa rota faria a página
- * nascer com o problema pronto.
- *
- * O fluxo de formulário e o das ações moram em hooks compartilhados com o card
- * da Home (`useAppointmentEditor`, `useAppointmentActions`): as duas telas
- * validam, avisam conflito e desfazem igual. O card é o resumo compacto; esta
- * página é a visão completa.
+ * A linha (`AppointmentRow`), as ações (`appointmentActions` +
+ * `useAppointmentActions`) e o formulário (`useAppointmentEditor`) são os
+ * mesmos: as duas telas validam, avisam conflito e desfazem igual. O cartão é
+ * o resumo do mês (só agendados, num painel lateral); esta página tem todos
+ * os status, os filtros e o formulário em modal.
  *
  * ## Janela de desfazer
  *
@@ -138,9 +134,11 @@ export default function AgendaPage() {
         days={days}
         isLoading={isLoading}
         actions={{
+          onViewDetails: actions.requestDetails,
           onEdit: editor.openEdit,
           onComplete: actions.requestComplete,
           onCancel: actions.requestCancel,
+          onReschedule: editor.openReschedule,
           onDelete: canDestroy ? actions.requestDelete : undefined,
           onCreate: editor.openCreate,
         }}
@@ -148,9 +146,9 @@ export default function AgendaPage() {
 
       <FormModal
         isOpen={editor.isOpen}
-        onOpenChange={(open) => !open && editor.close()}
-        title={editor.isEditing ? "Editar compromisso" : "Novo compromisso"}
-        confirmLabel={editor.isEditing ? "Salvar alterações" : "Agendar"}
+        onOpenChange={(open) => !open && editor.requestClose()}
+        title={editor.title}
+        confirmLabel={editor.confirmLabel}
         onConfirm={editor.submit}
         isConfirmDisabled={!editor.isValid}
         size="lg"
@@ -161,7 +159,7 @@ export default function AgendaPage() {
       >
         {editor.fields}
       </FormModal>
-      {editor.conflictDialog}
+      {editor.dialogs}
       {actions.dialogs}
     </div>
   );

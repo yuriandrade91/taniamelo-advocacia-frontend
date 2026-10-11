@@ -1,199 +1,120 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 
 import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { ActionButton } from "@/components/ui/actions/ActionGroup";
 import { PlusIcon } from "@/components/ui/icons/actions";
-import { TablePagination } from "@/components/ui/table/TablePagination";
-import { CompiledModel } from "@/components/clients/models/CompiledModel";
-import type { ClientsModelProps } from "@/components/clients/models/shared";
-import { invalidateSituationTrail } from "@/components/clients/models/situationTrail";
 import { DateRangeField } from "@/components/ui/filters/DateRangeField";
-import {
-  CLIENTS_PAGE_SIZE,
-  INITIAL_CLIENTS_PAGINATION,
-  paginationFromEnvelope,
-  type ClientsPagination,
-} from "@/components/clients/list/clientsPagination";
+import { TablePagination } from "@/components/ui/table/TablePagination";
+import { ClientsList } from "@/components/clients/list/ClientsList";
+import { useClientFilters } from "@/components/clients/list/useClientFilters";
+import { invalidateRequestStageTrail, invalidateSituationTrail } from "@/components/clients/stage/stageTrails";
+import { situationChangedMessage } from "@/components/clients/stage/stages";
+import { requestStageChangedMessage } from "@/components/clients/stage/requestStages";
 import { SituationLabelByKey, type SituationKey } from "@/enums/situation/Situation";
-import type { Clients } from "@/interfaces/Clients.interface";
+import { RequestStageLabelByKey, type RequestStageKey } from "@/enums/requestStage/RequestStage";
+import type { ClientListItem } from "@/interfaces/client/Client.interface";
+import { usePagedList } from "@/hooks/usePagedList";
 import { usePendingAction } from "@/hooks/usePendingAction";
 import { usePermissions } from "@/hooks/usePermissions";
-import { clearClientsCache, getCachedClients, loadClients } from "@/lib/clientsCache";
-import { clampPage } from "@/lib/pagination";
-import { applyPendingOverlay, applyPendingTotal } from "@/lib/pendingActions";
-import {
-  clients as fetchClients,
-  deleteClient,
-  patchClient,
-} from "@/services/clientService";
-import { notificationCenter } from "@/services/notificationService";
-import { useClientFilters } from "./useClientFilters";
+import { clientsListCache } from "@/lib/clientsCache";
 import { messageOf } from "@/lib/errorMessage";
+import { pageFromEnvelope } from "@/lib/pagination";
+import { applyPendingOverlay, applyPendingTotal } from "@/lib/pendingActions";
+import { clients as fetchClients, deleteClient, patchClient } from "@/services/clientService";
+import { notificationCenter } from "@/services/notificationService";
 
 /**
  * Clientes — a listagem.
  *
- * A página é só orquestração: busca (com cache e descarte de resposta
- * atrasada), paginação, exclusão com janela de desfazer, mudança de situação,
- * os modais de ficha e exclusão e o painel do financeiro do cliente. O
- * desenho está em `CompiledModel`, que recebe `ClientsModelProps`.
+ * A página é só orquestração: a lista paginada (`usePagedList`, com o cache de
+ * sessão de `clientsListCache` — voltar à lista não relê), a exclusão com
+ * janela de desfazer, a mudança de etapa, e os modais de ficha, exclusão e
+ * financeiro. O desenho está em `ClientsList`.
+ *
+ * `?searchTerm=` é a busca da barra superior: vira o texto da busca da lista,
+ * também quando ela chega com a lista já aberta.
  */
 
 /** Ficha e financeiro só existem depois do clique: fora do JS inicial da lista. */
-const DeleteClientModal = dynamic(
-  () => import("@/components/clients/DeleteClientModal"),
-  { ssr: false },
-);
+const DeleteClientModal = dynamic(() => import("@/components/clients/DeleteClientModal"), { ssr: false });
 const ClientDetailsModal = dynamic(() => import("@/components/clients/details/ClientDetailsModal"), { ssr: false });
 const ClientFinanceDrawer = dynamic(
   () => import("@/components/clients/finance/ClientFinanceDrawer").then((m) => m.ClientFinanceDrawer),
   { ssr: false },
 );
 
-/** Cliente alvo de um modal (ficha ou exclusão). */
+const PAGE_SIZE = 10;
+
+/** Cliente alvo de um modal (ficha, exclusão, financeiro). */
 type ClientTarget = { id: string; name: string };
 
-/**
- * Uma página carregada, marcada com a requisição que a trouxe (`key`). A tela
- * só usa a que bate com a requisição atual — é o que torna "carregando" um
- * valor derivado, e não um booleano a manter em sincronia à mão.
- */
-type LoadedPage = {
-  key: string;
-  clients: Clients[];
-  pagination: ClientsPagination;
-  error: string;
-};
-
-/**
- * `applyPendingOverlay` pede os rótulos de "concluído"/"cancelado", mas aqui
- * só existe exclusão pendente — nunca são usados.
- */
+/** Só existe exclusão pendente aqui: os rótulos de concluído/cancelado nunca são usados. */
 const NO_STATUS_LABELS = { complete: "", cancel: "" };
 
 export default function ClientsPage() {
-  const router = useRouter();
-  /**
-   * Excluir é de ADMIN/SUPPORT: os demais não veem o botão. O financeiro do
-   * cliente é só de quem vê o financeiro (ADMIN).
-   */
-  const { canDestroy, canSeeFinance } = usePermissions();
+  // `useSearchParams` num export estático pede a fronteira de Suspense.
+  return (
+    <Suspense fallback={null}>
+      <ClientsPageContent />
+    </Suspense>
+  );
+}
 
-  const [page, setPage] = useState(1);
-  const [loaded, setLoaded] = useState<LoadedPage | null>(null);
-  /** Incrementado para refazer a busca depois de criar, editar ou excluir. */
-  const [refreshKey, setRefreshKey] = useState(0);
+function ClientsPageContent() {
+  const router = useRouter();
+  /** Excluir é de ADMIN/SUPPORT; o financeiro do cliente, de quem vê o financeiro (ADMIN). */
+  const { canDestroy, canSeeFinance } = usePermissions();
 
   const [detailsTarget, setDetailsTarget] = useState<(ClientTarget & { edit: boolean }) | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClientTarget | null>(null);
   const [financeTarget, setFinanceTarget] = useState<ClientTarget | null>(null);
 
-  /** Janela de desfazer das exclusões — ver `scheduleDelete`. */
+  const filters = useClientFilters();
+
+  /** Cada busca nova da barra superior entra uma vez; depois, o campo é da pessoa. */
+  const urlSearch = useSearchParams().get("searchTerm") ?? "";
+  const [appliedUrlSearch, setAppliedUrlSearch] = useState("");
+  if (urlSearch !== appliedUrlSearch) {
+    setAppliedUrlSearch(urlSearch);
+    if (urlSearch) filters.setSearch(urlSearch);
+  }
+
+  const list = usePagedList({
+    params: filters.params,
+    cache: clientsListCache,
+    fetchPage: (params, page) =>
+      fetchClients({ ...params, pageNumber: page, pageSize: PAGE_SIZE }).then(pageFromEnvelope),
+  });
+
+  /**
+   * A etapa que acabou de mudar na linha (do benefício ou no INSS), até a
+   * lista relida trazer a mesma do servidor: a pessoa vê a etapa nova na hora,
+   * sem esperar a releitura.
+   */
+  const [situationOverrides, setSituationOverrides] = useState<
+    Record<string, Partial<Pick<ClientListItem, "situation" | "requestStage" | "updatedAt">>>
+  >({});
+
+  /** Exclusões com janela de desfazer — a linha some na hora, o DELETE sai depois. */
   const { pending, schedule } = usePendingAction();
 
-  /**
-   * Filtros. Qualquer mudança volta para a primeira página — senão a pessoa
-   * filtra estando na página 7 e recebe uma lista vazia.
-   */
-  const filters = useClientFilters(() => setPage(1));
-
-  const params = useMemo(
-    () => ({ ...filters.params, pageNumber: page, pageSize: CLIENTS_PAGE_SIZE }),
-    [filters.params, page],
-  );
-  const cacheKey = JSON.stringify(params);
-  /** O `refreshKey` entra na chave: recarregar é pedir uma requisição nova. */
-  const requestKey = `${cacheKey}#${refreshKey}`;
-
-  /**
-   * Busca a página quando a requisição muda (filtros, página ou recarga).
-   *
-   * - `loadClients` serve do cache uma combinação já vista e reaproveita a
-   *   mesma combinação já a caminho.
-   * - Só a resposta do pedido mais recente chega à tela: trocando de filtro
-   *   rápido, a resposta atrasada do anterior é descartada (`active`).
-   * - Todo `setState` acontece na resposta, nunca no corpo do efeito — o
-   *   "carregando" é derivado da chave (ver `visible` abaixo).
-   * - Se a página pedida passou do fim (o último cliente dela foi excluído),
-   *   volta para a última que existe.
-   */
-  useEffect(() => {
-    let active = true;
-    loadClients(cacheKey, () => fetchClients(params))
-      .then((envelope) => {
-        if (!active) return;
-        setLoaded((previous) => ({
-          key: requestKey,
-          clients: envelope?.data ?? [],
-          pagination: paginationFromEnvelope(
-            previous?.pagination ?? INITIAL_CLIENTS_PAGINATION,
-            envelope,
-          ),
-          error: "",
-        }));
-        const lastPage = envelope?.pagination?.totalPages ?? 0;
-        if (lastPage > 0 && params.pageNumber > lastPage) setPage(lastPage);
-      })
-      .catch((reason: unknown) => {
-        if (!active) return;
-        setLoaded((previous) => ({
-          key: requestKey,
-          clients: [],
-          pagination: previous?.pagination ?? INITIAL_CLIENTS_PAGINATION,
-          error: messageOf(reason, String(reason)),
-        }));
-      });
-    return () => {
-      active = false;
-    };
-  }, [cacheKey, params, requestKey]);
-
-  /**
-   * A página que a tela mostra: a carregada para esta requisição, ou — antes
-   * de a resposta assíncrona chegar — a do cache, para voltar a uma página já
-   * vista não piscar o skeleton. Nenhuma das duas = carregando.
-   */
-  const cached = loaded?.key === requestKey ? undefined : getCachedClients(cacheKey);
-  const visible: LoadedPage | null =
-    loaded?.key === requestKey
-      ? loaded
-      : cached
-        ? {
-            key: requestKey,
-            clients: cached.data ?? [],
-            pagination: paginationFromEnvelope(
-              loaded?.pagination ?? INITIAL_CLIENTS_PAGINATION,
-              cached,
-            ),
-            error: "",
-          }
-        : null;
-  const isLoading = visible === null;
-  const error = visible?.error ?? "";
-  /** Enquanto carrega, os totais da página anterior seguram o rodapé no lugar. */
-  const pagination: ClientsPagination = {
-    ...(visible?.pagination ?? loaded?.pagination ?? INITIAL_CLIENTS_PAGINATION),
-    pageNumber: page,
-  };
-
-  /** Recarrega a lista; a ficha pode ter mudado a situação de qualquer um. */
+  const { invalidate } = list;
+  /** Relê a lista; a ficha pode ter mudado a situação de qualquer um. */
   const refresh = useCallback(() => {
-    clearClientsCache();
     invalidateSituationTrail();
-    setRefreshKey((key) => key + 1);
-  }, []);
+    invalidateRequestStageTrail();
+    setSituationOverrides({});
+    invalidate();
+  }, [invalidate]);
 
   /**
-   * Exclusão com janela de desfazer — mesmo mecanismo da agenda.
-   *
-   * A linha some da tela na hora e o DELETE só sai quando a janela expira;
-   * desfazer é cancelar um timer, sem chamar a API. A exclusão no backend é
-   * lógica, mas esta tela não oferece restauração — depois de enviada, não há
-   * volta por aqui. Desfazer só existe antes de enviar.
+   * Exclusão com janela de desfazer — mesmo mecanismo da agenda. A exclusão no
+   * backend é lógica, mas esta tela não oferece restauração: depois de
+   * enviada, não há volta por aqui.
    */
   const scheduleDelete = (target: ClientTarget) => {
     schedule({
@@ -206,17 +127,13 @@ export default function ClientsPage() {
   };
 
   /**
-   * Abre a ficha — leitura ou edição.
-   *
-   * Registro sem `id` não abre: `String(undefined)` viraria a string
-   * "undefined", que passa por qualquer `if (!id)` e chega à API como
-   * `GET /clients/undefined`. O aviso é um toast, não o erro da lista: um
-   * registro ruim não pode esconder a página inteira.
+   * Abre a ficha — leitura ou edição. Registro sem `id` não abre:
+   * `String(undefined)` viraria "undefined", que passa por qualquer `if (!id)`
+   * e chega à API como `GET /clients/undefined`. Um registro ruim vira um
+   * aviso, não o erro da lista inteira.
    */
-  /** Visualizar abre a ficha em leitura; editar, a mesma ficha já editando. */
-  const openClient = (client: Clients, edit: boolean) => {
+  const openClient = (client: ClientListItem, edit: boolean) => {
     if (!client.id) {
-      console.error("Cliente sem id na listagem — ficha não aberta.", client);
       notificationCenter.danger("Não foi possível abrir a ficha", {
         description: "Este registro veio sem identificador. Atualize a página.",
       });
@@ -225,79 +142,37 @@ export default function ClientsPage() {
     setDetailsTarget({ id: String(client.id), name: client.fullName, edit });
   };
 
-  const requestDelete = (client: Clients) => {
+  /** Muda a etapa na linha (PATCH). Erro rejeita: o toast sai do interceptor e o cartão fica aberto. */
+  const changeSituation = async (client: ClientListItem, situation: SituationKey) => {
     if (!client.id) return;
-    setDeleteTarget({ id: String(client.id), name: client.fullName });
+    const id = String(client.id);
+    await patchClient(id, { situation }, { successMessage: situationChangedMessage(client.fullName, situation) });
+    setSituationOverrides((current) => ({
+      ...current,
+      [id]: { ...current[id], situation: SituationLabelByKey[situation], updatedAt: new Date().toISOString() },
+    }));
+    invalidateSituationTrail(id);
+    invalidate();
   };
 
-  /**
-   * Muda a situação na linha (PATCH). Sem recarregar a lista: a linha já
-   * mostra a etapa nova, e só o cache sai, para a próxima consulta (outra
-   * página, outro filtro) vir do servidor com o dado certo. Erro rejeita —
-   * o toast sai do interceptor e o cartão fica aberto para tentar de novo.
-   */
-  const changeSituation = async (client: Clients, situation: SituationKey) => {
+  /** Muda a situação no INSS na linha (PATCH `requestStage`). Mesmo contrato do `changeSituation`. */
+  const changeRequestStage = async (client: ClientListItem, requestStage: RequestStageKey) => {
     if (!client.id) return;
-    await patchClient(String(client.id), { situation });
-    const label = SituationLabelByKey[situation];
-    const updatedAt = new Date().toISOString();
-    setLoaded((current) =>
-      current && {
-        ...current,
-        clients: current.clients.map((item) =>
-          item.id === client.id ? { ...item, situation: label, updatedAt } : item,
-        ),
-      },
-    );
-    clearClientsCache();
-    invalidateSituationTrail(String(client.id));
-    notificationCenter.success(`Situação de ${client.fullName} atualizada para "${label}".`);
+    const id = String(client.id);
+    await patchClient(id, { requestStage }, { successMessage: requestStageChangedMessage(client.fullName, requestStage) });
+    setSituationOverrides((current) => ({
+      ...current,
+      [id]: { ...current[id], requestStage: RequestStageLabelByKey[requestStage], updatedAt: new Date().toISOString() },
+    }));
+    invalidateRequestStageTrail(id);
+    invalidate();
   };
 
-  const goToPage = (target: number) => setPage(clampPage(target, pagination.totalPages));
-
-  /** Exclusões agendadas já saem da lista e do total, antes da requisição. */
-  const loadedClients = visible?.clients ?? [];
-  const visibleClients = applyPendingOverlay(loadedClients, pending, NO_STATUS_LABELS);
-  const total = applyPendingTotal(pagination.totalRecords, loadedClients, pending);
-
-  /** Tudo o que a lista precisa — ver `models/shared.ts`. */
-  const listProps: ClientsModelProps = {
-    clients: visibleClients,
-    isLoading,
-    error,
-    filterState: filters,
-    dateRangeField: (
-      <DateRangeField
-        value={filters.dateRange}
-        onChange={filters.setDateRange}
-        error={filters.dateError}
-      />
-    ),
-    pagination: (
-      <TablePagination
-        pageNumber={page}
-        pageSize={pagination.pageSize}
-        total={total}
-        totalPages={pagination.totalPages}
-        onPageChange={goToPage}
-        noun={["cliente", "clientes"]}
-      />
-    ),
-    canDelete: canDestroy,
-    actions: {
-      onCreate: () => router.push("/clientes/novo"),
-      onView: (client) => openClient(client, false),
-      onEdit: (client) => openClient(client, true),
-      onDelete: requestDelete,
-      onChangeSituation: changeSituation,
-      onViewFinance: canSeeFinance
-        ? (client) => {
-            if (client.id) setFinanceTarget({ id: String(client.id), name: client.fullName });
-          }
-        : undefined,
-    },
-  };
+  /** Exclusões agendadas já saem da lista e do total; etapas recém-mudadas já aparecem. */
+  const clients = applyPendingOverlay(list.items, pending, NO_STATUS_LABELS).map((client) =>
+    client.id && situationOverrides[client.id] ? { ...client, ...situationOverrides[client.id] } : client,
+  );
+  const total = applyPendingTotal(list.total, list.items, pending);
 
   return (
     <div className="flex flex-col gap-5">
@@ -305,18 +180,47 @@ export default function ClientsPage() {
         title="Clientes"
         description="Beneficiários do escritório, com situação e benefício em análise."
         actions={
-          <ActionButton
-            tone="onDark"
-            shape="pill"
-            icon={<PlusIcon />}
-            onClick={() => router.push("/clientes/novo")}
-          >
+          <ActionButton tone="onDark" shape="pill" icon={<PlusIcon />} onClick={() => router.push("/clientes/novo")}>
             Novo cliente
           </ActionButton>
         }
       />
 
-      <CompiledModel {...listProps} />
+      <ClientsList
+        clients={clients}
+        isLoading={list.isLoading}
+        error={list.failed ? messageOf(list.failureReason, "Não foi possível carregar os clientes.") : ""}
+        filterState={filters}
+        dateRangeField={
+          <DateRangeField value={filters.dateRange} onChange={filters.setDateRange} error={filters.dateError} />
+        }
+        pagination={
+          <TablePagination
+            pageNumber={list.page}
+            pageSize={PAGE_SIZE}
+            total={total}
+            totalPages={list.totalPages}
+            onPageChange={list.setPage}
+            noun={["cliente", "clientes"]}
+          />
+        }
+        canDelete={canDestroy}
+        actions={{
+          onCreate: () => router.push("/clientes/novo"),
+          onView: (client) => openClient(client, false),
+          onEdit: (client) => openClient(client, true),
+          onDelete: (client) => {
+            if (client.id) setDeleteTarget({ id: String(client.id), name: client.fullName });
+          },
+          onChangeSituation: changeSituation,
+          onChangeRequestStage: changeRequestStage,
+          onViewFinance: canSeeFinance
+            ? (client) => {
+                if (client.id) setFinanceTarget({ id: String(client.id), name: client.fullName });
+              }
+            : undefined,
+        }}
+      />
 
       <DeleteClientModal
         isOpen={deleteTarget !== null}

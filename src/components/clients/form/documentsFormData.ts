@@ -16,7 +16,7 @@
  * forma do metadado é quem monta a tela.
  */
 
-export type DocumentUpload = {
+type DocumentUpload = {
   file: File;
   /** Chave do enum DocumentType (ex.: "DOCUMENTOS_MEDICOS"). */
   documentType: string;
@@ -57,7 +57,7 @@ export function buildDocumentsFormData(
  * (`PATCH /files/simulations/{id}/principal`), que precisa do id que só existe
  * depois do upload. Mandá-la no metadado seria ignorada em silêncio.
  */
-export type SimulationUpload = {
+type SimulationUpload = {
   file: File;
   simulationDate?: string;
   version?: string;

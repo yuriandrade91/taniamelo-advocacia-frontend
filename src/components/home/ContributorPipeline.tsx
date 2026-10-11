@@ -12,7 +12,7 @@ import {
   usePipelineColumns,
   type PipelineCard,
 } from "./pipelineBoard";
-import { SeeAllLink } from "./ui";
+import { SeeAllLink } from "./CardControls";
 
 /**
  * Esteira do Contribuinte — o cartão da Home.

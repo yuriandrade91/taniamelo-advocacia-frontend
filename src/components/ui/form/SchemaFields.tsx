@@ -213,20 +213,3 @@ export function FieldSkeleton({ label, isSwitch, className }: { label: string; i
     </div>
   );
 }
-
-/** Vários campos do schema, na ordem dada. */
-export function SchemaFields<V extends FormValues>({
-  form,
-  names,
-  schema,
-  isReadOnly,
-}: {
-  form: SectionForm<V>;
-  names: readonly (keyof V & string)[];
-  schema?: SectionSchema;
-  isReadOnly?: boolean;
-}) {
-  return names.map((name) => (
-    <SchemaField key={name} form={form} name={name} schema={schema} isReadOnly={isReadOnly} />
-  ));
-}

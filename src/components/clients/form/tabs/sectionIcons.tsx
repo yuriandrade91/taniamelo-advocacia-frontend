@@ -4,20 +4,12 @@
  * próprio deixa a aba reconhecível antes de ler o nome.
  */
 import type { ReactNode } from "react";
+import { Svg } from "@/components/ui/icons/Svg";
 
 const Icon = ({ children }: { children: ReactNode }) => (
-  <svg
-    viewBox="0 0 20 20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.5"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className="h-5 w-5"
-    aria-hidden="true"
-  >
+  <Svg viewBox="0 0 20 20" strokeWidth={1.5} className="h-5 w-5">
     {children}
-  </svg>
+  </Svg>
 );
 
 export const ServiceIcon = () => (

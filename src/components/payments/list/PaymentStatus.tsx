@@ -10,7 +10,7 @@ import { BUCKET_BADGE, type PaymentBucket } from "../paymentBuckets";
  * `--color-previsto` segue nas outras telas.
  */
 
-export const STATUS_ICON: Record<PaymentBucket, ComponentType<{ className?: string }>> = {
+const STATUS_ICON: Record<PaymentBucket, ComponentType<{ className?: string }>> = {
   overdue: AlertIcon,
   upcoming: ClockIcon,
   paid: CheckCircleIcon,
@@ -18,7 +18,7 @@ export const STATUS_ICON: Record<PaymentBucket, ComponentType<{ className?: stri
 };
 
 /** Cor do ícone e do texto de destaque (prazo do cartão). */
-export const STATUS_TEXT: Record<PaymentBucket, string> = {
+const STATUS_TEXT: Record<PaymentBucket, string> = {
   overdue: "text-danger",
   upcoming: "text-sky-500",
   paid: "text-success",

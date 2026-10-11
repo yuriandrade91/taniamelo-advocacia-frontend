@@ -5,17 +5,19 @@ import {
   RowActions,
   deleteAction,
   editAction,
+  viewAction,
   type RowAction,
 } from "@/components/ui/table/RowActions";
-import { stageBg, stageTile } from "@/components/ui/stageRamp";
+import { stageBg, stageTile } from "@/components/ui/feedback/stageRamp";
 import { AppointmentStatusLabelByKey } from "@/enums/appointment/Appointment";
 import { MONTH_SHORT } from "@/constants/date/months";
-import { plural } from "@/lib/format";
+import { initials, plural } from "@/lib/format";
 import type { AppointmentResponse } from "@/interfaces/appointment/Appointment.interface";
 import {
   busyMinutes,
   formatDayHeader,
   formatDuration,
+  formatWhen,
   isCancelled,
   isDone,
   isOngoing,
@@ -24,32 +26,28 @@ import {
   type AgendaDay,
 } from "./agendaGrouping";
 import {
-  BanIcon,
   CalendarDotIcon,
   ChatIcon,
-  CheckIcon,
   GavelIcon,
   HourglassIcon,
   PinIcon,
+  RescheduleIcon,
   StethoscopeIcon,
-  UserIcon,
   UsersIcon,
   VideoIcon,
 } from "./agendaIcons";
 import { openInNewTab } from "@/lib/openInNewTab";
 import { Pill } from "@/components/ui/feedback/Badges";
+import { BanIcon, CalendarIcon, CheckIcon, UserIcon } from "@/components/ui/icons/glyphs";
 
 /**
  * O desenho de um compromisso — a linha, o cabeçalho do dia e a cor do tipo.
  *
  * Mora fora da sanfona porque a Agenda não é a única tela que mostra
- * compromisso: o cartão da Home mostra os mesmos dados em menos espaço. Antes
- * cada uma tinha a sua linha, e elas divergiam no que importa — a hora, o
- * tipo, a modalidade e o status liam diferente na mesma sessão.
- *
- * `compact` é a única diferença entre as duas: na página o tipo tem coluna
- * própria e o respiro é maior; no cartão o tipo entra na linha de apoio, que
- * é onde ele caberia sem empurrar o título para fora.
+ * compromisso. A página usa a linha inteira (`AppointmentRow`: hora, tipo,
+ * modalidade, cliente, status); o cartão da Home, a linha curta
+ * (`AppointmentLine`: iniciais, título, quando e tipo). As ações são as
+ * mesmas nas duas (`appointmentActions`).
  */
 
 /**
@@ -57,10 +55,14 @@ import { Pill } from "@/components/ui/feedback/Badges";
  * excluir (`canDestroy`); sem ela, sem o ícone.
  */
 export type AgendaActions = {
+  /** A descrição, numa modal — só aparece quando há descrição. */
+  onViewDetails?: (appointment: AppointmentResponse) => void;
   onEdit: (appointment: AppointmentResponse) => void;
   onComplete: (appointment: AppointmentResponse) => void;
   onCancel: (appointment: AppointmentResponse) => void;
   onDelete?: (appointment: AppointmentResponse) => void;
+  /** Um compromisso novo com os dados de um cancelado, sem data. */
+  onReschedule?: (appointment: AppointmentResponse) => void;
   /** "Novo compromisso" — oferecido no estado vazio. */
   onCreate: () => void;
 };
@@ -120,7 +122,7 @@ const STATUS_DOT: Record<string, string> = {
 // ── Peças ──
 
 /** Selo de status: texto em `gray-100`, como o resto da linha; a cor fica no ponto. */
-export function StatusChip({ status }: { status: string }) {
+function StatusChip({ status }: { status: string }) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-100 ring-1 ring-black/10">
       <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status] ?? "bg-sky-400"}`} />
@@ -130,7 +132,7 @@ export function StatusChip({ status }: { status: string }) {
 }
 
 /** Ponto parado + halo pulsando — só no que está acontecendo agora. */
-export function LiveDot() {
+function LiveDot() {
   return (
     <span className="relative inline-flex h-2 w-2">
       <span className="absolute inset-0 rounded-full bg-success motion-safe:animate-halo" />
@@ -140,7 +142,7 @@ export function LiveDot() {
 }
 
 /** Tipo escrito, com o ponto na cor da rampa. */
-export function TypeTag({
+function TypeTag({
   type,
   className = "",
 }: {
@@ -156,13 +158,13 @@ export function TypeTag({
 }
 
 /** Modalidade (com o local, se presencial) e cliente. */
-export function MetaLine({
+function MetaLine({
   appointment,
   leading,
   className = "",
 }: {
   appointment: AppointmentResponse;
-  /** Entra antes da modalidade — é por aí que o tipo aparece no modo compacto. */
+  /** Entra antes da modalidade. */
   leading?: ReactNode;
   className?: string;
 }) {
@@ -200,36 +202,23 @@ export function AppointmentRow({
   appointment: a,
   actions,
   now,
-  compact = false,
 }: {
   appointment: AppointmentResponse;
   actions: RowAction<AppointmentResponse>[];
   now: number;
-  compact?: boolean;
 }) {
   const cancelled = isCancelled(a);
   const dim = cancelled ? "opacity-60" : "";
   return (
-    <li
-      className={`flex flex-wrap items-center border-b border-black/5 text-gray-100 transition-colors last:border-b-0 hover:bg-secondary/5 ${
-        compact
-          ? "gap-x-3 gap-y-2 rounded-xl px-1 py-3 text-xs"
-          : "gap-x-6 gap-y-3 px-6 py-4 text-sm"
-      }`}
-    >
-      <span
-        className={`shrink-0 font-semibold text-primary tabular-nums ${compact ? "w-14" : "w-20"} ${dim}`}
-      >
+    <li className="flex flex-wrap items-center gap-x-6 gap-y-3 border-b border-black/5 px-6 py-4 text-sm text-gray-100 transition-colors last:border-b-0 hover:bg-secondary/5">
+      <span className={`w-20 shrink-0 font-semibold text-primary tabular-nums ${dim}`}>
         {localTimeOf(a.startAt)}
         <span className="block text-[11px] font-normal text-gray-100">
           até {localTimeOf(a.endAt)}
         </span>
       </span>
 
-      {/* Na página o tipo tem coluna; no cartão ele desce para a linha de apoio. */}
-      {!compact && (
-        <TypeTag type={String(a.type)} className={`w-28 text-xs font-medium ${dim}`} />
-      )}
+      <TypeTag type={String(a.type)} className={`w-28 text-xs font-medium ${dim}`} />
 
       <span className="min-w-0 flex-1">
         <span
@@ -240,11 +229,7 @@ export function AppointmentRow({
           </span>
           {isOngoing(a, now) && <LiveDot />}
         </span>
-        <MetaLine
-          appointment={a}
-          leading={compact ? <TypeTag type={String(a.type)} className="font-medium" /> : undefined}
-          className={`mt-0.5 ${dim}`}
-        />
+        <MetaLine appointment={a} className={`mt-0.5 ${dim}`} />
         {cancelled && a.cancellationReason && (
           <p className="mt-1 truncate text-xs text-danger/80" title={a.cancellationReason}>
             Cancelado: {a.cancellationReason}
@@ -254,6 +239,42 @@ export function AppointmentRow({
 
       <StatusChip status={String(a.status)} />
       <RowActions row={a} actions={actions} className="flex-wrap" />
+    </li>
+  );
+}
+
+/**
+ * A linha curta do cartão da Home: as iniciais do cliente (ou do título) num
+ * quadrado, o título e, embaixo, quando e o tipo; as ações à direita. O
+ * cartão só mostra agendados, então não há status nem cancelamento a contar.
+ */
+export function AppointmentLine({
+  appointment: a,
+  actions,
+  now,
+}: {
+  appointment: AppointmentResponse;
+  actions: RowAction<AppointmentResponse>[];
+  now: number;
+}) {
+  const source = a.clientName?.trim() || a.title?.trim();
+  return (
+    <li className="flex items-center gap-3 rounded-xl px-1 py-2 hover:bg-light-gray/40">
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-light-gray/70 text-[11px] font-medium text-gray-100">
+        {source ? initials(source) : <CalendarIcon className="h-4 w-4 text-gray-100/70" />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2 text-xs text-primary">
+          <span className="truncate" title={a.title}>
+            {a.title}
+          </span>
+          {isOngoing(a, now) && <LiveDot />}
+        </span>
+        <span className="block truncate text-[11px] text-gray-100/60">
+          {formatWhen(a.startAt, new Date(now))} · {String(a.type)}
+        </span>
+      </span>
+      <RowActions row={a} actions={actions} className="shrink-0 text-gray-100" />
     </li>
   );
 }
@@ -318,16 +339,20 @@ export function DayHeading({
 }
 
 /**
- * As ações, na regra que o backend impõe: entrar sempre que houver link;
- * concluir, editar e cancelar só em agendado (um cancelado não se conclui e um
- * concluído não se cancela); excluir só com `onDelete`, que a página só passa
- * para quem pode (`canDestroy`). Cancelar é de todos: é o que o atendente
- * usa quando o cliente desmarca.
+ * As ações, na regra que o backend impõe: ver a descrição quando há; entrar
+ * sempre que houver link; concluir, editar e cancelar só em agendado (um
+ * cancelado não se conclui e um concluído não se cancela); reagendar só o
+ * cancelado; excluir só com `onDelete`, que a página só passa para quem pode
+ * (`canDestroy`). Cancelar é de todos: é o que o atendente usa quando o
+ * cliente desmarca.
  */
 export function appointmentActions(
   actions: AgendaActions,
 ): RowAction<AppointmentResponse>[] {
   return [
+    ...(actions.onViewDetails
+      ? [{ ...viewAction("Ver detalhes", actions.onViewDetails), visible: (a: AppointmentResponse) => Boolean(a.description?.trim()) }]
+      : []),
     {
       id: "join",
       label: "Entrar na reunião",
@@ -353,6 +378,18 @@ export function appointmentActions(
       visible: isScheduled,
       onPress: actions.onCancel,
     },
+    ...(actions.onReschedule
+      ? [
+          {
+            id: "reschedule",
+            label: "Reagendar",
+            icon: <RescheduleIcon className="h-5 w-5" />,
+            tone: "secondary" as const,
+            visible: isCancelled,
+            onPress: actions.onReschedule,
+          },
+        ]
+      : []),
     ...(actions.onDelete ? [deleteAction("Excluir", actions.onDelete)] : []),
   ];
 }

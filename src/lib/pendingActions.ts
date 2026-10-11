@@ -16,7 +16,7 @@ export type PendingKind = "complete" | "cancel" | "delete";
 export type PendingMap = ReadonlyMap<string, PendingKind>;
 
 /** Labels de status (a API trabalha com o label PT-BR, não com a chave). */
-export type PendingStatusLabels = {
+type PendingStatusLabels = {
   complete: string;
   cancel: string;
 };

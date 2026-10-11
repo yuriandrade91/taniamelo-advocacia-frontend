@@ -19,7 +19,7 @@ import {
   baseBarOptions,
   barColors,
 } from "@/components/charts/chartTheme";
-import { formatMonthAxis } from "@/components/wallet/walletOverview";
+import { formatMonthAxis } from "@/lib/period";
 import type { AppointmentTimelinePoint } from "@/interfaces/appointment/Appointment.interface";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);

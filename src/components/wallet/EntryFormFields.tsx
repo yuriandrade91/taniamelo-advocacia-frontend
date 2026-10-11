@@ -75,16 +75,16 @@ export function EntryFormFields({
           grow
           segments={[
             {
-              id: "entrada",
+              id: "income",
               label: "Entrada",
               hint: "Honorário do escritório",
-              active: kind === "entrada",
+              active: kind === "income",
             },
             {
-              id: "saida",
+              id: "expense",
               label: "Saída",
               hint: "Despesa do escritório",
-              active: kind === "saida",
+              active: kind === "expense",
             },
           ]}
           onPress={(id) => switchKind(id as EntryKind)}
@@ -104,7 +104,7 @@ export function EntryFormFields({
             do INSS — isso fica em Pagamentos, e é dinheiro dele.
           </p>
 
-          <FieldGrid compact={compact}>
+          <FieldGrid columns={compact ? 1 : 2}>
             {/*
               Fora do schema porque é um campo na tela e dois valores no
               estado: o combo grava o nome que aparece e o id que vai no corpo.
@@ -136,7 +136,7 @@ export function EntryFormFields({
           </FieldGrid>
         </>
       ) : (
-        <FieldGrid compact={compact}>
+        <FieldGrid columns={compact ? 1 : 2}>
           <SchemaField form={expense} name="category" isDisabled={isSubmitting} />
           <SchemaField form={expense} name="supplier" isDisabled={isSubmitting} />
 

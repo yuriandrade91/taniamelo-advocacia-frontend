@@ -105,7 +105,7 @@ import {
   withPrimaryAt,
 } from "@/components/clients/form/primaryAddress";
 import RemoveAddressesDialog from "@/components/clients/form/RemoveAddressesDialog";
-import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
 import { useSectionForm } from "@/hooks/useSectionForm";
 import { todayIso } from "@/lib/period";
 import { clearClientsCache } from "@/lib/clientsCache";
@@ -156,9 +156,8 @@ const GenderPromptModal = dynamic(
  * ## Por que o estado mora aqui
  *
  * As seções são componentes de apresentação: recebem o formulário e desenham.
- * Quem conhece service, id e ordem de gravação é esta página. É o contrário do
- * que o `REVISAO_ARQUITETURA_2026` aponta em `AppointmentFormFields`, que abre
- * conexão HTTP de dentro de um componente de campo.
+ * Quem conhece service, id e ordem de gravação é esta página — um componente
+ * de campo que abre conexão HTTP não se testa sem rede nem se reaproveita.
  */
 
 /** A aba de revisão — fora de `SECTION_KEYS` porque não é seção do formulário. */
@@ -280,7 +279,8 @@ export function ClientFormPage() {
       // some sem nenhuma requisição.
       if (savedId && clientId) {
         try {
-          await deleteAddress(clientId, savedId);
+          // Calado: o aviso é um só, no fim, contando as abas removidas.
+          await deleteAddress(clientId, savedId, { silent: true });
         } catch (error) {
           console.error("Erro ao excluir endereço:", error);
           break;
@@ -583,10 +583,13 @@ export function ClientFormPage() {
       return;
     }
 
+    // Todas as gravações daqui saem caladas: o aviso é um só, no fim —
+    // "Cliente cadastrado." ou a lista do que ficou por gravar.
     setIsCreating(true);
     try {
       const envelope = await createClient(
         toCreateRequest(service.values, personal.values, professional.values),
+        { silent: true },
       );
       const newId = envelope?.data?.id;
       if (!newId) {
@@ -633,6 +636,7 @@ export function ClientFormPage() {
           const saved = await createAddresses(
             newId,
             filledAddresses.map((slot) => toAddressRequest(slot.form.values)),
+            { silent: true },
           );
           const created = saved?.data ?? [];
           const sent = filledAddresses.map((slot) =>
@@ -665,6 +669,7 @@ export function ClientFormPage() {
             const saved = await createDisabilityPeriod(
               newId,
               toDisabilityPeriodRequest(period),
+              { silent: true },
             );
             const savedId = saved?.data?.id;
             if (savedId) {
@@ -693,6 +698,7 @@ export function ClientFormPage() {
           const saved = await createInterview(
             newId,
             toInterviewRequest(interview.values),
+            { silent: true },
           );
           setInterviewId(saved?.data?.id ?? null);
           markSaved(SECTION_KEYS.interview);
@@ -703,7 +709,7 @@ export function ClientFormPage() {
       }
 
       if (stagedDocuments.length > 0 || stagedSimulations.length > 0) {
-        const sent = await uploadStagedFiles(newId, stagedDocuments, stagedSimulations);
+        const sent = await uploadStagedFiles(newId, stagedDocuments, stagedSimulations, { silent: true });
         if (sent.documents) setStagedDocuments([]);
         else failed.push("documentos");
         if (sent.simulations) setStagedSimulations([]);
@@ -733,13 +739,15 @@ export function ClientFormPage() {
    * Os handlers abaixo servem à fase 2: com o cliente criado, cada seção grava
    * sozinha na sua rota — que é onde a separação por endpoint tem valor real,
    * porque salvar o endereço não escreve por cima de um campo profissional.
+   * O aviso de sucesso é o da central (a mensagem que cada serviço declara).
    */
   const handleSaveService = async () => {
     if (!clientId || !service.revealErrors()) return;
     try {
-      await patchClient(clientId, toPatchRequest(service.values));
+      await patchClient(clientId, toPatchRequest(service.values), {
+        successMessage: "Atendimento atualizado.",
+      });
       markSaved(SECTION_KEYS.service);
-      notificationCenter.success("Atendimento atualizado.");
     } catch (error) {
       console.error("Erro ao atualizar atendimento:", error);
     }
@@ -753,7 +761,6 @@ export function ClientFormPage() {
         toPersonalDataRequest(personal.values),
       );
       markSaved(SECTION_KEYS.personal);
-      notificationCenter.success("Dados pessoais salvos.");
     } catch (error) {
       console.error("Erro ao salvar dados pessoais:", error);
     }
@@ -767,7 +774,6 @@ export function ClientFormPage() {
         toProfessionalDataRequest(professional.values),
       );
       markSaved(SECTION_KEYS.professional);
-      notificationCenter.success("Dados profissionais salvos.");
     } catch (error) {
       console.error("Erro ao salvar dados profissionais:", error);
     }
@@ -788,7 +794,6 @@ export function ClientFormPage() {
     try {
       if (existingId) {
         await updateAddress(clientId, existingId, body);
-        notificationCenter.success("Endereço atualizado.");
       } else {
         const saved = await createAddress(clientId, body);
         const addressId = saved?.data?.id;
@@ -797,7 +802,6 @@ export function ClientFormPage() {
             current.map((value, i) => (i === index ? addressId : value)),
           );
         }
-        notificationCenter.success("Endereço salvo.");
       }
       markSaved(SECTION_KEYS.address);
     } catch (error) {
@@ -833,9 +837,10 @@ export function ClientFormPage() {
     for (const period of toSave) {
       try {
         const body = toDisabilityPeriodRequest(period);
+        // Um aviso para a seção inteira, no fim — não um por intervalo.
         const saved = period.id
-          ? await updateDisabilityPeriodRequest(clientId, period.id, body)
-          : await createDisabilityPeriod(clientId, body);
+          ? await updateDisabilityPeriodRequest(clientId, period.id, body, { silent: true })
+          : await createDisabilityPeriod(clientId, body, { silent: true });
         const savedId = saved?.data?.id;
         if (savedId && !period.id) {
           updateDisabilityPeriod(period.key, { id: savedId });
@@ -875,7 +880,6 @@ export function ClientFormPage() {
         setInterviewId(saved?.data?.id ?? null);
       }
       markSaved(SECTION_KEYS.interview);
-      notificationCenter.success("Entrevista salva.");
     } catch (error) {
       console.error("Erro ao salvar entrevista:", error);
     }

@@ -101,7 +101,7 @@ export const isOngoing = (a: AppointmentResponse, now: number) =>
   isScheduled(a) && ms(a.startAt) <= now && now < ms(a.endAt);
 
 /** Minutos desde a meia-noite local. */
-export function minutesOfDay(iso: string): number {
+function minutesOfDay(iso: string): number {
   const date = new Date(iso);
   return date.getHours() * 60 + date.getMinutes();
 }
@@ -122,8 +122,8 @@ export function formatDuration(minutes: number): string {
 }
 
 /** Expediente da régua do dia: 07h–20h. */
-export const DAY_START = 7 * 60;
-export const DAY_END = 20 * 60;
+const DAY_START = 7 * 60;
+const DAY_END = 20 * 60;
 
 /**
  * Onde um compromisso cai na régua do expediente, em % da largura; `null`

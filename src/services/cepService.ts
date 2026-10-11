@@ -35,7 +35,7 @@ export type CepLookupResponse = {
  * não sai como exceção porque nenhum deles impede o cadastro: CEP é atalho
  * para preencher, não validação — a pessoa sempre pode digitar o endereço.
  */
-export type CepLookupResult =
+type CepLookupResult =
   | { status: "found"; address: CepLookupResponse }
   /** 400 ou menos de 8 dígitos: nem sai para a rede. */
   | { status: "invalid" }

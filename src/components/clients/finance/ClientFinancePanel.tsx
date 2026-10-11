@@ -34,7 +34,7 @@ import { Notice } from "@/components/ui/feedback/Notice";
  * de balde das duas telas — cancelado fora. Se só o resumo falhar, o bloco
  * soma a lista e avisa que o total pode estar incompleto.
  *
- * Onde a rota está em pausa (`NEXT_PUBLIC_INTEGRACOES_PENDENTES`), o bloco diz
+ * Onde a rota está em pausa (`NEXT_PUBLIC_PENDING_INTEGRATIONS`), o bloco diz
  * isso, em vez de mostrar "nenhum lançamento" — vazio ali seria mentira.
  *
  * Só leitura. O desenho segue o painel de detalhe da Carteira (blocos em
@@ -580,7 +580,7 @@ function EntryRow({ entry }: { entry: Entry }) {
         <span className={`font-semibold tabular-nums ${cancelled ? "text-gray-100/50" : "text-gray-100"}`}>
           {formatBRL(entry.amount)}
         </span>
-        <BucketChip kind="entrada" bucket={entry.bucket} />
+        <BucketChip kind="income" bucket={entry.bucket} />
       </div>
     </li>
   );

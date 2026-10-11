@@ -62,7 +62,7 @@ export function SearchInput({
  * `isDisabled`: a opção existe mas não se aplica agora ("Só pendências" sem
  * pendência nenhuma).
  */
-export type Segment = {
+type Segment = {
   id: string;
   label: string;
   active: boolean;
@@ -92,7 +92,7 @@ const SEGMENTED_SHAPE = {
   pill: { track: "rounded-full", button: "rounded-full" },
 } as const;
 
-export type SegmentedShape = keyof typeof SEGMENTED_SHAPE;
+type SegmentedShape = keyof typeof SEGMENTED_SHAPE;
 
 /**
  * A altura do trilho. `md` é a das barras de filtro, onde o segmentado fica
@@ -109,7 +109,7 @@ export type SegmentedShape = keyof typeof SEGMENTED_SHAPE;
  */
 const SEGMENTED_HEIGHT = { md: "min-h-12", lg: "min-h-[58px]" } as const;
 
-export type SegmentedSize = keyof typeof SEGMENTED_HEIGHT;
+type SegmentedSize = keyof typeof SEGMENTED_HEIGHT;
 
 /**
  * Botões segmentados. `radio` (um entre vários), `tab` (abas da lista) ou

@@ -3,6 +3,7 @@ import axiosInstance from "@/services/axiosService";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type { DisabilityPeriodRequest } from "@/components/clients/form/disabilityPeriods";
 import type { DisabilityGradeLabel } from "@/enums/disabilityGrade/DisabilityGrade";
+import { feedback, type RequestFeedback } from "@/services/requestFeedback";
 
 /**
  * Períodos de deficiência — ClientDisabilityPeriodController.
@@ -21,7 +22,7 @@ export type DisabilityPeriodResponse = {
   days: number;
 };
 
-export type DisabilityConversionLine = {
+type DisabilityConversionLine = {
   grade: DisabilityGradeLabel;
   gradeYears: number;
   days: number;
@@ -56,10 +57,11 @@ export const listDisabilityPeriods = async (
 export const createDisabilityPeriod = async (
   clientId: string,
   body: DisabilityPeriodRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<DisabilityPeriodResponse>> => {
   const { data } = await axiosInstance.post<
     ApiEnvelope<DisabilityPeriodResponse>
-  >(endpoints.CLIENT_DISABILITY_PERIODS.CREATE(clientId), body);
+  >(endpoints.CLIENT_DISABILITY_PERIODS.CREATE(clientId), body, feedback("Período de deficiência salvo.", options));
   return data;
 };
 
@@ -67,20 +69,20 @@ export const updateDisabilityPeriod = async (
   clientId: string,
   periodId: string,
   body: DisabilityPeriodRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<DisabilityPeriodResponse>> => {
   const { data } = await axiosInstance.put<
     ApiEnvelope<DisabilityPeriodResponse>
-  >(endpoints.CLIENT_DISABILITY_PERIODS.UPDATE(clientId, periodId), body);
+  >(endpoints.CLIENT_DISABILITY_PERIODS.UPDATE(clientId, periodId), body, feedback("Período de deficiência atualizado.", options));
   return data;
 };
 
 export const deleteDisabilityPeriod = async (
   clientId: string,
   periodId: string,
+  options?: RequestFeedback,
 ): Promise<void> => {
-  await axiosInstance.delete(
-    endpoints.CLIENT_DISABILITY_PERIODS.DELETE(clientId, periodId),
-  );
+  await axiosInstance.delete(endpoints.CLIENT_DISABILITY_PERIODS.DELETE(clientId, periodId), feedback("Período de deficiência excluído.", options));
 };
 
 /**

@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import { STATUS_STYLES } from "../FormSection";
-import type { ClientFormSection } from "./types";
+import { STATUS_STYLES, type ClientFormSection } from "./types";
 
 /**
  * O conteúdo de uma aba: cabeçalho em creme (`bg-floral`, floralwhite) com o

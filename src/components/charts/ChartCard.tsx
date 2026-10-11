@@ -3,7 +3,6 @@
 import type { ReactNode } from "react";
 import { Skeleton } from "@heroui/react";
 import { SectionTitle } from "@/components/ui/layout/Card";
-import { Pill } from "@/components/ui/feedback/Badges";
 
 /**
  * Moldura de gráfico: título, legenda e a área de desenho.
@@ -17,7 +16,7 @@ import { Pill } from "@/components/ui/feedback/Badges";
  * que está plotado e uma caixa com um quadradinho apenas repete o título.
  */
 
-export type ChartLegendItem = { label: string; color: string };
+type ChartLegendItem = { label: string; color: string };
 
 export type ChartCardProps = {
   title: string;
@@ -28,14 +27,6 @@ export type ChartCardProps = {
   /** Mensagem quando não há o que desenhar — nunca um gráfico vazio. */
   emptyMessage?: string;
   isEmpty?: boolean;
-  /**
-   * Marca o gráfico como dado de exemplo.
-   *
-   * Existe porque a alternativa é pior: um gráfico plausível sem aviso vira
-   * número que alguém repete numa reunião. O selo é discreto mas não some, e
-   * quando as rotas subirem ele desaparece sozinho junto com o mock.
-   */
-  isSample?: boolean;
   /** Carregando: título e legenda ficam; subtítulo e área do gráfico viram skeleton. */
   isLoading?: boolean;
   children: ReactNode;
@@ -48,7 +39,6 @@ export function ChartCard({
   height = 240,
   emptyMessage = "Sem dados para o período.",
   isEmpty = false,
-  isSample = false,
   isLoading = false,
   children,
 }: ChartCardProps) {
@@ -62,14 +52,7 @@ export function ChartCard({
               Balanço): os gráficos dividem a linha com a rosca, e dois
               tamanhos de título lado a lado liam como hierarquias diferentes.
               O sublinhado dourado vem junto. */}
-          <span className="flex flex-wrap items-start gap-2">
-            <SectionTitle>{title}</SectionTitle>
-            {isSample && (
-              <Pill tone="soft" className="mt-1 tracking-wide uppercase">
-                dados de exemplo
-              </Pill>
-            )}
-          </span>
+          <SectionTitle>{title}</SectionTitle>
           {isLoading ? (
             <Skeleton className="mt-2 h-3 w-48 rounded-md" />
           ) : (

@@ -38,7 +38,7 @@ const DAYS_PER_MONTH = 30;
 /**
  * As duas colunas da LC 142/2013. Não há terceira: ver {@link requiredYears}.
  */
-export type ConversionBasis = "FEMININO" | "MASCULINO";
+type ConversionBasis = "FEMININO" | "MASCULINO";
 
 /**
  * Converte o sexo na base de conversão, ou `null` quando a lei não tem coluna
@@ -66,7 +66,7 @@ export function basisFromGender(gender?: string | null): ConversionBasis | null 
  * isso a base é um tipo de dois valores e quem não tem base não chega aqui —
  * `basisFromGender` devolve `null` e a tela diz por quê.
  */
-export function requiredYears(
+function requiredYears(
   grade: DisabilityGradeKey,
   basis: ConversionBasis,
 ): number {
@@ -90,19 +90,6 @@ export function factor(
 ): number {
   const ratio = requiredYears(to, basis) / requiredYears(from, basis);
   return Math.round(ratio * 100) / 100;
-}
-
-/**
- * `2010-01-01` → `01/01/2010`.
- *
- * Exige o formato inteiro antes de reordenar. Separando por "-" sem conferir,
- * `"nao-e-data"` virava `"data/e/nao"` — lixo com cara de data, que é pior que
- * lixo com cara de lixo: numa tela, ninguém olha duas vezes para algo separado
- * por barras. O que não casa volta intacto.
- */
-export function formatDateBR(iso: string): string {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
-  return match ? `${match[3]}/${match[2]}/${match[1]}` : iso;
 }
 
 /** O fator formatado como a tabela escreve: "1,50". */
@@ -134,7 +121,7 @@ export function daysBetween(startISO: string, endISO: string): number {
   return Math.round((end - start) / 86_400_000) + 1;
 }
 
-export type TimeBreakdown = {
+type TimeBreakdown = {
   totalDays: number;
   years: number;
   months: number;
@@ -172,7 +159,7 @@ export type ConvertibleInterval = {
   endedOn?: string | null;
 };
 
-export type ConversionLine = {
+type ConversionLine = {
   grade: DisabilityGradeKey;
   gradeYears: number;
   days: number;

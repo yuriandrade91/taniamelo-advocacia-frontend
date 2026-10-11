@@ -1,3 +1,6 @@
+import { requiredKeysOf } from "@/components/ui/form/schema";
+import { personalSchema, professionalSchema, serviceSchema } from "./schemas";
+
 /**
  * Progresso de preenchimento do cadastro.
  *
@@ -20,18 +23,9 @@ export function computeProgress(
 }
 
 /**
- * Campos exigidos pelo `POST /clients`, na ordem em que aparecem no
- * formulário. `inssPassword` está aqui apesar de morar em "Dados
- * profissionais": é `@NotBlank` no payload de criação.
+ * Campos exigidos pelo `POST /clients`: os obrigatórios das três seções que
+ * vão nele, lidos dos schemas — a mesma fonte da validação, para o anel e o
+ * "Salvar" nunca discordarem. `inssPassword` entra por ser `@NotBlank` na
+ * criação, apesar de morar em "Dados profissionais".
  */
-export const REQUIRED_CREATE_KEYS = [
-  "benefit",
-  "situation",
-  "fullName",
-  "birthDate",
-  "cpf",
-  "motherName",
-  "gender",
-  "mobilePhone",
-  "inssPassword",
-] as const;
+export const REQUIRED_CREATE_KEYS = requiredKeysOf(serviceSchema, personalSchema, professionalSchema);

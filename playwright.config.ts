@@ -1,5 +1,6 @@
 import { defineConfig, devices } from "@playwright/test";
 import { existsSync } from "node:fs";
+import { ADMIN_STORAGE_STATE } from "./tests/e2e/session";
 
 /**
  * Credenciais do e2e (E2E_USER, E2E_PASSWORD, ...) vêm de `env/e2e.local.env`,
@@ -24,12 +25,12 @@ if (existsSync(E2E_CREDENTIALS)) process.loadEnvFile(E2E_CREDENTIALS);
  * `E2E_BASE_URL` aponta para onde a aplicação está servindo. Sem ele, o
  * Playwright sobe o `next dev` na 3001 herdando o ambiente de quem chamou —
  * `pnpm test:e2e` usa o `env/local.env`, `pnpm test:e2e:dev` usa o
- * `env/development.env` (ver docs/E2E_PLAYWRIGHT.md).
+ * `env/development.env` (ver docs/TESTING.md).
  */
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3001";
 
 export default defineConfig({
-  testDir: "./e2e",
+  testDir: "./tests/e2e",
   // Os testes gravam dados num backend compartilhado. Paralelizar faria dois
   // deles disputarem o mesmo horário na agenda e falharem por motivo errado —
   // "conflito de horário" é justamente uma regra que testamos.
@@ -70,7 +71,7 @@ export default defineConfig({
     { name: "setup", testMatch: /.*\.setup\.ts/ },
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"], storageState: "e2e/.auth/user.json" },
+      use: { ...devices["Desktop Chrome"], storageState: ADMIN_STORAGE_STATE },
       dependencies: ["setup"],
     },
   ],

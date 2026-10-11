@@ -17,7 +17,7 @@ import {
   baseBarOptions,
   barColors,
 } from "@/components/charts/chartTheme";
-import { formatMonthAxis } from "@/components/wallet/walletOverview";
+import { formatMonthAxis } from "@/lib/period";
 import { formatBRLCompact } from "@/lib/format";
 import type { PaymentTimelinePoint } from "@/interfaces/payment/OfficePayment.interface";
 
@@ -40,7 +40,6 @@ export type PaymentsTimelineChartProps = {
   points: PaymentTimelinePoint[];
   isEmpty?: boolean;
   emptyMessage?: string;
-  isSample?: boolean;
 };
 
 const LEGEND = [
@@ -54,7 +53,6 @@ export function PaymentsTimelineChart({
   points,
   isEmpty,
   emptyMessage,
-  isSample,
 }: PaymentsTimelineChartProps) {
   const data = useMemo(
     () => ({
@@ -97,7 +95,6 @@ export function PaymentsTimelineChart({
       title="Recebimentos por mês de vencimento"
       subtitle="Quanto vence em cada mês e em que estado está."
       legend={LEGEND}
-      isSample={isSample}
       isEmpty={isEmpty ?? points.length === 0}
       emptyMessage={emptyMessage}
     >

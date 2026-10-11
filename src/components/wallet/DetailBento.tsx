@@ -52,7 +52,7 @@ const RING: Record<PaymentBucket, string> = {
 };
 
 /** Os campos que o bento lê — comuns a lançamento e parcela. */
-export type BentoEntry = {
+type BentoEntry = {
   description: string;
   /** Parcela pode vir sem valor; aí mostra "—" e não oferece copiar. */
   amount?: number;
@@ -89,7 +89,7 @@ export type DetailBentoProps = {
   summary?: ReactNode;
 };
 
-export type BentoFact = { label: string; value: ReactNode };
+type BentoFact = { label: string; value: ReactNode };
 
 export function DetailBento({
   entry,
@@ -112,7 +112,7 @@ export function DetailBento({
     <div className="flex min-h-full flex-col gap-3">
       <div className="grid grid-cols-6 gap-3">
         {/* ── valor + status ── */}
-        <Tile className="col-span-6 bg-white p-5 shadow-sm ring-1 ring-light-gray">
+        <Tile className="col-span-6 bg-white p-5 ring-1 ring-light-gray">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-[11px] font-medium tracking-wide text-gray-100/60 uppercase">
@@ -218,7 +218,7 @@ export function DetailBento({
               <button
                 type="button"
                 onClick={onSettle}
-                className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary/90 active:scale-[0.98] motion-reduce:active:scale-100"
+                className="flex-1 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90 active:scale-[0.98] motion-reduce:active:scale-100"
               >
                 {settleLabel}
               </button>
@@ -253,7 +253,7 @@ function Tile({
 }) {
   return (
     <section
-      className={`rounded-2xl bg-page/80 ring-1 ring-light-gray/70 transition duration-200 hover:-translate-y-0.5 hover:shadow-md motion-reduce:hover:translate-y-0 ${className}`}
+      className={`rounded-2xl bg-page/80 ring-1 ring-light-gray/70 transition duration-200 hover:-translate-y-0.5 hover:ring-secondary/40 motion-reduce:hover:translate-y-0 ${className}`}
     >
       {children}
     </section>

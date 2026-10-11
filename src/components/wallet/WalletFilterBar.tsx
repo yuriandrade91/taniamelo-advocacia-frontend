@@ -37,7 +37,7 @@ export function WalletFilterBar({ tab, onTabChange, counts, filters }: WalletFil
         <Segmented
           label="Lançamentos do mês"
           mode="tab"
-          segments={(["saida", "entrada"] as const).map((kind) => ({
+          segments={(["expense", "income"] as const).map((kind) => ({
             id: kind,
             label: KIND_META[kind].label,
             active: tab === kind,

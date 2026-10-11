@@ -7,7 +7,7 @@ import { TrashIcon } from "@/components/ui/icons/actions";
 import { SegmentedTabs } from "@/components/ui/tabs/SegmentedTabs";
 import { AddressSection } from "./AddressSection";
 import type { AddressValues } from "../schemas";
-import { AddItemButton } from "../FormSection";
+import { AddItemButton } from "@/components/clients/form/FormGroup";
 import { Pill } from "@/components/ui/feedback/Badges";
 
 /**

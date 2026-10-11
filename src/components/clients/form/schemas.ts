@@ -196,7 +196,7 @@ export const professionalInitial = initialValues(professionalSchema);
 export const addressInitial = initialValues(addressSchema);
 export const interviewInitial = initialValues(interviewSchema);
 
-export const professionalRules = rulesOf(professionalSchema);
+const professionalRules = rulesOf(professionalSchema);
 /** Na ficha a senha é opcional (vazia = mantém a gravada) e tem campo próprio, auditado. */
 export const professionalEditRules = { ...professionalRules, inssPassword: undefined };
 

@@ -3,9 +3,10 @@
 import { Button, Modal } from "@heroui/react";
 import ModalShell from "@/components/ui/modals/ModalShell";
 import type { SituationKey } from "@/enums/situation/Situation";
-import { stageBg } from "@/components/ui/stageRamp";
+import { stageBg } from "@/components/ui/feedback/stageRamp";
 import { plural } from "@/lib/format";
-import { PipelineBoard, STAGES, type PipelineColumns } from "./pipelineBoard";
+import { STAGES } from "@/components/clients/stage/stages";
+import { PipelineBoard, type PipelineColumns } from "./pipelineBoard";
 
 /**
  * A esteira inteira — o que o "Ver todos" do cartão abre.
@@ -72,7 +73,7 @@ export default function PipelineFullModal({
             <li key={stage.key} className="inline-flex items-center gap-1.5">
               <span
                 aria-hidden="true"
-                className={`h-2 w-2 rounded-full ${stageBg(stage.index)}`}
+                className={`h-2 w-2 rounded-full ${stageBg(stage.step - 1)}`}
               />
               {stage.label}
               <span className="tabular-nums text-gray-100/60">

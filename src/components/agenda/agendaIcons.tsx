@@ -73,40 +73,7 @@ export const PinIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const UserIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
-    <circle cx="12" cy="7" r="4" />
-  </Svg>
-);
-
-export const ChevronRightIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <path d="m9 18 6-6-6-6" />
-  </Svg>
-);
-
 // ── Ações ──
-
-export const CheckIcon = (p: IconProps) => (
-  <Svg {...p} strokeWidth={2.2}>
-    <path d="M20 6 9 17l-5-5" />
-  </Svg>
-);
-
-export const BanIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="10" />
-    <path d="m4.9 4.9 14.2 14.2" />
-  </Svg>
-);
-
-export const CancelIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <circle cx="12" cy="12" r="9" />
-    <path d="m9.5 9.5 5 5m0-5-5 5" />
-  </Svg>
-);
 
 /** Seta circular — reagendar um compromisso cancelado. */
 export const RescheduleIcon = (p: IconProps) => (
@@ -116,9 +83,3 @@ export const RescheduleIcon = (p: IconProps) => (
   </Svg>
 );
 
-export const CalendarIcon = (p: IconProps) => (
-  <Svg {...p}>
-    <rect x="3" y="5" width="18" height="16" rx="2" />
-    <path d="M16 3v4M8 3v4M3 11h18" />
-  </Svg>
-);

@@ -6,8 +6,9 @@ import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import { LoadingCircle, RowSkeletons } from "@/components/ui/feedback/Loading";
 import { PencilIcon, TrashIcon } from "@/components/ui/icons/actions";
 import { CheckIcon, ClockIcon, WalletIcon } from "@/components/ui/icons/glyphs";
+import { GavelIcon } from "@/components/agenda/agendaIcons";
 import ModalShell from "@/components/ui/modals/ModalShell";
-import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
 import { formatValue } from "@/components/ui/form/schema";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useOfficeAuthors } from "@/hooks/useOfficeAuthors";
@@ -17,6 +18,7 @@ import { deleteFile } from "@/services/clientFileService";
 import { plural } from "@/lib/format";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
 import { InssPasswordField } from "../inss/InssPasswordField";
+import { ClientInssPanel, type ClientInssPanelHandle } from "../inss/ClientInssPanel";
 import {
   ClientDisabilityPanel,
   type ClientDisabilityPanelHandle,
@@ -55,13 +57,13 @@ import {
 } from "../form/schemas";
 import DeleteClientModal from "../DeleteClientModal";
 import {
-  CompiledHero,
-  CompiledSection,
-  CompiledTabs,
-  HeroTipButton,
+  SheetSidebar,
+  SheetSectionCard,
+  SheetSectionTabs,
+  SidebarTipButton,
   useSectionAnchors,
-  type HeroNavItem,
-} from "./CompiledHero";
+  type SheetNavItem,
+} from "./SheetLayout";
 import { sectionFill, sheetProgress } from "./clientSheet";
 import { useClientSheet } from "./useClientSheet";
 
@@ -74,7 +76,7 @@ const ClientFinancePanel = dynamic(
 /**
  * A ficha do cliente: leitura e edição no mesmo desenho, no mesmo lugar.
  *
- * O painel da esquerda (`CompiledHero`) guarda a identidade, o preenchimento
+ * O painel da esquerda (`SheetSidebar`) guarda a identidade, o preenchimento
  * e as ações; a coluna da direita traz as seções do **cadastro** — as mesmas
  * peças, os mesmos schemas, as mesmas máscaras e validações —, uma embaixo da
  * outra, com o painel ancorando a leitura.
@@ -112,7 +114,7 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   clientName: string;
-  clientId?: number | string;
+  clientId: string;
   /** Avisado depois de salvar ou excluir: a lista pode ter mudado. */
   onConfirm?: () => void;
   /** Abre já editando (o "editar" da lista). A página remonta a ficha por alvo. */
@@ -123,11 +125,10 @@ export default function ClientDetailsModal({
   isOpen,
   onClose,
   clientName,
-  clientId: rawId,
+  clientId,
   onConfirm,
   editOnOpen = false,
 }: Props) {
-  const clientId = rawId === undefined ? undefined : String(rawId);
   const { canDestroy, canSeeFinance } = usePermissions();
   const authors = useOfficeAuthors();
   const sheet = useClientSheet(clientId, isOpen);
@@ -145,13 +146,8 @@ export default function ClientDetailsModal({
   const [fileRemoval, setFileRemoval] = useState<string | null>(null);
   const disabilityRef = useRef<ClientDisabilityPanelHandle>(null);
   const [disabilityCount, setDisabilityCount] = useState(0);
-  /**
-   * Pagamentos já foi visitada. A visita é descoberta durante a renderização
-   * (a rolagem acendeu a seção no painel), então o estado é ajustado ali
-   * mesmo, uma vez — e não volta atrás.
-   */
-  const [financeSeen, setFinanceSeen] = useState(false);
-
+  const inssRef = useRef<ClientInssPanelHandle>(null);
+  const [inssStatus, setInssStatus] = useState<string | undefined>();
   const sections = { service: service.values, personal: personal.values, professional: professional.values };
   const progress = sheetProgress(sections);
   const benefitLabel = formatValue(serviceSchema.benefit, service.values.benefit);
@@ -159,15 +155,15 @@ export default function ClientDetailsModal({
   const error = sheet.error || actionError;
   const busy = sheet.isSaving;
 
-  // A ancoragem vem antes das seções porque é ela quem diz qual está em foco —
-  // e é esse foco que acende os Pagamentos pela primeira vez. A chave só muda
+  // A ancoragem vem antes das seções porque é ela quem diz quais já
+  // apareceram — e Pagamentos só carrega depois de aparecer. A chave só muda
   // quando a lista de seções muda: a carga termina ou a deficiência passa a
   // valer.
-  const { scrollerRef, active, goTo } = useSectionAnchors(
+  const { scrollerRef, active, seen, goTo } = useSectionAnchors(
     "atendimento",
     `${sheet.isLoading}|${showDisability}`,
   );
-  if (active === "pagamentos" && !financeSeen) setFinanceSeen(true);
+  const financeSeen = seen.has("pagamentos");
 
   /** Volta ao que está gravado e à leitura: campos, arquivos escolhidos, erros. */
   const leaveEdit = () => {
@@ -190,15 +186,22 @@ export default function ClientDetailsModal({
   const save = async () => {
     setFilesRevealed(true);
     const saved = await sheet.save({
-      validateExtra: () => (disabilityRef.current?.validate() ?? true) && filesComplete(),
+      // Todos validam (e revelam os erros) antes de decidir: `&&` pararia no primeiro.
+      validateExtra: () =>
+        [disabilityRef.current?.validate() ?? true, inssRef.current?.validate() ?? true, filesComplete()].every(
+          Boolean,
+        ),
       afterSave: async () => {
-        await disabilityRef.current?.save();
-        if (!clientId || (stagedDocuments.length === 0 && stagedSimulations.length === 0)) return;
-        const sent = await uploadStagedFiles(clientId, stagedDocuments, stagedSimulations);
+        const wroteDisability = (await disabilityRef.current?.save()) ?? false;
+        const wroteInss = (await inssRef.current?.save()) ?? false;
+        const wroteRecords = wroteDisability || wroteInss;
+        if (stagedDocuments.length === 0 && stagedSimulations.length === 0) return wroteRecords;
+        const sent = await uploadStagedFiles(clientId, stagedDocuments, stagedSimulations, { silent: true });
         if (sent.documents) setStagedDocuments([]);
         if (sent.simulations) setStagedSimulations([]);
         await sheet.refreshFiles();
         if (!sent.documents || !sent.simulations) throw new Error("Nem todos os arquivos foram enviados.");
+        return true;
       },
     });
     if (!saved) return;
@@ -208,7 +211,6 @@ export default function ClientDetailsModal({
   };
 
   const remove = async () => {
-    if (!clientId) return;
     try {
       await deleteClient(clientId);
       setShowDelete(false);
@@ -222,7 +224,7 @@ export default function ClientDetailsModal({
   const confirmFileRemoval = async () => {
     const fileId = fileRemoval;
     setFileRemoval(null);
-    if (!fileId || !clientId) return;
+    if (!fileId) return;
     try {
       await deleteFile(clientId, fileId);
       await sheet.refreshFiles();
@@ -275,7 +277,7 @@ export default function ClientDetailsModal({
           isLoading={sheet.isLoading}
           inssPassword={
             <InssPasswordField
-              clientId={clientId ?? ""}
+              clientId={clientId}
               isEditing={isEditing}
               newPassword={professional.values.inssPassword}
               onNewPasswordChange={(value) => professional.setField("inssPassword", value)}
@@ -291,7 +293,7 @@ export default function ClientDetailsModal({
       icon: <DisabilityIcon />,
       isHidden: !showDisability,
       badge: disabilityCount > 0 ? plural(disabilityCount, "período", "períodos") : undefined,
-      content: clientId ? (
+      content: (
         <ClientDisabilityPanel
           ref={isEditing ? disabilityRef : undefined}
           clientId={clientId}
@@ -300,7 +302,7 @@ export default function ClientDetailsModal({
           canDeleteSaved={canDestroy}
           onSavedCountChange={setDisabilityCount}
         />
-      ) : null,
+      ),
     },
     {
       id: "endereco",
@@ -333,9 +335,10 @@ export default function ClientDetailsModal({
           {/* Lendo, só abrir e baixar; editando, excluir o gravado e
               escolher novos — no mesmo desenho do cadastro. */}
           <FilesSection
+            clientId={clientId}
             documents={record?.documents ?? []}
             simulations={record?.simulations ?? []}
-            onDelete={isEditing ? (_kind, fileId) => setFileRemoval(fileId) : undefined}
+            onDelete={isEditing ? setFileRemoval : undefined}
           />
           {isEditing && (
             <FilesUpload
@@ -350,7 +353,7 @@ export default function ClientDetailsModal({
       ),
     },
     // Dinheiro é de quem vê o financeiro (D3): para os demais a seção nem existe.
-    ...(canSeeFinance && clientId
+    ...(canSeeFinance
       ? [
           {
             id: "pagamentos",
@@ -378,11 +381,28 @@ export default function ClientDetailsModal({
         />
       ),
     },
+    {
+      id: "andamento-inss",
+      title: "Andamento no INSS",
+      description: "Requerimento, exigências, decisão e recurso — do evento mais recente para o mais antigo.",
+      icon: <GavelIcon className="h-5 w-5" />,
+      badge: inssStatus,
+      content: (
+        <ClientInssPanel
+          ref={isEditing ? inssRef : undefined}
+          clientId={clientId}
+          isEditing={isEditing}
+          canDeleteSaved={canDestroy}
+          authors={authors}
+          onStatusChange={setInssStatus}
+        />
+      ),
+    },
   ];
 
   const visible = sheetSections.filter((section) => !section.isHidden);
   const hidden = sheetSections.filter((section) => section.isHidden);
-  const items: HeroNavItem[] = visible.map((section) => ({
+  const items: SheetNavItem[] = visible.map((section) => ({
     id: section.id,
     label: section.title,
     icon: section.icon,
@@ -397,12 +417,12 @@ export default function ClientDetailsModal({
       isDismissable={!busy}
       backdrop="blur"
       size="cover"
-      className="min-h-[80vh] max-w-[1440px] bg-[#F4F4F5]"
+      className="min-h-[80vh] max-w-[1440px] bg-page"
     >
       {/* `data-readonly`: em leitura, o campo travado continua legível
           (`ui/form/formFields.css`). */}
       <div data-readonly={isEditing ? undefined : ""} className={`flex ${SHEET_HEIGHT} flex-col gap-4 py-4 md:flex-row`}>
-        <CompiledHero
+        <SheetSidebar
           name={personal.values.fullName || clientName}
           benefit={benefitLabel}
           progress={progress}
@@ -432,7 +452,7 @@ export default function ClientDetailsModal({
         />
 
         <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
-          <CompiledTabs items={items} activeId={active} onSelect={goTo} />
+          <SheetSectionTabs items={items} activeId={active} onSelect={goTo} />
 
           {/*
             Quem rola não é quem empilha. Com o `overflow-y-auto` no próprio
@@ -443,7 +463,7 @@ export default function ClientDetailsModal({
           <div ref={scrollerRef} className="min-h-0 flex-1 overflow-y-auto">
             <div className="flex flex-col gap-4 pb-6">
               {visible.map((section) => (
-                <CompiledSection
+                <SheetSectionCard
                   key={section.id}
                   id={section.id}
                   label={section.title}
@@ -452,7 +472,7 @@ export default function ClientDetailsModal({
                   badge={section.badge}
                 >
                   {section.content}
-                </CompiledSection>
+                </SheetSectionCard>
               ))}
             </div>
           </div>
@@ -544,9 +564,9 @@ function SheetActions({
       )}
       {/* Excluir é de advogado/admin: o backend recusa os demais com 403. */}
       {canDelete && (
-        <HeroTipButton label="Excluir cliente" onPress={onDelete} isDisabled={isSaving}>
+        <SidebarTipButton label="Excluir cliente" onPress={onDelete} isDisabled={isSaving}>
           <TrashIcon className="h-4 w-4" />
-        </HeroTipButton>
+        </SidebarTipButton>
       )}
     </ActionGroup>
   );

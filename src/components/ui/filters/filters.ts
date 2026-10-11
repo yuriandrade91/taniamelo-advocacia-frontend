@@ -16,7 +16,7 @@ import type { SelectFieldOption } from "@/components/ui/form/Field";
 /** Período em `yyyy-MM-dd` (pontas vazias = sem limite). */
 export type DateSpan = { from: string; to: string };
 
-export type FilterDef =
+type FilterDef =
   | { kind: "search"; label: string; placeholder: string }
   | { kind: "select"; label: string; placeholder: string; options: readonly SelectFieldOption[] }
   | { kind: "multi"; label: string; placeholder: string; options: readonly SelectFieldOption[] }

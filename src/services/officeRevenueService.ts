@@ -15,6 +15,7 @@ import type {
   OfficeRevenueSummary,
   RevenueTimelinePoint,
 } from "@/interfaces/finance/OfficeRevenue.interface";
+import { feedback, type RequestFeedback } from "@/services/requestFeedback";
 
 /**
  * Receita do escritório — honorário, parecer avulso, reembolso.
@@ -32,7 +33,7 @@ import type {
  * ## O `if` antes do código de verdade
  *
  * Cada função começa perguntando se este grupo de rotas está pausado **neste
- * ambiente** (`NEXT_PUBLIC_INTEGRACOES_PENDENTES`). Onde o backend serve as
+ * ambiente** (`NEXT_PUBLIC_PENDING_INTEGRATIONS`). Onde o backend serve as
  * rotas — o local, por exemplo — a pergunta é falsa e a integração funciona
  * normalmente. Onde não serve, a chamada não chega a sair para a rede.
  */
@@ -94,12 +95,13 @@ export const getOfficeRevenueTimeline = async (params: {
 
 export const createOfficeRevenue = async (
   body: OfficeRevenueRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<OfficeRevenueResponse>> => {
   if (pendingIntegration("revenues")) return pendingWrite("POST /api/v1/revenues");
   const { data } = await axiosInstance.post<ApiEnvelope<OfficeRevenueResponse>>(
     endpoints.REVENUES.CREATE,
     body,
-    { successMessage: "Receita lançada." },
+    feedback("Receita lançada.", options),
   );
   return data;
 };
@@ -107,19 +109,18 @@ export const createOfficeRevenue = async (
 export const updateOfficeRevenue = async (
   revenueId: string,
   body: OfficeRevenueRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<OfficeRevenueResponse>> => {
   if (pendingIntegration("revenues")) return pendingWrite("PUT /api/v1/revenues/{id}");
   const { data } = await axiosInstance.put<ApiEnvelope<OfficeRevenueResponse>>(
     endpoints.REVENUES.UPDATE(revenueId),
     body,
-    { successMessage: "Receita atualizada." },
+    feedback("Receita atualizada.", options),
   );
   return data;
 };
 
-export const deleteOfficeRevenue = async (revenueId: string): Promise<void> => {
+export const deleteOfficeRevenue = async (revenueId: string, options?: RequestFeedback): Promise<void> => {
   if (pendingIntegration("revenues")) return pendingWrite("DELETE /api/v1/revenues/{id}");
-  await axiosInstance.delete(endpoints.REVENUES.DELETE(revenueId), {
-    successMessage: "Receita excluída.",
-  });
+  await axiosInstance.delete(endpoints.REVENUES.DELETE(revenueId), feedback("Receita excluída.", options));
 };

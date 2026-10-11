@@ -142,13 +142,13 @@ export function nextSelectedIndex(
  * gravada.
  */
 export function matchAddressIds(
-  idsAtuais: readonly (string | null)[],
-  enviados: readonly number[],
-  criados: readonly { id?: string }[],
+  currentIds: readonly (string | null)[],
+  sent: readonly number[],
+  created: readonly { id?: string }[],
 ): (string | null)[] {
-  return idsAtuais.map((atual, indiceDaAba) => {
-    const positionInPayload = enviados.indexOf(indiceDaAba);
-    if (positionInPayload < 0) return atual;
-    return criados[positionInPayload]?.id ?? atual;
+  return currentIds.map((current, tabIndex) => {
+    const positionInPayload = sent.indexOf(tabIndex);
+    if (positionInPayload < 0) return current;
+    return created[positionInPayload]?.id ?? current;
   });
 }

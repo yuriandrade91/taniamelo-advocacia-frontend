@@ -15,6 +15,9 @@ import { RowSkeletons } from "@/components/ui/feedback/Loading";
  *
  * `grid` precisa ser uma classe literal (`xl:grid-cols-[…]`): o Tailwind não
  * gera classe montada por interpolação.
+ *
+ * `dense` aperta o respiro entre colunas no `xl` (20px → 12px), para a lista
+ * com mais colunas caber em 1280px sem cortar as ações.
  */
 export type ListColumn<T> = {
   id: string;
@@ -40,6 +43,7 @@ export function DataList<T>({
   rowClassName,
   isLoading,
   empty,
+  dense = false,
 }: {
   ariaLabel: string;
   items: readonly T[];
@@ -50,7 +54,9 @@ export function DataList<T>({
   isLoading: boolean;
   /** Estado vazio (sem resultado, filtro ou falha). */
   empty: ReactNode;
+  dense?: boolean;
 }) {
+  const gap = dense ? "gap-x-5 xl:gap-x-3" : "gap-x-5";
   return (
     // `overflow-clip`, e não `hidden`: corta os cantos sem virar contêiner de
     // rolagem — senão o cabeçalho preso não prenderia.
@@ -62,7 +68,7 @@ export function DataList<T>({
           {/* Cabeçalho já na carga: a lista não salta quando as linhas chegam.
               `aria-hidden`: para leitor de tela cada campo já tem o seu rótulo. */}
           <div aria-hidden="true" className="sticky top-0 z-10 hidden bg-white p-2 pb-1 xl:block">
-            <div className={`grid min-h-16 items-center gap-x-5 rounded-2xl bg-primary/5 px-4 py-3 ${grid}`}>
+            <div className={`grid min-h-16 items-center ${gap} rounded-2xl bg-primary/5 px-4 py-3 ${grid}`}>
               {columns.map((column) => (
                 <span
                   key={column.id}
@@ -84,7 +90,7 @@ export function DataList<T>({
             {items.map((row, index) => (
               <li
                 key={rowKey(row, index)}
-                className={`${rowClassName?.(row) ?? ""} grid grid-cols-2 items-start gap-x-5 gap-y-3 border-b border-black/5 px-5 py-4 text-sm text-gray-100 transition-colors last:border-b-0 hover:bg-secondary/5 sm:grid-cols-3 sm:px-6 lg:grid-cols-6 xl:items-center ${grid}`}
+                className={`${rowClassName?.(row) ?? ""} grid grid-cols-2 items-start ${gap} gap-y-3 border-b border-black/5 px-5 py-4 text-sm text-gray-100 transition-colors last:border-b-0 hover:bg-secondary/5 sm:grid-cols-3 sm:px-6 lg:grid-cols-6 xl:items-center ${grid}`}
               >
                 {columns.map((column) =>
                   column.lead ? (
@@ -108,11 +114,28 @@ export function DataList<T>({
   );
 }
 
-/** Estado vazio padrão das listas. */
-export function ListEmpty({ children }: { children: ReactNode }) {
+/**
+ * O vazio (ou a falha, com `tone="danger"`) no lugar das linhas de uma lista.
+ * `action` é o próximo passo óbvio — "Novo cliente" numa lista sem ninguém.
+ */
+export function ListEmpty({
+  tone = "neutral",
+  action,
+  children,
+}: {
+  tone?: "neutral" | "danger";
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
-    <p className="m-5 rounded-2xl border border-dashed border-black/10 px-5 py-10 text-center text-sm text-gray-100/80">
-      {children}
-    </p>
+    <div
+      role={tone === "danger" ? "alert" : undefined}
+      className={`m-5 flex flex-col items-center gap-4 rounded-2xl border border-dashed px-5 py-10 text-center text-sm ${
+        tone === "danger" ? "border-danger/30 text-danger" : "border-black/10 text-gray-100/80"
+      }`}
+    >
+      <p>{children}</p>
+      {action}
+    </div>
   );
 }

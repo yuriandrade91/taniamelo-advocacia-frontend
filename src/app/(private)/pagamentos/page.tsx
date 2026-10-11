@@ -8,7 +8,7 @@ import { Button } from "@heroui/react";
 import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { NoFinanceAccess } from "@/components/ui/feedback/NoFinanceAccess";
 import { TablePagination } from "@/components/ui/table/TablePagination";
-import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
 import type { PaymentDetailsTarget } from "@/components/payments/PaymentDetailsDrawer";
 import { PaymentsBoard } from "@/components/payments/list/PaymentsBoard";
 import type { PaymentsLoadState } from "@/components/payments/list/types";
@@ -22,6 +22,7 @@ import { useEditConfirmation } from "@/components/payments/useEditConfirmation";
 import { invalidateInstallmentTrail } from "@/components/payments/installmentTrail";
 import { useFilters } from "@/hooks/useFilters";
 import { usePagedList } from "@/hooks/usePagedList";
+import { pageFromEnvelope } from "@/lib/pagination";
 import { usePermissions } from "@/hooks/usePermissions";
 import { todayIso } from "@/lib/period";
 import { deletePayment } from "@/services/clientPaymentService";
@@ -87,16 +88,13 @@ const EditPaymentModal = dynamic(
  * "quem está esperando crédito", "o que entra este mês", "quem já recebeu".
  * Responder isso abrindo cliente por cliente é o que a tela substitui.
  *
- * ## O que ela ainda não tem
+ * ## De onde vem
  *
- * `GET /api/v1/payments` **não existe no backend**. Enquanto não existir, as
- * chamadas respondem 404 e a tela diz isso com todas as letras, em vez de
- * mostrar "nenhum pagamento encontrado" — que seria mentira, e a pior espécie:
- * a que parece funcionamento normal. A especificação para implementar está em
- * `docs/ESPEC_FINANCEIRO.md`.
- *
- * Descartei agregar no front (listar clientes e pedir os pagamentos de cada):
- * são 126 requisições para 125 clientes, e piora a cada cadastro.
+ * `GET /api/v1/payments` (desde a V18 do backend), que agrega no servidor —
+ * agregar aqui seria uma requisição por cliente. Um 404 nessa rota é servidor
+ * desatualizado, e a tela diz isso com todas as letras em vez de mostrar
+ * "nenhum pagamento encontrado", que pareceria funcionamento normal. As regras
+ * (competência × caixa, Pagamentos ≠ receita) estão em `docs/FINANCE_SPEC.md`.
  */
 
 /** 12 por página fecham as linhas de 2, 3 e 4 cartões. */
@@ -147,11 +145,7 @@ export default function PaymentsPage() {
         ...query,
         pageNumber: page,
         pageSize: PAGE_SIZE,
-      }).then((envelope) => ({
-        items: envelope?.data ?? [],
-        total: envelope?.pagination?.totalRecords ?? 0,
-        totalPages: envelope?.pagination?.totalPages ?? 0,
-      })),
+      }).then(pageFromEnvelope),
   });
   /** 404 não é "não achei pagamento", é "a rota não existe": a tela diz isso, em vez de mentir. */
   const state: PaymentsLoadState = list.isLoading
@@ -201,7 +195,7 @@ export default function PaymentsPage() {
   };
 
   if (!canSeeFinance)
-    return <NoFinanceAccess titulo="Pagamentos aos clientes" />;
+    return <NoFinanceAccess title="Pagamentos aos clientes" />;
 
   const emptyMessage =
     state === "missing-endpoint"

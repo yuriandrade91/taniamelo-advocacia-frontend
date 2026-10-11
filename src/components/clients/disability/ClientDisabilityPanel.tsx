@@ -15,8 +15,9 @@ import {
   validateDisabilityPeriods,
 } from "@/components/clients/form/disabilityPeriods";
 import { conversionFromServer } from "@/components/clients/form/disabilityConversion";
-import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
-import { basisFromGender, formatDateBR } from "@/lib/disabilityTime";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
+import { basisFromGender } from "@/lib/disabilityTime";
+import { formatDateBR } from "@/lib/format";
 import type { ConversionResult } from "@/lib/disabilityTime";
 import {
   type DisabilityPeriodResponse,
@@ -33,10 +34,11 @@ export type ClientDisabilityPanelHandle = {
   /** Mostra os erros e diz se dá para salvar. Não toca a rede. */
   validate: () => boolean;
   /**
-   * Grava o que mudou: `PUT` no que tem `id`, `POST` no novo. Lança no
+   * Grava o que mudou — `PUT` no gravado que foi mexido, `POST` no novo — sem
+   * toast: o aviso é um só, o da ficha. Diz se gravou alguma coisa; lança no
    * primeiro erro, para a ficha mostrar a mensagem no lugar de sempre.
    */
-  save: () => Promise<void>;
+  save: () => Promise<boolean>;
 };
 
 export type ClientDisabilityPanelProps = {
@@ -152,17 +154,25 @@ export function ClientDisabilityPanel({
         return Object.keys(validateDisabilityPeriods(drafts, today)).length === 0;
       },
       save: async () => {
-        const toSave = drafts.filter(hasDisabilityInput);
-        if (toSave.length === 0) return;
+        const stored = new Map(
+          saved.map((period) => [period.id, toDisabilityPeriodRequest(disabilityDraftFromResponse(period))]),
+        );
+        const toSave = drafts.filter(
+          (draft) =>
+            hasDisabilityInput(draft) &&
+            (!draft.id || JSON.stringify(stored.get(draft.id)) !== JSON.stringify(toDisabilityPeriodRequest(draft))),
+        );
+        if (toSave.length === 0) return false;
         try {
           for (const period of toSave) {
             const body = toDisabilityPeriodRequest(period);
             if (period.id) {
-              await updateDisabilityPeriod(clientId, period.id, body);
+              await updateDisabilityPeriod(clientId, period.id, body, { silent: true });
             } else {
-              await createDisabilityPeriod(clientId, body);
+              await createDisabilityPeriod(clientId, body, { silent: true });
             }
           }
+          return true;
         } finally {
           // Recarrega mesmo na falha: o que entrou ganha id, e um novo Salvar
           // vira PUT em vez de duplicar o intervalo.
@@ -170,7 +180,7 @@ export function ClientDisabilityPanel({
         }
       },
     }),
-    [clientId, drafts, load, today],
+    [clientId, drafts, saved, load, today],
   );
 
   const updateDraft = (key: string, patch: Partial<DisabilityPeriodDraft>) =>

@@ -1,20 +1,21 @@
 "use client";
 
+import endpoints, { API_BASE_URL } from "@/constants/endpoints/paths";
 import { notificationCenter } from "@/services/notificationService";
 import { getTenantHeaderValue } from "@/lib/tenant";
 import { applySession, expireSession, isSessionEnding, readToken } from "@/lib/session";
 import axios, { type AxiosError } from "axios";
 
 /**
- * Opções extras suportadas por requisição.
+ * Opções extras suportadas por requisição. Os serviços não as escrevem à mão:
+ * montam `successMessage`/`skipSuccessToast` com `feedback` (`requestFeedback`).
  * - `skipErrorToast`: trata o erro na própria UI, sem toast global.
- * - `successMessage`: toast de sucesso pra respostas sem corpo (204) — sem
- *   `body.success` pra inspecionar, `notifyResponse` não tem como saber que
- *   deu certo sozinho. Sem isso, cai num texto padrão por método HTTP
- *   (ver `DEFAULT_SUCCESS_MESSAGE_BY_METHOD` em `notificationService`).
- * - `skipSuccessToast`: a tela já avisou o usuário por conta própria. É o caso
- *   das ações com janela de desfazer: o toast sai no clique, e a requisição só
- *   parte 5s depois — sem isto o usuário veria a mesma coisa duas vezes.
+ * - `successMessage`: o texto do toast de sucesso. Sem ele, a gravação cai no
+ *   padrão do método (`DEFAULT_SUCCESS_MESSAGE_BY_METHOD`, em
+ *   `notificationService`); a leitura, em silêncio.
+ * - `skipSuccessToast`: quem chamou avisa por conta própria — a ação com
+ *   janela de desfazer (o toast sai no clique, a requisição 5 s depois) e o
+ *   fluxo de várias requisições (um aviso só, no fim).
  * - `_retry`: controle interno do retry pós-refresh.
  */
 declare module "axios" {
@@ -27,12 +28,12 @@ declare module "axios" {
 }
 
 /** Header de tenant exigido pelo backend (app.tenancy.header-name). */
-export const TENANT_HEADER = "X-Tenant-Id";
+const TENANT_HEADER = "X-Tenant-Id";
 
 const axiosInstance = axios.create({
   // Os endpoints em constants/endpoints/paths.ts são absolutos (já incluem /api/v1);
   // baseURL é apenas fallback para chamadas com path relativo.
-  baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080",
+  baseURL: API_BASE_URL,
   // Necessário para o cookie httpOnly do refresh token trafegar.
   withCredentials: true,
   headers: {
@@ -60,10 +61,9 @@ let refreshInFlight: Promise<string | null> | null = null;
 function refreshAccessToken(): Promise<string | null> {
   if (refreshInFlight) return refreshInFlight;
 
-  const baseURL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
   refreshInFlight = axios
     .post(
-      `${baseURL}/api/v1/auth/refresh`,
+      endpoints.AUTH.REFRESH,
       {},
       {
         withCredentials: true,
@@ -98,6 +98,19 @@ axiosInstance.interceptors.request.use((config) => {
 /** As rotas de autenticação: um 401 nelas é resposta (senha errada), não sessão vencida. */
 const isAuthRoute = (url?: string) => typeof url === "string" && url.includes("/auth/");
 
+/**
+ * Pedido de arquivo (`responseType: "blob"`): o envelope de erro também chega
+ * como blob. Lido aqui, a central mostra a mensagem do backend ("Falha ao
+ * processar arquivo no storage") em vez do texto genérico do status.
+ */
+async function envelopeFromBlob(blob: Blob): Promise<unknown> {
+  try {
+    return JSON.parse(await blob.text());
+  } catch {
+    return undefined;
+  }
+}
+
 axiosInstance.interceptors.response.use(
   (response) => {
     notificationCenter.notifyResponse(response);
@@ -127,6 +140,10 @@ axiosInstance.interceptors.response.use(
       }
       expireSession();
       return Promise.reject(error);
+    }
+
+    if (error.response?.data instanceof Blob) {
+      error.response.data = await envelopeFromBlob(error.response.data);
     }
 
     // Permite que o chamador trate o erro na própria UI, sem toast global.

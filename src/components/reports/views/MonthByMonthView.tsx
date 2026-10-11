@@ -8,7 +8,7 @@ import {
   Meter,
   SegmentBar,
   deltaPercent,
-} from "@/components/ui/models/viz";
+} from "@/components/charts/svgCharts";
 import {
   AGENDA_LABELS,
   AGENDA_TONES,
@@ -16,18 +16,17 @@ import {
   INTAKE_TONES,
   PAYMENT_LABELS,
   PAYMENT_TONES,
-  STAGE_BG,
-  FinanceSummary,
-  SeriesGate,
-  money,
-  moneyShort,
   useReport,
   type AgendaRow,
   type FlowRow,
   type IntakeRow,
   type PaymentRow,
-} from "./kit";
+} from "./useReport";
+import { FinanceSummary, SeriesGate } from "./ReportBlocks";
+import { STAGE_BG } from "@/components/ui/feedback/stageRamp";
+import { formatBRLShort, formatBRLSigned } from "@/lib/format";
 import type { ReportViewProps } from "./types";
+import { MONTH_LABELS } from "@/constants/date/months";
 
 /**
  * Mês a mês — o período do mais recente para trás.
@@ -40,14 +39,9 @@ import type { ReportViewProps } from "./types";
  * (etapa é retrato, não série mensal).
  */
 
-const MONTHS_LONG = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
-
 function monthParts(key: string) {
   const [y, m] = key.split("-").map(Number);
-  return { name: MONTHS_LONG[m - 1], year: y };
+  return { name: MONTH_LABELS[m - 1], year: y };
 }
 
 function Cell({
@@ -148,7 +142,7 @@ export function MonthByMonthView(props: ReportViewProps) {
                   {chosen && <span className="absolute inset-0 rounded-full bg-secondary motion-safe:animate-halo" />}
                 </span>
                 <article
-                  className={`rounded-3xl p-5 ring-1 transition hover:shadow-xl hover:shadow-primary/5 ${
+                  className={`rounded-3xl p-5 ring-1 transition hover:ring-secondary/40 ${
                     chosen ? "bg-white ring-secondary/40" : "bg-white/70 ring-black/5"
                   }`}
                 >
@@ -179,18 +173,18 @@ export function MonthByMonthView(props: ReportViewProps) {
                         {r.flow.hasData && f ? (
                           <>
                             <p className={`text-lg font-semibold tabular-nums ${f.net < 0 ? "text-danger" : "text-primary"}`}>
-                              {money(f.net)}
+                              {formatBRLSigned(f.net)}
                             </p>
                             <div className="mt-2 flex flex-col gap-1.5 text-[11px] text-gray-100">
                               <div className="flex items-center gap-2">
                                 <span className="w-14 shrink-0">Entradas</span>
                                 <Meter value={f.inflow} max={flowMax} tone={FLOW_TONES.inflow} className="flex-1" />
-                                <span className="w-16 shrink-0 text-right tabular-nums">{moneyShort(f.inflow)}</span>
+                                <span className="w-16 shrink-0 text-right tabular-nums">{formatBRLShort(f.inflow)}</span>
                               </div>
                               <div className="flex items-center gap-2">
                                 <span className="w-14 shrink-0">Saídas</span>
                                 <Meter value={f.outflow} max={flowMax} tone={FLOW_TONES.outflow} className="flex-1" />
-                                <span className="w-16 shrink-0 text-right tabular-nums">{moneyShort(f.outflow)}</span>
+                                <span className="w-16 shrink-0 text-right tabular-nums">{formatBRLShort(f.outflow)}</span>
                               </div>
                             </div>
                           </>
@@ -203,7 +197,7 @@ export function MonthByMonthView(props: ReportViewProps) {
                       <Cell title="Parcelas dos clientes" basis="por vencimento" loading={isFinanceLoading}>
                         {r.payments.hasData && p ? (
                           <>
-                            <p className="text-lg font-semibold text-primary tabular-nums">{money(p.total)}</p>
+                            <p className="text-lg font-semibold text-primary tabular-nums">{formatBRLSigned(p.total)}</p>
                             <SegmentBar
                               className="mt-2 h-2"
                               segments={[
@@ -214,7 +208,7 @@ export function MonthByMonthView(props: ReportViewProps) {
                             />
                             <p className="mt-1.5 text-[11px] text-gray-100 tabular-nums">
                               {p.overdue > 0 ? (
-                                <span className="text-danger">{moneyShort(p.overdue)} em atraso</span>
+                                <span className="text-danger">{formatBRLShort(p.overdue)} em atraso</span>
                               ) : (
                                 "nada em atraso"
                               )}

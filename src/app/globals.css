@@ -158,6 +158,9 @@
   --color-secondary: oklch(0.6478 0.1071 74.24); /* #B5843C */
   --color-success: oklch(0.7459 0.1812 152.33); /* #2ECC71 */
   --color-danger: oklch(0.646 0.2094 24.4); /* #F34649 */
+  /* O verde como texto pequeno sobre `light-green` (selos "pago", "isento",
+     etapa concluída): o `success` puro some nesse fundo. */
+  --color-success-strong: #238c26;
   --color-gray-100: oklch(0.4712 0 89.88); /* #5B5B5B */
 
   /* CORRIGIDO: usada em `bg-light-gray` porém nunca definida no theme antigo */
@@ -170,6 +173,16 @@
   /* Creme (floralwhite) — fundo do cabeçalho dos cartões do cadastro de
      cliente: aquece o topo do cartão sem competir com o dourado. */
   --color-floral: #fffaf0; /* floralwhite */
+
+  /* Site do escritório (`/site`), no desenho feito no Lovable: o azul quase
+     preto do topo, o marfim do fundo, o fio cinza-azulado, o cinza do texto
+     de apoio — os valores de lá, sem arredondar — e o dourado claro dos
+     destaques sobre o azul. */
+  --color-midnight: oklch(16% 0.06 270);
+  --color-ivory: oklch(98.7% 0.002 90);
+  --color-hairline: oklch(92.9% 0.013 255.508);
+  --color-muted-ink: oklch(51% 0.015 269);
+  --color-gold-light: #e2c18c;
 
   /* Tons translúcidos (alpha é intencional -> mantidos em rgba) */
   --color-light-secondary: rgba(181, 132, 60, 0.1);
@@ -274,7 +287,7 @@ textarea {
    navegador, a seta) — e a seta em cima de algo clicável não avisa que ali há
    uma ação. Aqui ele volta para tudo que age: botões, links, gatilhos do
    React Aria/HeroUI (`role="button"`), opções de lista, abas, rádios
-   (o seletor de modelos, o Tipo do filtro), caixas de marcar e seletores.
+   (o Tipo do filtro), caixas de marcar e seletores.
 
    Na layer `base` de propósito: qualquer utility (`cursor-help` no selo de
    isento, `cursor-text`…) ou o CSS dos componentes da lib vence esta regra.
@@ -362,49 +375,6 @@ textarea {
    (cor padrão do ProgressCircle) e destoa dentro de um toast `success`. */
 .toast__action .progress-circle {
   --progress-circle-stroke: currentColor;
-}
-
-/* ==========================================================================
-   Formulário de cliente — accordions como cartões separados
-   ==========================================================================
-   A variante `surface` do HeroUI desenha **um** cartão para o grupo inteiro,
-   com as seções empilhadas e separadas por um filete. O protótipo pede o
-   contrário: cada seção é um cartão próprio, com respiro entre elas.
-
-   Estas regras ficam FORA de `@layer` de propósito. O CSS do HeroUI mora na
-   camada `components` e as utilitárias do Tailwind na `utilities`; estilo sem
-   camada vence as duas, que é o que garante o override sem depender de
-   especificidade nem de `!important`. */
-.client-form-accordion {
-  background: transparent;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.client-form-accordion .accordion__item {
-  background: var(--color-white, #fff);
-  border-radius: 1rem;
-  overflow: hidden;
-}
-
-/* O filete separador do `surface` não faz sentido entre cartões soltos. */
-.client-form-accordion .accordion__item::after {
-  content: none;
-}
-
-/* O `surface` arredonda só o primeiro e o último item do grupo; com cartões
-   independentes, todo gatilho tem os quatro cantos. */
-.client-form-accordion .accordion__item [data-slot="accordion-trigger"] {
-  border-radius: 1rem;
-}
-
-.client-form-accordion .accordion__trigger {
-  padding: 1.125rem 1.5rem;
-}
-
-.client-form-accordion .accordion__body-inner {
-  padding: 0 1.5rem 1.5rem;
 }
 
 /* ==========================================================================

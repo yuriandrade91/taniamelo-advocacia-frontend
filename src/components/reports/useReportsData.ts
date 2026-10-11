@@ -11,12 +11,8 @@ import { getOfficePaymentTimeline } from "@/services/officePaymentService";
 import { getOfficeExpenseSummary, getOfficeExpenseTimeline } from "@/services/officeExpenseService";
 import { getOfficeRevenueTimeline } from "@/services/officeRevenueService";
 import type { ClientListRequest } from "@/interfaces/client/Client.interface";
-import {
-  buildFlowTimeline,
-  formatMonthAxis,
-  toBalanceSlices,
-  toCumulativeBalance,
-} from "@/components/wallet/walletOverview";
+import { formatMonthAxis } from "@/lib/period";
+import { buildFlowTimeline, toBalanceSlices, toCumulativeBalance } from "@/components/reports/financeSeries";
 import {
   createdRange,
   stateOf,

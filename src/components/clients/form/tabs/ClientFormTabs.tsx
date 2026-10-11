@@ -10,6 +10,7 @@ import { ReviewIcon } from "./sectionIcons";
 import { CountBadge, TabBar, TabItem } from "@/components/ui/tabs/SegmentedTabs";
 import type { ClientFormSection, SectionFocus } from "./types";
 import { useActiveSection } from "./useActiveSection";
+import { Svg } from "@/components/ui/icons/Svg";
 
 /** Entrada suave do painel — Web Animations, sem keyframe no CSS global. */
 function Enter({ children }: { children: ReactNode }) {
@@ -42,15 +43,9 @@ function TabState({ section }: { section: ClientFormSection }) {
         aria-hidden="true"
         className="flex h-5 w-5 items-center justify-center rounded-full bg-success/15 text-success group-data-[selected=true]:bg-white/20 group-data-[selected=true]:text-white"
       >
-        <svg viewBox="0 0 16 16" fill="none" className="h-3 w-3">
-          <path
-            d="M3.5 8.5 6.5 11.5 12.5 5"
-            stroke="currentColor"
-            strokeWidth="2.25"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <Svg viewBox="0 0 16 16" strokeWidth={2.25} className="h-3 w-3">
+          <path d="M3.5 8.5 6.5 11.5 12.5 5" />
+        </Svg>
       </span>
     );
   }
@@ -74,8 +69,8 @@ function TabState({ section }: { section: ClientFormSection }) {
  * O painel inativo é desmontado pelo React Aria — não há problema porque o
  * estado de cada seção mora na página, não no componente da seção.
  *
- * Escolhido entre doze alternativas ao accordion — o histórico está em
- * `docs/PROPOSTA_LAYOUT_CADASTRO_CLIENTE.md`.
+ * Escolhido entre doze alternativas ao accordion — ver
+ * `docs/adr/0002-client-form-layout.md`.
  */
 const NO_FOCUS: SectionFocus = { keys: [], seq: 0 };
 

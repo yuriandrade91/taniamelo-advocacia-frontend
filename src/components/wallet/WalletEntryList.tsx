@@ -53,12 +53,12 @@ type EntryBase = {
 };
 
 type WalletEntry =
-  | (EntryBase & { kind: "entrada"; item: OfficeRevenueResponse })
-  | (EntryBase & { kind: "saida"; item: OfficeExpenseResponse });
+  | (EntryBase & { kind: "income"; item: OfficeRevenueResponse })
+  | (EntryBase & { kind: "expense"; item: OfficeExpenseResponse });
 
 function fromRevenue(item: OfficeRevenueResponse): WalletEntry {
   return {
-    kind: "entrada",
+    kind: "income",
     item,
     id: item.id,
     description: item.description,
@@ -74,7 +74,7 @@ function fromRevenue(item: OfficeRevenueResponse): WalletEntry {
 
 function fromExpense(item: OfficeExpenseResponse): WalletEntry {
   return {
-    kind: "saida",
+    kind: "expense",
     item,
     id: item.id,
     description: item.description,
@@ -116,15 +116,15 @@ export type WalletEntryListProps = {
   emptyMessage: string;
   actions: WalletEntryActions;
 } & (
-  | { kind: "saida"; items: OfficeExpenseResponse[] }
-  | { kind: "entrada"; items: OfficeRevenueResponse[] }
+  | { kind: "expense"; items: OfficeExpenseResponse[] }
+  | { kind: "income"; items: OfficeRevenueResponse[] }
 );
 
 /** Ver primeiro (olhar antes de mexer), excluir por último. */
 function entryActions(kind: EntryKind, actions: WalletEntryActions): RowAction<WalletEntry>[] {
   const noun = KIND_META[kind].noun;
   const call = (pick: keyof Handlers<unknown>) => (entry: WalletEntry) =>
-    entry.kind === "entrada" ? actions.revenue[pick](entry.item) : actions.expense[pick](entry.item);
+    entry.kind === "income" ? actions.revenue[pick](entry.item) : actions.expense[pick](entry.item);
   return [
     viewAction(`Ver detalhes da ${noun}`, call("onView")),
     editAction(`Editar ${noun}`, call("onEdit")),
@@ -137,8 +137,8 @@ function entryActions(kind: EntryKind, actions: WalletEntryActions): RowAction<W
  * do grid são literais — ver `DataList`.
  */
 const GRID: Record<EntryKind, string> = {
-  saida: "xl:grid-cols-[minmax(14rem,1.6fr)_minmax(8rem,1fr)_minmax(8rem,1fr)_6.5rem_6.5rem_8.5rem_7.5rem_7rem]",
-  entrada: "xl:grid-cols-[minmax(14rem,1.8fr)_minmax(10rem,1.2fr)_6.5rem_6.5rem_8.5rem_7.5rem_7rem]",
+  expense: "xl:grid-cols-[minmax(14rem,1.6fr)_minmax(8rem,1fr)_minmax(8rem,1fr)_6.5rem_6.5rem_8.5rem_7.5rem_7rem]",
+  income: "xl:grid-cols-[minmax(14rem,1.8fr)_minmax(10rem,1.2fr)_6.5rem_6.5rem_8.5rem_7.5rem_7rem]",
 };
 
 const text = (value?: string) => (
@@ -150,7 +150,7 @@ const text = (value?: string) => (
 function columnsOf(kind: EntryKind, actions: WalletEntryActions): ListColumn<WalletEntry>[] {
   const meta = KIND_META[kind];
   const rowActions = entryActions(kind, actions);
-  const up = kind === "entrada";
+  const up = kind === "income";
   return [
     {
       id: "description",
@@ -178,7 +178,7 @@ function columnsOf(kind: EntryKind, actions: WalletEntryActions): ListColumn<Wal
       ),
     },
     { id: "party", header: meta.partyLabel, cell: (entry) => text(entry.party) },
-    ...(kind === "saida"
+    ...(kind === "expense"
       ? [{ id: "category", header: "Categoria", cell: (entry: WalletEntry) => text(entry.category) }]
       : []),
     { id: "dueDate", header: "Vencimento", cell: (entry) => formatDateBR(entry.dueDate) },
@@ -220,7 +220,7 @@ const CANCELLED_ROW =
 
 export function WalletEntryList(props: WalletEntryListProps) {
   const { kind, isLoading, emptyMessage, actions } = props;
-  const entries = props.kind === "saida" ? props.items.map(fromExpense) : props.items.map(fromRevenue);
+  const entries = props.kind === "expense" ? props.items.map(fromExpense) : props.items.map(fromRevenue);
   return (
     <DataList
       ariaLabel={KIND_META[kind].label}

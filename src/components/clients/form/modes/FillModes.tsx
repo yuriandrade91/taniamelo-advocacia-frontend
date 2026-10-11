@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { Accordion } from "@heroui/react";
 import { useState } from "react";
 import { useStoredChoice, useUrlParam } from "@/hooks/useStoredValue";
-import type { FillModeProps } from "./shared";
+import type { FillModeProps } from "./fillModeForms";
 
 /**
  * Modos de preenchimento do cadastro — EXPERIMENTAIS, e recolhidos.
@@ -20,7 +20,7 @@ import type { FillModeProps } from "./shared";
  * continuam sendo o modo completo (deficiência, vários endereços, entrevista,
  * arquivos só existem nelas).
  */
-export const FILL_MODES = [
+const FILL_MODES = [
   {
     id: "abas",
     title: "Abas",
@@ -42,7 +42,7 @@ export const FILL_MODES = [
 const PasteMode = dynamic(() => import("./PasteMode").then((m) => m.PasteMode));
 const VoiceMode = dynamic(() => import("./VoiceMode").then((m) => m.VoiceMode));
 
-export type FillModeId = (typeof FILL_MODES)[number]["id"];
+type FillModeId = (typeof FILL_MODES)[number]["id"];
 
 
 const STORAGE_KEY = "cadastro-cliente:modo";

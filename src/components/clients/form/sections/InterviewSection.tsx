@@ -4,7 +4,7 @@ import dynamic from "next/dynamic";
 import { Skeleton } from "@heroui/react";
 import { SchemaField } from "@/components/ui/form/SchemaFields";
 import type { SectionForm } from "@/hooks/useSectionForm";
-import { FormGrid } from "../FormSection";
+import { FieldGrid } from "@/components/ui/form/FieldGrid";
 import { interviewSchema, type InterviewValues } from "../schemas";
 
 /**
@@ -33,7 +33,7 @@ export function InterviewSection({
 }) {
   const error = form.errorOf("content");
   return (
-    <FormGrid>
+    <FieldGrid columns={4}>
       {(["occurredAt", "durationMinutes"] as const).map((name) => (
         <SchemaField key={name} form={form} schema={interviewSchema} name={name} isReadOnly={isReadOnly}
                 isLoading={isLoading} />
@@ -55,6 +55,6 @@ export function InterviewSection({
         errorMessage={error}
       />
       )}
-    </FormGrid>
+    </FieldGrid>
   );
 }

@@ -1,71 +1,43 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import ActionButton from "@/components/ui/table/ActionButton";
-import {
-  DetailsIcon,
-  DownloadIcon,
-  FileIcon,
-  PencilIcon,
-  TrashIcon,
-} from "@/components/ui/icons/actions";
-import { ChevronDownIcon } from "@/components/ui/icons/CalendarIcon";
+import { IconButton } from "@/components/ui/actions/IconButton";
+import { DetailsIcon, DownloadIcon, FileIcon, TrashIcon } from "@/components/ui/icons/actions";
 import { SegmentedTabs } from "@/components/ui/tabs/SegmentedTabs";
-import { formatDateBR } from "@/lib/format";
-import { openInNewTab } from "@/lib/openInNewTab";
-import { AddItemButton } from "../../FormSection";
-import { DocumentCatalogPanel } from "./DocumentCatalogPanel";
-import { FILE_KINDS, FileKindLabel } from "./FileKindLabel";
-import {
-  countLabel,
-  formatFileSize,
-  groupByDocumentType,
-  toDocumentRows,
-  type FileRow,
-} from "./fileGrouping";
-import type { FileKind, StagedDocument, StagedSimulation } from "./types";
+import { Pill } from "@/components/ui/feedback/Badges";
+import { Notice } from "@/components/ui/feedback/Notice";
+import { ChevronDownIcon } from "@/components/ui/icons/glyphs";
 import type {
   ClientFileDocumentResponse,
   ClientFileSimulationResponse,
 } from "@/interfaces/client/ClientSubResources.interface";
-import { Pill } from "@/components/ui/feedback/Badges";
-import { Notice } from "@/components/ui/feedback/Notice";
+import { formatDateBR } from "@/lib/format";
+import { openBlob, saveBlob } from "@/lib/blobFile";
+import { downloadClientFile } from "@/services/clientFileService";
+import { DocumentCatalogPanel } from "./DocumentCatalogPanel";
+import { FILE_KINDS, FileKindLabel } from "./FileKindLabel";
+import { countLabel, formatFileSize, groupByDocumentType } from "./fileGrouping";
+import type { FileKind } from "./types";
 
 /**
- * "Arquivos" — o corpo do accordion.
+ * "Arquivos" da ficha — o que já está no servidor.
  *
  * Duas abas, no desenho das do cadastro (`SegmentedTabs`), porque são dois
  * recursos distintos no backend (`/files/documents` e `/files/simulations`),
- * com metadados diferentes. Na aba
- * de documentos os arquivos são agrupados por tipo em blocos recolhíveis, na
- * ordem do enum — o usuário procura "Documentos médicos" no mesmo lugar toda
- * vez.
+ * com metadados diferentes. Na aba de documentos os arquivos são agrupados por
+ * tipo em blocos recolhíveis, na ordem do enum — o usuário procura "Documentos
+ * médicos" no mesmo lugar toda vez.
  *
- * Arquivos já no servidor e arquivos apenas escolhidos aparecem na **mesma**
- * lista: separá-los em "enviados" e "a enviar" faria conferir duas vezes. O que
- * distingue é a coluna de data (vazia no que não subiu) e as ações — não dá
- * para baixar o que ainda não existe no servidor.
- *
- * O botão "Novo arquivo" fica na barra das abas, e não no cabeçalho da seção:
- * botão dentro do gatilho de uma seção recolhível aninha elemento interativo
- * dentro de outro, o que quebra teclado e leitor de tela.
+ * Abrir e baixar passam pela API com o token (`downloadClientFile`); o que
+ * foi escolhido e ainda não subiu mora no `FilesUpload`, logo abaixo.
  */
 
-/**
- * Sem handlers, só leitura (a ficha): abrir e baixar. Cada handler acende a
- * ação dele — "Novo arquivo", excluir, editar —, e os arquivos escolhidos e
- * ainda não enviados só existem onde se pode removê-los.
- */
 export type FilesSectionProps = {
+  clientId: string;
   documents: ClientFileDocumentResponse[];
   simulations: ClientFileSimulationResponse[];
-  stagedDocuments?: StagedDocument[];
-  stagedSimulations?: StagedSimulation[];
-  onAddFiles?: (kind: FileKind) => void;
-  onRemoveStagedDocument?: (index: number) => void;
-  onRemoveStagedSimulation?: (index: number) => void;
-  onDelete?: (kind: FileKind, fileId: string) => void;
-  onEdit?: (kind: FileKind, fileId: string) => void;
+  /** Sem ele, só leitura: abrir e baixar. */
+  onDelete?: (fileId: string) => void;
 };
 
 function GroupBlock({
@@ -75,7 +47,7 @@ function GroupBlock({
 }: {
   title: string;
   count: number;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState(true);
 
@@ -104,9 +76,6 @@ function GroupBlock({
   );
 }
 
-/** Selo de quem ainda não subiu — no lugar da data, ou da marca de principal. */
-const StagedTag = () => <Pill tone="soft">a enviar</Pill>;
-
 /** Célula de dado: texto pequeno; `strong` para o nome do arquivo. */
 function Td({
   children,
@@ -125,7 +94,7 @@ function Td({
 }
 
 /** Cabeçalho de coluna — caixa alta pequena, dourada, como na listagem. */
-function Th({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+function Th({ children, className = "" }: { children: ReactNode; className?: string }) {
   return (
     <th
       scope="col"
@@ -136,30 +105,19 @@ function Th({ children, className = "" }: { children: React.ReactNode; className
   );
 }
 
-export function FilesSection({
-  documents,
-  simulations,
-  stagedDocuments = [],
-  stagedSimulations = [],
-  onAddFiles,
-  onRemoveStagedDocument,
-  onRemoveStagedSimulation,
-  onDelete,
-  onEdit,
-}: FilesSectionProps) {
+export function FilesSection({ clientId, documents, simulations, onDelete }: FilesSectionProps) {
   const [tab, setTab] = useState<FileKind>("documents");
+  const documentGroups = useMemo(() => groupByDocumentType(documents), [documents]);
 
-  const documentGroups = useMemo(
-    () => groupByDocumentType(toDocumentRows(documents, stagedDocuments)),
-    [documents, stagedDocuments],
-  );
-
-  const stagedIndexOf = (row: FileRow) =>
-    Number(row.id.split("-")[1] ?? -1);
+  // O erro da requisição já sai pela central; aqui só não deixa a promessa solta.
+  const view = (file: { id: string; originalFilename: string }) =>
+    void openBlob(() => downloadClientFile(clientId, file.id), file.originalFilename).catch(() => {});
+  const save = (file: { id: string; originalFilename: string }) =>
+    void saveBlob(() => downloadClientFile(clientId, file.id), file.originalFilename).catch(() => {});
 
   const counts: Record<FileKind, number> = {
-    documents: documents.length + stagedDocuments.length,
-    simulations: simulations.length + stagedSimulations.length,
+    documents: documents.length,
+    simulations: simulations.length,
   };
 
   const documentsPanel =
@@ -181,57 +139,24 @@ export function FilesSection({
                   </tr>
                 </thead>
                 <tbody>
-                  {group.items.map((row) => (
-                    <tr key={row.id} className="border-b border-secondary/10 last:border-0">
-                      <Td>{row.documentType ?? "—"}</Td>
-                      <Td strong>{row.filename}</Td>
-                      <Td className="whitespace-nowrap">
-                        {row.isStaged ? <StagedTag /> : formatDateBR(row.registeredAt)}
-                      </Td>
-                      <Td className="max-w-64 truncate">{row.notes || "—"}</Td>
+                  {group.items.map((item) => (
+                    <tr key={item.id} className="border-b border-secondary/10 last:border-0">
+                      <Td>{item.documentType ?? "—"}</Td>
+                      <Td strong>{item.originalFilename}</Td>
+                      <Td className="whitespace-nowrap">{formatDateBR(item.uploadedAt)}</Td>
+                      <Td className="max-w-64 truncate">{item.notes || "—"}</Td>
                       <Td>
                         <div className="flex justify-center gap-0.5">
-                          {/* Ações do que ainda não subiu são só remover:
-                              visualizar e baixar precisam do servidor. */}
-                          {!row.isStaged && (
-                            <>
-                              <ActionButton
-                                label="Visualizar"
-                                tone="primary"
-                                onClick={() => openInNewTab(row.downloadUrl)}
-                              >
-                                <DetailsIcon />
-                              </ActionButton>
-                              <ActionButton
-                                label="Baixar"
-                                tone="secondary"
-                                onClick={() => openInNewTab(row.downloadUrl)}
-                              >
-                                <DownloadIcon />
-                              </ActionButton>
-                              {onEdit && (
-                                <ActionButton
-                                  label="Editar"
-                                  tone="secondary"
-                                  onClick={() => onEdit("documents", row.id)}
-                                >
-                                  <PencilIcon />
-                                </ActionButton>
-                              )}
-                            </>
-                          )}
-                          {(row.isStaged || onDelete) && (
-                            <ActionButton
-                              label="Excluir"
-                              tone="danger"
-                              onClick={() =>
-                                row.isStaged
-                                  ? onRemoveStagedDocument?.(stagedIndexOf(row))
-                                  : onDelete?.("documents", row.id)
-                              }
-                            >
+                          <IconButton label="Visualizar" tone="primary" onClick={() => view(item)}>
+                            <DetailsIcon />
+                          </IconButton>
+                          <IconButton label="Baixar" tone="secondary" onClick={() => save(item)}>
+                            <DownloadIcon />
+                          </IconButton>
+                          {onDelete && (
+                            <IconButton label="Excluir" tone="danger" onClick={() => onDelete(item.id)}>
                               <TrashIcon />
-                            </ActionButton>
+                            </IconButton>
                           )}
                         </div>
                       </Td>
@@ -246,7 +171,7 @@ export function FilesSection({
     );
 
   const simulationsPanel =
-    counts.simulations === 0 ? (
+    simulations.length === 0 ? (
       <Notice>Nenhuma simulação adicionada.</Notice>
     ) : (
       <div className="overflow-x-auto rounded-xl border border-secondary/25">
@@ -270,53 +195,20 @@ export function FilesSection({
                 <Td>{item.version ?? "—"}</Td>
                 <Td>{item.vinculos ?? "—"}</Td>
                 <Td>{formatFileSize(item.fileSizeBytes)}</Td>
-                <Td>
-                  {item.isPrincipal && (
-                    <Pill tone="success">Principal</Pill>
-                  )}
-                </Td>
+                <Td>{item.isPrincipal && <Pill tone="success">Principal</Pill>}</Td>
                 <Td>
                   <div className="flex justify-center gap-0.5">
-                    <ActionButton
-                      label="Baixar"
-                      tone="secondary"
-                      onClick={() => openInNewTab(item.downloadUrl)}
-                    >
+                    <IconButton label="Visualizar" tone="primary" onClick={() => view(item)}>
+                      <DetailsIcon />
+                    </IconButton>
+                    <IconButton label="Baixar" tone="secondary" onClick={() => save(item)}>
                       <DownloadIcon />
-                    </ActionButton>
+                    </IconButton>
                     {onDelete && (
-                      <ActionButton
-                        label="Excluir"
-                        tone="danger"
-                        onClick={() => onDelete("simulations", item.id)}
-                      >
+                      <IconButton label="Excluir" tone="danger" onClick={() => onDelete(item.id)}>
                         <TrashIcon />
-                      </ActionButton>
+                      </IconButton>
                     )}
-                  </div>
-                </Td>
-              </tr>
-            ))}
-
-            {stagedSimulations.map((item, index) => (
-              <tr key={`staged-${index}`} className="border-b border-secondary/10 last:border-0">
-                <Td strong>{item.file.name}</Td>
-                <Td className="whitespace-nowrap">{formatDateBR(item.simulationDate)}</Td>
-                <Td>{item.version || "—"}</Td>
-                <Td>{item.vinculos || "—"}</Td>
-                <Td>{formatFileSize(item.file.size)}</Td>
-                <Td>
-                  <StagedTag />
-                </Td>
-                <Td>
-                  <div className="flex justify-center gap-0.5">
-                    <ActionButton
-                      label="Remover"
-                      tone="danger"
-                      onClick={() => onRemoveStagedSimulation?.(index)}
-                    >
-                      <TrashIcon />
-                    </ActionButton>
                   </div>
                 </Td>
               </tr>
@@ -332,9 +224,6 @@ export function FilesSection({
       selectedKey={tab}
       onSelectionChange={(key) => setTab(key as FileKind)}
       className="gap-4"
-      actions={
-        onAddFiles && <AddItemButton onClick={() => onAddFiles(tab)}>Novo arquivo</AddItemButton>
-      }
       tabs={FILE_KINDS.map((kind) => ({
         id: kind,
         label: <FileKindLabel kind={kind} count={counts[kind]} />,

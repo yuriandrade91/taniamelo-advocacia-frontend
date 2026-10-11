@@ -6,14 +6,17 @@ import type {
   ClientPaymentUpdateRequest,
   ClientPaymentResponse,
 } from "@/interfaces/client/ClientSubResources.interface";
+import { feedback, type RequestFeedback } from "@/services/requestFeedback";
 
 export const createPayment = async (
   clientId: string,
   body: ClientPaymentRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<ClientPaymentResponse>> => {
   const { data } = await axiosInstance.post<ApiEnvelope<ClientPaymentResponse>>(
     endpoints.CLIENT_PAYMENTS.CREATE(clientId),
     body,
+    feedback("Valor a receber lançado.", options),
   );
   return data;
 };
@@ -33,10 +36,12 @@ export const patchPayment = async (
   clientId: string,
   paymentId: string,
   body: ClientPaymentUpdateRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<ClientPaymentResponse>> => {
   const { data } = await axiosInstance.patch<ApiEnvelope<ClientPaymentResponse>>(
     endpoints.CLIENT_PAYMENTS.PATCH(clientId, paymentId),
     body,
+    feedback("Parcela atualizada.", options),
   );
   return data;
 };
@@ -45,8 +50,7 @@ export const patchPayment = async (
 export const deletePayment = async (
   clientId: string,
   paymentId: string,
+  options?: RequestFeedback,
 ): Promise<void> => {
-  await axiosInstance.delete(
-    endpoints.CLIENT_PAYMENTS.DELETE(clientId, paymentId),
-  );
+  await axiosInstance.delete(endpoints.CLIENT_PAYMENTS.DELETE(clientId, paymentId), feedback("Parcela excluída.", options));
 };

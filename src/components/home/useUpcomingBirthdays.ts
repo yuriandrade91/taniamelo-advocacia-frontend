@@ -12,7 +12,7 @@ import {
   type BirthdayPerson,
 } from "./birthdays";
 
-export type UpcomingBirthdaysState = {
+type UpcomingBirthdaysState = {
   /** `null` enquanto a primeira leitura não respondeu. */
   items: BirthdayPerson[] | null;
   /** A leitura falhou (o interceptor já avisou): "não sei" não é "ninguém". */

@@ -154,7 +154,7 @@ export function TabBarSkeleton({
   );
 }
 
-export type SegmentedTab = {
+type SegmentedTab = {
   id: string;
   /** O que vai na aba, além do indicador: nome, selo. */
   label: ReactNode;

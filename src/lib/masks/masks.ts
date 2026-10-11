@@ -11,9 +11,6 @@
  */
 export const digitsOf = (value: string) => value.replace(/\D/g, "");
 
-/** Só os dígitos, até `max`. */
-export const onlyDigits = (value: string, max: number) => digitsOf(value).slice(0, max);
-
 export function maskCPF(value: string) {
   return digitsOf(value)
     .replace(/(\d{3})(\d)/, "$1.$2")

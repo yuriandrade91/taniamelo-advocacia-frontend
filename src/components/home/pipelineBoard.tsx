@@ -9,14 +9,13 @@ import {
 } from "react";
 import { createSwapy, type Swapy } from "swapy";
 import { Skeleton } from "@heroui/react";
-import {
-  SITUATION_ENTRIES,
-  type SituationKey,
-} from "@/enums/situation/Situation";
-import { CalendarIcon } from "@/components/ui/icons/CalendarIcon";
+import type { SituationKey } from "@/enums/situation/Situation";
+import { STAGES, nextStageOf } from "@/components/clients/stage/stages";
 import { LoadingCircle } from "@/components/ui/feedback/Loading";
-import { stageBg, stageTile } from "@/components/ui/stageRamp";
+import { stageBg, stageTile } from "@/components/ui/feedback/stageRamp";
 import { initials, plural } from "@/lib/format";
+import { CalendarIcon } from "@/components/ui/icons/glyphs";
+import { Svg, type IconProps } from "@/components/ui/icons/Svg";
 
 /**
  * O quadro da Esteira do Contribuinte — as colunas, os cards e o que move um
@@ -64,18 +63,9 @@ export type PipelineCard = {
 
 export type PipelineColumns = Record<SituationKey, PipelineCard[]>;
 
-/** As etapas na ordem fixa do enum — a posição é a cor. */
-export const STAGES = SITUATION_ENTRIES.map(([key, label], index) => ({
-  key: key as SituationKey,
-  label,
-  index,
-}));
-
-export const nextStageOf = (key: SituationKey) =>
-  STAGES[STAGES.findIndex((s) => s.key === key) + 1] ?? null;
 
 /** Agrupa os cards por situação, preservando a ordem recebida. */
-export function groupBySituation(cards: PipelineCard[]): PipelineColumns {
+function groupBySituation(cards: PipelineCard[]): PipelineColumns {
   const empty = Object.fromEntries(
     STAGES.map((s) => [s.key, [] as PipelineCard[]]),
   ) as PipelineColumns;
@@ -284,7 +274,7 @@ export function PipelineBoard({
               <h3 className="flex min-w-0 items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${stageBg(stage.index)}`}
+                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${stageBg(stage.step - 1)}`}
                 />
                 <span className="truncate text-xs font-medium text-primary">
                   {stage.label}
@@ -294,7 +284,7 @@ export function PipelineBoard({
                 <LoadingCircle size={12} label={`Contando ${stage.label}`} />
               ) : (
                 <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${stageTile(stage.index)}`}
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${stageTile(stage.step - 1)}`}
                 >
                   {cards.length}
                 </span>
@@ -333,7 +323,7 @@ export function PipelineBoard({
                     <div key={slotId} data-swapy-slot={slotId} className="shrink-0">
                       <BoardCard
                         card={card}
-                        stageIndex={stage.index}
+                        stageIndex={stage.step - 1}
                         onMove={moveToStage}
                       />
                     </div>
@@ -375,7 +365,7 @@ function BoardCard({
   return (
     <article
       data-swapy-item={card.id}
-      className="rounded-2xl bg-white p-3 ring-1 ring-black/5 transition hover:shadow-lg hover:shadow-primary/5"
+      className="rounded-2xl bg-white p-3 ring-1 ring-black/5 transition hover:ring-secondary/40"
     >
       <div
         data-swapy-handle
@@ -450,14 +440,8 @@ function StageSelect({
   );
 }
 
-const ArrowRightIcon = ({ className = "" }: { className?: string }) => (
-  <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden="true">
-    <path
-      d="M4 10h12m0 0-4.5-4.5M16 10l-4.5 4.5"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
+const ArrowRightIcon = (p: IconProps) => (
+  <Svg {...p} viewBox="0 0 20 20" strokeWidth={1.6}>
+    <path d="M4 10h12m0 0-4.5-4.5M16 10l-4.5 4.5" />
+  </Svg>
 );

@@ -45,16 +45,16 @@ const REASON = "ainda não está no ar neste ambiente";
  * LOCAL, que tem as rotas, e o atalho desligava integração que funcionava ali.
  * Quem desenvolve perdia telas por causa do estado de um servidor remoto.
  *
- * Agora quem decide é `NEXT_PUBLIC_INTEGRACOES_PENDENTES`, lista separada por
+ * Agora quem decide é `NEXT_PUBLIC_PENDING_INTEGRATIONS`, lista separada por
  * vírgula em `env/*.env`. Vazia — que é o padrão — significa tudo ligado: um
  * ambiente novo nasce com o front inteiro, e só desliga o que ele comprovadamente
  * não serve. O contrário (nascer desligado) faria uma integração ficar pausada
  * em produção porque alguém esqueceu de listar.
  */
 const PAUSED: ReadonlySet<string> = new Set(
-  (process.env.NEXT_PUBLIC_INTEGRACOES_PENDENTES ?? "")
+  (process.env.NEXT_PUBLIC_PENDING_INTEGRATIONS ?? "")
     .split(",")
-    .map((nome) => nome.trim().toLowerCase())
+    .map((name) => name.trim().toLowerCase())
     .filter(Boolean),
 );
 
@@ -65,8 +65,8 @@ const PAUSED: ReadonlySet<string> = new Set(
  * `/revenues/timeline` sobem juntas — vêm do mesmo controller. Listar as três
  * separadamente só criaria a chance de pausar duas e esquecer a terceira.
  */
-export const pendingIntegration = (grupo: string): boolean =>
-  PAUSED.has(grupo.toLowerCase());
+export const pendingIntegration = (group: string): boolean =>
+  PAUSED.has(group.toLowerCase());
 
 /**
  * Erro com o formato de envelope da API.

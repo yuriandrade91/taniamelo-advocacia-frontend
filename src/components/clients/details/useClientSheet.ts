@@ -8,6 +8,7 @@ import { createAddress, updateAddress } from "@/services/clientAddressService";
 import { createInterview, updateInterview } from "@/services/clientInterviewService";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
 import { messageOf } from "@/lib/errorMessage";
+import { notificationCenter } from "@/services/notificationService";
 import {
   toAddressValues,
   toInterviewValues,
@@ -51,7 +52,8 @@ import { toUpdateRequest, type KeptFields, type SheetSections } from "./clientSh
  * - abrir: as leituras saem juntas (`loadClient`);
  * - salvar: cada recurso só é gravado se mudou, e a resposta do PUT vira o
  *   estado novo — sem reler a ficha inteira; o histórico só é relido se a
- *   situação mudou;
+ *   situação mudou. As gravações saem caladas e o Salvar avisa uma vez:
+ *   "Ficha atualizada." ou, sem mudança, "Nada foi alterado.";
  * - arquivos: enviar ou excluir relê só as duas listas de arquivos.
  */
 
@@ -124,7 +126,11 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
       setRecord({
         ...loaded,
         clientId,
-        kept: { notes: loaded.client?.notes, responsibleUserId: loaded.client?.responsibleUserId },
+        kept: {
+          notes: loaded.client?.notes,
+          responsibleUserId: loaded.client?.responsibleUserId,
+          requestStage: loaded.client?.requestStage,
+        },
         addressId: loaded.addresses[0]?.id ?? null,
         interviewId: loaded.interviews[0]?.id ?? null,
         interviewCount: loaded.interviews.length,
@@ -161,10 +167,11 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
   /**
    * Valida tudo (revela os erros de todas as seções de uma vez) e grava o que
    * mudou. `validateExtra` valida o que vive fora das seções (períodos de
-   * deficiência); `afterSave` grava depois do cliente — os períodos dependem
-   * do sexo que este PUT pode ter acabado de corrigir.
+   * deficiência, andamento no INSS); `afterSave` grava depois do cliente — os períodos dependem
+   * do sexo que este PUT pode ter acabado de corrigir — calado, como o resto,
+   * e diz se gravou alguma coisa.
    */
-  const save = async (hooks: { validateExtra?: () => boolean; afterSave?: () => Promise<void> } = {}) => {
+  const save = async (hooks: { validateExtra?: () => boolean; afterSave?: () => Promise<boolean> } = {}) => {
     if (!clientId || !loaded) return false;
     const addressFilled = hasAddressInput(address.values);
     const checks = [
@@ -186,7 +193,7 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
       setSaveError(
         labels.length
           ? `Revise os campos destacados: ${labels.join(", ")}.`
-          : "Revise os períodos de deficiência antes de salvar.",
+          : "Revise os campos destacados antes de salvar.",
       );
       return false;
     }
@@ -200,31 +207,35 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
     };
     const before = loaded.snapshot;
     const next: SheetRecord = { ...loaded };
+    let wrote = false;
     try {
       if (
         !same(sections, { service: before.service, personal: before.personal, professional: before.professional })
       ) {
-        const envelope = await updateClient(clientId, toUpdateRequest(sections, loaded.kept));
+        const envelope = await updateClient(clientId, toUpdateRequest(sections, loaded.kept), { silent: true });
         next.client = envelope?.data ?? next.client;
+        wrote = true;
       }
       if (addressFilled && !same(address.values, before.address)) {
         const body = toAddressRequest({ ...address.values, isPrimary: true });
         const saved = next.addressId
-          ? await updateAddress(clientId, next.addressId, body)
-          : await createAddress(clientId, body);
+          ? await updateAddress(clientId, next.addressId, body, { silent: true })
+          : await createAddress(clientId, body, { silent: true });
         next.addressId = saved?.data?.id ?? next.addressId;
+        wrote = true;
       }
       if (hasInterviewInput(interview.values) && !same(interview.values, before.interview)) {
         const body = toInterviewRequest(interview.values);
         if (next.interviewId) {
-          await updateInterview(clientId, next.interviewId, body);
+          await updateInterview(clientId, next.interviewId, body, { silent: true });
         } else {
-          const created = await createInterview(clientId, body);
+          const created = await createInterview(clientId, body, { silent: true });
           next.interviewId = created?.data?.id ?? null;
           next.interviewCount += 1;
         }
+        wrote = true;
       }
-      await hooks.afterSave?.();
+      if (await hooks.afterSave?.()) wrote = true;
       if (sections.service.situation !== before.service.situation) {
         const history = await clientSituationHistory(clientId, { pageNumber: 1, pageSize: 50 }).catch(() => null);
         next.history = newestFirst(history?.data ?? next.history, (item) => item.changedAt);
@@ -238,6 +249,8 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
       };
       setRecord(next);
       apply(next.snapshot);
+      if (wrote) notificationCenter.success("Ficha atualizada.");
+      else notificationCenter.info("Nada foi alterado.");
       return true;
     } catch (reason) {
       setRecord(next);

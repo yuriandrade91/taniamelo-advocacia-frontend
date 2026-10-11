@@ -1,5 +1,5 @@
-import React from "react";
-import { CalendarIcon, TrendIcon } from "@/components/ui/icons/CalendarIcon";
+import { CalendarIcon } from "@/components/ui/icons/glyphs";
+import { Svg } from "@/components/ui/icons/Svg";
 
 /**
  * Selos de status e variação. Server Components — nenhum tem estado.
@@ -9,11 +9,19 @@ import { CalendarIcon, TrendIcon } from "@/components/ui/icons/CalendarIcon";
 export function MonthLabel({ label }: { label: string }) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-gray-100/70">
-      <CalendarIcon />
+      <CalendarIcon className="h-3.5 w-3.5" />
       {label}
     </span>
   );
 }
+
+/** Seta de tendência: sobe na variação positiva, desce (girada) na negativa. */
+const TrendIcon = ({ isPositive }: { isPositive: boolean }) => (
+  <Svg className={`h-3 w-3 ${isPositive ? "" : "rotate-90"}`} strokeWidth={2.2}>
+    <path d="M3 17 9 11l4 4 8-8" />
+    <path d="M17 7h4v4" />
+  </Svg>
+);
 
 /** Selo de variação: positivo (verde) ou negativo (vermelho). */
 export function DeltaBadge({ value }: { value: number }) {
@@ -21,7 +29,7 @@ export function DeltaBadge({ value }: { value: number }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${
-        isPositive ? "bg-light-green text-[#238C26]" : "bg-danger/10 text-danger"
+        isPositive ? "bg-light-green text-success-strong" : "bg-danger/10 text-danger"
       }`}
     >
       <TrendIcon isPositive={isPositive} />
@@ -37,7 +45,7 @@ const TONE_CLASSES: Record<BadgeTone, string> = {
   // Previsto: ainda dentro do prazo. Cor no token `previsto` (globals.css),
   // com o mesmo tom a 10% no fundo.
   warning: "bg-previsto/10 text-previsto",
-  success: "bg-light-green text-[#238C26]",
+  success: "bg-light-green text-success-strong",
   neutral: "bg-light-gray text-gray-100/70",
 };
 
@@ -61,11 +69,9 @@ export function StatusBadge({
 const PILL_TONE = {
   /** Dourado claro: marca ("principal", a etapa). */
   gold: "bg-light-secondary text-secondary",
-  /** Dourado translúcido: estado provisório ("a enviar"). */
-  soft: "bg-secondary/15 text-secondary",
   /** Dourado cheio: o destaque da lista ("atual"). */
   solid: "bg-secondary text-white",
-  success: "bg-light-green text-[#238C26]",
+  success: "bg-light-green text-success-strong",
   warning: "bg-warning/15 text-warning",
   muted: "bg-light-gray text-gray-100",
   /** Sobre fundo colorido: branco com filete. */
@@ -73,10 +79,10 @@ const PILL_TONE = {
   info: "bg-sky-400 text-white",
 } as const;
 
-export type PillTone = keyof typeof PILL_TONE;
+type PillTone = keyof typeof PILL_TONE;
 
 /**
- * O selo pequeno em cápsula, ao lado de um nome: "principal", "a enviar",
+ * O selo pequeno em cápsula, ao lado de um nome: "principal", "pulado",
  * "atual". `size` `xs` é o de dentro de linha e aba; `sm`, o de cartão.
  * `className` acrescenta (o tom da aba ativa, caixa alta) — o tom vem de
  * `tone`, para não disputar com ele.

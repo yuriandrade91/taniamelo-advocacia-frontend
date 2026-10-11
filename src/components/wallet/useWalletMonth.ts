@@ -20,13 +20,13 @@ import { buildMonthSummary } from "./summary/monthSummary";
  * Cada lado relê só o seu (`reload(kind)`): gravar uma despesa não pede de
  * novo os resumos de receita. Uma metade que falha não esconde a outra.
  */
-export type WalletLoadState = "loading" | "ready" | "partial" | "error";
+type WalletLoadState = "loading" | "ready" | "partial" | "error";
 
 const dueCount = (summary: FinanceSummary | null): number | null =>
   summary ? summary.overdueCount + summary.upcomingCount + summary.paidCount : null;
 
 export function useWalletMonth(range: { from: string; to: string }, enabled: boolean) {
-  const [versions, setVersions] = useState<Record<EntryKind, number>>({ entrada: 0, saida: 0 });
+  const [versions, setVersions] = useState<Record<EntryKind, number>>({ income: 0, expense: 0 });
   const key = enabled ? `${range.from}:${range.to}` : null;
   const paid = { paidFrom: range.from, paidTo: range.to };
   const due = { dueFrom: range.from, dueTo: range.to };
@@ -34,12 +34,12 @@ export function useWalletMonth(range: { from: string; to: string }, enabled: boo
   const revenue = useSettled(
     key,
     () => Promise.allSettled([getOfficeRevenueSummary(paid), getOfficeRevenueSummary(due)]),
-    versions.entrada,
+    versions.income,
   );
   const expense = useSettled(
     key,
     () => Promise.allSettled([getOfficeExpenseSummary(paid), getOfficeExpenseSummary(due)]),
-    versions.saida,
+    versions.expense,
   );
 
   const paidRevenue = settledValue(revenue?.[0], null)?.data ?? null;
@@ -61,8 +61,8 @@ export function useWalletMonth(range: { from: string; to: string }, enabled: boo
     summary: buildMonthSummary({ paidRevenue, paidExpense, dueRevenue, dueExpense }),
     /** `null` carregando; `undefined` quando o resumo não respondeu (sem selo, em vez de girar para sempre). */
     counts: {
-      entrada: revenue ? (dueCount(dueRevenue) ?? undefined) : null,
-      saida: expense ? (dueCount(dueExpense) ?? undefined) : null,
+      income: revenue ? (dueCount(dueRevenue) ?? undefined) : null,
+      expense: expense ? (dueCount(dueExpense) ?? undefined) : null,
     } as Record<EntryKind, number | null | undefined>,
     reload: (kind: EntryKind) => setVersions((current) => ({ ...current, [kind]: current[kind] + 1 })),
   };

@@ -1,12 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { MonthPicker } from "@/components/ui/MonthPicker";
+import { MonthPicker } from "@/components/ui/filters/MonthPicker";
 import { PageHeader } from "@/components/ui/layout/PageHeader";
-import { useViewModel } from "@/components/ui/models/ViewModels";
 import { REPORT_VIEWS } from "@/components/reports/views";
 import { ReportViewSwitcher } from "@/components/reports/ReportViewSwitcher";
-import { useReportViewOrder } from "@/components/reports/useReportViewOrder";
+import { useReportViews } from "@/components/reports/useReportViews";
 import { useReportsData } from "@/components/reports/useReportsData";
 import { usePermissions } from "@/hooks/usePermissions";
 import { currentMonth, type MonthRef } from "@/lib/period";
@@ -61,9 +60,8 @@ export default function ReportsPage() {
   const [month, setMonth] = useState<MonthRef>(() => currentMonth());
   const data = useReportsData(month, canSeeFinance);
   /** As abas na ordem do usuário; sem visão escolhida, abre a primeira. */
-  const viewOrder = useReportViewOrder(REPORT_VIEWS);
-  const { model: view, choose: chooseView } = useViewModel("relatorios:modelo", viewOrder.ordered, viewOrder.ordered[0]?.id);
-  const View = view.Component;
+  const views = useReportViews(REPORT_VIEWS);
+  const View = views.current.Component;
 
   return (
     <div className="flex flex-col gap-5 pb-16">
@@ -85,12 +83,12 @@ export default function ReportsPage() {
       )}
 
       <ReportViewSwitcher
-        views={viewOrder.ordered}
-        value={view.id}
-        onChange={chooseView}
-        onMove={viewOrder.move}
-        onResetOrder={viewOrder.reset}
-        isCustomOrder={viewOrder.isCustom}
+        views={views.ordered}
+        value={views.current.id}
+        onChange={views.choose}
+        onMove={views.move}
+        onResetOrder={views.reset}
+        isCustomOrder={views.isCustom}
       />
 
       <View month={month} {...data} />

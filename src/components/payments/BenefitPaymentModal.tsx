@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import FormModal from "@/components/ui/modals/FormModal/FormModal";
+import FormModal from "@/components/ui/modals/FormModal";
 import {
   DatePickerField,
   Field,
@@ -75,24 +75,24 @@ export function BenefitPaymentModal({
 
     setIsSubmitting(true);
     try {
-      const created = await createPayment(
-        values.clientId,
-        toBenefitPaymentRequest(values),
-      );
-      const paymentId = created?.data?.id;
       const patch = toBenefitReceivedPatch(values);
+      // Lançar já recebido são duas gravações e um aviso só, o do fim.
+      const created = await createPayment(values.clientId, toBenefitPaymentRequest(values), {
+        silent: Boolean(patch),
+      });
 
-      if (patch && paymentId) {
+      if (patch) {
+        const paymentId = created?.data?.id;
         try {
-          await patchPayment(values.clientId, paymentId, patch);
-          notificationCenter.success("Valor lançado e marcado como recebido.");
+          if (!paymentId) throw new Error("Lançamento sem identificador.");
+          await patchPayment(values.clientId, paymentId, patch, {
+            successMessage: "Valor lançado e marcado como recebido.",
+          });
         } catch {
           notificationCenter.warning(
             "Valor lançado, mas não foi possível marcá-lo como recebido. Ele ficou como a receber.",
           );
         }
-      } else {
-        notificationCenter.success("Valor a receber lançado.");
       }
 
       onSaved();

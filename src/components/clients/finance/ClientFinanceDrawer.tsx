@@ -1,6 +1,6 @@
 "use client";
 
-import Drawer from "@/components/ui/Drawer/Drawer";
+import Drawer from "@/components/ui/drawer/Drawer";
 import { initials } from "@/lib/format";
 import { ClientFinancePanel, EYEBROW, Tile } from "./ClientFinancePanel";
 

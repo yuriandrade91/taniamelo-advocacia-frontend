@@ -34,7 +34,7 @@ const loadTrail = (clientId: string) =>
 
 export const invalidateInstallmentTrail = () => trails.invalidate();
 
-export type TrailState =
+type TrailState =
   | { status: "loading" }
   | { status: "error" }
   | { status: "ready"; payments: OfficePaymentResponse[] };
@@ -139,7 +139,21 @@ export function agreementTotals(
   };
 }
 
-export type AgreementState =
+export type InstallmentCounts = Record<"paid" | "overdue" | "upcoming", number>;
+
+/** Quantas parcelas do acordo estão em cada situação; cancelada não conta. */
+export function installmentCounts(
+  byNumber: ReadonlyMap<number, ClientPaymentResponse>,
+): InstallmentCounts {
+  const counts = { paid: 0, overdue: 0, upcoming: 0 };
+  for (const p of byNumber.values()) {
+    const bucket = bucketOf(p);
+    if (bucket !== "cancelled") counts[bucket] += 1;
+  }
+  return counts;
+}
+
+type AgreementState =
   | { status: "loading" }
   | { status: "error" }
   | ({ status: "ready" } & AgreementTotals);

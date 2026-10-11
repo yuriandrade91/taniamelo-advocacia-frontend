@@ -29,7 +29,7 @@ import type {
  * ## O `if` antes do código de verdade
  *
  * Cada função começa perguntando se este grupo de rotas está pausado **neste
- * ambiente** (`NEXT_PUBLIC_INTEGRACOES_PENDENTES`). Onde o backend serve as
+ * ambiente** (`NEXT_PUBLIC_PENDING_INTEGRATIONS`). Onde o backend serve as
  * rotas — o local, por exemplo — a pergunta é falsa e a integração funciona
  * normalmente. Onde não serve, a chamada não chega a sair para a rede.
  */

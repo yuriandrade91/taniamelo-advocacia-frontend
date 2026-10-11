@@ -18,7 +18,7 @@ import {
   barColors,
 } from "@/components/charts/chartTheme";
 import { formatBRLCompact } from "@/lib/format";
-import { formatMonthAxis } from "@/components/wallet/walletOverview";
+import { formatMonthAxis } from "@/lib/period";
 import type { FlowTimelinePoint } from "@/interfaces/finance/OfficeExpense.interface";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip);
@@ -42,7 +42,6 @@ export type WalletFlowChartProps = {
   points: FlowTimelinePoint[];
   isEmpty?: boolean;
   emptyMessage?: string;
-  isSample?: boolean;
 };
 
 const LEGEND = [
@@ -55,7 +54,6 @@ export function WalletFlowChart({
   points,
   isEmpty,
   emptyMessage,
-  isSample,
 }: WalletFlowChartProps) {
   const data = useMemo(
     () => ({
@@ -91,7 +89,6 @@ export function WalletFlowChart({
       title="Entradas e saídas por mês"
       subtitle="Pelo que foi efetivamente pago em cada mês."
       legend={LEGEND}
-      isSample={isSample}
       isEmpty={isEmpty ?? points.length === 0}
       emptyMessage={emptyMessage}
     >

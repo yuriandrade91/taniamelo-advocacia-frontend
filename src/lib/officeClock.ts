@@ -11,7 +11,7 @@
  * Fixo, pelo mesmo motivo do backend: o escritório é um só. Quando houver
  * outro fuso, ele vem do tenant e muda aqui, num lugar só.
  */
-export const OFFICE_TIME_ZONE = "America/Sao_Paulo";
+const OFFICE_TIME_ZONE = "America/Sao_Paulo";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 

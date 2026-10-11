@@ -1,9 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Image from "next/image";
-import svgPaths from "@/constants/svg/paths";
-import TableActionButton, { type ActionTone } from "./ActionButton";
+import { IconButton, type IconButtonTone } from "@/components/ui/actions/IconButton";
+import { DetailsIcon, PencilIcon, TrashIcon } from "@/components/ui/icons/actions";
 
 /**
  * Ações de uma linha como dados: ordem, rótulo acessível (o que os e2e
@@ -14,21 +13,17 @@ export type RowAction<T> = {
   id: string;
   label: string;
   icon: ReactNode;
-  tone: ActionTone;
+  tone: IconButtonTone;
   /** Sem isto, sempre visível. */
   visible?: (row: T) => boolean;
   onPress: (row: T) => void;
 };
 
-const svgIcon = (src: string) => (
-  <Image src={src} alt="" height={20} width={20} className="h-5 w-5" />
-);
-
-/** Os ícones de sempre: ver, editar, excluir. */
+/** Os ícones de sempre: ver, editar, excluir — de traço, na cor do tom. */
 export const ROW_ICONS = {
-  view: svgIcon(svgPaths.ICONS.DETAILS),
-  edit: svgIcon(svgPaths.ICONS.EDIT),
-  delete: svgIcon(svgPaths.ICONS.TRASH),
+  view: <DetailsIcon className="h-5 w-5" />,
+  edit: <PencilIcon className="h-5 w-5" />,
+  delete: <TrashIcon className="h-5 w-5" />,
 } as const;
 
 /** Factories das três ações comuns — o rótulo é da tela ("Editar despesa"). */
@@ -66,14 +61,14 @@ export function RowActions<T>({
       {actions
         .filter((action) => action.visible?.(row) ?? true)
         .map((action) => (
-          <TableActionButton
+          <IconButton
             key={action.id}
             label={action.label}
             tone={action.tone}
             onClick={() => action.onPress(row)}
           >
             {action.icon}
-          </TableActionButton>
+          </IconButton>
         ))}
     </span>
   );

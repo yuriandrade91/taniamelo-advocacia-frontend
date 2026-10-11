@@ -80,7 +80,6 @@ export function usePaymentForm(editing: PaymentEditing | null) {
     setIsSubmitting(true);
     try {
       await patchPayment(editing.clientId, editing.payment.id, patch);
-      notificationCenter.success("Parcela atualizada.");
       return "saved";
     } catch {
       return null;

@@ -1,15 +1,17 @@
 /**
  * Mapa central de endpoints da API (backend Spring — taniamelo-advocacia-backend).
  *
- * Base real: `${API_BASE_URL}/api/v1/...`
- * Ver `docs/BACKEND_PANORAMA.md` para o contrato completo.
+ * Base real: `${API_BASE_URL}/api/v1/...` — todo caminho daqui já é absoluto.
  *
  * ⚠️ Toda requisição exige o header `X-Tenant-Id` (multi-tenancy) — injetado
  * automaticamente pelo `axiosService`.
  */
 
-// Prefira NEXT_PUBLIC_API_URL (definido no .env). Fallback seguro para dev local.
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8081";
+/**
+ * O backend. Vem de `NEXT_PUBLIC_API_URL` (os `env/*.env`, ou as variáveis do
+ * deploy) e é inlinado no build; sem ela, o backend local na porta padrão.
+ */
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 const API_V1 = `${API_BASE_URL}/api/v1`;
 
 /** Recurso de primeiro nível: `/api/v1/{name}` e `/api/v1/{name}/{id}`. */
@@ -19,7 +21,6 @@ const resource = (name: string) => {
 };
 
 const auth = resource("auth");
-const tenants = resource("tenants");
 const users = resource("users");
 const clients = resource("clients");
 const expenses = resource("expenses");
@@ -39,6 +40,7 @@ const clientResource = (name: string) => {
 
 const addresses = clientResource("addresses");
 const disabilityPeriods = clientResource("disability-periods");
+const inssSteps = clientResource("inss-steps");
 const interviews = clientResource("interviews");
 const clientPayments = clientResource("payments");
 const files = clientResource("files");
@@ -57,14 +59,6 @@ const endpoints = {
     REFRESH: auth.byId("refresh"),
     /** POST — revoga o refresh token e limpa o cookie. */
     LOGOUT: auth.byId("logout"),
-  },
-
-  /** /api/v1/tenants — resolução de escritório (multi-tenancy). */
-  TENANTS: {
-    /** GET ?slug=tania — público. Traduz slug em tenantId (UUID). */
-    RESOLVE: tenants.byId("resolve"),
-    /** GET — dados do escritório da sessão atual. */
-    CURRENT: tenants.byId("current"),
   },
 
   /**
@@ -90,7 +84,6 @@ const endpoints = {
 
   /** /api/v1/clients */
   CLIENTS: {
-    BASE: clients.base,
     CREATE: clients.base, // POST
     /** GET — paginado. Filtros: searchTerm, benefitType[], situation[], createdFrom, createdTo */
     LIST: clients.base,
@@ -105,6 +98,8 @@ const endpoints = {
     DELETE: clients.byId, // DELETE
     /** GET (paginado) */
     SITUATION_HISTORY: clientResource("situation-history").base,
+    /** GET (paginado) — as mudanças da etapa no INSS. */
+    REQUEST_STAGE_HISTORY: clientResource("request-stage-history").base,
     /**
      * GET — a senha do INSS do cliente. Rota separada de propósito: a senha
      * saiu de `GET /clients/{id}` porque voltar em toda abertura de ficha a
@@ -118,13 +113,11 @@ const endpoints = {
 
   /** /api/v1/clients/{clientId}/personal-data */
   CLIENT_PERSONAL_DATA: {
-    GET: clientResource("personal-data").base,
     UPDATE: clientResource("personal-data").base,
   },
 
   /** /api/v1/clients/{clientId}/professional-data */
   CLIENT_PROFESSIONAL_DATA: {
-    GET: clientResource("professional-data").base,
     UPDATE: clientResource("professional-data").base,
   },
 
@@ -160,7 +153,6 @@ const endpoints = {
      * `isPrimary`, vale o último — a ordem da lista decide.
      */
     CREATE_BATCH: (clientId: string) => `${addresses.base(clientId)}/batch`,
-    BY_ID: addresses.byId,
     UPDATE: addresses.byId,
     DELETE: addresses.byId,
   },
@@ -183,18 +175,31 @@ const endpoints = {
      */
     CONVERSION: (clientId: string) =>
       `${disabilityPeriods.base(clientId)}/conversion`,
-    BY_ID: disabilityPeriods.byId,
     UPDATE: disabilityPeriods.byId,
     DELETE: disabilityPeriods.byId,
+  },
+
+  /**
+   * /api/v1/clients/{clientId}/inss-steps — o andamento do processo no INSS
+   * (requerimento, exigência, decisão, recurso). **Contrato proposto**: o
+   * backend ainda não tem a rota; o grupo `inss-steps` fica em
+   * `NEXT_PUBLIC_PENDING_INTEGRATIONS` até ela subir.
+   *
+   * GET devolve todos os eventos, sem paginação: o processo de um cliente
+   * cabe numa tela, e a esteira precisa de todos para dizer onde ele está.
+   */
+  CLIENT_INSS_STEPS: {
+    LIST: inssSteps.base,
+    CREATE: inssSteps.base,
+    UPDATE: inssSteps.byId,
+    DELETE: inssSteps.byId,
   },
 
   /** /api/v1/clients/{clientId}/interviews */
   CLIENT_INTERVIEWS: {
     LIST: interviews.base,
     CREATE: interviews.base,
-    BY_ID: interviews.byId,
     UPDATE: interviews.byId,
-    DELETE: interviews.byId,
   },
 
   /**
@@ -246,7 +251,6 @@ const endpoints = {
 
   /** /api/v1/clients/{clientId}/payments */
   CLIENT_PAYMENTS: {
-    LIST: clientPayments.base,
     CREATE: clientPayments.base,
     BY_ID: clientPayments.byId,
     PATCH: clientPayments.byId,
@@ -277,7 +281,6 @@ const endpoints = {
      * conflito.
      */
     CONFLICTS: appointments.byId("conflicts"),
-    BY_ID: appointments.byId,
     /** PUT — substituição completa; exige `justification`. */
     UPDATE: appointments.byId,
     /** PATCH — exige `justification`. */
@@ -294,30 +297,19 @@ const endpoints = {
       `${appointments.byId(appointmentId)}/complete`,
     /** DELETE — soft delete (204 sem corpo). */
     DELETE: appointments.byId,
-    /** GET — paginado, mais recente primeiro. */
-    HISTORY: (appointmentId: string) =>
-      `${appointments.byId(appointmentId)}/history`,
   },
 
   /** /api/v1/clients/{clientId}/files — documentos e simulações (multipart) */
   CLIENT_FILES: {
     UPLOAD_DOCUMENTS: documents.base,
     LIST_DOCUMENTS: documents.base,
-    GET_DOCUMENT: documents.byId,
-    UPDATE_DOCUMENT: documents.byId,
 
     UPLOAD_SIMULATIONS: simulations.base,
     LIST_SIMULATIONS: simulations.base,
-    GET_SIMULATION: simulations.byId,
-    UPDATE_SIMULATION: simulations.byId,
-    SET_SIMULATION_PRINCIPAL: (clientId: string, fileId: string) =>
-      `${simulations.byId(clientId, fileId)}/principal`,
-
-    DOWNLOAD: (clientId: string, fileId: string) =>
-      `${files.byId(clientId, fileId)}/download`,
+    /** GET — o arquivo em si (documento ou simulação); exige o token, como o resto. */
+    DOWNLOAD: (clientId: string, fileId: string) => `${files.byId(clientId, fileId)}/download`,
     DELETE: files.byId,
   },
 } as const;
 
-export { API_BASE_URL, API_V1 };
 export default endpoints;

@@ -33,7 +33,7 @@ import { getSessionUser } from "@/lib/sessionUser";
  * nome antigo, os dois precisam valer — senão a pessoa perde o botão de
  * excluir em um ambiente e não em outro, sem nada explicando por quê.
  */
-export const ROLES_THAT_DESTROY = ["ADMIN", "SUPPORT", "LAWYER"] as const;
+const ROLES_THAT_DESTROY = ["ADMIN", "SUPPORT", "LAWYER"] as const;
 
 function currentRole(): string {
   return (getSessionUser()?.role ?? "").trim().toUpperCase();

@@ -26,6 +26,30 @@ export const formatBRLCompact = (value: number): string =>
   })}`;
 
 /**
+ * Valor arredondado com sinal, para saldo e variação: "−R$ 1.500" (o menos
+ * tipográfico, não o hífen) e, com `plus`, "+R$ 1.500". Sem número, `fallback`.
+ */
+export function formatBRLSigned(
+  value: number | null | undefined,
+  { plus = false, fallback = "—" }: { plus?: boolean; fallback?: string } = {},
+): string {
+  if (value === null || value === undefined) return fallback;
+  const body = formatBRLCompact(Math.abs(value));
+  if (value < 0) return `−${body}`;
+  return plus && value > 0 ? `+${body}` : body;
+}
+
+/** "R$ 12,3 mil", "−R$ 1,2 mi" — número grande em pouco espaço (indicador, rótulo de gráfico). */
+export function formatBRLShort(value: number): string {
+  const abs = Math.abs(value);
+  const sign = value < 0 ? "−" : "";
+  const short = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  if (abs >= 1_000_000) return `${sign}R$ ${short(abs / 1_000_000)} mi`;
+  if (abs >= 1_000) return `${sign}R$ ${short(abs / 1_000)} mil`;
+  return `${sign}R$ ${Math.round(abs)}`;
+}
+
+/**
  * `yyyy-MM-dd` → `dd/MM/yyyy`.
  *
  * Recorte de string, não `new Date`. `new Date("2026-03-12")` é interpretado
@@ -39,6 +63,19 @@ export const formatDateBR = (iso?: string | null, fallback = "—"): string => {
   if (!match) return fallback;
   const [, year, month, day] = match;
   return `${day}/${month}/${year}`;
+};
+
+/**
+ * Data de um `Instant` (com fuso, como o `changedAt` da trilha), no dia de
+ * quem olha. `new Date` é o certo aqui — é o oposto do `LocalDate` acima,
+ * onde converter é justamente o erro.
+ */
+export const formatInstantDateBR = (iso?: string | null, fallback = "—"): string => {
+  if (!iso) return fallback;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return fallback;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
 };
 
 /** Rótulo da parcela: `2/12`, ou vazio quando o pagamento é único. */
@@ -87,14 +124,7 @@ export function parseAmountBRL(input: string): number | null {
   return Number.isFinite(value) ? value : null;
 }
 
-/**
- * "1 parcela", "3 parcelas" — o número **junto** com a palavra.
- *
- * Os kits da Home e dos Relatórios têm um `plural` homônimo que devolve só a
- * palavra, porque lá o número aparece em outro elemento (tamanho e cor
- * próprios). São contratos diferentes de propósito; o que decide é de onde
- * vem o import.
- */
+/** "1 parcela", "3 parcelas" — o número **junto** com a palavra. */
 export const plural = (n: number, one: string, many: string): string =>
   `${n} ${n === 1 ? one : many}`;
 

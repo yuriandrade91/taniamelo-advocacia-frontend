@@ -42,6 +42,7 @@ import type {
   ClientProfessionalDataResponse,
 } from "@/interfaces/client/ClientSubResources.interface";
 import type { AddressValues, InterviewValues, PersonalValues, ProfessionalValues, ServiceValues } from "./schemas";
+import { enumKeyOf, flagOf, numberTextOf, textOf } from "@/lib/formValues";
 
 
 /**
@@ -52,7 +53,6 @@ import type { AddressValues, InterviewValues, PersonalValues, ProfessionalValues
 type Loose<T> = { [K in keyof T]?: T[K] extends string | undefined ? string | null : T[K] | null };
 
 /** `undefined`/`null` → `""`. */
-const text = (value?: string | null): string => value ?? "";
 
 /**
  * O que a API devolve cru, com a máscara que o campo usaria.
@@ -64,7 +64,7 @@ const text = (value?: string | null): string => value ?? "";
  * formatar), então aplicar na carga não estraga o que já vem formatado.
  */
 const masked = (mask: (value: string) => string, value?: string | null): string => {
-  const raw = text(value);
+  const raw = textOf(value);
   return raw ? mask(raw) : "";
 };
 
@@ -75,52 +75,24 @@ const masked = (mask: (value: string) => string, value?: string | null): string 
  * está.
  */
 const phone = (value?: string | null): string => {
-  const raw = text(value);
+  const raw = textOf(value);
   const digits = raw.replace(/\D/g, "");
   return digits.length === 10 || digits.length === 11 ? maskPhone(raw) : raw;
 };
 
-/** Número → texto do input. `0` é valor, `undefined` é campo em branco. */
-const numero = (value?: number | null): string =>
-  value === null || value === undefined ? "" : String(value);
 
-/** Número → texto do campo. `0` é valor legítimo e precisa sobreviver. */
-const numberText = (value?: number | null): string =>
-  value === undefined || value === null ? "" : String(value);
 
-/** `undefined` → `false`. Switch não tem terceiro estado. */
-const flag = (value?: boolean | null): boolean => value === true;
 
-/**
- * Converte um label em chave, aceitando que já venha chave.
- *
- * O "já venha chave" não é paranoia: o contrato do backend aceita os dois na
- * escrita (`@JsonCreator`), e um registro gravado por outro caminho pode voltar
- * assim. Devolver `""` nesse caso apagaria a seleção.
- */
-const keyOf = <T extends string>(
-  value: string | undefined | null,
-  resolve: (label?: string) => T | undefined,
-  isKey: (candidate: string) => boolean,
-): string => {
-  if (!value) return "";
-  const key = resolve(value);
-  if (key) return key;
-  return isKey(value) ? value : "";
-};
 
-/** Uma chave de enum é MAIÚSCULA com underscore; um label tem minúsculas. */
-const looksLikeKey = (candidate: string): boolean =>
-  /^[A-Z0-9_]+$/.test(candidate);
 
 // ─────────────────────────── Atendimento ───────────────────────────
 
 export function toServiceValues(client: Loose<ClientDetails>): ServiceValues {
   return {
-    benefit: keyOf(client.benefit, getBenefitKeyByLabel, looksLikeKey),
-    situation: keyOf(client.situation, getSituationKeyByLabel, looksLikeKey),
-    clientType: keyOf(client.clientType, getClientTypeKeyByLabel, looksLikeKey),
-    notBillable: flag(client.notBillable),
+    benefit: enumKeyOf(client.benefit, getBenefitKeyByLabel),
+    situation: enumKeyOf(client.situation, getSituationKeyByLabel),
+    clientType: enumKeyOf(client.clientType, getClientTypeKeyByLabel),
+    notBillable: flagOf(client.notBillable),
   };
 }
 
@@ -137,26 +109,22 @@ export function toPersonalValues(
   source: Loose<ClientDetails & ClientPersonalDataResponse>,
 ): PersonalValues {
   return {
-    fullName: text(source.fullName),
-    birthDate: text(source.birthDate),
+    fullName: textOf(source.fullName),
+    birthDate: textOf(source.birthDate),
     cpf: masked(maskCPF, source.cpf),
     rg: masked(maskRG, source.rg),
-    rgIssuer: text(source.rgIssuer),
-    rgIssueDate: text(source.rgIssueDate),
-    motherName: text(source.motherName),
-    gender: keyOf(source.gender, getGenderKeyByLabel, looksLikeKey),
-    maritalStatus: keyOf(
-      source.maritalStatus,
-      getMaritalStatusKeyByLabel,
-      looksLikeKey,
-    ),
-    nationality: text(source.nationality),
+    rgIssuer: textOf(source.rgIssuer),
+    rgIssueDate: textOf(source.rgIssueDate),
+    motherName: textOf(source.motherName),
+    gender: enumKeyOf(source.gender, getGenderKeyByLabel),
+    maritalStatus: enumKeyOf(source.maritalStatus, getMaritalStatusKeyByLabel),
+    nationality: textOf(source.nationality),
     mobilePhone: phone(source.mobilePhone),
-    isWhatsapp: flag(source.isWhatsapp),
+    isWhatsapp: flagOf(source.isWhatsapp),
     referencePhone: phone(source.referencePhone),
-    referenceResponsible: text(source.referenceResponsible),
-    email: text(source.email),
-    hasDisability: flag(source.hasDisability),
+    referenceResponsible: textOf(source.referenceResponsible),
+    email: textOf(source.email),
+    hasDisability: flagOf(source.hasDisability),
   };
 }
 
@@ -166,19 +134,19 @@ export function toProfessionalValues(
   source: Loose<ClientDetails & ClientProfessionalDataResponse>,
 ): ProfessionalValues {
   return {
-    profession: text(source.profession),
+    profession: textOf(source.profession),
     nitPis: masked(maskNIT, source.nitPis),
     // CTPS fica como está: a máscara corta em 8 dígitos (é só o número), e um
     // registro antigo com série e UF no mesmo campo seria truncado na carga —
     // a ficha gravaria de volta um documento mutilado que ninguém editou.
-    ctps: text(source.ctps),
-    ctpsSeries: text(source.ctpsSeries),
+    ctps: textOf(source.ctps),
+    ctpsSeries: textOf(source.ctpsSeries),
     // `contributionTime` ("33 anos, 11 meses e 5 dias") também vem na resposta,
     // mas é derivada: o que o formulário edita são os três números.
-    contributionYears: numero(source.contributionYears),
-    contributionMonths: numero(source.contributionMonths),
-    contributionDays: numero(source.contributionDays),
-    beneficiaryNumber: text(source.beneficiaryNumber),
+    contributionYears: numberTextOf(source.contributionYears),
+    contributionMonths: numberTextOf(source.contributionMonths),
+    contributionDays: numberTextOf(source.contributionDays),
+    beneficiaryNumber: textOf(source.beneficiaryNumber),
     // A senha do INSS não vem em resposta nenhuma desde que saiu do GET da
     // ficha. O campo nasce vazio, e vazio significa "mantém a que está
     // gravada" — quem precisa LER usa a rota auditada
@@ -191,36 +159,17 @@ export function toProfessionalValues(
 
 export function toAddressValues(address: ClientAddressResponse): AddressValues {
   return {
-    addressType: keyOf(
-      address.addressType,
-      getAddressTypeKeyByLabel,
-      looksLikeKey,
-    ),
+    addressType: enumKeyOf(address.addressType, getAddressTypeKeyByLabel),
     zipCode: masked(maskCEP, address.zipCode),
-    street: text(address.street),
-    addressNumber: text(address.addressNumber),
-    complement: text(address.complement),
-    neighborhood: text(address.neighborhood),
-    city: text(address.city),
-    state: text(address.state),
-    isPrimary: flag(address.isPrimary),
+    street: textOf(address.street),
+    addressNumber: textOf(address.addressNumber),
+    complement: textOf(address.complement),
+    neighborhood: textOf(address.neighborhood),
+    city: textOf(address.city),
+    state: textOf(address.state),
+    isPrimary: flagOf(address.isPrimary),
     cepLookup: "",
   };
-}
-
-/**
- * Rótulo da aba de um endereço.
- *
- * Usa o tipo quando existe, e cai para "Endereço N". O principal ganha marca
- * própria porque é a informação que decide qual endereço a correspondência usa
- * — e é a única que não dá para inferir olhando os campos.
- */
-export function addressLabel(
-  address: ClientAddressResponse,
-  index: number,
-): string {
-  const base = address.addressType ?? `Endereço ${index + 1}`;
-  return address.isPrimary ? `${base} (principal)` : base;
 }
 
 // ─────────────────────────── Entrevista ───────────────────────────
@@ -249,7 +198,7 @@ export function toInterviewValues(
 ): InterviewValues {
   return {
     occurredAt: instantToLocalInput(interview.occurredAt),
-    durationMinutes: numberText(interview.durationMinutes),
-    content: text(interview.content),
+    durationMinutes: numberTextOf(interview.durationMinutes),
+    content: textOf(interview.content),
   };
 }

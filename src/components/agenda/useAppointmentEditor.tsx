@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import dynamic from "next/dynamic";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
 import {
   EMPTY_APPOINTMENT_FORM,
   fromResponse,
@@ -12,9 +13,10 @@ import {
   validateAppointmentForm,
   type AppointmentFormErrors,
   type AppointmentFormValues,
-} from "@/components/home/appointments/appointmentForm";
+} from "./appointmentForm";
 import { useAppointmentConflicts } from "@/hooks/useAppointmentConflicts";
 import { useFieldErrors } from "@/hooks/useFieldErrors";
+import { plural } from "@/lib/format";
 import type { AppointmentResponse } from "@/interfaces/appointment/Appointment.interface";
 import {
   cancelAppointment,
@@ -24,17 +26,19 @@ import {
 import { notificationCenter } from "@/services/notificationService";
 
 /** Os campos (datas, busca de cliente) e a decisão de conflito só vêm quando o formulário abre. */
-const AppointmentFormFields = dynamic(() => import("@/components/home/appointments/AppointmentFormFields"), {
-  ssr: false,
-});
+const AppointmentFormFields = dynamic(() => import("./AppointmentFormFields"), { ssr: false });
 const ConflictDecisionModal = dynamic(
-  () => import("@/components/home/appointments/ConflictDecisionModal").then((m) => m.ConflictDecisionModal),
+  () => import("./ConflictDecisionModal").then((m) => m.ConflictDecisionModal),
   { ssr: false },
 );
 
 /**
- * Criar, editar e reagendar um compromisso na página da Agenda — o modal, a
- * validação, o aviso de conflito e a decisão de substituir.
+ * Criar, editar e reagendar um compromisso — o formulário, a validação, o
+ * aviso de conflito, a decisão de substituir e o "descartar?" ao fechar.
+ *
+ * A página da Agenda desenha isto numa modal; o cartão da Home, num painel
+ * lateral (`compact`, uma coluna). As duas validam, avisam e gravam igual
+ * porque o fluxo inteiro mora aqui — quem chama só escolhe a moldura.
  *
  * - Erros aparecem por campo assim que ele é mexido, e todos de uma vez no
  *   "Salvar". O botão fica travado enquanto há erro ou data retroativa sem
@@ -42,14 +46,25 @@ const ConflictDecisionModal = dynamic(
  * - Conflito de horário é aviso, não bloqueio: no "Salvar", a pessoa decide
  *   se mantém os dois ou cancela os que batem (`ConflictDecisionModal`).
  * - Os cancelamentos vêm **antes** da gravação: se um falhar, nada foi criado.
+ * - Reagendar um cancelado cria um compromisso **novo** com os mesmos dados e
+ *   sem data: não há rota para reabrir um cancelamento, e o original fica no
+ *   histórico como cancelado.
  */
-export function useAppointmentEditor({ onSaved }: { onSaved: () => void }) {
+export function useAppointmentEditor({
+  onSaved,
+  compact = false,
+}: {
+  onSaved: () => void;
+  /** Uma coluna — para o painel lateral, onde campos lado a lado ficariam espremidos. */
+  compact?: boolean;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [editing, setEditing] = useState<AppointmentResponse | null>(null);
   const [values, setValues] = useState<AppointmentFormValues>(EMPTY_APPOINTMENT_FORM);
   const [baseline, setBaseline] = useState<AppointmentFormValues>(EMPTY_APPOINTMENT_FORM);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeciding, setIsDeciding] = useState(false);
+  const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
 
   const isEditing = editing !== null;
   const errors = validateAppointmentForm(values, { isEditing });
@@ -83,6 +98,17 @@ export function useAppointmentEditor({ onSaved }: { onSaved: () => void }) {
     setIsOpen(true);
   };
 
+  const close = () => {
+    setIsConfirmingDiscard(false);
+    setIsOpen(false);
+  };
+
+  /** Fechar o formulário mexido pergunta antes: o que foi preenchido se perderia. */
+  const requestClose = () => {
+    if (isDirty && !isSubmitting) setIsConfirmingDiscard(true);
+    else close();
+  };
+
   const setField = <K extends keyof AppointmentFormValues>(field: K, value: AppointmentFormValues[K]) => {
     setValues((current) => ({ ...current, [field]: value }));
     check.touch(field);
@@ -91,12 +117,16 @@ export function useAppointmentEditor({ onSaved }: { onSaved: () => void }) {
   const persist = async (idsToCancel: string[]) => {
     setIsSubmitting(true);
     try {
+      // Um aviso só, no fim: o que foi gravado e quantos saíram para dar lugar.
       for (const id of idsToCancel) {
-        await cancelAppointment(id, { justification: `Substituído por: ${values.title.trim()}` });
+        await cancelAppointment(id, { justification: `Substituído por: ${values.title.trim()}` }, { silent: true });
       }
+      const replaced = idsToCancel.length
+        ? ` ${plural(idsToCancel.length, "compromisso substituído foi cancelado", "compromissos substituídos foram cancelados")}.`
+        : "";
       const body = toRequest(values, { isEditing });
-      if (editing) await updateAppointment(editing.id, body);
-      else await createAppointment(body);
+      if (editing) await updateAppointment(editing.id, body, { successMessage: `Compromisso atualizado.${replaced}` });
+      else await createAppointment(body, { successMessage: `Compromisso agendado.${replaced}` });
       setIsDeciding(false);
       setIsOpen(false);
       onSaved();
@@ -120,12 +150,24 @@ export function useAppointmentEditor({ onSaved }: { onSaved: () => void }) {
   return {
     isOpen,
     isEditing,
-    isDirty,
     isValid,
     isSubmitting,
+    title: isEditing ? "Editar compromisso" : "Novo compromisso",
+    confirmLabel: isEditing ? "Salvar alterações" : "Agendar",
     openCreate: () => open(EMPTY_APPOINTMENT_FORM, null),
     openEdit: (appointment: AppointmentResponse) => open(fromResponse(appointment), appointment),
-    close: () => setIsOpen(false),
+    openReschedule: (appointment: AppointmentResponse) =>
+      open(
+        {
+          ...fromResponse(appointment),
+          startAt: null,
+          endAt: null,
+          justification: "",
+          pastDateAcknowledged: false,
+        },
+        null,
+      ),
+    requestClose,
     submit,
     fields: (
       <>
@@ -137,6 +179,7 @@ export function useAppointmentEditor({ onSaved }: { onSaved: () => void }) {
           conflicts={conflicts}
           onShiftAfter={(conflict) => setValues((current) => shiftAfter(current, conflict.endAt))}
           isDisabled={isSubmitting}
+          compact={compact}
         />
         {pastError && (
           <p role="alert" className="mt-3 text-xs text-danger">
@@ -145,16 +188,27 @@ export function useAppointmentEditor({ onSaved }: { onSaved: () => void }) {
         )}
       </>
     ),
-    conflictDialog: (
-      <ConflictDecisionModal
-        isOpen={isDeciding}
-        conflicts={conflicts}
-        newTitle={values.title}
-        onClose={() => setIsDeciding(false)}
-        onConfirm={(ids) => void persist(ids)}
-        isSubmitting={isSubmitting}
-      />
+    dialogs: (
+      <>
+        <ConflictDecisionModal
+          isOpen={isDeciding}
+          conflicts={conflicts}
+          newTitle={values.title}
+          onClose={() => setIsDeciding(false)}
+          onConfirm={(ids) => void persist(ids)}
+          isSubmitting={isSubmitting}
+        />
+        <ConfirmDialog
+          isOpen={isConfirmingDiscard}
+          onClose={() => setIsConfirmingDiscard(false)}
+          onConfirm={close}
+          tone="danger"
+          heading="Descartar compromisso?"
+          description="As informações preenchidas serão perdidas."
+          confirmLabel="Descartar"
+          cancelLabel="Continuar preenchendo"
+        />
+      </>
     ),
   };
 }
-

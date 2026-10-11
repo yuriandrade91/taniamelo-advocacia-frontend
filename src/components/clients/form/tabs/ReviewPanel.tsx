@@ -11,6 +11,7 @@ import type {
 } from "../review";
 import { splitBlankOptional, totalMissing } from "../review";
 import { Segmented } from "@/components/ui/filters/FilterBar";
+import { Svg } from "@/components/ui/icons/Svg";
 
 type Filter = "all" | "missing";
 
@@ -58,20 +59,7 @@ function Field({ entry, onFill }: { entry: ReviewItem; onFill: () => void }) {
             className="group flex items-center gap-1.5 text-sm font-semibold text-danger"
           >
             Não preenchido
-            <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden="true"
-              className="h-3.5 w-3.5 transition group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0"
-            >
-              <path
-                d="M3 8h10M9 4l4 4-4 4"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <GoToArrow />
           </button>
         </dd>
       </div>
@@ -155,20 +143,7 @@ function DocumentField({
             className="group flex items-center gap-1.5 text-sm font-semibold text-danger"
           >
             Não preenchido
-            <svg
-              viewBox="0 0 16 16"
-              fill="none"
-              aria-hidden="true"
-              className="h-3.5 w-3.5 transition group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0"
-            >
-              <path
-                d="M3 8h10M9 4l4 4-4 4"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <GoToArrow />
           </button>
         </dd>
       ) : (
@@ -248,6 +223,17 @@ function EmptyGroup({
  * Sem ícones nem sombras. O conteúdo vem pronto de `buildClientReview`; aqui
  * só se desenha.
  */
+
+/** A seta do "Não preenchido →": leva à aba do campo. */
+const GoToArrow = () => (
+  <Svg
+    viewBox="0 0 16 16"
+    strokeWidth={1.75}
+    className="h-3.5 w-3.5 transition group-hover:translate-x-0.5 motion-reduce:group-hover:translate-x-0"
+  >
+    <path d="M3 8h10M9 4l4 4-4 4" />
+  </Svg>
+);
 export function ReviewPanel({
   sections,
   onEdit,

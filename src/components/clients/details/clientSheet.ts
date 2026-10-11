@@ -21,8 +21,12 @@ export type SheetSections = {
   professional: ProfessionalValues;
 };
 
-/** Campos que a ficha não desenha, mas que o PUT tem de devolver. */
-export type KeptFields = Pick<ClientDetails, "notes" | "responsibleUserId">;
+/**
+ * Campos que a ficha não desenha, mas que o PUT tem de devolver. A etapa no
+ * INSS muda pela lista (PATCH); se o PUT não a devolvesse, salvar a ficha
+ * apagaria a etapa — o backend grava ausente como nulo.
+ */
+export type KeptFields = Pick<ClientDetails, "notes" | "responsibleUserId" | "requestStage">;
 
 /**
  * `PUT /clients/{id}` é **substituição total**: o backend só preserva, quando
@@ -40,6 +44,7 @@ export function toUpdateRequest(
     ...body,
     notes: kept.notes ?? undefined,
     responsibleUserId: kept.responsibleUserId ?? undefined,
+    requestStage: kept.requestStage ?? null,
     ...(inssPassword.trim() ? { inssPassword } : {}),
   };
 }

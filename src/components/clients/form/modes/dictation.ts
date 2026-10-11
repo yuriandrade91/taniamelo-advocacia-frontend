@@ -16,7 +16,7 @@
  */
 
 /** O mínimo da Web Speech API que usamos. */
-export type RecognitionResult = { isFinal: boolean; 0: { transcript: string } };
+type RecognitionResult = { isFinal: boolean; 0: { transcript: string } };
 export type RecognitionLike = {
   lang: string;
   continuous: boolean;

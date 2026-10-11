@@ -44,7 +44,7 @@ export type SmartFieldKey =
   | "state";
 
 /** Em qual formulário da página cada campo mora. */
-export type SmartTarget = "service" | "personal" | "professional" | "address";
+type SmartTarget = "service" | "personal" | "professional" | "address";
 
 export type ExtractedField = {
   key: SmartFieldKey;

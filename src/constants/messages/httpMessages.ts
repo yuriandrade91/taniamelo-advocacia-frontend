@@ -1,6 +1,5 @@
+/** Os status de erro com texto próprio — sucesso não passa por aqui (ver `notifyResponse`). */
 type HttpStatus =
-  | 201
-  | 204
   | 400
   | 401
   | 403
@@ -16,11 +15,6 @@ type HttpStatus =
 const httpMessages: Partial<
   Record<HttpStatus, { title: string; description: string }>
 > = {
-  201: { title: "Cliente cadastrado com sucesso!", description: "Verifique a lista de clientes." },
-  204: {
-    title: "Operação concluída",
-    description: "Sucesso na operação.",
-  },
   400: {
     title: "Requisição inválida",
     description: "Erro nos dados enviados.",
@@ -69,4 +63,4 @@ const httpMessages: Partial<
 };
 
 export default httpMessages;
-export type { HttpStatus };
+

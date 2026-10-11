@@ -19,19 +19,18 @@ function describeApiErrors(errors: ApiErrorItem[]) {
 }
 
 /**
- * Mensagem padrão de sucesso por método HTTP — usada quando a resposta não
- * tem corpo (204) e quem chamou não passou `successMessage` no config da
- * requisição. Chaves em minúsculo porque `AxiosRequestConfig.method` vem
- * assim (`"delete"`, `"put"`...).
+ * Mensagem padrão de sucesso por método HTTP — para a gravação que não
+ * declarou a sua (`successMessage`, ver `requestFeedback`). Chaves em
+ * minúsculo porque `AxiosRequestConfig.method` vem assim (`"delete"`, `"put"`…).
  */
 const DEFAULT_SUCCESS_MESSAGE_BY_METHOD: Record<string, string> = {
-  delete: "Excluído com sucesso.",
-  put: "Atualizado com sucesso.",
-  patch: "Atualizado com sucesso.",
-  post: "Criado com sucesso.",
+  delete: "Excluído.",
+  put: "Alterações salvas.",
+  patch: "Alterações salvas.",
+  post: "Salvo.",
 };
 
-/**. s
+/**
  * Extrai a mensagem de negócio de um envelope da API (`errors[0].message`),
  * quando houver. É o único ponto que sabe olhar dentro de `errors` — todo o
  * resto do app (interceptor e telas específicas, como o login) usa isto em
@@ -46,17 +45,6 @@ export function getApiErrorMessage(
 }
 
 /**
- * Central de notificações: único ponto que decide o que aparece na tela para
- * qualquer requisição, com base no que o endpoint retorna (status, corpo,
- * erro de rede...). O `axiosService` só chama `notifyResponse`/`notifyError`
- * daqui — não monta mensagem sozinho.
- *
- * `notify`/`success`/`info`/`warning`/`danger` seguem o mesmo padrão da API
- * de toast do HeroUI, para uso direto em qualquer outro ponto da tela — em
- * especial a mensagem de sucesso de uma requisição, que é responsabilidade
- * de quem a fez (o backend não diz "o que" foi feito, só que deu certo).
- */
-/**
  * Aviso de problema que se cala enquanto a sessão acaba (`isSessionEnding`):
  * a tela ainda reage aos 401 das requisições que estavam no ar — um "não foi
  * possível carregar" por cartão — no instante em que o navegador já está indo
@@ -68,6 +56,23 @@ const unlessSessionEnding =
     if (!isSessionEnding()) show(...args);
   };
 
+/**
+ * Central de notificações: único ponto que decide o que aparece na tela para
+ * qualquer requisição, com base no que o endpoint retorna (status, corpo,
+ * erro de rede...). O `axiosService` só chama `notifyResponse`/`notifyError`
+ * daqui — não monta mensagem sozinho.
+ *
+ * **Toda gravação tem retorno.** POST, PUT, PATCH e DELETE bem-sucedidos
+ * viram toast de sucesso — com a mensagem que o serviço declarou
+ * (`requestFeedback`) ou, sem ela, a padrão do método. Só se cala quem pediu
+ * (`silent`): o fluxo de várias requisições que avisa uma vez no fim, a ação
+ * com janela de desfazer que já avisou no clique. Leitura (GET) não tem toast
+ * de sucesso — seria um aviso por lista carregada.
+ *
+ * `notify`/`success`/`info`/`warning`/`danger` seguem a API de toast do
+ * HeroUI, para o aviso que não é de uma requisição (copiar, validar) e para
+ * o aviso consolidado de um fluxo.
+ */
 export const notificationCenter = {
   notify: toast,
   success: toast.success,
@@ -77,16 +82,11 @@ export const notificationCenter = {
 
   /**
    * Chamado pelo axiosService a cada resposta 2xx.
-   * `success: false` é uma falha de negócio que respondeu 2xx (transporte
-   * OK, operação não) — sinalizamos sempre, independente do status.
-   * Sucesso de verdade é silencioso por padrão (mensagem é responsabilidade
-   * de quem fez a chamada), EXCETO:
-   *  - a tela passou `successMessage` explícito no config — vale pra
-   *    qualquer status 2xx (200 incluso: PATCH de concluir/cancelar, por
-   *    exemplo, responde 200 com o compromisso atualizado no corpo);
-   *  - 201 (criação) ou 204/sem corpo, mesmo sem `successMessage` — a tela
-   *    normalmente só reflete a mudança (item some da lista, aba atualiza)
-   *    sem nenhum outro sinal de que a ação deu certo.
+   *
+   * `success: false` é falha de negócio que respondeu 2xx (transporte OK,
+   * operação não) — sinalizada sempre, mesmo com `skipSuccessToast`. Sucesso
+   * de gravação vira toast (ver acima); sucesso de leitura, só com
+   * `successMessage` explícito.
    */
   notifyResponse(response: AxiosResponse<ApiEnvelope<unknown>>) {
     const body = response.data;
@@ -118,12 +118,12 @@ export const notificationCenter = {
       return;
     }
 
-    const { status } = response;
-    if (status === 201 || status === 204 || body == null) {
-      const method = response.config?.method?.toLowerCase();
-      const message = method ? DEFAULT_SUCCESS_MESSAGE_BY_METHOD[method] : undefined;
-      if (message) toast.success(message);
-    }
+    // Login, refresh e logout: o retorno é a navegação, não um toast.
+    if (response.config?.url?.includes("/auth/")) return;
+
+    const method = response.config?.method?.toLowerCase();
+    const message = method ? DEFAULT_SUCCESS_MESSAGE_BY_METHOD[method] : undefined;
+    if (message) toast.success(message);
   },
 
   /** Chamado pelo axiosService a cada erro de requisição não silenciado (`skipErrorToast`). */

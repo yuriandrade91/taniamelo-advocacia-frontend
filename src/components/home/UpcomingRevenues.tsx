@@ -3,16 +3,16 @@
 import React from "react";
 import type { PaymentStatusKey } from "@/enums/payment/Payment";
 import { Card, SectionTitle } from "@/components/ui/layout/Card";
-import { CalendarIcon } from "@/components/ui/icons/CalendarIcon";
-import { SeeAllLink } from "./ui";
+import { SeeAllLink } from "./CardControls";
 import { StatusBadge, type BadgeTone } from "@/components/ui/feedback/Badges";
 import { Skeleton } from "@heroui/react";
+import { CalendarIcon } from "@/components/ui/icons/glyphs";
 
 /**
  * Status exibido na lista. `ATRASADO` não existe no enum do backend — é
  * derivado do campo `overdue` de `ClientPaymentResponse`.
  */
-export type RevenueStatus = PaymentStatusKey | "ATRASADO";
+type RevenueStatus = PaymentStatusKey | "ATRASADO";
 
 const STATUS_STYLE: Record<
   RevenueStatus,
@@ -81,7 +81,7 @@ export default function UpcomingRevenues({
               </span>
 
               <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-gray-100/70">
-                <CalendarIcon />
+                <CalendarIcon className="h-3.5 w-3.5" />
                 {item.date}
               </span>
 

@@ -59,14 +59,14 @@ const SESSION_CHECK_MS = 60_000;
 export function RouteGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [liberado, setLiberado] = useState(false);
+  const [isAllowed, setIsAllowed] = useState(false);
 
   useEffect(() => {
     let active = true;
 
     void (async () => {
       if (isAuthenticated()) {
-        if (active) setLiberado(true);
+        if (active) setIsAllowed(true);
         return;
       }
 
@@ -75,7 +75,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
       if (!active) return;
 
       if (restored) {
-        setLiberado(true);
+        setIsAllowed(true);
         return;
       }
 
@@ -94,7 +94,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   }, [router, pathname]);
 
   useEffect(() => {
-    if (!liberado) return;
+    if (!isAllowed) return;
     let checking = false;
 
     const check = async () => {
@@ -116,8 +116,8 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
-  }, [liberado]);
+  }, [isAllowed]);
 
-  if (!liberado) return null;
+  if (!isAllowed) return null;
   return <>{children}</>;
 }

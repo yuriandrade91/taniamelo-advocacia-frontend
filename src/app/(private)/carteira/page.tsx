@@ -22,17 +22,17 @@ import { bucketQuery, type PaymentBucket } from "@/components/payments/paymentBu
 import { editWarning } from "@/components/payments/editWarning";
 import { useEditConfirmation } from "@/components/payments/useEditConfirmation";
 import { TablePagination } from "@/components/ui/table/TablePagination";
-import { MonthPicker } from "@/components/ui/MonthPicker";
+import { MonthPicker } from "@/components/ui/filters/MonthPicker";
 import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { NoFinanceAccess } from "@/components/ui/feedback/NoFinanceAccess";
-import ConfirmDialog from "@/components/ui/modals/ConfirmDialog/ConfirmDialog";
+import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
 import { useFilters } from "@/hooks/useFilters";
-import { usePagedList, type ListPage } from "@/hooks/usePagedList";
+import { usePagedList } from "@/hooks/usePagedList";
+import { pageFromEnvelope } from "@/lib/pagination";
 import { usePermissions } from "@/hooks/usePermissions";
 import { currentMonth, monthRange, todayIso, type MonthRef } from "@/lib/period";
 import type { PaymentMethodInput } from "@/enums/payment/Payment";
 import type { ExpenseCategoryInput } from "@/enums/expenseCategory/ExpenseCategory";
-import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import { deleteOfficeExpense, listOfficeExpenses } from "@/services/officeExpenseService";
 import { deleteOfficeRevenue, listOfficeRevenues } from "@/services/officeRevenueService";
 
@@ -106,14 +106,7 @@ function listParams(
 
 type Params = NonNullable<ReturnType<typeof listParams>>;
 
-/** Envelope da API → página da lista. */
-const toPage = <T,>(envelope: ApiEnvelope<T[]>): ListPage<T> => ({
-  items: envelope.data ?? [],
-  total: envelope.pagination?.totalRecords ?? 0,
-  totalPages: envelope.pagination?.totalPages ?? 0,
-});
-
-type Target = { kind: EntryKind; id: string; descricao: string };
+type Target = { kind: EntryKind; id: string; description: string };
 
 export default function WalletPage() {
   /**
@@ -125,9 +118,9 @@ export default function WalletPage() {
   const [month, setMonth] = useState<MonthRef>(() => currentMonth());
   const range = useMemo(() => monthRange(month), [month]);
   /** Aba da lista. Despesa primeiro: é a que pede ação (pagar). */
-  const [tab, setTab] = useState<EntryKind>("saida");
+  const [tab, setTab] = useState<EntryKind>("expense");
   const [isEntryFormOpen, setIsEntryFormOpen] = useState(false);
-  const [editing, setEditing] = useState<(EntryEditing & { descricao: string }) | null>(null);
+  const [editing, setEditing] = useState<(EntryEditing & { description: string }) | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Target | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [detailsTarget, setDetailsTarget] = useState<EntryDetailsTarget | null>(null);
@@ -156,20 +149,20 @@ export default function WalletPage() {
    * despesas, e as entradas só no clique. A contagem das abas vem do resumo.
    */
   const expenses = usePagedList({
-    enabled: canSeeFinance && tab === "saida",
+    enabled: canSeeFinance && tab === "expense",
     params: expenseParams,
-    fetchPage: (params: Params, page) => listOfficeExpenses({ ...params, pageNumber: page, pageSize: PAGE_SIZE }).then(toPage),
+    fetchPage: (params: Params, page) => listOfficeExpenses({ ...params, pageNumber: page, pageSize: PAGE_SIZE }).then(pageFromEnvelope),
   });
   const revenues = usePagedList({
-    enabled: canSeeFinance && tab === "entrada",
+    enabled: canSeeFinance && tab === "income",
     params: revenueParams,
-    fetchPage: (params: Params, page) => listOfficeRevenues({ ...params, pageNumber: page, pageSize: PAGE_SIZE }).then(toPage),
+    fetchPage: (params: Params, page) => listOfficeRevenues({ ...params, pageNumber: page, pageSize: PAGE_SIZE }).then(pageFromEnvelope),
   });
 
   /** Gravou ou excluiu: muda o saldo e a lista daquele lado — só dele. */
   const reloadAfterChange = (kind: EntryKind) => {
     monthData.reload(kind);
-    (kind === "entrada" ? revenues : expenses).invalidate();
+    (kind === "income" ? revenues : expenses).invalidate();
   };
 
   /**
@@ -180,7 +173,7 @@ export default function WalletPage() {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      await (deleteTarget.kind === "entrada" ? deleteOfficeRevenue : deleteOfficeExpense)(deleteTarget.id);
+      await (deleteTarget.kind === "income" ? deleteOfficeRevenue : deleteOfficeExpense)(deleteTarget.id);
       setDeleteTarget(null);
       reloadAfterChange(deleteTarget.kind);
     } catch {
@@ -192,27 +185,27 @@ export default function WalletPage() {
 
   const entryActions: WalletEntryActions = {
     expense: {
-      onView: (item) => setDetailsTarget({ kind: "saida", id: item.id, descricao: item.description }),
+      onView: (item) => setDetailsTarget({ kind: "expense", id: item.id, description: item.description }),
       onEdit: (item) =>
         confirmEdit.request(editWarning(item, "pago"), () =>
-          setEditing({ kind: "saida", id: item.id, values: expenseFormFrom(item), descricao: item.description }),
+          setEditing({ kind: "expense", id: item.id, values: expenseFormFrom(item), description: item.description }),
         ),
-      onDelete: (item) => setDeleteTarget({ kind: "saida", id: item.id, descricao: item.description }),
+      onDelete: (item) => setDeleteTarget({ kind: "expense", id: item.id, description: item.description }),
     },
     revenue: {
-      onView: (item) => setDetailsTarget({ kind: "entrada", id: item.id, descricao: item.description }),
+      onView: (item) => setDetailsTarget({ kind: "income", id: item.id, description: item.description }),
       onEdit: (item) =>
         confirmEdit.request(editWarning(item, "recebido"), () =>
-          setEditing({ kind: "entrada", id: item.id, values: incomeFormFrom(item), descricao: item.description }),
+          setEditing({ kind: "income", id: item.id, values: incomeFormFrom(item), description: item.description }),
         ),
-      onDelete: (item) => setDeleteTarget({ kind: "entrada", id: item.id, descricao: item.description }),
+      onDelete: (item) => setDeleteTarget({ kind: "income", id: item.id, description: item.description }),
     },
   };
 
-  if (!canSeeFinance) return <NoFinanceAccess titulo="Carteira" />;
+  if (!canSeeFinance) return <NoFinanceAccess title="Carteira" />;
 
-  const list = tab === "saida" ? expenses : revenues;
-  const filters = tab === "saida" ? expenseFilters : revenueFilters;
+  const list = tab === "expense" ? expenses : revenues;
+  const filters = tab === "expense" ? expenseFilters : revenueFilters;
   const noun = KIND_META[tab].noun;
   const emptyMessage = list.failed
     ? `Não foi possível carregar as ${noun}s. Tente novamente.`
@@ -253,10 +246,10 @@ export default function WalletPage() {
       {/* Filtro → lista → paginação, da aba aberta: cada aba guarda os seus filtros. */}
       <section className="flex flex-col gap-4">
         <WalletFilterBar tab={tab} onTabChange={setTab} counts={monthData.counts} filters={filters} />
-        {tab === "saida" ? (
-          <WalletEntryList kind="saida" items={expenses.items} isLoading={expenses.isLoading} emptyMessage={emptyMessage} actions={entryActions} />
+        {tab === "expense" ? (
+          <WalletEntryList kind="expense" items={expenses.items} isLoading={expenses.isLoading} emptyMessage={emptyMessage} actions={entryActions} />
         ) : (
-          <WalletEntryList kind="entrada" items={revenues.items} isLoading={revenues.isLoading} emptyMessage={emptyMessage} actions={entryActions} />
+          <WalletEntryList kind="income" items={revenues.items} isLoading={revenues.isLoading} emptyMessage={emptyMessage} actions={entryActions} />
         )}
         <TablePagination
           pageNumber={list.page}
@@ -266,7 +259,7 @@ export default function WalletPage() {
           onPageChange={list.setPage}
           noun={[noun, `${noun}s`]}
         />
-        {tab === "entrada" && (
+        {tab === "income" && (
           <p className="px-1 text-sm text-gray-100">
             Entrada aqui é honorário, parecer avulso, reembolso — dinheiro do escritório. Não confunda com{" "}
             <Link href="/pagamentos" className="font-medium text-secondary underline underline-offset-2">
@@ -310,13 +303,13 @@ export default function WalletPage() {
         isOpen={deleteTarget !== null}
         onClose={() => !isDeleting && setDeleteTarget(null)}
         tone="danger"
-        heading={deleteTarget?.kind === "entrada" ? "Excluir entrada?" : "Excluir saída?"}
+        heading={deleteTarget?.kind === "income" ? "Excluir entrada?" : "Excluir saída?"}
         confirmLabel="Excluir"
         cancelLabel="Manter"
         description={
           deleteTarget && (
             <>
-              <span className="font-medium">{deleteTarget.descricao}</span> sai da Carteira e deixa de contar no saldo
+              <span className="font-medium">{deleteTarget.description}</span> sai da Carteira e deixa de contar no saldo
               do mês. Não há como restaurar por aqui.
             </>
           )

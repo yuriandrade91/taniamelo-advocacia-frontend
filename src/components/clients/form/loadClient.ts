@@ -1,5 +1,4 @@
-import type { Clients } from "@/interfaces/Clients.interface";
-import type { ClientSituationHistory } from "@/interfaces/client/Client.interface";
+import type { ClientDetails, ClientSituationHistory } from "@/interfaces/client/Client.interface";
 import type {
   ClientAddressResponse,
   ClientFileDocumentResponse,
@@ -23,7 +22,7 @@ import { messageOf } from "@/lib/errorMessage";
  */
 
 export type LoadedClient = {
-  client: Clients | null;
+  client: ClientDetails | null;
   /** Mensagem da falha ao ler o cliente; `""` quando veio. */
   error: string;
   /** O principal primeiro: é o que a ficha mostra e a primeira aba do cadastro. */
@@ -36,7 +35,7 @@ export type LoadedClient = {
   simulations: ClientFileSimulationResponse[];
 };
 
-export const settled = <T,>(result: PromiseSettledResult<T>): T | undefined =>
+const settled = <T,>(result: PromiseSettledResult<T>): T | undefined =>
   result.status === "fulfilled" ? result.value : undefined;
 
 /** Mais recente primeiro. */

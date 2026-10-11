@@ -15,7 +15,7 @@
  */
 export function waitSeconds(
   retryAfter: string | number | null | undefined,
-  agora: Date = new Date(),
+  now: Date = new Date(),
 ): number | null {
   if (retryAfter === null || retryAfter === undefined) return null;
 
@@ -29,7 +29,7 @@ export function waitSeconds(
 
   const when = Date.parse(text);
   if (Number.isNaN(when)) return null;
-  const seconds = Math.ceil((when - agora.getTime()) / 1000);
+  const seconds = Math.ceil((when - now.getTime()) / 1000);
   return seconds > 0 ? seconds : null;
 }
 
@@ -41,9 +41,9 @@ export function waitSeconds(
  */
 export function readableWait(
   retryAfter: string | number | null | undefined,
-  agora: Date = new Date(),
+  now: Date = new Date(),
 ): string | null {
-  const seconds = waitSeconds(retryAfter, agora);
+  const seconds = waitSeconds(retryAfter, now);
   if (seconds === null) return null;
 
   if (seconds < 60) return `em ${seconds} segundo${seconds === 1 ? "" : "s"}`;
@@ -55,9 +55,9 @@ export function readableWait(
 /** A frase inteira mostrada no login quando o backend devolve 429. */
 export function tooManyAttemptsMessage(
   retryAfter: string | number | null | undefined,
-  agora: Date = new Date(),
+  now: Date = new Date(),
 ): string {
-  const wait = readableWait(retryAfter, agora);
+  const wait = readableWait(retryAfter, now);
   return wait
     ? `Muitas tentativas. Tente novamente ${wait}.`
     : "Muitas tentativas. Tente novamente em alguns minutos.";

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-import { RecordDrawer } from "@/components/ui/Drawer/RecordDrawer";
+import { RecordDrawer } from "@/components/ui/drawer/RecordDrawer";
 import { DetailBento, DetailBentoSkeleton } from "@/components/wallet/DetailBento";
 import { formatDateBR, formatInstallment } from "@/lib/format";
 import { todayIso } from "@/lib/period";

@@ -31,6 +31,7 @@ import type {
   ClientPaymentRequest,
   ClientPaymentUpdateRequest,
 } from "@/interfaces/client/ClientSubResources.interface";
+import { optionalInteger, optionalText } from "@/lib/formValues";
 
 export type BenefitPaymentValues = {
   clientId: string;
@@ -62,7 +63,7 @@ export const emptyBenefitPayment = (): BenefitPaymentValues => ({
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-export type BenefitPaymentErrors = Partial<
+type BenefitPaymentErrors = Partial<
   Record<keyof BenefitPaymentValues, string>
 >;
 
@@ -112,12 +113,6 @@ export function validateBenefitPayment(
 export const hasErrors = (errors: object): boolean =>
   Object.keys(errors).length > 0;
 
-const optionalNumber = (value: string): number | undefined =>
-  value.trim() === "" ? undefined : Number(value);
-
-const optional = (value: string): string | undefined =>
-  value.trim() === "" ? undefined : value.trim();
-
 /**
  * Corpo do `POST /clients/{clientId}/payments`.
  *
@@ -133,9 +128,9 @@ export function toBenefitPaymentRequest(
     description: values.description.trim(),
     amount: parseAmountBRL(values.amount) ?? 0,
     dueDate: values.expectedDate,
-    installmentNumber: optionalNumber(values.installmentNumber),
-    installmentTotal: optionalNumber(values.installmentTotal),
-    notes: optional(values.notes),
+    installmentNumber: optionalInteger(values.installmentNumber),
+    installmentTotal: optionalInteger(values.installmentTotal),
+    notes: optionalText(values.notes),
   };
 }
 

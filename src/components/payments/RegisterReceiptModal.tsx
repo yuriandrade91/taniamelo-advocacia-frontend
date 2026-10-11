@@ -3,11 +3,10 @@
 import { useState } from "react";
 import { useFieldErrors } from "@/hooks/useFieldErrors";
 
-import FormModal from "@/components/ui/modals/FormModal/FormModal";
+import FormModal from "@/components/ui/modals/FormModal";
 import { DatePickerField, TextAreaField } from "@/components/ui/form/Field";
 import { FieldGrid } from "@/components/ui/form/FieldGrid";
 import { patchPayment } from "@/services/clientPaymentService";
-import { notificationCenter } from "@/services/notificationService";
 import { formatBRL, formatDateBR, formatInstallment } from "@/lib/format";
 import { todayIso } from "@/lib/period";
 import { validatePaidDate } from "@/lib/validators";
@@ -74,12 +73,12 @@ export function RegisterReceiptModal({
 
     setIsSubmitting(true);
     try {
-      await patchPayment(payment.clientId, payment.id, {
-        status: "PAGO",
-        paidDate,
-        notes: notes.trim() || undefined,
-      });
-      notificationCenter.success("Crédito confirmado.");
+      await patchPayment(
+        payment.clientId,
+        payment.id,
+        { status: "PAGO", paidDate, notes: notes.trim() || undefined },
+        { successMessage: "Crédito confirmado." },
+      );
       onSaved();
       onClose();
     } catch {
@@ -133,7 +132,7 @@ export function RegisterReceiptModal({
 
         {/* O resumo acima fica fora da grade: ela é só dos campos, como na
             Carteira. Com dois campos, a modal é de uma coluna (`compact`). */}
-        <FieldGrid compact>
+        <FieldGrid columns={1}>
           <DatePickerField
             label="Data do crédito"
             value={paidDate}

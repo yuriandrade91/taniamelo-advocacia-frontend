@@ -22,7 +22,7 @@
 
 import { daysBetween, todayIso } from "@/lib/period";
 import { OFFICE_NAME } from "@/constants/office";
-import type { Clients } from "@/interfaces/Clients.interface";
+import type { ClientListItem } from "@/interfaces/client/Client.interface";
 
 export type LeadUrgency = "critical" | "warning" | "recent";
 
@@ -34,11 +34,9 @@ export interface PendingLead {
   urgency: LeadUrgency;
   benefit?: string;
   phone?: string;
-  isWhatsapp: boolean;
-  email?: string;
 }
 
-export interface LeadGroup {
+interface LeadGroup {
   urgency: LeadUrgency;
   title: string;
   /** Frase curta que explica por que este grupo está separado. */
@@ -54,7 +52,7 @@ export interface LeadGroup {
  * já procurou outro escritório. Se a prática do escritório disser outra coisa,
  * é aqui que se muda — e num lugar só.
  */
-export const URGENCY_THRESHOLDS = { critical: 30, warning: 15 } as const;
+const URGENCY_THRESHOLDS = { critical: 30, warning: 15 } as const;
 
 export function urgencyOf(waitingDays: number | null): LeadUrgency {
   // Sem data, trata como recente: inventar urgência a partir de dado ausente
@@ -116,7 +114,7 @@ export function contactMessage(lead: {
 }
 
 export function toPendingLead(
-  client: Clients,
+  client: ClientListItem,
   today: string = todayIso(),
 ): PendingLead {
   const created = client.createdAt?.slice(0, 10);
@@ -132,8 +130,6 @@ export function toPendingLead(
     urgency: urgencyOf(waitingDays),
     benefit: client.benefit || undefined,
     phone: client.mobilePhone || undefined,
-    isWhatsapp: client.isWhatsapp === true,
-    email: client.email || undefined,
   };
 }
 
@@ -199,7 +195,7 @@ export function filterLeads(leads: PendingLead[], term: string): PendingLead[] {
   // busca contradizendo a lista. O e-mail continua valendo, ainda que não
   // apareça — quem tem o endereço na mão acha por ele.
   return leads.filter((lead) =>
-    [lead.name, lead.phone ?? "", lead.benefit ?? "", lead.email ?? ""]
+    [lead.name, lead.phone ?? "", lead.benefit ?? ""]
       .join(" ")
       .toLowerCase()
       .normalize("NFD")

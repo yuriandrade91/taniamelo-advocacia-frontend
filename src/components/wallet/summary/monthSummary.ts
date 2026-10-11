@@ -1,5 +1,5 @@
 import type { FinanceSummary } from "@/interfaces/finance/Finance.interface";
-import { formatBRL, formatBRLCompact } from "@/lib/format";
+import { formatBRL } from "@/lib/format";
 
 /**
  * Os números do resumo do mês da Carteira — puros e testados; o desenho é o
@@ -14,7 +14,7 @@ import { formatBRL, formatBRLCompact } from "@/lib/format";
  * atrasado), dos dois lados: "como o mês fecha se tudo for quitado".
  */
 
-export type Amount = { amount: number; count: number };
+type Amount = { amount: number; count: number };
 
 export type MonthSummary = {
   /** Recebido no mês (caixa). `null` se a rota não respondeu. */
@@ -70,14 +70,6 @@ export function buildMonthSummary(props: {
 }
 
 // ── Exibição ──
-
-/** "R$ 1.500" / "−R$ 1.500"; sem número, "—". */
-export function money(value: number | null | undefined, { plus = false } = {}): string {
-  if (value === null || value === undefined) return "—";
-  const body = formatBRLCompact(Math.abs(value));
-  if (value < 0) return `−${body}`;
-  return plus && value > 0 ? `+${body}` : body;
-}
 
 /** Valor com centavos, para o `title` do número arredondado. */
 export const exact = (value: number | null | undefined) =>

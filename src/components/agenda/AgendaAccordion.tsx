@@ -22,8 +22,8 @@ import {
   typeTile,
   type AgendaActions,
 } from "./agendaRow";
-import { ChevronRightIcon } from "./agendaIcons";
 import { useNow } from "@/hooks/useNow";
+import { ChevronRightIcon } from "@/components/ui/icons/glyphs";
 
 export type { AgendaActions };
 

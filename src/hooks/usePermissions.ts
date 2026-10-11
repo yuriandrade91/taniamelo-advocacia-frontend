@@ -8,7 +8,7 @@ import {
   canSeeInssPassword,
 } from "@/lib/permissions";
 
-export type Permissions = {
+type Permissions = {
   canDestroy: boolean;
   canSeeInssPassword: boolean;
   canListUsers: boolean;
@@ -40,12 +40,12 @@ const subscribe = (onChange: () => void) => {
 export function usePermissions(): Permissions {
   const key = useSyncExternalStore(subscribe, readKey, () => "0000");
   return useMemo(() => {
-    const [destruir, senha, usuarios, financeiro] = key.split("").map((c) => c === "1");
+    const [canDestroy, canSeeInssPassword, canListUsers, canSeeFinance] = key.split("").map((c) => c === "1");
     return {
-      canDestroy: destruir,
-      canSeeInssPassword: senha,
-      canListUsers: usuarios,
-      canSeeFinance: financeiro,
+      canDestroy,
+      canSeeInssPassword,
+      canListUsers,
+      canSeeFinance,
     };
   }, [key]);
 }

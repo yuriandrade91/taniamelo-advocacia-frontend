@@ -29,7 +29,5 @@ export const MaritalStatusOptions: {
 }[] = maritalStatus.optionsWithId;
 
 export const getMaritalStatusKeyByLabel = maritalStatus.getKeyByLabel;
-export const getMaritalStatusLabelByKey = maritalStatus.getLabelByKey;
-
 
 export { MARITAL_STATUS_ENTRIES };

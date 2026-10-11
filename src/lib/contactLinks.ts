@@ -37,5 +37,3 @@ export const telLink = (phone?: string): string | null => {
   return digits ? `tel:+${digits}` : null;
 };
 
-export const mailtoLink = (email?: string): string | null =>
-  email && email.includes("@") ? `mailto:${email}` : null;

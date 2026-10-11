@@ -21,7 +21,7 @@ export function EntryBentoView({
   onSettle?: () => void;
 }) {
   const { data } = detail;
-  const isIncome = detail.kind === "entrada";
+  const isIncome = detail.kind === "income";
 
   return (
     <DetailBento

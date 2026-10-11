@@ -37,8 +37,8 @@ function LoginForm() {
   const searchParams = useSearchParams();
 
   /**
-   * Destino após autenticar: `?next=` (definido pela guarda em `proxy.ts`) ou
-   * a home. Só aceita caminhos internos, para evitar open redirect.
+   * Destino após autenticar: `?next=` (definido pelo `RouteGuard`) ou a home.
+   * Só aceita caminhos internos, para evitar open redirect.
    */
   const redirectTo = useMemo(() => {
     const next = searchParams.get("next");
@@ -72,7 +72,7 @@ function LoginForm() {
    * requisição só.
    */
   const clearServerError = () => {
-    setFormErrors((atuais) => (Object.keys(atuais).length ? {} : atuais));
+    setFormErrors((current) => (Object.keys(current).length ? {} : current));
   };
 
   const isButtonDisabled = !validateLogin(login) || !validatePassword(password);
@@ -207,9 +207,9 @@ function LoginForm() {
             name="login"
             type="text"
             value={login}
-            onChange={(valor) => {
+            onChange={(value) => {
               clearServerError();
-              setLogin(valor);
+              setLogin(value);
             }}
             validate={(value) =>
               validateLogin(value) ? null : "Informe seu usuário"
@@ -231,9 +231,9 @@ function LoginForm() {
             name="password"
             type={isVisible ? "text" : "password"}
             value={password}
-            onChange={(valor) => {
+            onChange={(value) => {
               clearServerError();
-              setPassword(valor);
+              setPassword(value);
             }}
             validate={(value) =>
               validatePassword(value) ? null : "Informe sua senha"

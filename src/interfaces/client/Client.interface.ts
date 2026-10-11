@@ -11,6 +11,7 @@
  */
 import type { BenefitLabel, BenefitInput } from "@/enums/benefit/Benefits";
 import type { SituationLabel, SituationInput } from "@/enums/situation/Situation";
+import type { RequestStageLabel, RequestStageInput } from "@/enums/requestStage/RequestStage";
 import type { GenderLabel, GenderInput } from "@/enums/gender/Gender";
 import type {
   ClientTypeLabel,
@@ -45,6 +46,11 @@ export interface ClientDetails {
   maritalStatus?: MaritalStatusLabel;
   benefit: BenefitLabel;
   situation: SituationLabel;
+  /**
+   * Etapa do requerimento no INSS — esteira paralela a `situation`. Nulo é
+   * "ainda não foi ao INSS".
+   */
+  requestStage?: RequestStageLabel | null;
   beneficiaryNumber?: string;
   nitPis?: string;
   profession?: string;
@@ -86,6 +92,11 @@ export interface ClientListItem {
   mobilePhone?: string;
   benefit?: BenefitLabel;
   situation?: SituationLabel;
+  /**
+   * Etapa do requerimento no INSS — esteira paralela a `situation`. Nulo é
+   * "ainda não foi ao INSS".
+   */
+  requestStage?: RequestStageLabel | null;
   clientType?: ClientTypeLabel;
   /** Isento do serviço (sem arrecadação) — o mesmo campo do filtro `?notBillable=`. */
   notBillable?: boolean;
@@ -111,6 +122,8 @@ export interface ClientCreateRequest {
   gender: GenderInput;
   benefit: BenefitInput;
   situation: SituationInput;
+  /** Anulável. No PUT, ausente **apaga** a etapa: a ficha devolve a gravada. */
+  requestStage?: RequestStageInput | null;
   rg?: string;
   rgIssuer?: string;
   rgIssueDate?: string;
@@ -157,6 +170,8 @@ export interface ClientInssPassword {
 /** PATCH /api/v1/clients/{id} — atualização parcial. */
 export interface ClientPatchRequest {
   situation?: SituationInput;
+  /** Muda só a etapa no INSS. Não há como voltar a nulo pelo PATCH (nulo = "não mexer"). */
+  requestStage?: RequestStageInput;
   benefit?: BenefitInput;
   clientType?: ClientTypeInput;
   notBillable?: boolean;
@@ -192,6 +207,24 @@ export interface ClientSituationHistory {
   changedByUserId?: string;
 }
 
+/**
+ * Uma mudança da etapa no INSS (`GET /clients/{id}/request-stage-history`).
+ * Sem `retrocesso`: a esteira do INSS não é funil, e voltar de recurso para
+ * exigência é caminho real.
+ */
+export interface ClientRequestStageHistory {
+  id: string;
+  /** Rótulo da etapa, como a API devolve. */
+  currentStage: string;
+  /** Nulo na primeira linha: o requerimento acabou de ser protocolado. */
+  previousStage?: string | null;
+  /** `Instant` da mudança. */
+  changedAt: string;
+  changedByUserId?: string;
+  /** Dias que o requerimento passou na etapa anterior; nulo na primeira linha. */
+  diasNaEtapaAnterior?: number | null;
+}
+
 /** Query params de GET /api/v1/clients (paginação 1-based). */
 export interface ClientListRequest {
   pageNumber?: number;
@@ -199,6 +232,8 @@ export interface ClientListRequest {
   searchTerm?: string;
   benefitType?: string[];
   situation?: string[];
+  /** Etapas no INSS (chave ou label); cliente sem requerimento não entra em nenhuma. */
+  requestStage?: string[];
   /** `VERIFICADO` / `POTENCIAL` — nome da constante ou label, como os demais. */
   clientType?: string[];
   /** Isento do serviço: `true` só os isentos, `false` só os não isentos; ausente, todos. */

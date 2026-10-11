@@ -58,7 +58,7 @@ export function toSituationCounts(
   }));
 }
 
-export type IntakePoint = {
+type IntakePoint = {
   month: string;
   verified: number;
   potential: number;

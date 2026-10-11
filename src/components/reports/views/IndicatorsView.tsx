@@ -12,7 +12,7 @@ import {
   Sparkline,
   deltaPercent,
   type Tone,
-} from "@/components/ui/models/viz";
+} from "@/components/charts/svgCharts";
 import { SparkleIcon } from "@/components/ui/icons/glyphs";
 import {
   AGENDA_LABELS,
@@ -21,11 +21,10 @@ import {
   INTAKE_TONES,
   PAYMENT_LABELS,
   PAYMENT_TONES,
-  SeriesGate,
-  money,
-  moneyShort,
   useReport,
-} from "./kit";
+} from "./useReport";
+import { SeriesGate } from "./ReportBlocks";
+import { formatBRLShort, formatBRLSigned } from "@/lib/format";
 import type { ReportViewProps } from "./types";
 
 /**
@@ -52,7 +51,7 @@ type Kpi = {
 
 function KpiCard({ kpi }: { kpi: Kpi }) {
   return (
-    <div className="group flex min-w-0 flex-col justify-between rounded-2xl bg-white p-4 ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:shadow-lg hover:shadow-primary/5 motion-reduce:hover:translate-y-0">
+    <div className="group flex min-w-0 flex-col justify-between rounded-2xl bg-white p-4 ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:ring-secondary/40 motion-reduce:hover:translate-y-0">
       <div className="flex items-start justify-between gap-2">
         <p className="truncate text-xs text-gray-100">{kpi.label}</p>
         {!kpi.loading && kpi.hasData && <DeltaChip value={kpi.delta} invert={kpi.invert} />}
@@ -106,7 +105,7 @@ export function IndicatorsView(props: ReportViewProps) {
     ? [
         {
           label: "Entradas do mês",
-          value: money(r.flow.current.inflow),
+          value: formatBRLSigned(r.flow.current.inflow),
           delta: deltaPercent(r.flow.current.inflow, r.flow.previous.inflow),
           spark: r.flow.rows.map((f) => f.inflow),
           tone: FLOW_TONES.inflow,
@@ -116,7 +115,7 @@ export function IndicatorsView(props: ReportViewProps) {
         },
         {
           label: "Saídas do mês",
-          value: money(r.flow.current.outflow),
+          value: formatBRLSigned(r.flow.current.outflow),
           delta: deltaPercent(r.flow.current.outflow, r.flow.previous.outflow),
           invert: true,
           spark: r.flow.rows.map((f) => f.outflow),
@@ -127,7 +126,7 @@ export function IndicatorsView(props: ReportViewProps) {
         },
         {
           label: "Saldo acumulado",
-          value: money(r.flow.balance),
+          value: formatBRLSigned(r.flow.balance),
           delta: deltaPercent(r.flow.current.cumulative, r.flow.previous.cumulative),
           spark: r.flow.rows.map((f) => f.cumulative),
           tone: FLOW_TONES.balance,
@@ -137,7 +136,7 @@ export function IndicatorsView(props: ReportViewProps) {
         },
         {
           label: "Pago aos clientes",
-          value: money(r.payments.current.paid),
+          value: formatBRLSigned(r.payments.current.paid),
           delta: deltaPercent(r.payments.current.paid, r.payments.previous.paid),
           spark: r.payments.rows.map((p) => p.paid),
           tone: PAYMENT_TONES.paid,
@@ -226,8 +225,8 @@ export function IndicatorsView(props: ReportViewProps) {
                 <>
                   <Legend
                     items={[
-                      { label: "Entradas", tone: FLOW_TONES.inflow, value: moneyShort(r.flow.sum.inflow) },
-                      { label: "Saídas", tone: FLOW_TONES.outflow, value: moneyShort(r.flow.sum.outflow) },
+                      { label: "Entradas", tone: FLOW_TONES.inflow, value: formatBRLShort(r.flow.sum.inflow) },
+                      { label: "Saídas", tone: FLOW_TONES.outflow, value: formatBRLShort(r.flow.sum.outflow) },
                     ]}
                   />
                   <BarChart
@@ -237,7 +236,7 @@ export function IndicatorsView(props: ReportViewProps) {
                       { label: "Saídas", values: r.flow.rows.map((f) => f.outflow), tone: FLOW_TONES.outflow },
                     ]}
                     height={200}
-                    format={money}
+                    format={(value) => formatBRLSigned(value)}
                   />
                 </>
               )}
@@ -247,13 +246,13 @@ export function IndicatorsView(props: ReportViewProps) {
             <SeriesGate loading={isFinanceLoading} hasData={r.flow.hasData} empty={r.empty.flow} loadingClassName="h-56">
               {() => (
                 <>
-                  <p className="text-3xl font-semibold tracking-tight text-primary tabular-nums">{money(r.flow.balance)}</p>
+                  <p className="text-3xl font-semibold tracking-tight text-primary tabular-nums">{formatBRLSigned(r.flow.balance)}</p>
                   <LineChart
                     labels={r.flow.rows.map((f) => f.label)}
                     series={[{ label: "Acumulado", values: r.flow.rows.map((f) => f.cumulative), tone: FLOW_TONES.balance }]}
                     area
                     height={150}
-                    format={moneyShort}
+                    format={formatBRLShort}
                   />
                 </>
               )}
@@ -265,9 +264,9 @@ export function IndicatorsView(props: ReportViewProps) {
                 <>
                   <Legend
                     items={[
-                      { label: PAYMENT_LABELS.overdue, tone: PAYMENT_TONES.overdue, value: moneyShort(r.payments.sum.overdue) },
-                      { label: PAYMENT_LABELS.upcoming, tone: PAYMENT_TONES.upcoming, value: moneyShort(r.payments.sum.upcoming) },
-                      { label: PAYMENT_LABELS.paid, tone: PAYMENT_TONES.paid, value: moneyShort(r.payments.sum.paid) },
+                      { label: PAYMENT_LABELS.overdue, tone: PAYMENT_TONES.overdue, value: formatBRLShort(r.payments.sum.overdue) },
+                      { label: PAYMENT_LABELS.upcoming, tone: PAYMENT_TONES.upcoming, value: formatBRLShort(r.payments.sum.upcoming) },
+                      { label: PAYMENT_LABELS.paid, tone: PAYMENT_TONES.paid, value: formatBRLShort(r.payments.sum.paid) },
                     ]}
                   />
                   <BarChart
@@ -279,7 +278,7 @@ export function IndicatorsView(props: ReportViewProps) {
                       { label: PAYMENT_LABELS.overdue, values: r.payments.rows.map((p) => p.overdue), tone: PAYMENT_TONES.overdue },
                     ]}
                     height={200}
-                    format={money}
+                    format={(value) => formatBRLSigned(value)}
                   />
                 </>
               )}
@@ -289,7 +288,7 @@ export function IndicatorsView(props: ReportViewProps) {
             <SeriesGate loading={isFinanceLoading} hasData={r.expenses.hasData} empty={r.empty.expenses} loadingClassName="h-56">
               {() => (
                 <>
-                  <p className="text-3xl font-semibold tracking-tight text-primary tabular-nums">{money(r.expenses.total)}</p>
+                  <p className="text-3xl font-semibold tracking-tight text-primary tabular-nums">{formatBRLSigned(r.expenses.total)}</p>
                   <SegmentBar segments={r.expenses.slices} className="h-2.5" />
                   <HBarList
                     items={r.expenses.slices.map((s) => ({ label: s.label, value: s.value, tone: s.tone }))}

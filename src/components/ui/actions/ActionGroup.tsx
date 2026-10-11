@@ -41,14 +41,14 @@ const ACTION_TONE = {
     "bg-white/15 font-medium text-white hover:bg-white/25 disabled:hover:bg-white/15",
 } as const;
 
-export type ActionTone = keyof typeof ACTION_TONE;
+type ActionTone = keyof typeof ACTION_TONE;
 
 /**
  * Formato: `rounded` (o padrão, cantos suaves) ou `pill` (cápsula). Um mapa
  * por peça, com classes literais — passar `rounded-full` por `className`
  * disputaria com o `rounded-xl` da própria peça, sem vencedor garantido.
  */
-export type ActionShape = "rounded" | "pill";
+type ActionShape = "rounded" | "pill";
 
 const GROUP_SHAPE: Record<ActionShape, string> = {
   rounded: "rounded-2xl",
@@ -80,7 +80,7 @@ const GROUP_SURFACE = {
   dark: "bg-white/10 ring-white/20",
 } as const;
 
-export type ActionSurface = keyof typeof GROUP_SURFACE;
+type ActionSurface = keyof typeof GROUP_SURFACE;
 
 /**
  * O formato do grupo chega aos botões dele: `<ActionGroup shape="pill">`

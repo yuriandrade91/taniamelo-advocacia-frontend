@@ -1,16 +1,24 @@
 /**
- * Helpers de paginação compartilhados.
- *
- * Estavam duplicados literalmente em `clientes/page.tsx` e em
- * `AppointmentsCard.tsx`. Como a paginação é server-side nas duas telas, a
- * lógica de janela é idêntica — e duas cópias significam corrigir bug duas
- * vezes.
+ * Helpers de paginação compartilhados — a janela de páginas do
+ * `TablePagination`, a página presa ao fim e o recorte de listas locais.
  */
+
+import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
+
+/** Uma página de uma lista do servidor: as linhas e os totais da consulta inteira. */
+export type ListPage<T> = { items: T[]; total: number; totalPages: number };
+
+/** O envelope paginado da API (`pagination.totalRecords`, 1-based) como página de lista. */
+export const pageFromEnvelope = <T,>(envelope: ApiEnvelope<T[]>): ListPage<T> => ({
+  items: envelope.data ?? [],
+  total: envelope.pagination?.totalRecords ?? 0,
+  totalPages: envelope.pagination?.totalPages ?? 0,
+});
 
 /** Marcador de intervalo omitido. Comparar por identidade, não por texto. */
 export const ELLIPSIS = "…" as const;
 
-export type PageEntry = number | typeof ELLIPSIS;
+type PageEntry = number | typeof ELLIPSIS;
 
 /**
  * Máximo de páginas exibidas sem reticências. Acima disso, mostramos primeira,

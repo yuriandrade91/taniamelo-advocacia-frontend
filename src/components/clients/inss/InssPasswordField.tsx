@@ -41,7 +41,7 @@ import { revealInssPassword } from "@/services/clientService";
  * que editar o telefone de um cliente apague o acesso dele ao INSS.
  */
 
-export const VISIBLE_SECONDS = 20;
+const VISIBLE_SECONDS = 20;
 
 const MASCARA = "••••••••";
 
@@ -51,7 +51,7 @@ type Props = {
   isEditing: boolean;
   /** Senha nova digitada. String vazia significa "não mexeu". */
   newPassword: string;
-  onNewPasswordChange: (valor: string) => void;
+  onNewPasswordChange: (value: string) => void;
   className?: string;
 };
 
@@ -63,18 +63,18 @@ export function InssPasswordField({
   className,
 }: Props) {
   const { canSeeInssPassword } = usePermissions();
-  const [revelada, setRevelada] = useState<string | null>(null);
+  const [isRevealed, setIsRevealed] = useState<string | null>(null);
   /** Instante em que a senha se esconde — a contagem lê daqui. */
-  const [prazo, setPrazo] = useState(0);
-  const [carregando, setCarregando] = useState(false);
-  const [erro, setErro] = useState("");
+  const [hideAt, setHideAt] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hide = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
-    setRevelada(null);
-    setPrazo(0);
+    setIsRevealed(null);
+    setHideAt(0);
   }, []);
 
   // Desmontar com a senha na tela (fechar o modal, trocar de cliente) não pode
@@ -88,19 +88,19 @@ export function InssPasswordField({
   }, [isEditing, hide]);
 
   async function reveal() {
-    setErro("");
-    setCarregando(true);
+    setError("");
+    setIsLoading(true);
     try {
       const password = await revealInssPassword(clientId);
-      setRevelada(password);
+      setIsRevealed(password);
       // Quem esconde é este `setTimeout`, não a contagem na tela: se o
       // intervalo do contador for estrangulado numa aba em segundo plano, a
       // senha sai da tela na hora certa do mesmo jeito.
-      setPrazo(Date.now() + VISIBLE_SECONDS * 1000);
+      setHideAt(Date.now() + VISIBLE_SECONDS * 1000);
       timer.current = setTimeout(hide, VISIBLE_SECONDS * 1000);
     } catch (e: unknown) {
       const status = (e as { response?: { status?: number } })?.response?.status;
-      setErro(
+      setError(
         status === 403
           ? "Só advogado ou admin pode ver a senha."
           : status === 404
@@ -108,7 +108,7 @@ export function InssPasswordField({
             : "Não foi possível consultar a senha.",
       );
     } finally {
-      setCarregando(false);
+      setIsLoading(false);
     }
   }
 
@@ -126,7 +126,7 @@ export function InssPasswordField({
   }
 
   return (
-    <div className={className} data-testid="inss-password-field">
+    <div className={className}>
       {/*
         Os botões ficam DENTRO do campo, à direita. Embaixo, o antigo link
         "Revelar senha" encostava na borda do accordion e o cabeçalho da seção
@@ -138,19 +138,18 @@ export function InssPasswordField({
         label='Senha "meu inss"'
         isReadOnly
         type="text"
-        value={revelada ?? MASCARA}
+        value={isRevealed ?? MASCARA}
         onChange={() => {}}
-        isInvalid={!!erro}
-        errorMessage={erro}
+        isInvalid={!!error}
+        errorMessage={error}
         trailing={
           canSeeInssPassword ? (
             <>
-              {revelada && (
+              {isRevealed && (
                 <button
                   type="button"
-                  onClick={() => void copyPassword(revelada)}
+                  onClick={() => void copyPassword(isRevealed)}
                   aria-label="Copiar senha"
-                  data-testid="inss-password-copy"
                   className={FIELD_ICON_BUTTON_CLASS}
                 >
                   <CopyIcon />
@@ -158,15 +157,14 @@ export function InssPasswordField({
               )}
               <button
                 type="button"
-                onClick={revelada ? hide : reveal}
-                disabled={carregando}
-                aria-label={revelada ? "Esconder senha" : "Revelar senha"}
-                data-testid="inss-password-toggle"
+                onClick={isRevealed ? hide : reveal}
+                disabled={isLoading}
+                aria-label={isRevealed ? "Esconder senha" : "Revelar senha"}
                 className={FIELD_ICON_BUTTON_CLASS}
               >
-                {carregando ? (
+                {isLoading ? (
                   <LoadingCircle size={16} label="Consultando a senha" />
-                ) : revelada ? (
+                ) : isRevealed ? (
                   <EyeOffIcon />
                 ) : (
                   <EyeIcon />
@@ -176,18 +174,18 @@ export function InssPasswordField({
           ) : undefined
         }
       />
-      {revelada && prazo > 0 && (
+      {isRevealed && hideAt > 0 && (
         // Dizer que vai sumir sozinha evita o susto de "sumiu, perdi?" e avisa
         // que o valor não fica na tela para quem passar depois.
-        <SomeEm key={prazo} prazo={prazo} />
+        <HidesIn key={hideAt} hideAt={hideAt} />
       )}
     </div>
   );
 }
 
 /** Quantos segundos inteiros faltam até `prazo` — nunca negativo. */
-const secondsUntil = (prazo: number) =>
-  Math.ceil(Math.max(0, prazo - Date.now()) / 1000);
+const secondsUntil = (hideAt: number) =>
+  Math.ceil(Math.max(0, hideAt - Date.now()) / 1000);
 
 /**
  * O aviso de que a senha se esconde, com a contagem andando.
@@ -202,15 +200,15 @@ const secondsUntil = (prazo: number) =>
  */
 const TICK_MS = 250;
 
-function SomeEm({ prazo }: { prazo: number }) {
-  const [segundos, setSegundos] = useState(() => secondsUntil(prazo));
+function HidesIn({ hideAt: hideAt }: { hideAt: number }) {
+  const [segundos, setSegundos] = useState(() => secondsUntil(hideAt));
 
   // Sem acerto inicial aqui: quem monta passa `key={prazo}`, então um prazo
   // novo é um componente novo e o valor inicial já vem do próprio prazo.
   useEffect(() => {
-    const id = setInterval(() => setSegundos(secondsUntil(prazo)), TICK_MS);
+    const id = setInterval(() => setSegundos(secondsUntil(hideAt)), TICK_MS);
     return () => clearInterval(id);
-  }, [prazo]);
+  }, [hideAt]);
 
   return (
     <p className="mt-1 text-xs text-secondary/70">

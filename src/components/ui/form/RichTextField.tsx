@@ -6,6 +6,7 @@ import StarterKit from "@tiptap/starter-kit";
 import CharacterCount from "@tiptap/extension-character-count";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Label } from "@heroui/react";
+import { Svg, type IconProps } from "@/components/ui/icons/Svg";
 
 /**
  * Editor rich text (TipTap) para campos de texto livre longo.
@@ -15,62 +16,29 @@ import { Label } from "@heroui/react";
  * não muda o payload, só o que o usuário consegue formatar.
  */
 
-function BulletListIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" />
-      <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" />
-      <circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" />
-      <path d="M9 6h11M9 12h11M9 18h11" />
-    </svg>
-  );
-}
+const BulletListIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="4" cy="6" r="1" fill="currentColor" stroke="none" />
+    <circle cx="4" cy="12" r="1" fill="currentColor" stroke="none" />
+    <circle cx="4" cy="18" r="1" fill="currentColor" stroke="none" />
+    <path d="M9 6h11M9 12h11M9 18h11" />
+  </Svg>
+);
 
-function OrderedListIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <path d="M10 6h11M10 12h11M10 18h11" />
-      <path d="M4 4h1v4M4 8h2" />
-      <path d="M4 14h2.5c.6 0 1 .4 1 1s-.5 1-1 1H5.5c1 0 2 .4 2 1.5S6.5 19 5.5 19H4" />
-    </svg>
-  );
-}
+const OrderedListIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M10 6h11M10 12h11M10 18h11" />
+    <path d="M4 4h1v4M4 8h2" />
+    <path d="M4 14h2.5c.6 0 1 .4 1 1s-.5 1-1 1H5.5c1 0 2 .4 2 1.5S6.5 19 5.5 19H4" />
+  </Svg>
+);
 
-function QuoteIcon({ className = "h-4 w-4" }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <path d="M7 8a3 3 0 0 0-3 3v2a2 2 0 0 0 2 2h1a1 1 0 0 0 1-1v-3a3 3 0 0 0-1-4Z" />
-      <path d="M17 8a3 3 0 0 0-3 3v2a2 2 0 0 0 2 2h1a1 1 0 0 0 1-1v-3a3 3 0 0 0-1-4Z" />
-    </svg>
-  );
-}
+const QuoteIcon = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 8a3 3 0 0 0-3 3v2a2 2 0 0 0 2 2h1a1 1 0 0 0 1-1v-3a3 3 0 0 0-1-4Z" />
+    <path d="M17 8a3 3 0 0 0-3 3v2a2 2 0 0 0 2 2h1a1 1 0 0 0 1-1v-3a3 3 0 0 0-1-4Z" />
+  </Svg>
+);
 
 function ToolbarButton({
   isActive,

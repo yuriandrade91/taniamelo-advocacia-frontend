@@ -1,4 +1,4 @@
-import NavbarOpt from "@/components/ui/Navbar/Navbar";
+import NavbarOpt from "@/components/ui/navbar/Navbar";
 import { RouteGuard } from "@/components/auth/RouteGuard";
 
 /**

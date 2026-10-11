@@ -1,3 +1,5 @@
+import { API_BASE_URL } from "@/constants/endpoints/paths";
+
 /**
  * Multi-tenancy — resolução do escritório (tenant).
  *
@@ -7,13 +9,22 @@
  *
  * Estratégia: antes do login usa `NEXT_PUBLIC_TENANT_SLUG`; depois do login usa
  * o `tenantId` (UUID) devolvido pela API.
+ *
+ * O que fica guardado vale só para a API que o devolveu: a chave leva o
+ * `API_BASE_URL`. O mesmo `localhost:3001` serve ora o backend local, ora o da
+ * AWS (`dev:local` / `dev:development`), e cada um tem o seu UUID para o mesmo
+ * escritório — com a chave única, o UUID de um ia para o outro e toda
+ * requisição, até o login, voltava "Escritório não encontrado".
  */
 
-const TENANT_ID_KEY = "tenantId";
-const TENANT_SLUG_KEY = "tenantSlug";
+const scoped = (name: string) => `${name}@${API_BASE_URL}`;
+const TENANT_ID_KEY = scoped("tenantId");
+const TENANT_SLUG_KEY = scoped("tenantSlug");
+/** As chaves de antes, sem a API: apagadas na primeira gravação para não confundir quem inspeciona. */
+const LEGACY_KEYS = ["tenantId", "tenantSlug"];
 
 /** Slug padrão do ambiente (usado antes do login). */
-export const DEFAULT_TENANT_SLUG =
+const DEFAULT_TENANT_SLUG =
   process.env.NEXT_PUBLIC_TENANT_SLUG || "tania";
 
 const isBrowser = () => typeof window !== "undefined";
@@ -21,6 +32,7 @@ const isBrowser = () => typeof window !== "undefined";
 /** Persiste o tenant retornado pelo login/resolve. */
 export function setTenant(tenantId?: string, tenantSlug?: string): void {
   if (!isBrowser()) return;
+  LEGACY_KEYS.forEach((key) => localStorage.removeItem(key));
   if (tenantId) localStorage.setItem(TENANT_ID_KEY, tenantId);
   if (tenantSlug) localStorage.setItem(TENANT_SLUG_KEY, tenantSlug);
 }
@@ -28,16 +40,17 @@ export function setTenant(tenantId?: string, tenantSlug?: string): void {
 /** Limpa o tenant persistido (logout). */
 export function clearTenant(): void {
   if (!isBrowser()) return;
+  LEGACY_KEYS.forEach((key) => localStorage.removeItem(key));
   localStorage.removeItem(TENANT_ID_KEY);
   localStorage.removeItem(TENANT_SLUG_KEY);
 }
 
-export function getTenantId(): string | null {
+function getTenantId(): string | null {
   if (!isBrowser()) return null;
   return localStorage.getItem(TENANT_ID_KEY);
 }
 
-export function getTenantSlug(): string {
+function getTenantSlug(): string {
   if (!isBrowser()) return DEFAULT_TENANT_SLUG;
   return localStorage.getItem(TENANT_SLUG_KEY) || DEFAULT_TENANT_SLUG;
 }
@@ -50,4 +63,4 @@ export function getTenantHeaderValue(): string {
   return getTenantId() || getTenantSlug();
 }
 
-export { TENANT_ID_KEY, TENANT_SLUG_KEY };
+

@@ -19,7 +19,8 @@ import {
   baseLineOptions,
 } from "@/components/charts/chartTheme";
 import { formatBRLCompact } from "@/lib/format";
-import { formatMonthAxis, toCumulativeBalance } from "@/components/wallet/walletOverview";
+import { formatMonthAxis } from "@/lib/period";
+import { toCumulativeBalance } from "@/components/reports/financeSeries";
 import type { FlowTimelinePoint } from "@/interfaces/finance/OfficeExpense.interface";
 
 ChartJS.register(
@@ -47,13 +48,11 @@ export type WalletBalanceChartProps = {
   /** Ainda carregando: o cartão mostra o skeleton no lugar do gráfico. */
   isLoading?: boolean;
   points: FlowTimelinePoint[];
-  isSample?: boolean;
 };
 
 export function WalletBalanceChart({
   isLoading = false,
   points,
-  isSample,
 }: WalletBalanceChartProps) {
   const series = useMemo(() => toCumulativeBalance(points), [points]);
 
@@ -85,7 +84,6 @@ export function WalletBalanceChart({
       isLoading={isLoading}
       title="Saldo acumulado"
       subtitle="Somado mês a mês, no período — não é saldo em conta."
-      isSample={isSample}
       isEmpty={series.length === 0}
     >
       <Line data={data} options={options} />

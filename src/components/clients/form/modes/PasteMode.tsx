@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { ChipButton } from "@/components/ui/actions/ActionGroup";
 import { ExtractionPanel } from "./ExtractionPanel";
-import type { FillModeProps } from "./shared";
+import type { FillModeProps } from "./fillModeForms";
 import { extractClientData } from "./smartFill";
 
 const EXAMPLE = `Boa tarde, doutora! Seguem os dados da minha mãe:

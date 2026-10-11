@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
-import { CloseIcon, SearchIcon } from "./icons";
+import { CloseIcon } from "./navIcons";
+import { SearchIcon } from "@/components/ui/icons/glyphs";
 
 /**
  * Busca do navbar — cresce a partir da lupa e recolhe de volta nela.
@@ -56,7 +57,8 @@ export default function NavSearch({
   onChange,
   onSubmit,
   onClose,
-  placeholder = "Buscar clientes, compromissos, documentos...",
+  // A busca vai para a lista de Clientes, que casa nome ou CPF.
+  placeholder = "Buscar cliente por nome ou CPF…",
 }: NavSearchProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 

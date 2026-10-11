@@ -27,9 +27,9 @@ import type { PendingKind, PendingMap } from "@/lib/pendingActions";
  */
 
 /** Tempo entre o clique e o disparo da requisição. */
-export const UNDO_WINDOW_MS = 5000;
+const UNDO_WINDOW_MS = 5000;
 
-export type ScheduleInput = {
+type ScheduleInput = {
   /** Chave lógica — o id do compromisso. */
   key: string;
   /** Como a linha deve aparecer enquanto a janela corre. */

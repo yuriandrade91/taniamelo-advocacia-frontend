@@ -2,7 +2,7 @@
 
 import { SchemaField } from "@/components/ui/form/SchemaFields";
 import type { SectionForm } from "@/hooks/useSectionForm";
-import { FormGrid } from "../FormSection";
+import { FieldGrid } from "@/components/ui/form/FieldGrid";
 import { serviceSchema, type ServiceValues } from "../schemas";
 
 /**
@@ -28,7 +28,7 @@ export function ServiceSection({
 }) {
   const previous = form.values.benefit;
   return (
-    <FormGrid>
+    <FieldGrid columns={4}>
       <SchemaField
         form={form}
         schema={serviceSchema}
@@ -41,6 +41,6 @@ export function ServiceSection({
         <SchemaField key={name} form={form} schema={serviceSchema} name={name} isReadOnly={isReadOnly}
                 isLoading={isLoading} />
       ))}
-    </FormGrid>
+    </FieldGrid>
   );
 }

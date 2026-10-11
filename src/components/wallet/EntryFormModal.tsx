@@ -1,6 +1,6 @@
 "use client";
 
-import FormModal from "@/components/ui/modals/FormModal/FormModal";
+import FormModal from "@/components/ui/modals/FormModal";
 import { EntryFormFields } from "./EntryFormFields";
 import { useEntryForm, type EntryEditing } from "./useEntryForm";
 import type { EntryKind } from "./entryForms";
@@ -69,7 +69,7 @@ export function EntryFormModal({
   isOpen,
   onOpenChange,
   onSaved,
-  initialKind = "entrada",
+  initialKind = "income",
   lockedKind,
   editing = null,
 }: EntryFormModalProps) {
@@ -101,14 +101,14 @@ export function EntryFormModal({
           ? isIncome
             ? "Editar entrada"
             : "Editar saída"
-          : lockedKind === "entrada"
+          : lockedKind === "income"
             ? "Lançar cobrança"
             : "Novo lançamento"
       }
       description={
         isEditing
           ? "O registro é substituído pelo que estiver aqui ao salvar."
-          : lockedKind === "entrada"
+          : lockedKind === "income"
             ? "Uma parcela de honorários. Nasce a vencer, a menos que já tenha sido recebida."
             : "O caixa do mês conta pelo que foi efetivamente pago ou recebido."
       }

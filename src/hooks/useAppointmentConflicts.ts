@@ -27,7 +27,7 @@ import type { AppointmentResponse } from "@/interfaces/appointment/Appointment.i
  * datas intermediárias que a pessoa nunca quis.
  */
 
-export type UseAppointmentConflictsOptions = {
+type UseAppointmentConflictsOptions = {
   /** ISO-8601, ou `null` enquanto a data não está completa. */
   startAt: string | null;
   endAt: string | null;
@@ -36,7 +36,7 @@ export type UseAppointmentConflictsOptions = {
   enabled?: boolean;
 };
 
-export type UseAppointmentConflictsResult = {
+type UseAppointmentConflictsResult = {
   conflicts: AppointmentResponse[];
   isChecking: boolean;
 };

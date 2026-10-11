@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import MonthlyBalance from "@/components/home/MonthlyBalance";
 import { useSettled, settledValue } from "@/hooks/useSettled";
 import { formatDateBR } from "@/lib/format";
-import type { Clients } from "@/interfaces/Clients.interface";
+import type { ClientListItem } from "@/interfaces/client/Client.interface";
 import PendingForms from "@/components/home/PendingForms";
 import UpcomingRevenues from "@/components/home/UpcomingRevenues";
 import ContributorPipeline, {
@@ -14,7 +14,8 @@ import ContributorPipeline, {
 } from "@/components/home/ContributorPipeline";
 import UpcomingBirthdays from "@/components/home/UpcomingBirthdays";
 import { useUpcomingBirthdays } from "@/components/home/useUpcomingBirthdays";
-import AppointmentsCard from "@/components/home/appointments/AppointmentsCard";
+import AppointmentsCard from "@/components/home/AppointmentsCard";
+import { situationChangedMessage } from "@/components/clients/stage/stages";
 import { clients as fetchClients, patchClient } from "@/services/clientService";
 import {
   getSituationKeyByLabel,
@@ -24,7 +25,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { listOfficePayments } from "@/services/officePaymentService";
 import { getOfficeExpenseSummary } from "@/services/officeExpenseService";
 import { toRevenueItems } from "@/components/home/revenueItems";
-import { toBalanceSlices } from "@/components/wallet/walletOverview";
+import { toBalanceSlices } from "@/components/reports/financeSeries";
 import { currentMonth, monthRange, type MonthRef } from "@/lib/period";
 import type { StatCardProps } from "@/components/home/StatCard";
 
@@ -65,7 +66,7 @@ const PENDING_STATS: StatCardProps[] = [
 ];
 
 /** A esteira: clientes reais agrupados por situação (a API devolve o rótulo da situação). */
-const toPipelineCards = (clients: Clients[]): PipelineCard[] =>
+const toPipelineCards = (clients: ClientListItem[]): PipelineCard[] =>
   clients.flatMap((client) => {
     const situation = getSituationKeyByLabel(client.situation);
     return client.id && situation
@@ -77,13 +78,14 @@ export default function Home() {
   const router = useRouter();
   const [isLeadsOpen, setIsLeadsOpen] = useState(false);
   /**
-   * A ficha aberta a partir da fila de formulários pendentes.
+   * A ficha do cliente, aberta da fila de formulários pendentes ou dos
+   * aniversariantes.
    *
-   * A fila sai da tela enquanto a ficha está aberta, e volta quando ela fecha:
-   * são duas camadas sobre a mesma página, e empilhar uma na outra deixa duas
-   * molduras e dois "fechar" competindo pelo Esc.
+   * Vinda da fila, a fila sai da tela enquanto a ficha está aberta e volta
+   * quando ela fecha: são duas camadas sobre a mesma página, e empilhar uma na
+   * outra deixa duas molduras e dois "fechar" competindo pelo Esc.
    */
-  const [leadSheet, setLeadSheet] = useState<{ id: string; name: string } | null>(null);
+  const [clientSheet, setClientSheet] = useState<{ id: string; name: string; fromLeads: boolean } | null>(null);
   /**
    * O mês do cartão Balanço. Mora aqui, e não no cartão, porque quem consulta
    * é a página: trocar o mês é uma leitura nova de `GET /expenses/summary`.
@@ -140,11 +142,15 @@ export default function Home() {
   const pendingCount = pending && settledValue(pending[0], null)?.pagination?.totalRecords;
 
   /** Arrastar um card = PATCH /api/v1/clients/{id} { situation }. */
-  const handleMove = useCallback((cardId: string, situation: SituationKey) => {
-    patchClient(cardId, { situation }).catch(() => {
-      /* erro já sinalizado pelo interceptor; a UI revalida no próximo load */
-    });
-  }, []);
+  const handleMove = useCallback(
+    (cardId: string, situation: SituationKey) => {
+      const name = cards.find((card) => card.id === cardId)?.name ?? "cliente";
+      patchClient(cardId, { situation }, { successMessage: situationChangedMessage(name, situation) }).catch(() => {
+        /* erro já sinalizado pelo interceptor; a UI revalida no próximo load */
+      });
+    },
+    [cards],
+  );
 
   return (
     <div className="flex flex-col gap-4 pb-12">
@@ -206,7 +212,11 @@ export default function Home() {
             inventadas enquanto não há endpoint de documento faltante. Este
             cartão responde algo que a base já sabe — e serve para uma ligação
             no dia certo. */}
-        <UpcomingBirthdays items={birthdays} failed={birthdaysFailed} />
+        <UpcomingBirthdays
+          items={birthdays}
+          failed={birthdaysFailed}
+          onViewClient={(person) => setClientSheet({ id: person.id, name: person.name, fromLeads: false })}
+        />
 
         <AppointmentsCard />
       </section>
@@ -223,18 +233,18 @@ export default function Home() {
         onClose={() => setIsLeadsOpen(false)}
         onViewClient={(lead) => {
           setIsLeadsOpen(false);
-          setLeadSheet({ id: lead.id, name: lead.name });
+          setClientSheet({ id: lead.id, name: lead.name, fromLeads: true });
         }}
       />
 
-      {leadSheet && (
+      {clientSheet && (
         <ClientDetailsModal
           isOpen
-          clientId={leadSheet.id}
-          clientName={leadSheet.name}
+          clientId={clientSheet.id}
+          clientName={clientSheet.name}
           onClose={() => {
-            setLeadSheet(null);
-            setIsLeadsOpen(true);
+            setClientSheet(null);
+            if (clientSheet.fromLeads) setIsLeadsOpen(true);
           }}
         />
       )}

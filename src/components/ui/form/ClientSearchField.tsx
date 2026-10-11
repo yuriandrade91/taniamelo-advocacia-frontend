@@ -11,7 +11,7 @@ import { useClientSearch } from "@/hooks/useClientSearch";
  * Escolher uma sugestão vincula o `clientId` ao nome; digitar de novo solta o
  * vínculo — o nome na tela e o id enviado nunca divergem sem ninguém notar.
  */
-export type ClientLink = { clientId: string; clientName: string };
+type ClientLink = { clientId: string; clientName: string };
 
 export function ClientSearchField({
   value,

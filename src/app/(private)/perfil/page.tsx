@@ -6,6 +6,7 @@ import { Button, Skeleton } from "@heroui/react";
 
 import { Card, SectionTitle } from "@/components/ui/layout/Card";
 import { Field, PasswordField } from "@/components/ui/form/Field";
+import { getRoleLabel } from "@/enums/role/Role";
 import { PageHeader } from "@/components/ui/layout/PageHeader";
 import { notificationCenter } from "@/services/notificationService";
 import { patchSessionUser } from "@/lib/sessionUser";
@@ -52,9 +53,9 @@ import type { MyProfile } from "@/interfaces/user/User.interface";
  * como pedir o "me" de outra — o servidor lê o usuário do token, não da URL.
  */
 export default function ProfilePage() {
-  const [perfil, setPerfil] = useState<MyProfile | null>(null);
+  const [profile, setProfile] = useState<MyProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [falhouAoCarregar, setFalhouAoCarregar] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
   const [values, setValues] = useState<ProfileValues>(() =>
     profileValuesFrom(null),
@@ -62,25 +63,25 @@ export default function ProfilePage() {
   /** Erros do validador (por campo, assim que mexido) e os que o servidor devolve (e-mail já usado). */
   const profileCheck = useFieldErrors(validateProfile(values));
   const [serverErrors, setServerErrors] = useState<ProfileErrors>({});
-  const errorOf = (campo: keyof ProfileValues) => serverErrors[campo] ?? profileCheck.errorOf(campo);
+  const errorOf = (field: keyof ProfileValues) => serverErrors[field] ?? profileCheck.errorOf(field);
   const [isSaving, setIsSaving] = useState(false);
 
-  const [senha, setSenha] = useState<PasswordValues>(EMPTY_PASSWORD_VALUES);
-  const passwordCheck = useFieldErrors(validatePassword(senha));
-  const [senhaServerErrors, setSenhaServerErrors] = useState<PasswordErrors>({});
-  const passwordErrorOf = (campo: keyof PasswordValues) => senhaServerErrors[campo] ?? passwordCheck.errorOf(campo);
+  const [passwordForm, setPasswordForm] = useState<PasswordValues>(EMPTY_PASSWORD_VALUES);
+  const passwordCheck = useFieldErrors(validatePassword(passwordForm));
+  const [passwordServerErrors, setPasswordServerErrors] = useState<PasswordErrors>({});
+  const passwordErrorOf = (field: keyof PasswordValues) => passwordServerErrors[field] ?? passwordCheck.errorOf(field);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
       const { data } = await myProfile();
-      setPerfil(data ?? null);
+      setProfile(data ?? null);
       setValues(profileValuesFrom(data ?? null));
-      setFalhouAoCarregar(false);
+      setLoadFailed(false);
     } catch {
       // O axiosService já mostrou o erro.
-      setFalhouAoCarregar(true);
+      setLoadFailed(true);
     } finally {
       setIsLoading(false);
     }
@@ -90,10 +91,10 @@ export default function ProfilePage() {
     void load();
   }, [load]);
 
-  const setField = (campo: keyof ProfileValues, valor: string) => {
-    setValues((current) => ({ ...current, [campo]: valor }));
-    profileCheck.touch(campo);
-    setServerErrors((current) => ({ ...current, [campo]: undefined }));
+  const setField = (field: keyof ProfileValues, value: string) => {
+    setValues((current) => ({ ...current, [field]: value }));
+    profileCheck.touch(field);
+    setServerErrors((current) => ({ ...current, [field]: undefined }));
   };
 
   const saveData = async () => {
@@ -102,26 +103,26 @@ export default function ProfilePage() {
     setIsSaving(true);
     try {
       const { data } = await updateMyProfile(toProfileRequest(values));
-      setPerfil(data ?? null);
+      setProfile(data ?? null);
       setValues(profileValuesFrom(data ?? null));
       // Sem isto o menu segue com o nome antigo até a próxima sessão, e a tela
       // parece não ter salvado.
       if (data) {
         patchSessionUser({ fullName: data.fullName, email: data.email });
       }
-    } catch (erro) {
+    } catch (error) {
       // E-mail já usado por outra pessoa é erro de campo, não de tela.
-      const ofField = fieldError(erro, "email");
+      const ofField = fieldError(error, "email");
       if (ofField) setServerErrors({ email: ofField });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const setPasswordField = (campo: keyof PasswordValues, valor: string) => {
-    setSenha((current) => ({ ...current, [campo]: valor }));
-    passwordCheck.touch(campo);
-    setSenhaServerErrors((current) => ({ ...current, [campo]: undefined }));
+  const setPasswordField = (field: keyof PasswordValues, value: string) => {
+    setPasswordForm((current) => ({ ...current, [field]: value }));
+    passwordCheck.touch(field);
+    setPasswordServerErrors((current) => ({ ...current, [field]: undefined }));
   };
 
   const changePassword = async () => {
@@ -129,20 +130,20 @@ export default function ProfilePage() {
 
     setIsChangingPassword(true);
     try {
-      await changeMyPassword(toPasswordRequest(senha));
-      setSenha(EMPTY_PASSWORD_VALUES);
+      await changeMyPassword(toPasswordRequest(passwordForm));
+      setPasswordForm(EMPTY_PASSWORD_VALUES);
       passwordCheck.reset();
-    } catch (erro) {
-      const current = fieldError(erro, "currentPassword");
-      const newValue = fieldError(erro, "newPassword");
+    } catch (error) {
+      const current = fieldError(error, "currentPassword");
+      const newValue = fieldError(error, "newPassword");
       if (current || newValue) {
-        setSenhaServerErrors({
+        setPasswordServerErrors({
           currentPassword: current ?? undefined,
           newPassword: newValue ?? undefined,
         });
       } else {
         notificationCenter.danger(
-          firstMessage(erro) ?? "Não foi possível alterar a senha.",
+          firstMessage(error) ?? "Não foi possível alterar a senha.",
         );
       }
     } finally {
@@ -157,7 +158,7 @@ export default function ProfilePage() {
         description="Seu cadastro no escritório e a senha de acesso."
       />
 
-      {falhouAoCarregar && (
+      {loadFailed && (
         <div
           role="status"
           className="rounded-2xl border border-danger/40 bg-danger/5 px-5 py-4 text-sm text-primary"
@@ -195,7 +196,7 @@ export default function ProfilePage() {
                 isRequired
                 isInvalid={Boolean(errorOf("fullName"))}
                 errorMessage={errorOf("fullName")}
-                isDisabled={falhouAoCarregar}
+                isDisabled={loadFailed}
               />
               <Field
                 label="E-mail"
@@ -205,7 +206,7 @@ export default function ProfilePage() {
                 isRequired
                 isInvalid={Boolean(errorOf("email"))}
                 errorMessage={errorOf("email")}
-                isDisabled={falhouAoCarregar}
+                isDisabled={loadFailed}
               />
 
               {/* Somente leitura, e visíveis: o usuário é o login e o papel é
@@ -214,14 +215,14 @@ export default function ProfilePage() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Field
                   label="Usuário"
-                  value={perfil?.username ?? ""}
+                  value={profile?.username ?? ""}
                   onChange={() => {}}
                   isReadOnly
                   isDisabled
                 />
                 <Field
                   label="Perfil de acesso"
-                  value={perfil?.role ?? ""}
+                  value={profile?.role ? getRoleLabel(profile.role) : ""}
                   onChange={() => {}}
                   isReadOnly
                   isDisabled
@@ -239,7 +240,7 @@ export default function ProfilePage() {
                   // Sem mudança não há o que salvar; um sucesso à toa ensina a
                   // clicar por reflexo para conferir se salvou.
                   isDisabled={
-                    isSaving || falhouAoCarregar || !profileChanged(values, perfil)
+                    isSaving || loadFailed || !profileChanged(values, profile)
                   }
                 >
                   {isSaving ? "Salvando..." : "Salvar"}
@@ -259,7 +260,7 @@ export default function ProfilePage() {
           <div className="mt-4 flex flex-col gap-4">
             <PasswordField
               label="Senha atual"
-              value={senha.currentPassword}
+              value={passwordForm.currentPassword}
               onChange={(e) => setPasswordField("currentPassword", e.target.value)}
               isRequired
               isInvalid={Boolean(passwordErrorOf("currentPassword"))}
@@ -267,7 +268,7 @@ export default function ProfilePage() {
             />
             <PasswordField
               label="Nova senha"
-              value={senha.newPassword}
+              value={passwordForm.newPassword}
               onChange={(e) => setPasswordField("newPassword", e.target.value)}
               isRequired
               isInvalid={Boolean(passwordErrorOf("newPassword"))}
@@ -275,7 +276,7 @@ export default function ProfilePage() {
             />
             <PasswordField
               label="Repita a nova senha"
-              value={senha.confirmPassword}
+              value={passwordForm.confirmPassword}
               onChange={(e) => setPasswordField("confirmPassword", e.target.value)}
               isRequired
               isInvalid={Boolean(passwordErrorOf("confirmPassword"))}

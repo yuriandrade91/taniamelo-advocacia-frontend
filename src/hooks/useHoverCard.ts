@@ -16,6 +16,12 @@ import { useDismiss } from "./useDismiss";
  * - O cartão é **não modal** (`isNonModal`): um popover modal cobre a página
  *   com uma camada invisível, o cursor parado no gatilho passa a estar "fora"
  *   e o cartão pisca. Sem a camada, clique fora e Esc vêm do `useDismiss`.
+ * - O popover não modal do React Aria também pede para fechar quando a página
+ *   rola ou o foco sai dele. Isso vale para o cartão solto; o preso (ou com
+ *   uma escolha em andamento) fica — rolar até o botão do fim do cartão não
+ *   pode jogar fora a etapa que acabou de ser escolhida. Por isso o Esc é só
+ *   do `useDismiss` (`isKeyboardDismissDisabled`): o do React Aria chegaria
+ *   aqui como mais um pedido do popover, sem dizer que foi a tecla.
  *
  * Uso: `popoverProps` no `Popover`, `triggerProps` no `Popover.Trigger`,
  * `contentProps` no `Popover.Content`.
@@ -91,17 +97,20 @@ export function useHoverCard({
       isOpen,
       onOpenChange: (open: boolean) => {
         // Clique no gatilho com o cartão aberto pelo mouse prende em vez de
-        // fechar; qualquer outro fechamento (Esc, fora) fecha de verdade.
+        // fechar; no cartão já preso, fecha ("fechar pelo botão").
         const pressedTrigger = triggerPressed.current;
         triggerPressed.current = false;
         if (open || (pressedTrigger && !isPinned)) setIsPinned(true);
-        else close();
+        // Os outros pedidos do popover (a página rolou, o foco saiu) só
+        // fecham o cartão solto. Esc e clique fora vêm do `useDismiss`.
+        else if (pressedTrigger || !(isPinned || keepOpen)) close();
       },
     },
     triggerProps: { ref: triggerRef, onMouseEnter: hoverIn, onMouseLeave: hoverOut },
     contentProps: {
       ref: cardRef,
       isNonModal: true,
+      isKeyboardDismissDisabled: true,
       onMouseEnter: clearTimer,
       onMouseLeave: hoverOut,
     },

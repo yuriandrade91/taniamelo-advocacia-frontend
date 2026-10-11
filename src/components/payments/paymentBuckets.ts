@@ -48,7 +48,7 @@ export const BUCKET_FILTER_ORDER: readonly PaymentBucket[] = [
   "cancelled",
 ];
 
-export type BucketQuery =
+type BucketQuery =
   | { empty: true }
   | {
       empty: false;

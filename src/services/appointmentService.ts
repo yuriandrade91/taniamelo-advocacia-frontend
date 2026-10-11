@@ -9,6 +9,7 @@ import type {
   AppointmentSummary,
   AppointmentTimelinePoint,
 } from "@/interfaces/appointment/Appointment.interface";
+import { feedback, type RequestFeedback } from "@/services/requestFeedback";
 
 /**
  * Agenda — AppointmentController. Base: /api/v1/appointments
@@ -17,12 +18,6 @@ import type {
  * `axiosService`, e um compromisso vinculado a cliente carrega `clientId` no
  * corpo — não na URL.
  */
-
-/**
- * Para ações que já avisaram o usuário na própria tela (janela de desfazer):
- * a requisição sai calada, sem o toast de sucesso do interceptor.
- */
-export type SilenceableRequest = { silent?: boolean };
 
 /** GET /appointments — paginado (1-based), ordenado por início asc. */
 export const listAppointments = async (
@@ -93,11 +88,12 @@ export const getAppointmentConflicts = async (params: {
  */
 export const createAppointment = async (
   body: AppointmentRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<AppointmentResponse>> => {
   const { data } = await axiosInstance.post<ApiEnvelope<AppointmentResponse>>(
     endpoints.APPOINTMENTS.CREATE,
     body,
-    { successMessage: "Compromisso agendado com sucesso." },
+    feedback("Compromisso agendado.", options),
   );
   return data;
 };
@@ -109,11 +105,12 @@ export const createAppointment = async (
 export const updateAppointment = async (
   appointmentId: string,
   body: AppointmentRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<AppointmentResponse>> => {
   const { data } = await axiosInstance.put<ApiEnvelope<AppointmentResponse>>(
     endpoints.APPOINTMENTS.UPDATE(appointmentId),
     body,
-    { successMessage: "Compromisso atualizado com sucesso." },
+    feedback("Compromisso atualizado.", options),
   );
   return data;
 };
@@ -122,15 +119,12 @@ export const updateAppointment = async (
 export const cancelAppointment = async (
   appointmentId: string,
   body: AppointmentCancelRequest,
-  options?: SilenceableRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<AppointmentResponse>> => {
   const { data } = await axiosInstance.patch<ApiEnvelope<AppointmentResponse>>(
     endpoints.APPOINTMENTS.CANCEL(appointmentId),
     body,
-    {
-      successMessage: "Compromisso cancelado com sucesso.",
-      skipSuccessToast: options?.silent,
-    },
+    feedback("Compromisso cancelado.", options),
   );
   return data;
 };
@@ -149,17 +143,14 @@ export const cancelAppointment = async (
  */
 export const completeAppointment = async (
   appointmentId: string,
-  options?: SilenceableRequest & { earlyCompletionAcknowledged?: boolean },
+  options?: RequestFeedback & { earlyCompletionAcknowledged?: boolean },
 ): Promise<ApiEnvelope<AppointmentResponse>> => {
   const { data } = await axiosInstance.patch<ApiEnvelope<AppointmentResponse>>(
     endpoints.APPOINTMENTS.COMPLETE(appointmentId),
     options?.earlyCompletionAcknowledged
       ? { earlyCompletionAcknowledged: true }
       : undefined,
-    {
-      successMessage: "Compromisso concluído com sucesso.",
-      skipSuccessToast: options?.silent,
-    },
+    feedback("Compromisso concluído.", options),
   );
   return data;
 };
@@ -167,11 +158,11 @@ export const completeAppointment = async (
 /** DELETE /appointments/{id} — soft delete; backend responde 204 sem corpo. */
 export const deleteAppointment = async (
   appointmentId: string,
-  options?: SilenceableRequest,
+  options?: RequestFeedback,
 ): Promise<void> => {
-  await axiosInstance.delete(endpoints.APPOINTMENTS.DELETE(appointmentId), {
-    successMessage: "Compromisso excluído com sucesso.",
-    skipSuccessToast: options?.silent,
-  });
+  await axiosInstance.delete(
+    endpoints.APPOINTMENTS.DELETE(appointmentId),
+    feedback("Compromisso excluído.", options),
+  );
 };
 

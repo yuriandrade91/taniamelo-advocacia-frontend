@@ -4,10 +4,10 @@ import { useResetOnOpen } from "@/hooks/useResetOnOpen";
 import { useEffect, useMemo, useState } from "react";
 import { Button, Input, Label, Skeleton } from "@heroui/react";
 
-import FormModal from "@/components/ui/modals/FormModal/FormModal";
-import { MailIcon, WhatsappIcon } from "@/components/ui/icons/ContactIcons";
+import FormModal from "@/components/ui/modals/FormModal";
+import { WhatsappIcon } from "@/components/ui/icons/ContactIcons";
 import { EyeIcon } from "@/components/ui/icons/glyphs";
-import { ContactAction } from "@/components/ui/ContactAction";
+import { ContactAction } from "@/components/ui/actions/ContactAction";
 import { initials } from "@/lib/format";
 import { clients as fetchClients } from "@/services/clientService";
 import {
@@ -21,7 +21,7 @@ import {
   type LeadUrgency,
   type PendingLead,
 } from "./pendingLeads";
-import { mailtoLink, whatsappLink } from "@/lib/contactLinks";
+import { whatsappLink } from "@/lib/contactLinks";
 import { Notice } from "@/components/ui/feedback/Notice";
 
 /**
@@ -153,27 +153,16 @@ function LeadRow({
           dois meses. Nada é enviado sozinho — abre a conversa com o texto
           pronto para revisar.
 
-          Vale mesmo quando o cadastro não afirma que o número tem WhatsApp: a
+          Vale para todo número: a listagem não diz se ele tem WhatsApp, a
           maioria tem, e o custo de descobrir que não é a própria tela do
-          WhatsApp dizendo. O que o `isWhatsapp` muda é o tom do rótulo.
+          WhatsApp dizendo.
         */}
         <ContactAction
           href={whatsappLink(lead.phone, contactMessage(lead))}
-          label={
-            lead.isWhatsapp
-              ? `WhatsApp de ${lead.name}`
-              : `Chamar ${lead.name} no WhatsApp`
-          }
+          label={`Chamar ${lead.name} no WhatsApp`}
           tone="success"
         >
           <WhatsappIcon />
-        </ContactAction>
-        <ContactAction
-          href={mailtoLink(lead.email)}
-          label={`E-mail para ${lead.name}`}
-          tone="neutral"
-        >
-          <MailIcon />
         </ContactAction>
       </div>
     </li>

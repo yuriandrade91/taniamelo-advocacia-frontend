@@ -1,25 +1,28 @@
 import endpoints from "@/constants/endpoints/paths";
 import axiosInstance from "@/services/axiosService";
-import { Clients } from "@/interfaces/Clients.interface";
+import { pendingEmptyList, pendingIntegration } from "@/services/pendingIntegration";
 import { ApiEnvelope } from "@/interfaces/Envelope.interface";
 import type {
+  ClientDetails,
+  ClientListItem,
   ClientListRequest,
   ClientCreateRequest,
   ClientUpdateRequest,
   ClientPatchRequest,
   ClientPatchResponse,
   ClientSituationHistory,
+  ClientRequestStageHistory,
   ClientInssPassword,
   UpcomingBirthdayResponse,
   UpcomingBirthdaysRequest,
 } from "@/interfaces/client/Client.interface";
+import { feedback, type RequestFeedback } from "@/services/requestFeedback";
 
 /**
  * Cliente — espelha ClientController.
  *
- * Leituras devolvem `Clients` (shape de tela, legado) para compatibilidade com
- * os componentes atuais; escritas já usam os DTOs estritos do backend.
- * Paginação é 1-based.
+ * A listagem devolve `ClientListItem` (a linha do `ClientListResponseDTO`); as
+ * rotas por id, a ficha inteira (`ClientDetails`). Paginação é 1-based.
  */
 
 /**
@@ -27,13 +30,11 @@ import type {
  * a requisição sai calada, sem o toast de sucesso do interceptor. Mesmo
  * contrato do `appointmentService`.
  */
-export type SilenceableRequest = { silent?: boolean };
-
 /** GET /api/v1/clients — listagem paginada + filtros. */
 export const clients = async (
   params?: ClientListRequest,
-): Promise<ApiEnvelope<Clients[]>> => {
-  const response = await axiosInstance.get<ApiEnvelope<Clients[]>>(
+): Promise<ApiEnvelope<ClientListItem[]>> => {
+  const response = await axiosInstance.get<ApiEnvelope<ClientListItem[]>>(
     endpoints.CLIENTS.LIST,
     { params },
   );
@@ -81,11 +82,11 @@ export const listUpcomingBirthdays = async (
  * estiver no contrato novo, o `?? bruto.id` pode cair.
  */
 function normalizeClient<T extends { id?: string; clientId?: string }>(
-  bruto: T,
+  raw: T,
 ): T {
-  if (bruto == null) return bruto;
-  const id = bruto.clientId ?? bruto.id;
-  return { ...bruto, id, clientId: id };
+  if (raw == null) return raw;
+  const id = raw.clientId ?? raw.id;
+  return { ...raw, id, clientId: id };
 }
 
 /**
@@ -99,75 +100,76 @@ function normalizeClient<T extends { id?: string; clientId?: string }>(
  *
  * Falhar aqui aponta para o lugar certo na primeira tentativa.
  */
-function requireId(clientId: string | number, operacao: string): string {
+function requireId(clientId: string | number, operation: string): string {
   const id = String(clientId ?? "").trim();
   if (!id || id === "undefined" || id === "null") {
     throw new Error(
-      `${operacao}: id de cliente ausente (recebido: ${JSON.stringify(clientId)}). ` +
+      `${operation}: id de cliente ausente (recebido: ${JSON.stringify(clientId)}). ` +
         "Quem chamou perdeu o id — verifique a origem, não a API.",
     );
   }
   return id;
 }
 
-/** GET /api/v1/clients/{id} */
-export const clientById = async (
-  clientId: string | number,
-): Promise<Clients> => {
-  const response = await axiosInstance.get<ApiEnvelope<Clients>>(
+/** GET /api/v1/clients/{id} — a ficha completa (`ClientDetailsDTO`). */
+export const clientById = async (clientId: string | number): Promise<ClientDetails> => {
+  const response = await axiosInstance.get<ApiEnvelope<ClientDetails>>(
     endpoints.CLIENTS.BY_ID(requireId(clientId, "clientById")),
   );
-  // backend às vezes retorna objeto cru para recurso único
-  const client =
-    (response.data?.data as Clients) ?? (response.data as unknown as Clients);
+  const client = response.data.data;
+  if (!client) throw new Error(`GET /clients/${clientId} respondeu sem o cliente.`);
   return normalizeClient(client);
 };
+
+/**
+ * Quem cria um cliente usa o id da resposta em seguida (sub-recursos,
+ * arquivos, abrir a ficha). Sem normalizar aqui, o id chegaria `undefined` só
+ * nesse caminho — o defeito mais difícil de achar, porque a listagem funciona.
+ */
+const withNormalizedClient = (
+  envelope: ApiEnvelope<ClientDetails>,
+): ApiEnvelope<ClientDetails> => ({
+  ...envelope,
+  data: envelope.data && normalizeClient(envelope.data),
+});
 
 /** POST /api/v1/clients */
 export const createClient = async (
   body: ClientCreateRequest,
-): Promise<ApiEnvelope<Clients>> => {
-  const response = await axiosInstance.post<ApiEnvelope<Clients>>(
+  options?: RequestFeedback,
+): Promise<ApiEnvelope<ClientDetails>> => {
+  const response = await axiosInstance.post<ApiEnvelope<ClientDetails>>(
     endpoints.CLIENTS.CREATE,
     body,
+    feedback("Cliente cadastrado.", options),
   );
-  // Quem cria um cliente costuma usar o id da resposta em seguida (abrir a
-  // ficha, anexar arquivo). Sem normalizar aqui, o id chega `undefined` só
-  // nesse caminho — o defeito mais difícil de achar, porque a listagem
-  // funciona.
-  return {
-    ...response.data,
-    data: normalizeClient(response.data?.data ?? ({} as Clients)),
-  };
+  return withNormalizedClient(response.data);
 };
 
-/** PUT /api/v1/clients/{id} */
+/** PUT /api/v1/clients/{id} — substitui o recurso inteiro (ver `clientSheet.toUpdateRequest`). */
 export const updateClient = async (
   clientId: string,
   body: ClientUpdateRequest,
-): Promise<ApiEnvelope<Clients>> => {
-  const response = await axiosInstance.put<ApiEnvelope<Clients>>(
+  options?: RequestFeedback,
+): Promise<ApiEnvelope<ClientDetails>> => {
+  const response = await axiosInstance.put<ApiEnvelope<ClientDetails>>(
     endpoints.CLIENTS.UPDATE(requireId(clientId, "updateClient")),
     body,
+    feedback("Cliente atualizado.", options),
   );
-  // Quem cria um cliente costuma usar o id da resposta em seguida (abrir a
-  // ficha, anexar arquivo). Sem normalizar aqui, o id chega `undefined` só
-  // nesse caminho — o defeito mais difícil de achar, porque a listagem
-  // funciona.
-  return {
-    ...response.data,
-    data: normalizeClient(response.data?.data ?? ({} as Clients)),
-  };
+  return withNormalizedClient(response.data);
 };
 
 /** PATCH /api/v1/clients/{id} — situação, benefício, clientType, notBillable. */
 export const patchClient = async (
   clientId: string,
   body: ClientPatchRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<ClientPatchResponse>> => {
   const response = await axiosInstance.patch<ApiEnvelope<ClientPatchResponse>>(
     endpoints.CLIENTS.PATCH(requireId(clientId, "patchClient")),
     body,
+    feedback("Cliente atualizado.", options),
   );
   return response.data;
 };
@@ -193,14 +195,11 @@ export const patchClient = async (
  */
 export const deleteClient = async (
   clientId: string,
-  options?: SilenceableRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<ClientPatchResponse>> => {
   const response = await axiosInstance.delete<ApiEnvelope<ClientPatchResponse>>(
     endpoints.CLIENTS.DELETE(requireId(clientId, "deleteClient")),
-    {
-      successMessage: "Cliente excluído com sucesso.",
-      skipSuccessToast: options?.silent,
-    },
+    feedback("Cliente excluído.", options),
   );
   return response.data;
 };
@@ -237,5 +236,21 @@ export const clientSituationHistory = async (
   const response = await axiosInstance.get<
     ApiEnvelope<ClientSituationHistory[]>
   >(endpoints.CLIENTS.SITUATION_HISTORY(requireId(clientId, "clientSituationHistory")), { params });
+  return response.data;
+};
+
+/** Grupo de `NEXT_PUBLIC_PENDING_INTEGRATIONS` para o ambiente cujo backend ainda não tem a rota abaixo. */
+export const REQUEST_STAGE_HISTORY_INTEGRATION = "request-stage-history";
+
+/** GET /api/v1/clients/{id}/request-stage-history — paginado. */
+export const clientRequestStageHistory = async (
+  clientId: string,
+  params?: { pageNumber?: number; pageSize?: number },
+): Promise<ApiEnvelope<ClientRequestStageHistory[]>> => {
+  if (pendingIntegration(REQUEST_STAGE_HISTORY_INTEGRATION)) return pendingEmptyList();
+  const response = await axiosInstance.get<ApiEnvelope<ClientRequestStageHistory[]>>(
+    endpoints.CLIENTS.REQUEST_STAGE_HISTORY(requireId(clientId, "clientRequestStageHistory")),
+    { params },
+  );
   return response.data;
 };

@@ -12,6 +12,8 @@ import {
 import { Popover } from "@heroui/react";
 
 import type { ReportView } from "./views";
+import { Svg, type IconProps } from "@/components/ui/icons/Svg";
+import { ChevronDownIcon } from "@/components/ui/icons/glyphs";
 
 /**
  * Seletor das visões de Relatórios: controle segmentado na largura toda, com
@@ -39,7 +41,7 @@ import type { ReportView } from "./views";
  *
  * O botão no fim da barra abre "Ordem das abas", onde ele diz qual vem
  * primeiro e qual vem por último. A ordem em si (guardar, ler, restaurar) é
- * do `useReportViewOrder`; aqui só se desenha e se pede a troca.
+ * do `useReportViews`; aqui só se desenha e se pede a troca.
  */
 export function ReportViewSwitcher({
   views,
@@ -260,14 +262,14 @@ function OrderPopover({
                     disabled={index === 0}
                     onPress={() => onMove(view.id, index - 1)}
                   >
-                    <ChevronIcon className="h-3.5 w-3.5 rotate-180" />
+                    <ChevronDownIcon className="h-3.5 w-3.5 rotate-180" />
                   </MoveButton>
                   <MoveButton
                     label={`Descer ${view.label}`}
                     disabled={index === views.length - 1}
                     onPress={() => onMove(view.id, index + 1)}
                   >
-                    <ChevronIcon className="h-3.5 w-3.5" />
+                    <ChevronDownIcon className="h-3.5 w-3.5" />
                   </MoveButton>
                 </li>
               );
@@ -312,23 +314,11 @@ function MoveButton({
   );
 }
 
-type IconProps = { className?: string };
-
-const svgProps = {
-  viewBox: "0 0 24 24",
-  fill: "none",
-  stroke: "currentColor",
-  strokeWidth: 1.8,
-  strokeLinecap: "round" as const,
-  strokeLinejoin: "round" as const,
-  "aria-hidden": true,
-};
-
 /** Duas setas opostas: "trocar de lugar". */
-const ReorderIcon = ({ className }: IconProps) => (
-  <svg {...svgProps} className={className}>
+const ReorderIcon = (p: IconProps) => (
+  <Svg {...p}>
     <path d="M7 4v16M3 8l4-4 4 4M17 20V4M13 16l4 4 4-4" />
-  </svg>
+  </Svg>
 );
 
 const GripIcon = ({ className }: IconProps) => (
@@ -337,8 +327,3 @@ const GripIcon = ({ className }: IconProps) => (
   </svg>
 );
 
-const ChevronIcon = ({ className }: IconProps) => (
-  <svg {...svgProps} className={className}>
-    <path d="M6 9l6 6 6-6" />
-  </svg>
-);

@@ -8,7 +8,7 @@ import {
 } from "@/services/cepService";
 import { CEP_MESSAGES } from "@/lib/cepAutofill";
 
-export type CepLookupState =
+type CepLookupState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "error"; message: string };

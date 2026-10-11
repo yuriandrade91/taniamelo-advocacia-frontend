@@ -56,7 +56,6 @@ import {
   defineSection,
   initialValues,
   rulesOf,
-  validateValues,
   type FieldRules,
   type SectionValues,
 } from "@/components/ui/form/schema";
@@ -84,18 +83,19 @@ import {
   getExpenseCategoryKeyByLabel,
   type ExpenseCategoryInput,
 } from "@/enums/expenseCategory/ExpenseCategory";
+import { amountTextOf, enumKeyOf, optionalText } from "@/lib/formValues";
 
 // ─────────────────────────── Campos ───────────────────────────
 
 /** Entrada ou saída — o que o modal pergunta antes de mostrar os campos. */
-export type EntryKind = "entrada" | "saida";
+export type EntryKind = "income" | "expense";
 
 /**
  * Os rótulos que mudam de lado. "Já foi recebido?" e "Já foi paga?" são a
  * mesma pergunta — o dinheiro já se moveu? — e vêm por parâmetro para que o
  * núcleo não precise saber que tipos de lançamento existem.
  */
-export type EntryTexts = {
+type EntryTexts = {
   descriptionPlaceholder: string;
   paymentMethodLabel: string;
   settledLabel: string;
@@ -276,10 +276,8 @@ export const paidDateRule =
   (value: string, values: V): string | null =>
     validatePaidDate(value, values.isSettled, today);
 
-export type FormErrors<V> = Partial<Record<keyof V, string>>;
-
 /**
- * As regras da entrada: as do schema, mais as duas que ele não descreve — a
+ * As regras da income: as do schema, mais as duas que ele não descreve — a
  * data da liquidação e o cliente.
  */
 export const incomeRules = (
@@ -305,29 +303,7 @@ export const expenseRules = (
   paidDate: paidDateRule(today),
 });
 
-/**
- * As mesmas regras que o formulário usa, de uma vez sobre os valores — é por
- * aqui que o teste confere o que a tela vai cobrar, sem montar React.
- */
-export function validateIncomeForm(
-  values: IncomeFormValues,
-  today: string = todayIso(),
-): FormErrors<IncomeFormValues> {
-  return validateValues(incomeRules(today), values);
-}
-
-export function validateExpenseForm(
-  values: ExpenseFormValues,
-  today: string = todayIso(),
-): FormErrors<ExpenseFormValues> {
-  return validateValues(expenseRules(today), values);
-}
-
 // ─────────────────────────── Payloads ───────────────────────────
-
-/** `""` → `undefined`, para a chave sumir do JSON em vez de virar string vazia. */
-const optional = (value: string): string | undefined =>
-  value.trim() === "" ? undefined : value.trim();
 
 /**
  * Corpo do `POST /api/v1/revenues` — a receita do escritório.
@@ -344,11 +320,11 @@ export function toRevenueRequest(values: IncomeFormValues): OfficeRevenueRequest
     dueDate: values.dueDate,
     status: entryStatus(values),
     paidDate: values.isSettled ? values.paidDate || todayIso() : undefined,
-    paymentMethod: optional(values.paymentMethod) as
+    paymentMethod: optionalText(values.paymentMethod) as
       | PaymentMethodInput
       | undefined,
-    clientId: optional(values.clientId),
-    notes: optional(values.notes),
+    clientId: optionalText(values.clientId),
+    notes: optionalText(values.notes),
   };
 }
 
@@ -360,12 +336,12 @@ export function toExpenseRequest(values: ExpenseFormValues): OfficeExpenseReques
     dueDate: values.dueDate,
     status: entryStatus(values),
     paidDate: values.isSettled ? values.paidDate || todayIso() : undefined,
-    category: optional(values.category) as ExpenseCategoryInput | undefined,
-    paymentMethod: optional(values.paymentMethod) as
+    category: optionalText(values.category) as ExpenseCategoryInput | undefined,
+    paymentMethod: optionalText(values.paymentMethod) as
       | PaymentMethodInput
       | undefined,
-    supplier: optional(values.supplier),
-    notes: optional(values.notes),
+    supplier: optionalText(values.supplier),
+    notes: optionalText(values.notes),
   };
 }
 
@@ -375,7 +351,6 @@ export function toExpenseRequest(values: ExpenseFormValues): OfficeExpenseReques
  * `payments` importando de `wallet` seria dependência na direção errada.
  */
 export { todayIso, validatePaidDate };
-
 
 // ───────────────────── Situação, e o cuidado com o PUT ─────────────────────
 
@@ -406,19 +381,6 @@ export const isCancelled = (values: SharedValues): boolean =>
 // ───────────────────── Da resposta para o formulário ─────────────────────
 
 /**
- * A API devolve **rótulos** (`@JsonValue`: "Cartão", "Marketing e captação");
- * os selects do formulário trabalham com a **chave** do enum. Sem converter,
- * a edição abria com Forma e Categoria em "Selecione" — o valor continuava no
- * estado e ia no PUT, mas a tela dizia que ele não existia.
- *
- * Valor que já é chave (ou desconhecido) passa como está.
- */
-const toKey = (
-  value: string | undefined | null,
-  keyByLabel: (label?: string) => string | undefined,
-): string => (value ? (keyByLabel(value) ?? value) : "");
-
-/**
  * Preenche o formulário a partir do que o servidor devolveu.
  *
  * `isSettled` sai do **status**, não da presença de `paidDate`: um lançamento
@@ -431,11 +393,11 @@ export function incomeFormFrom(
   return {
     ...emptyIncomeForm(),
     description: revenue.description ?? "",
-    amount: formatAmountInput(revenue.amount),
+    amount: amountTextOf(revenue.amount),
     dueDate: revenue.dueDate ?? "",
     isSettled: revenue.status === PaymentStatusLabelByKey.PAGO,
     paidDate: revenue.paidDate ?? "",
-    paymentMethod: toKey(revenue.paymentMethod, getPaymentMethodKeyByLabel),
+    paymentMethod: enumKeyOf(revenue.paymentMethod, getPaymentMethodKeyByLabel),
     notes: revenue.notes ?? "",
     status: revenue.status ?? "",
     clientId: revenue.clientId ?? "",
@@ -449,26 +411,14 @@ export function expenseFormFrom(
   return {
     ...emptyExpenseForm(),
     description: expense.description ?? "",
-    amount: formatAmountInput(expense.amount),
+    amount: amountTextOf(expense.amount),
     dueDate: expense.dueDate ?? "",
     isSettled: expense.status === PaymentStatusLabelByKey.PAGO,
     paidDate: expense.paidDate ?? "",
-    paymentMethod: toKey(expense.paymentMethod, getPaymentMethodKeyByLabel),
+    paymentMethod: enumKeyOf(expense.paymentMethod, getPaymentMethodKeyByLabel),
     notes: expense.notes ?? "",
     status: expense.status ?? "",
     supplier: expense.supplier ?? "",
-    category: toKey(expense.category, getExpenseCategoryKeyByLabel),
+    category: enumKeyOf(expense.category, getExpenseCategoryKeyByLabel),
   };
-}
-
-/**
- * Número do servidor para o texto do campo de valor.
- *
- * Vírgula decimal e sem separador de milhar: é o que o `AmountField` lê de
- * volta com `parseAmountBRL`. Formatar como "1.234,56" aqui faria o campo
- * mostrar certo e o `parse` devolver 1234 na hora de salvar.
- */
-export function formatAmountInput(amount: number | undefined | null): string {
-  if (amount === undefined || amount === null || Number.isNaN(amount)) return "";
-  return amount.toFixed(2).replace(".", ",");
 }

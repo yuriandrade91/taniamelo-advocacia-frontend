@@ -3,13 +3,9 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
 import { useDismiss } from "@/hooks/useDismiss";
-import {
-  AlertIcon,
-  BellIcon,
-  CalendarBellIcon,
-  CheckAllIcon,
-  FileIcon,
-} from "./icons";
+import { BellIcon, CheckAllIcon } from "./navIcons";
+import { AlertIcon, CalendarIcon } from "@/components/ui/icons/glyphs";
+import { FileIcon } from "@/components/ui/icons/actions";
 
 /**
  * Central de notificações do navbar.
@@ -26,7 +22,7 @@ import {
  * de exemplo por dados reais não exija tocar nesta árvore.
  */
 
-export type NotificationKind = "appointment" | "document" | "payment";
+type NotificationKind = "appointment" | "document" | "payment";
 
 export type NotificationItem = {
   id: string;
@@ -50,7 +46,7 @@ const KIND_STYLE: Record<
   NotificationKind,
   { icon: React.ComponentType<{ className?: string }>; tone: string }
 > = {
-  appointment: { icon: CalendarBellIcon, tone: "bg-primary/10 text-primary" },
+  appointment: { icon: CalendarIcon, tone: "bg-primary/10 text-primary" },
   document: { icon: FileIcon, tone: "bg-secondary/15 text-secondary" },
   payment: { icon: AlertIcon, tone: "bg-danger/10 text-danger" },
 };
@@ -180,7 +176,7 @@ export default function NotificationCenter({
         */
         <div
           style={panel.style}
-          className={`absolute right-0 z-30 mt-3 w-[360px] overflow-hidden rounded-2xl shadow-xl animate__animated ${
+          className={`absolute right-0 z-30 mt-3 w-[360px] overflow-hidden rounded-2xl ring-1 ring-black/10 animate__animated ${
             panel.isLeaving ? "animate__fadeOut" : "animate__fadeIn"
           }`}
         >

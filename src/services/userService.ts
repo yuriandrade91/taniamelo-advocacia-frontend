@@ -13,6 +13,7 @@ import type {
   UserListRequest,
   UserSummary,
 } from "@/interfaces/user/User.interface";
+import { feedback, type RequestFeedback } from "@/services/requestFeedback";
 
 /**
  * Usuários do escritório — UserController. Base: /api/v1/users
@@ -30,7 +31,7 @@ import type {
  * ## O `if` antes do código de verdade
  *
  * Cada função começa perguntando se este grupo de rotas está pausado **neste
- * ambiente** (`NEXT_PUBLIC_INTEGRACOES_PENDENTES`). Onde o backend serve as
+ * ambiente** (`NEXT_PUBLIC_PENDING_INTEGRATIONS`). Onde o backend serve as
  * rotas — o local, por exemplo — a pergunta é falsa e a integração funciona
  * normalmente. Onde não serve, a chamada não chega a sair para a rede.
  */
@@ -64,25 +65,6 @@ export const indexById = (
 };
 
 /**
- * Nome de quem agiu, a partir do índice.
- *
- * Sem correspondência devolve `undefined`, e não o UUID: mostrar
- * `9f3c1e7a-…` na linha "alterado por" não informa ninguém e ainda vaza id
- * interno na tela. Quem chama decide o que colocar no lugar — normalmente
- * nada, como era antes de existir a rota.
- *
- * O caso sem correspondência é real: usuário desativado só aparece com
- * `includeInactive`, e um id de outro escritório nunca aparece.
- */
-export const authorName = (
-  index: Record<string, string>,
-  userId?: string | null,
-): string | undefined => {
-  if (!userId) return undefined;
-  return index[userId];
-};
-
-/**
  * GET /api/v1/users/me — os dados de quem está logado.
  *
  * Não leva id: o servidor lê o usuário do token. É o que torna a rota aberta a
@@ -104,12 +86,13 @@ export const myProfile = async (): Promise<ApiEnvelope<MyProfile>> => {
 /** PUT /api/v1/users/me — nome e e-mail. Username e papel não se editam daqui. */
 export const updateMyProfile = async (
   body: MyProfileUpdateRequest,
+  options?: RequestFeedback,
 ): Promise<ApiEnvelope<MyProfile>> => {
   if (pendingIntegration("users-me")) return pendingWrite("PUT /api/v1/users/me");
   const { data } = await axiosInstance.put<ApiEnvelope<MyProfile>>(
     endpoints.USERS.ME,
     body,
-    { successMessage: "Dados atualizados." },
+    feedback("Dados atualizados.", options),
   );
   return data;
 };
@@ -129,6 +112,6 @@ export const changeMyPassword = async (
   });
   await axiosInstance.patch(endpoints.USERS.ME_PASSWORD, body, {
     skipErrorToast: true,
-    successMessage: "Senha alterada.",
+    ...feedback("Senha alterada."),
   });
 };

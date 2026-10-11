@@ -39,9 +39,9 @@ export type ProfileValues = {
 
 export type ProfileErrors = Partial<Record<keyof ProfileValues, string>>;
 
-export const profileValuesFrom = (perfil: MyProfile | null): ProfileValues => ({
-  fullName: perfil?.fullName ?? "",
-  email: perfil?.email ?? "",
+export const profileValuesFrom = (profile: MyProfile | null): ProfileValues => ({
+  fullName: profile?.fullName ?? "",
+  email: profile?.email ?? "",
 });
 
 export function validateProfile(values: ProfileValues): ProfileErrors {
@@ -64,9 +64,9 @@ export function validateProfile(values: ProfileValues): ProfileErrors {
  */
 export function profileChanged(
   values: ProfileValues,
-  perfil: MyProfile | null,
+  profile: MyProfile | null,
 ): boolean {
-  const original = profileValuesFrom(perfil);
+  const original = profileValuesFrom(profile);
   return (
     values.fullName.trim() !== original.fullName.trim() ||
     values.email.trim() !== original.email.trim()
@@ -142,9 +142,6 @@ export function toPasswordRequest(
   };
 }
 
-export const hasError = (errors: Record<string, string | undefined>): boolean =>
-  Object.values(errors).some(Boolean);
-
 /**
  * Mensagem de erro que o servidor devolveu para um campo.
  *
@@ -153,13 +150,13 @@ export const hasError = (errors: Record<string, string | undefined>): boolean =>
  * exatamente isso em `errors[].field`. Jogar tudo num toast genérico faria a
  * pessoa adivinhar qual das três caixas está errada.
  */
-export function fieldError(erro: unknown, campo: string): string | null {
-  const envelope = (erro as { response?: { data?: unknown } })?.response?.data;
+export function fieldError(error: unknown, field: string): string | null {
+  const envelope = (error as { response?: { data?: unknown } })?.response?.data;
   const errors = (envelope as { errors?: unknown })?.errors;
   if (!Array.isArray(errors)) return null;
   for (const item of errors) {
     const record = item as { field?: unknown; message?: unknown };
-    if (record?.field === campo && typeof record.message === "string") {
+    if (record?.field === field && typeof record.message === "string") {
       return record.message;
     }
   }
@@ -167,8 +164,8 @@ export function fieldError(erro: unknown, campo: string): string | null {
 }
 
 /** Primeira mensagem do envelope, para quando o erro não é de campo nenhum. */
-export function firstMessage(erro: unknown): string | null {
-  const envelope = (erro as { response?: { data?: unknown } })?.response?.data;
+export function firstMessage(error: unknown): string | null {
+  const envelope = (error as { response?: { data?: unknown } })?.response?.data;
   const errors = (envelope as { errors?: unknown })?.errors;
   if (Array.isArray(errors)) {
     for (const item of errors) {

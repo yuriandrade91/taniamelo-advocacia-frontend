@@ -33,7 +33,7 @@ export default function StatCard({
     <div
       className={`flex flex-col gap-3 rounded-xl border p-4 ${
         highlighted
-          ? "border-black/10 bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04)]"
+          ? "border-black/10 bg-white"
           : "border-black/5 bg-light-gray/40"
       } ${className}`}
     >
