@@ -22,8 +22,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A versão vem do `packageManager` do package.json.
       - uses: pnpm/action-setup@v4
-        with: { version: 10 }
 
       - uses: actions/setup-node@v4
         with:
@@ -34,6 +34,9 @@ jobs:
 
       # O portão. Publicar sem isto transformaria o pipeline em "copiar
       # arquivos para o S3", que não é deploy, é `scp`.
+      - name: Lint
+        run: pnpm lint
+
       - name: Tipos
         run: pnpm typecheck
 
@@ -111,7 +114,7 @@ jobs:
             echo "$rota -> $CODIGO"
             if [ "$CODIGO" != "200" ]; then
               echo "::error::$BASE$rota respondeu $CODIGO."
-              echo "Se for 403 ou 404 em /login e /home, falta no CloudFront a função que acrescenta .html ao caminho sem extensão (docs/DEPLOY_FRONTEND.md)."
+              echo "Se for 403 ou 404 em /login e /home, falta no CloudFront a função que acrescenta .html ao caminho sem extensão (docs/DEPLOY.md)."
               exit 1
             fi
           done
@@ -130,7 +133,7 @@ jobs:
             echo "/api/v1/tenants/resolve -> $API"
             if [ "$API" != "200" ]; then
               echo "::error::A API não respondeu pela origem do site ($API)."
-              echo "Falta o comportamento /api/* na distribuição, apontando para a EC2 (docs/DEPLOY_FRONTEND.md)."
+              echo "Falta o comportamento /api/* na distribuição, apontando para a EC2 (docs/DEPLOY.md)."
               exit 1
             fi
           fi

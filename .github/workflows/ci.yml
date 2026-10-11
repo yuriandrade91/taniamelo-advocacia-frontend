@@ -12,8 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # A versão vem do `packageManager` do package.json.
       - uses: pnpm/action-setup@v4
-        with: { version: 10 }
 
       - uses: actions/setup-node@v4
         with:
@@ -22,18 +22,14 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Lint
+        run: pnpm lint
+
       - name: Tipos
         run: pnpm typecheck
 
       - name: Testes de unidade
         run: pnpm test
 
-      # O `pnpm lint` NÃO roda aqui, e é deliberado em vez de esquecido: a
-      # configuração do ESLint quebra ao carregar ("TypeError: Converting
-      # circular structure to JSON"), e reproduz em instalação limpa do mesmo
-      # lockfile. Um passo que falha sempre ensina o time a ignorar o
-      # pipeline. Quando a config for consertada, este comentário vira o
-      # passo `- run: pnpm lint`.
-
       # O e2e não entra no CI porque precisa de backend de pé e de
-      # credenciais de um escritório de teste. Ver docs/E2E_PLAYWRIGHT.md.
+      # credenciais de um escritório de teste. Ver docs/TESTING.md.

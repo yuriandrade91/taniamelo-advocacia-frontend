@@ -19,7 +19,5 @@ export default defineConfig([
     "playwright-report/**",
     "test-results/**",
     ".pnpm-store/**",
-    "_p/**",
-    "_perm_probe/**",
   ]),
 ]);

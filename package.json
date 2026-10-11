@@ -2,13 +2,14 @@
   "name": "tania-melo-advocacia",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.34.6",
   "scripts": {
     "dev": "pnpm run dev:local",
     "dev:local": "dotenv -e env/local.env -- next dev --turbopack --port 3001",
     "dev:development": "dotenv -e env/development.env -- next dev --turbopack --port 3001",
     "build": "next build",
     "build:development": "dotenv -e env/development.env -- next build",
-    "start": "next start",
+    "preview": "pnpm dlx serve out",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
@@ -21,7 +22,6 @@
     "@heroui/react": "3.2.2",
     "@heroui/styles": "3.2.2",
     "@internationalized/date": "3.12.2",
-    "@react-aria/i18n": "3.12.14",
     "@tiptap/extension-character-count": "^3.31.0",
     "@tiptap/extension-placeholder": "^3.31.0",
     "@tiptap/pm": "^3.31.0",
@@ -37,7 +37,6 @@
     "swapy": "^1.0.5"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
     "@playwright/test": "1.56.0",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20",

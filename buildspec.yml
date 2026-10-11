@@ -10,11 +10,14 @@ phases:
       nodejs: 22
     commands:
       # O projeto usa pnpm; sem package-lock.json, `npm ci` falha.
-      - npm install -g pnpm@10
+      # A mesma versão do `packageManager` do package.json.
+      - npm install -g pnpm@10.34.6
       - pnpm install --frozen-lockfile
 
   pre_build:
     commands:
+      - pnpm lint
+      - pnpm typecheck
       - pnpm test
 
   build:
