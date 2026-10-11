@@ -178,8 +178,9 @@ A policy mínima para quem publica:
 
 `.github/workflows/deploy.yml`, na `develop`:
 
-1. **Portão**: `typecheck` e testes de unidade. Sem isso, o pipeline seria
-   `scp` com etapas extras.
+1. **Portão**: lint, `typecheck` e testes de unidade. Sem isso, o pipeline
+   seria `scp` com etapas extras. O e2e fica de fora: precisa de backend de pé
+   e de credenciais ([`TESTING.md`](TESTING.md)).
 2. **Build** com as `NEXT_PUBLIC_*`. Elas são **inlinadas no JavaScript** — não
    são lidas em runtime. Trocar de backend exige build novo.
 3. **Assets primeiro** (`_next/static`, `immutable`, um ano de cache), **HTML
@@ -195,11 +196,19 @@ embaralhariam o bucket, e cancelar no meio o deixaria pela metade.
 
 ---
 
+## O build da instância de desenvolvimento (CodeBuild)
+
+O `buildspec.yml` gera o `out/` apontado para a instância de desenvolvimento
+(`pnpm build:development`, que carrega `env/development.env`), com o mesmo
+portão do pipeline: lint, `typecheck` e testes de unidade. As `NEXT_PUBLIC_*`
+são inlinadas, então esse artefato só serve àquele ambiente.
+
 ## Rodando o build localmente
 
 ```bash
 pnpm build          # gera out/
-npx serve out       # confere antes de publicar
+pnpm preview        # serve out/ para conferir antes de publicar
 ```
 
-`out/` está no `.gitignore` junto com `.next/`.
+`next start` não serve export estático — por isso o `preview`. `out/` está no
+`.gitignore` junto com `.next/`.

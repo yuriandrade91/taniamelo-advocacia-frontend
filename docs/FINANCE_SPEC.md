@@ -1,5 +1,9 @@
 # Especificação — domínio financeiro
 
+> Contrato das rotas de `/payments`, `/expenses` e `/revenues` e das regras
+> que o front implementa sobre elas. A lista completa de rotas está em
+> [`BACKEND_CONTRACT.md`](BACKEND_CONTRACT.md).
+
 > ## ✅ Implementado — 29/09/2026
 >
 > As três partes desta especificação existem no backend. A migration
@@ -243,7 +247,7 @@ rotas de `/payments`.
 `/clients/{clientId}/payments`: uma parcela pertence a um cliente, e a rota
 agregada é de leitura. A tela consolidada leva para a ficha do cliente quando
 for preciso editar. Desde 29/09 as duas listas compartilham a consulta
-(`FiltrosDePagamento`), então a aba da ficha aceita os mesmos filtros; o
+(`FiltrosDePagamento`, no backend), então a aba da ficha aceita os mesmos filtros; o
 `clientId` sai da URL e mandá-lo também na query com outro valor responde 400.
 
 
@@ -253,7 +257,7 @@ for preciso editar. Desde 29/09 as duas listas compartilham a consulta
 
 - **Status:** **implementado.** Tabela `office_expenses` (migration V18),
   `OfficeExpenseController` com CRUD, `/summary` e `/timeline`.
-  É o domínio `financial` que o ADR-0003 previa.
+  É o domínio `financial` que o ADR-0003 do backend previa.
 - A tela `/carteira` já consome este contrato e mostra explicitamente que a
   metade das saídas não tem servidor — em vez de exibir saldo zero. Zero é um
   número, e número errado em tela financeira é pior que tela vazia.
@@ -349,7 +353,7 @@ pergunta.
 ## 10. Saldo: por que não há `/wallet/summary`
 
 O saldo é `entradas − saídas`, composto no front a partir dos dois resumos
-(`components/wallet/walletOverview.ts`, testado). Um terceiro endpoint para
+(`components/reports/financeSeries.ts`, testado). Um terceiro endpoint para
 calcular uma subtração seria superfície de API sem regra própria.
 
 Isso muda **se** entrar reconciliação bancária, conta a conta ou saldo
