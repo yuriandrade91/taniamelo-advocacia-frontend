@@ -1,0 +1,115 @@
+/*
+ * O site do escritório. Só o que o Tailwind não diz bem: as entradas em cena,
+ * a revelação ao rolar e os pequenos movimentos dos botões. Tudo atrás de
+ * `prefers-reduced-motion`: quem pediu menos movimento vê a página parada,
+ * inteira.
+ */
+
+.site {
+  scroll-behavior: smooth;
+}
+
+/* ── Revelação ao rolar (o `Reveal` marca `data-visible`) ── */
+.site-reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  filter: blur(6px);
+  transition:
+    opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1),
+    filter 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--site-delay, 0ms);
+}
+.site-reveal[data-visible="true"] {
+  opacity: 1;
+  transform: none;
+  filter: none;
+}
+
+/* A cena do topo entra de longe; a seta de "explore" flutua. */
+@keyframes pr-scene-enter { from { opacity: 0.3; transform: translateY(var(--parallax-y, 0px)) scale(1.14); } to { opacity: 1; transform: translateY(var(--parallax-y, 0px)) scale(1.09); } }
+.pr-scene { transform: translateY(var(--parallax-y, 0px)) scale(1.09); animation: pr-scene-enter 1.8s ease-out both; }
+@keyframes pr-arrow-float { 50% { transform: translateY(4px); } }
+.pr-arrow-float { animation: pr-arrow-float 2s infinite; }
+
+/* O nome sobe de trás de uma máscara, linha a linha; o resto da cena entra em cascata (`--d`). */
+@keyframes pr-rise { from { transform: translateY(108%); } to { transform: none; } }
+.pr-line, .pr-vline { display: block; overflow: hidden; padding-bottom: 0.08em; margin-bottom: -0.08em; }
+.pr-line > span { display: block; animation: pr-rise 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms) both; }
+@keyframes pr-copy-enter { from { opacity: 0; transform: translateY(25px); } to { opacity: 1; transform: none; } }
+.pr-in { animation: pr-copy-enter 1s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms) both; }
+@keyframes pr-drop { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: none; } }
+.pr-drop { animation: pr-drop 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms) both; }
+@keyframes pr-grow-x { from { transform: scaleX(0); } to { transform: none; } }
+@keyframes pr-grow-y { from { transform: scaleY(0); } to { transform: none; } }
+.pr-grow-x { animation: pr-grow-x 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.4s both; }
+.pr-grow-y { animation: pr-grow-y 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 1.2s both; }
+
+/* Ao entrar na tela (o `Reveal` marca `data-visible`): a linha sobe, o fio se desenha, a seta gira. */
+.pr-vline > span { display: block; transform: translateY(108%); transition: transform 1s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms); }
+.site-reveal[data-visible="true"] .pr-vline > span { transform: none; }
+.pr-draw { transform: scaleX(0); transform-origin: left; transition: transform 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--site-delay, 0ms) + 150ms); }
+.site-reveal[data-visible="true"] .pr-draw { transform: none; }
+.pr-spin-in { transform: rotate(-90deg) scale(0.6); opacity: 0; transition: transform 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) 0.2s, opacity 0.8s 0.2s; }
+.site-reveal[data-visible="true"] .pr-spin-in { transform: none; opacity: 1; }
+
+/* A imagem de "Nossa essência" corre mais devagar que a página. */
+.pr-parallax { transform: translateY(var(--parallax-y, 0px)) scale(1.25); }
+
+/* O número do simulador salta quando a escolha muda. */
+@keyframes pr-pop { 0% { opacity: 0; transform: translateY(18px) scale(0.92); } 100% { opacity: 1; transform: none; } }
+.pr-pop { animation: pr-pop 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
+
+/* Brilho que atravessa o botão dourado no hover. */
+.pr-shine::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%);
+  transform: translateX(-120%);
+  transition: transform 0.8s ease;
+  pointer-events: none;
+}
+.pr-shine:hover::after { transform: translateX(120%); }
+
+/* O botão do WhatsApp chama a atenção com uma onda; o círculo do fechamento, com um anel que respira. */
+@keyframes pr-wave { 0% { transform: scale(1); opacity: 0.55; } 100% { transform: scale(1.9); opacity: 0; } }
+.pr-fab::before, .pr-orbit::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  pointer-events: none;
+}
+.pr-fab::before { background: var(--color-secondary); z-index: -1; animation: pr-wave 2.4s ease-out 2s infinite; }
+.pr-orbit::before { border: 1px solid var(--color-secondary); animation: pr-wave 3s ease-out infinite; }
+
+/* Menu do celular e janela da conversa. */
+@keyframes pr-menu { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
+.pr-menu { animation: pr-menu 0.35s ease-out both; }
+.pr-menu-item { animation: pr-menu 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms) both; }
+@keyframes pr-dialog { from { opacity: 0; transform: translateY(30px) scale(0.97); } to { opacity: 1; transform: none; } }
+@keyframes pr-backdrop { from { opacity: 0; } to { opacity: 1; } }
+.pr-dialog[open] { animation: pr-dialog 0.45s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+.pr-dialog[open]::backdrop { animation: pr-backdrop 0.35s ease-out both; }
+
+@media (prefers-reduced-motion: reduce) {
+  .site { scroll-behavior: auto; }
+  .site *,
+  .site *::before,
+  .site *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0s !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0s !important;
+  }
+  .site-reveal,
+  .site .pr-vline > span,
+  .site .pr-draw,
+  .site .pr-spin-in {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+}
