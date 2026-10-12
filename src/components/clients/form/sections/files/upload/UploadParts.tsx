@@ -51,22 +51,31 @@ function useObjectUrl(file: File | undefined) {
   return url;
 }
 
-const isImage = (file: File) => file.type.startsWith("image/");
-const isPdf = (file: File) =>
+/**
+ * O que a miniatura e o nome precisam saber: o `File` escolhido agora, ou o
+ * arquivo já gravado (nome, tipo e tamanho que a API devolve).
+ */
+export type FileLike = { name: string; type?: string; size?: number };
+
+const isImage = (file: FileLike) => file.type?.startsWith("image/") ?? false;
+const isPdf = (file: FileLike) =>
   file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 
-const extensionOf = (file: File) =>
+const extensionOf = (file: FileLike) =>
   (file.name.split(".").pop() ?? "").slice(0, 4).toUpperCase() || "ARQ";
 
-/** Miniatura: a própria imagem, ou um selo com a extensão. */
+/**
+ * Miniatura: a própria imagem, ou um selo com a extensão. O gravado fica no
+ * selo — a prévia custaria baixar cada arquivo só para desenhar a lista.
+ */
 export function FileThumb({
   file,
   className = "h-12 w-12",
 }: {
-  file: File;
+  file: FileLike;
   className?: string;
 }) {
-  const url = useObjectUrl(isImage(file) ? file : undefined);
+  const url = useObjectUrl(file instanceof File && isImage(file) ? file : undefined);
   if (url) {
     return (
       // eslint-disable-next-line @next/next/no-img-element -- blob local, sem otimização possível
@@ -89,14 +98,14 @@ export function FileThumb({
   );
 }
 
-/** Nome e tamanho, numa coluna que trunca. */
-export function FileName({ file }: { file: File }) {
+/** Nome e, embaixo, o tamanho (ou o que for passado em `detail`), numa coluna que trunca. */
+export function FileName({ file, detail }: { file: FileLike; detail?: string }) {
   return (
     <span className="min-w-0 flex-1">
       <span className="block truncate text-sm font-medium text-primary">
         {file.name}
       </span>
-      <span className="text-xs text-gray-100">{formatFileSize(file.size)}</span>
+      <span className="text-xs text-gray-100">{detail ?? formatFileSize(file.size)}</span>
     </span>
   );
 }
@@ -162,7 +171,6 @@ export const dropCopy = (kind: FileKind) =>
         hint: "PDFs do cálculo — a versão sai do nome (v2, versão 3)",
       };
 
-/** Ícone de nuvem com seta, no traço dos outros ícones. */
 /** Input de arquivo escondido, que limpa o valor para aceitar o mesmo arquivo de novo. */
 export function HiddenFileInput({
   inputRef,

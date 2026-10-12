@@ -172,6 +172,13 @@ export interface ClientPatchRequest {
   situation?: SituationInput;
   /** Muda só a etapa no INSS. Não há como voltar a nulo pelo PATCH (nulo = "não mexer"). */
   requestStage?: RequestStageInput;
+  /**
+   * Por que a etapa mudou (até 1000 caracteres). **Obrigatória** quando
+   * `requestStage` leva a exigência, indeferimento ou recurso — sem ela, 400
+   * `REQUIRED_FIELD`. Sozinha, sem `requestStage`, é 400 também. Vai para o
+   * histórico da etapa.
+   */
+  requestStageJustification?: string;
   benefit?: BenefitInput;
   clientType?: ClientTypeInput;
   notBillable?: boolean;
@@ -223,6 +230,11 @@ export interface ClientRequestStageHistory {
   changedByUserId?: string;
   /** Dias que o requerimento passou na etapa anterior; nulo na primeira linha. */
   diasNaEtapaAnterior?: number | null;
+  /**
+   * O motivo da mudança — o que o INSS exigiu, por que indeferiu, contra o quê
+   * se recorre. Sempre presente nessas três; nas outras, só se foi escrito.
+   */
+  justification?: string | null;
 }
 
 /** Query params de GET /api/v1/clients (paginação 1-based). */

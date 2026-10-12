@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   REQUEST_STAGES,
+  REQUEST_STAGE_JUSTIFICATION_MAX,
   REQUEST_STAGE_TRACK,
   requestStageChangedMessage,
+  requestStageJustificationError,
   requestStageOf,
+  requestStagePatch,
   requestStageTrack,
+  requiresJustification,
 } from "@/components/clients/stage/requestStages";
 
 /**
@@ -66,5 +70,36 @@ describe("requestStageChangedMessage", () => {
     expect(requestStageChangedMessage("Maria", "EXIGENCIA")).toBe(
       'Situação no INSS de Maria atualizada para "Exigência".',
     );
+  });
+});
+
+describe("justificativa da etapa no INSS", () => {
+  it("exigência, indeferimento e recurso pedem; as outras, não — como no backend", () => {
+    const asking = REQUEST_STAGES.filter((s) => requiresJustification(s.key)).map((s) => s.key);
+    expect(asking).toEqual(["EXIGENCIA", "INDEFERIMENTO", "RECURSO"]);
+  });
+
+  it("nessas três, o texto é obrigatório, com um mínimo e o teto do backend", () => {
+    expect(requestStageJustificationError("EXIGENCIA", "")).toBe("Informe a justificativa.");
+    expect(requestStageJustificationError("RECURSO", "   ")).toBe("Informe a justificativa.");
+    expect(requestStageJustificationError("INDEFERIMENTO", "curto")).toMatch(/pelo menos/);
+    expect(requestStageJustificationError("INDEFERIMENTO", "Falta de carência.")).toBeNull();
+    expect(requestStageJustificationError("EXIGENCIA", "x".repeat(REQUEST_STAGE_JUSTIFICATION_MAX + 1))).toMatch(
+      /até 1000/,
+    );
+  });
+
+  it("nas outras, nunca há erro", () => {
+    expect(requestStageJustificationError("DEFERIMENTO", "")).toBeNull();
+    expect(requestStageJustificationError("CUMPRIMENTO_DE_EXIGENCIA", "")).toBeNull();
+  });
+
+  it("o PATCH leva a justificativa limpa, e só quando a etapa pede", () => {
+    expect(requestStagePatch("EXIGENCIA", "  CTPS original e PPP.  ")).toEqual({
+      requestStage: "EXIGENCIA",
+      requestStageJustification: "CTPS original e PPP.",
+    });
+    expect(requestStagePatch("DEFERIMENTO", "texto que ficou escondido")).toEqual({ requestStage: "DEFERIMENTO" });
+    expect(requestStagePatch("REQUERIMENTO")).toEqual({ requestStage: "REQUERIMENTO" });
   });
 });

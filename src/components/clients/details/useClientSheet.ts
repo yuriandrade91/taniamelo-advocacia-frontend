@@ -261,6 +261,23 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
     }
   };
 
+  /**
+   * A etapa no INSS mudou fora do "Salvar" (o painel do INSS grava na hora).
+   * A ficha guarda a nova também no que reenvia: o PUT é substituição total,
+   * e com a etapa antiga ele desfaria a mudança — e gravaria uma volta no
+   * histórico que ninguém fez.
+   */
+  const setRequestStage = useCallback((requestStage: KeptFields["requestStage"]) => {
+    setRecord(
+      (current) =>
+        current && {
+          ...current,
+          kept: { ...current.kept, requestStage },
+          client: current.client && { ...current.client, requestStage },
+        },
+    );
+  }, []);
+
   return {
     forms: { service, personal, professional, address, interview },
     record: loaded,
@@ -271,5 +288,6 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
     save,
     cancel,
     refreshFiles,
+    setRequestStage,
   };
 }

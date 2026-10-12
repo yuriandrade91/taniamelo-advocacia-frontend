@@ -1,13 +1,14 @@
 import type { UseClientFiltersResult } from "@/components/clients/list/useClientFilters";
 import { BenefitOptions } from "@/enums/benefit/Benefits";
 import { SituationOptions } from "@/enums/situation/Situation";
+import { RequestStageOptions } from "@/enums/requestStage/RequestStage";
 import type { FilterChip } from "@/components/ui/filters/filters";
 
 /**
  * Os filtros ativos da barra de Clientes como chips removíveis — função pura.
  *
  * A busca nunca vira chip: o texto já está no próprio campo. Tipo, isenção,
- * benefício, situação e período, sim, cada um com o seu "remover" — que tira só aquele
+ * benefício, situação, etapa no INSS e período, sim, cada um com o seu "remover" — que tira só aquele
  * valor, sem mexer nos outros.
  */
 
@@ -33,6 +34,7 @@ export const notBillableFromSegment = (id: string): boolean | null =>
 
 export const BENEFIT_FILTER_OPTIONS = BenefitOptions.map((o) => ({ id: o.value, label: o.label }));
 export const SITUATION_FILTER_OPTIONS = SituationOptions.map((o) => ({ id: o.value, label: o.label }));
+export const REQUEST_STAGE_FILTER_OPTIONS = RequestStageOptions.map((o) => ({ id: o.value, label: o.label }));
 
 
 type ChipSource = Pick<
@@ -41,11 +43,13 @@ type ChipSource = Pick<
   | "notBillable"
   | "benefitType"
   | "situation"
+  | "requestStage"
   | "dateRange"
   | "setClientType"
   | "setNotBillable"
   | "setBenefitType"
   | "setSituation"
+  | "setRequestStage"
   | "setDateRange"
 >;
 
@@ -89,6 +93,14 @@ export function buildFilterChips(state: ChipSource): FilterChip[] {
       key: `situacao:${id}`,
       label: labelOf(SITUATION_FILTER_OPTIONS, id),
       remove: () => state.setSituation(state.situation.filter((key) => key !== id)),
+    });
+  }
+
+  for (const id of state.requestStage) {
+    chips.push({
+      key: `inss:${id}`,
+      label: `INSS: ${labelOf(REQUEST_STAGE_FILTER_OPTIONS, id)}`,
+      remove: () => state.setRequestStage(state.requestStage.filter((key) => key !== id)),
     });
   }
 

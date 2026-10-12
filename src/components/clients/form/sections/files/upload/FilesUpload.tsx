@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import {
   DatePickerField,
@@ -12,7 +12,18 @@ import { TablePagination } from "@/components/ui/table/TablePagination";
 import { slicePage } from "@/lib/pagination";
 import { SegmentedTabs } from "@/components/ui/tabs/SegmentedTabs";
 import { FieldGrid } from "@/components/ui/form/FieldGrid";
+import { Pill } from "@/components/ui/feedback/Badges";
+import { Notice } from "@/components/ui/feedback/Notice";
+import type {
+  ClientFileDocumentResponse,
+  ClientFileSimulationResponse,
+} from "@/interfaces/client/ClientSubResources.interface";
+import { formatDateBR } from "@/lib/format";
+import { numberTextOf } from "@/lib/formValues";
+import { openBlob, saveBlob } from "@/lib/blobFile";
+import { downloadClientFile } from "@/services/clientFileService";
 import { FILE_KINDS, FILE_KIND_WORDS, FileKindLabel } from "../FileKindLabel";
+import { formatFileSize, groupByDocumentType } from "../fileGrouping";
 import {
   documentErrors,
   simulationErrors,
@@ -34,12 +45,14 @@ import {
   WrongSideHint,
   dropCopy,
   dropProps,
+  type FileLike,
 } from "./UploadParts";
-import { UploadIcon } from "@/components/ui/icons/actions";
+import { DetailsIcon, DownloadIcon, TrashIcon, UploadIcon } from "@/components/ui/icons/actions";
 import { Svg } from "@/components/ui/icons/Svg";
 
 /**
- * A aba Arquivos do cadastro: **tela inteira + colar**, com a zona viva.
+ * Os arquivos do cliente — a aba Arquivos do cadastro e a seção Arquivos da
+ * ficha, no mesmo desenho: **tela inteira + colar**, com a zona viva.
  *
  * - Arrastar um arquivo para qualquer ponto da tela cobre a página com
  *   "Solte para anexar como documento/simulação" (o lado aberto).
@@ -51,11 +64,36 @@ import { Svg } from "@/components/ui/icons/Svg";
  * backend, com metadados diferentes. Cada arquivo é um cartão com os campos
  * do sistema; todos obrigatórios (`documentErrors`/`simulationErrors`), menos
  * a simulação principal. 10 por página, e a paginação só aparece do 11º.
+ *
+ * Na ficha entram também os arquivos já gravados (`saved`), depois dos
+ * escolhidos agora, em cartões iguais com os campos travados: a API não altera
+ * o que foi enviado, só exclui. Lendo (`isReadOnly`), sai a zona e ninguém
+ * cola nem arrasta; os gravados continuam abrindo e baixando.
  */
 
 const PAGE_SIZE = 10;
 
 const TYPE_OPTIONS = DOC_TYPES.map((type) => ({ id: type.key, label: type.label }));
+
+const EMPTY: Record<FileKind, string> = {
+  documents: "Nenhum documento adicionado.",
+  simulations: "Nenhuma simulação adicionada.",
+};
+
+/** O que já está no servidor, na ficha. */
+export type SavedFiles = {
+  clientId: string;
+  documents: readonly ClientFileDocumentResponse[];
+  simulations: readonly ClientFileSimulationResponse[];
+  /** Sem ele, o gravado só abre e baixa. */
+  onDelete?: (fileId: string) => void;
+};
+
+type SavedFile = ClientFileDocumentResponse | ClientFileSimulationResponse;
+
+/** Uma linha da lista: o escolhido agora (editável) ou o gravado (travado). */
+type DocumentRow = { entry: DocEntry } | { saved: ClientFileDocumentResponse };
+type SimulationRow = { entry: SimulationEntry } | { saved: ClientFileSimulationResponse };
 
 const hasFiles = (event: DragEvent) =>
   Array.from(event.dataTransfer?.types ?? []).includes("Files");
@@ -94,10 +132,19 @@ const StarIcon = ({ isFilled }: { isFilled: boolean }) => (
 
 export function FilesUpload({
   showErrors,
+  saved,
+  isReadOnly = false,
+  documentsAside,
   ...props
 }: StagedFilesProps & {
   /** Mostra os campos que faltam — depois de tentar avançar ou salvar. */
   showErrors: boolean;
+  /** Os arquivos já gravados (a ficha). */
+  saved?: SavedFiles;
+  /** A ficha em leitura: sem zona, sem colar nem arrastar. */
+  isReadOnly?: boolean;
+  /** Abaixo da lista de documentos — o catálogo do INSS, na ficha. */
+  documentsAside?: ReactNode;
 }) {
   const docs = useDocuments(props);
   const sims = useSimulations(props);
@@ -120,6 +167,7 @@ export function FilesUpload({
   });
 
   useEffect(() => {
+    if (isReadOnly) return;
     // dragenter/leave disparam a cada elemento cruzado: um contador diz se o
     // arraste ainda está dentro da janela.
     let depth = 0;
@@ -165,7 +213,7 @@ export function FilesUpload({
       window.removeEventListener("drop", onDrop);
       window.removeEventListener("paste", onPaste);
     };
-  }, []);
+  }, [isReadOnly]);
 
   useEffect(() => {
     if (!lastPasted) return;
@@ -180,25 +228,42 @@ export function FilesUpload({
     (entry) => Object.keys(simulationErrors(entry.simulation)).length > 0,
   ).length;
 
+  // Os gravados na ordem do enum, como os blocos de antes: o usuário procura
+  // "Documentos médicos" no mesmo lugar toda vez.
+  const savedDocuments = useMemo(
+    () => groupByDocumentType(saved?.documents ?? []).flatMap((group) => group.items),
+    [saved?.documents],
+  );
+  const documentRows: DocumentRow[] = [
+    ...docs.entries.map((entry) => ({ entry })),
+    ...savedDocuments.map((file) => ({ saved: file })),
+  ];
+  const simulationRows: SimulationRow[] = [
+    ...sims.entries.map((entry) => ({ entry })),
+    ...(saved?.simulations ?? []).map((file) => ({ saved: file })),
+  ];
+
   const counts: Record<FileKind, { count: number; pending: number }> = {
-    documents: { count: docs.entries.length, pending: pendingDocs },
-    simulations: { count: sims.entries.length, pending: pendingSims },
+    documents: { count: documentRows.length, pending: pendingDocs },
+    simulations: { count: simulationRows.length, pending: pendingSims },
   };
 
   const words = FILE_KIND_WORDS[kind];
-  const total = kind === "documents" ? docs.entries.length : sims.entries.length;
+  const total = counts[kind].count;
   const isEmpty = total === 0;
   const copy = dropCopy(kind);
   const setPage = (next: number) => setPages((current) => ({ ...current, [kind]: next }));
 
-  const docPage = slicePage(docs.entries, pages.documents, PAGE_SIZE);
-  const simulationPage = slicePage(sims.entries, pages.simulations, PAGE_SIZE);
+  const docPage = slicePage(documentRows, pages.documents, PAGE_SIZE);
+  const simulationPage = slicePage(simulationRows, pages.simulations, PAGE_SIZE);
   const current = kind === "documents" ? docPage : simulationPage;
 
-  /** O corpo de uma aba: a zona viva, o aviso do colado, os cartões. */
-  const panel = (tab: FileKind) => (
+  const savedActions = (file: SavedFile) =>
+    saved && <SavedFileActions clientId={saved.clientId} file={file} onDelete={saved.onDelete} />;
+
+  /** A zona viva (soltar, clicar ou colar) e o aviso do colado — só editando. */
+  const dropZone = (
     <>
-      {/* A zona viva: soltar, clicar ou colar. */}
       <div
         {...dropProps(add, setIsOver)}
         role="button"
@@ -251,26 +316,45 @@ export function FilesUpload({
           {lastPasted} colado{lastPasted === 1 ? "" : "s"} da área de transferência
         </p>
       )}
+    </>
+  );
+
+  /** O corpo de uma aba: a zona viva, o aviso do colado, os cartões. */
+  const panel = (tab: FileKind) => (
+    <>
+      {isReadOnly ? isEmpty && <Notice>{EMPTY[tab]}</Notice> : dropZone}
 
       {!isEmpty && (
         <ul aria-label={FILE_KIND_WORDS[tab].label} className="flex flex-col gap-3">
           {tab === "documents"
-            ? (docPage.slice as DocEntry[]).map((entry) => (
-                <DocumentCard
-                  key={entry.id}
-                  entry={entry}
-                  showErrors={showErrors}
-                  docs={docs}
-                />
-              ))
-            : (simulationPage.slice as SimulationEntry[]).map((entry) => (
-                <SimulationCard
-                  key={entry.id}
-                  entry={entry}
-                  showErrors={showErrors}
-                  sims={sims}
-                />
-              ))}
+            ? docPage.slice.map((row) =>
+                "entry" in row ? (
+                  <DocumentCard
+                    key={row.entry.id}
+                    entry={row.entry}
+                    showErrors={showErrors}
+                    docs={docs}
+                  />
+                ) : (
+                  <SavedDocumentCard key={row.saved.id} file={row.saved}>
+                    {savedActions(row.saved)}
+                  </SavedDocumentCard>
+                ),
+              )
+            : simulationPage.slice.map((row) =>
+                "entry" in row ? (
+                  <SimulationCard
+                    key={row.entry.id}
+                    entry={row.entry}
+                    showErrors={showErrors}
+                    sims={sims}
+                  />
+                ) : (
+                  <SavedSimulationCard key={row.saved.id} file={row.saved}>
+                    {savedActions(row.saved)}
+                  </SavedSimulationCard>
+                ),
+              )}
         </ul>
       )}
 
@@ -284,6 +368,8 @@ export function FilesUpload({
           noun={[words.one, words.many]}
         />
       )}
+
+      {tab === "documents" && documentsAside && <div className="mt-4">{documentsAside}</div>}
     </>
   );
 
@@ -331,15 +417,17 @@ export function FilesUpload({
 /** Cabeçalho do cartão: miniatura, nome, tamanho e as ações do arquivo. */
 function CardHeader({
   file,
+  detail,
   children,
 }: {
-  file: File;
+  file: FileLike;
+  detail?: string;
   children: ReactNode;
 }) {
   return (
     <div className="flex items-center gap-3">
       <FileThumb file={file} className="h-11 w-11" />
-      <FileName file={file} />
+      <FileName file={file} detail={detail} />
       <div className="flex shrink-0 items-center gap-1">{children}</div>
     </div>
   );
@@ -466,5 +554,161 @@ function SimulationCard({
         />
       </FieldGrid>
     </li>
+  );
+}
+
+// ── Gravados (a ficha) ──
+
+const fileLikeOf = (file: SavedFile): FileLike => ({
+  name: file.originalFilename,
+  type: file.mimeType,
+  size: file.fileSizeBytes,
+});
+
+/** "120 KB · enviado em 03/10/2026" — o que houver. */
+const savedDetail = (file: SavedFile) =>
+  [
+    file.fileSizeBytes ? formatFileSize(file.fileSizeBytes) : null,
+    file.uploadedAt ? `enviado em ${formatDateBR(file.uploadedAt)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+/** A API devolve o rótulo do tipo; o select trabalha com a chave. */
+const typeKeyOf = (label?: string) => DOC_TYPES.find((type) => type.label === label)?.key ?? null;
+
+const ignore = () => {};
+
+/** Abrir, baixar e (editando) excluir — sempre pela API, com o token. */
+function SavedFileActions({
+  clientId,
+  file,
+  onDelete,
+}: {
+  clientId: string;
+  file: SavedFile;
+  onDelete?: (fileId: string) => void;
+}) {
+  const load = () => downloadClientFile(clientId, file.id);
+  // O erro da requisição já sai pela central; aqui só não deixa a promessa solta.
+  return (
+    <>
+      <IconButton
+        label="Visualizar"
+        tone="primary"
+        onClick={() => void openBlob(load, file.originalFilename).catch(ignore)}
+      >
+        <DetailsIcon />
+      </IconButton>
+      <IconButton
+        label="Baixar"
+        tone="secondary"
+        onClick={() => void saveBlob(load, file.originalFilename).catch(ignore)}
+      >
+        <DownloadIcon />
+      </IconButton>
+      {onDelete && (
+        <IconButton label="Excluir" tone="danger" onClick={() => onDelete(file.id)}>
+          <TrashIcon />
+        </IconButton>
+      )}
+    </>
+  );
+}
+
+/**
+ * O gravado no desenho do cartão de quem vai subir, com os campos travados —
+ * `data-readonly` os deixa legíveis mesmo com a ficha em edição.
+ */
+function SavedCard({
+  file,
+  badge,
+  actions,
+  children,
+}: {
+  file: SavedFile;
+  badge?: ReactNode;
+  actions: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <li className={CARD_CLASS}>
+      <CardHeader file={fileLikeOf(file)} detail={savedDetail(file)}>
+        {badge}
+        {actions}
+      </CardHeader>
+      <div data-readonly="">
+        <FieldGrid columns={4}>{children}</FieldGrid>
+      </div>
+    </li>
+  );
+}
+
+function SavedDocumentCard({
+  file,
+  children,
+}: {
+  file: ClientFileDocumentResponse;
+  children: ReactNode;
+}) {
+  return (
+    <SavedCard file={file} actions={children}>
+      <SelectField
+        className="sm:col-span-2"
+        label="Tipo do documento"
+        // Tipo fora do enum não some: aparece como veio.
+        placeholder={file.documentType ?? "—"}
+        options={TYPE_OPTIONS}
+        selectedKey={typeKeyOf(file.documentType)}
+        onSelectionChange={ignore}
+        isDisabled
+      />
+      <Field
+        className="sm:col-span-2"
+        label="Observações"
+        placeholder="—"
+        value={file.notes ?? ""}
+        onChange={ignore}
+        isReadOnly
+      />
+    </SavedCard>
+  );
+}
+
+function SavedSimulationCard({
+  file,
+  children,
+}: {
+  file: ClientFileSimulationResponse;
+  children: ReactNode;
+}) {
+  return (
+    <SavedCard
+      file={file}
+      badge={file.isPrincipal && <Pill tone="success">Principal</Pill>}
+      actions={children}
+    >
+      <DatePickerField
+        label="Data da simulação"
+        value={file.simulationDate ?? ""}
+        onChange={ignore}
+        isDisabled
+      />
+      <Field label="Versão" placeholder="—" value={file.version ?? ""} onChange={ignore} isReadOnly />
+      <Field
+        label="Vínculos"
+        placeholder="—"
+        value={numberTextOf(file.vinculos)}
+        onChange={ignore}
+        isReadOnly
+      />
+      <Field
+        label="Observações"
+        placeholder="—"
+        value={file.notes ?? ""}
+        onChange={ignore}
+        isReadOnly
+      />
+    </SavedCard>
   );
 }

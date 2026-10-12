@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  countLabel,
   formatFileSize,
   groupByDocumentType,
   UNCLASSIFIED_LABEL,
@@ -45,14 +44,6 @@ describe("groupByDocumentType", () => {
 
   it("lista vazia não vira grupo", () => {
     expect(groupByDocumentType([])).toEqual([]);
-  });
-});
-
-describe("countLabel", () => {
-  it("concorda em número", () => {
-    expect(countLabel(1)).toBe("1 documento registrado");
-    expect(countLabel(2)).toBe("2 documentos registrados");
-    expect(countLabel(0)).toBe("0 documentos registrados");
   });
 });
 

@@ -1,8 +1,8 @@
 import { DOCUMENT_TYPE_ENTRIES } from "@/enums/documentType/DocumentType";
 
 /**
- * Agrupamento dos documentos por tipo, para os blocos recolhíveis da aba
- * "Documentos".
+ * Agrupamento dos documentos por tipo — a ordem em que os gravados aparecem
+ * na aba "Documentos" da ficha.
  *
  * **A ordem dos grupos é a do enum, não a de chegada.** O usuário procura
  * "Documentos médicos" no mesmo lugar toda vez; ordenar por inserção faria a
@@ -60,10 +60,6 @@ export function groupByDocumentType<T extends GroupableFile>(
   }
   return ordered;
 }
-
-/** "2 documentos registrados" / "1 documento registrado". */
-export const countLabel = (count: number): string =>
-  count === 1 ? "1 documento registrado" : `${count} documentos registrados`;
 
 /** Tamanho legível — a lista mostra o peso de cada arquivo. */
 export const formatFileSize = (bytes?: number): string => {

@@ -15,6 +15,8 @@ export type ClientFiltersState = {
   search: string;
   benefitType: string[];
   situation: string[];
+  /** Etapas no INSS — chaves do enum `RequestStage`. Sem requerimento não entra em nenhuma. */
+  requestStage: string[];
   /** Verificado / Potencial — chaves do enum `ClientType`. */
   clientType: string[];
   /** Isento do serviço (`notBillable`): `true`, `false`, ou `null` para todos. */
@@ -26,6 +28,7 @@ export const EMPTY_CLIENT_FILTERS: ClientFiltersState = {
   search: "",
   benefitType: [],
   situation: [],
+  requestStage: [],
   clientType: [],
   notBillable: null,
   dateRange: null,
@@ -72,6 +75,9 @@ export function toClientListParams(
   const situation = state.situation.filter(Boolean);
   if (situation.length > 0) params.situation = situation;
 
+  const requestStage = state.requestStage.filter(Boolean);
+  if (requestStage.length > 0) params.requestStage = requestStage;
+
   const clientType = state.clientType.filter(Boolean);
   if (clientType.length > 0) params.clientType = clientType;
 
@@ -91,6 +97,7 @@ export const hasActiveClientFilters = (state: ClientFiltersState): boolean =>
   state.search !== "" ||
   state.benefitType.length > 0 ||
   state.situation.length > 0 ||
+  state.requestStage.length > 0 ||
   state.clientType.length > 0 ||
   state.notBillable !== null ||
   state.dateRange !== null;

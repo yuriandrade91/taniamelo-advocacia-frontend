@@ -4,6 +4,8 @@ import {
   getRequestStageKeyByLabel,
   type RequestStageKey,
 } from "@/enums/requestStage/RequestStage";
+import type { ClientPatchRequest } from "@/interfaces/client/Client.interface";
+import { validateJustification } from "@/lib/validators";
 
 /**
  * A esteira do INSS — a etapa do requerimento (`requestStage`), paralela à
@@ -44,13 +46,14 @@ const ORDER: Record<RequestStageKey, number> = {
   RECURSO: 5,
 };
 
-export const REQUEST_STAGES: readonly RequestStage[] = REQUEST_STAGE_ENTRIES.map(([key, label], index) => ({
-  key,
-  label,
-  short: SHORT_LABEL[key],
-  step: index + 1,
-  order: ORDER[key],
-}));
+export const REQUEST_STAGES: readonly RequestStage[] =
+  REQUEST_STAGE_ENTRIES.map(([key, label], index) => ({
+    key,
+    label,
+    short: SHORT_LABEL[key],
+    step: index + 1,
+    order: ORDER[key],
+  }));
 
 /** Quantos pontos tem o trilho: os dois desfechos dividem o quarto. */
 export const REQUEST_STAGE_TRACK = 5;
@@ -72,9 +75,15 @@ export const REQUEST_STAGE_TONE: Record<RequestStageKey, RequestStageTone> = {
 };
 
 /** A API devolve o rótulo; aceita também a chave, por tolerância. */
-export const requestStageKeyOf = (value?: string | null): RequestStageKey | null => {
+export const requestStageKeyOf = (
+  value?: string | null,
+): RequestStageKey | null => {
   if (!value) return null;
-  return getRequestStageKeyByLabel(value) ?? REQUEST_STAGES.find((stage) => stage.key === value)?.key ?? null;
+  return (
+    getRequestStageKeyByLabel(value) ??
+    REQUEST_STAGES.find((stage) => stage.key === value)?.key ??
+    null
+  );
 };
 
 /** A etapa da linha, ou `null` — o cliente ainda não foi ao INSS. */
@@ -97,11 +106,76 @@ export function requestStageTrack(stage: RequestStage | null): TrackSegment[] {
     if (!stage) return "upcoming";
     if (stage.key === "DEFERIMENTO") return "done";
     if (point === stage.order) return REQUEST_STAGE_TONE[stage.key];
-    if (stage.key === "RECURSO" && point === ORDER.INDEFERIMENTO) return "denied";
+    if (stage.key === "RECURSO" && point === ORDER.INDEFERIMENTO)
+      return "denied";
     return point < stage.order ? "done" : "upcoming";
   });
 }
 
 /** O aviso da mudança de etapa no INSS. */
-export const requestStageChangedMessage = (clientName: string, stage: RequestStageKey) =>
+export const requestStageChangedMessage = (
+  clientName: string,
+  stage: RequestStageKey,
+) =>
   `Situação no INSS de ${clientName} atualizada para "${RequestStageLabelByKey[stage]}".`;
+
+// ── Justificativa ──
+
+/**
+ * As etapas que pedem justificativa — o espelho de
+ * `RequestStage.exigeJustificativa()` no backend. São as que existem por causa
+ * de um motivo: a exigência (o que o INSS pediu), o indeferimento (por que
+ * negou) e o recurso (contra o quê se recorre). Sem o motivo, o PATCH volta
+ * 400.
+ */
+const NEEDS_JUSTIFICATION: ReadonlySet<RequestStageKey> =
+  new Set<RequestStageKey>(["EXIGENCIA", "INDEFERIMENTO", "RECURSO"]);
+
+export const requiresJustification = (key: RequestStageKey): boolean =>
+  NEEDS_JUSTIFICATION.has(key);
+
+/** O teto do backend (`@Size(max = 1000)`). */
+export const REQUEST_STAGE_JUSTIFICATION_MAX = 1000;
+
+/** O exemplo do campo, por etapa: diz que tipo de texto se espera ali. */
+export const JUSTIFICATION_PLACEHOLDER: Partial<
+  Record<RequestStageKey, string>
+> = {
+  EXIGENCIA: "O que o INSS pediu? Ex.: CTPS original e PPP da última empresa.",
+  INDEFERIMENTO:
+    "Por que o INSS negou? Ex.: falta de carência, 152 das 180 contribuições.",
+  RECURSO:
+    "Contra o quê se recorre? Ex.: período rural de 1988 a 1992 não reconhecido.",
+};
+
+/**
+ * O erro da justificativa para mover para `stage`, ou `null`. Etapa que não
+ * pede justificativa nunca tem erro. O texto segue a regra de toda
+ * justificativa da casa (`validateJustification`: obrigatória, com um mínimo)
+ * e o teto do backend.
+ */
+export function requestStageJustificationError(
+  stage: RequestStageKey,
+  text: string,
+): string | null {
+  if (!requiresJustification(stage)) return null;
+  const error = validateJustification(text);
+  if (error) return error;
+  return text.trim().length > REQUEST_STAGE_JUSTIFICATION_MAX
+    ? `Use até ${REQUEST_STAGE_JUSTIFICATION_MAX} caracteres.`
+    : null;
+}
+
+/**
+ * O corpo do PATCH que muda a etapa. A justificativa vai, sem os espaços das
+ * pontas, só para as etapas que a pedem — nas outras o campo nem aparece.
+ */
+export function requestStagePatch(
+  stage: RequestStageKey,
+  justification = "",
+): Pick<ClientPatchRequest, "requestStage" | "requestStageJustification"> {
+  const text = justification.trim();
+  return requiresJustification(stage) && text
+    ? { requestStage: stage, requestStageJustification: text }
+    : { requestStage: stage };
+}

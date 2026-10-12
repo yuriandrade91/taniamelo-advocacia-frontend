@@ -33,6 +33,7 @@ export type UseClientFiltersResult = ClientFiltersState & {
   setSearch: (value: string) => void;
   setBenefitType: (keys: string[]) => void;
   setSituation: (keys: string[]) => void;
+  setRequestStage: (keys: string[]) => void;
   setClientType: (keys: string[]) => void;
   setNotBillable: (value: boolean | null) => void;
   setDateRange: (range: DateRange) => void;
@@ -79,6 +80,10 @@ export function useClientFilters(): UseClientFiltersResult {
     (situation: string[]) => patch({ situation }),
     [patch],
   );
+  const setRequestStage = useCallback(
+    (requestStage: string[]) => patch({ requestStage }),
+    [patch],
+  );
   const setClientType = useCallback(
     (clientType: string[]) => patch({ clientType }),
     [patch],
@@ -94,14 +99,14 @@ export function useClientFilters(): UseClientFiltersResult {
 
   const clear = useCallback(() => setState(EMPTY_CLIENT_FILTERS), []);
 
-  const { benefitType, situation, clientType, notBillable, dateRange } = state;
+  const { benefitType, situation, requestStage, clientType, notBillable, dateRange } = state;
   const params = useMemo(
     () =>
       toClientListParams(
-        { benefitType, situation, clientType, notBillable, dateRange },
+        { benefitType, situation, requestStage, clientType, notBillable, dateRange },
         debouncedSearch,
       ),
-    [benefitType, situation, clientType, notBillable, dateRange, debouncedSearch],
+    [benefitType, situation, requestStage, clientType, notBillable, dateRange, debouncedSearch],
   );
 
   return {
@@ -111,6 +116,7 @@ export function useClientFilters(): UseClientFiltersResult {
     setSearch,
     setBenefitType,
     setSituation,
+    setRequestStage,
     setClientType,
     setNotBillable,
     setDateRange,

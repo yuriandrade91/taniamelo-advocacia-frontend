@@ -84,8 +84,11 @@ export type ClientsListProps = {
      * confirma; rejeita em erro (o toast já sai do interceptor).
      */
     onChangeSituation: (client: ClientListItem, situationKey: SituationKey) => Promise<void>;
-    /** Muda a situação no INSS (PATCH `requestStage`). Mesmo contrato de `onChangeSituation`. */
-    onChangeRequestStage: (client: ClientListItem, stageKey: RequestStageKey) => Promise<void>;
+    /**
+     * Muda a situação no INSS (PATCH `requestStage`, com a justificativa
+     * quando a etapa pede). Mesmo contrato de `onChangeSituation`.
+     */
+    onChangeRequestStage: (client: ClientListItem, stageKey: RequestStageKey, justification: string) => Promise<void>;
     /**
      * Abre o financeiro do cliente (benefício e honorários). Só vem para
      * quem pode ver o financeiro (`canSeeFinance`); sem ela, sem ícone.
@@ -160,7 +163,7 @@ function columnsOf(actions: Actions, canDelete: boolean): ListColumn<ClientListI
           clientId={client.id ? String(client.id) : undefined}
           clientName={client.fullName || "Cliente"}
           requestStage={client.requestStage}
-          onConfirm={(stage) => actions.onChangeRequestStage(client, stage.key)}
+          onConfirm={(stage, justification) => actions.onChangeRequestStage(client, stage.key, justification)}
         />
       ),
     },

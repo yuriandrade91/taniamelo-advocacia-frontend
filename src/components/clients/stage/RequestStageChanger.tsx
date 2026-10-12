@@ -1,38 +1,49 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Popover, Skeleton } from "@heroui/react";
 import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import { Pill } from "@/components/ui/feedback/Badges";
+import { TextAreaField } from "@/components/ui/form/Field";
 import { useHoverCard } from "@/hooks/useHoverCard";
 import { formatInstantDateBR } from "@/lib/format";
 import { trailReachedAt } from "./stageMoves";
 import { useRequestStageTrail } from "./stageTrails";
 import {
+  JUSTIFICATION_PLACEHOLDER,
   REQUEST_STAGES,
+  REQUEST_STAGE_JUSTIFICATION_MAX,
   REQUEST_STAGE_TONE,
+  requestStageJustificationError,
   requestStageOf,
   requestStageTrack,
+  requiresJustification,
   type RequestStage,
   type RequestStageTone,
   type TrackSegment,
 } from "./requestStages";
 
 /**
- * Mudar a situação no INSS direto na lista — o par do `StageChanger`, no
- * mesmo cartão: clicar (ou passar o mouse) abre as seis etapas em pé;
- * escolher só **marca**, e gravar é o botão "Mover para…".
+ * Mudar a situação no INSS — na lista e na ficha, o mesmo cartão: clicar (ou
+ * passar o mouse) abre as seis etapas em pé; escolher só **marca**, e gravar
+ * é o botão "Mover para…".
  *
  * Mais simples que o da situação do benefício, de propósito: a esteira do
- * INSS não é funil (`requestStages.ts`), então não há "pular" nem "voltar" a
- * confirmar com justificativa — ir de recurso para exigência é o INSS sendo o
- * INSS. Também não há como voltar a "sem requerimento": no PATCH, nulo quer
- * dizer "não mexer".
+ * INSS não é funil (`requestStages.ts`), então não há "pular" nem "voltar" —
+ * ir de recurso para exigência é o INSS sendo o INSS. Também não há como
+ * voltar a "sem requerimento": no PATCH, nulo quer dizer "não mexer".
+ *
+ * **Justificativa.** Exigência, indeferimento e recurso existem por causa de
+ * um motivo — o que o INSS pediu, por que negou, contra o quê se recorre —, e
+ * o backend recusa a mudança sem ele. Escolher uma dessas abre o campo no
+ * próprio cartão, e "Mover para…" só libera com ele preenchido. O texto vai
+ * para o histórico do INSS, que a ficha mostra.
  *
  * Cada etapa por onde o requerimento passou mostra a **data** da última vez
  * que ele entrou nela, lida da trilha do INSS (buscada só ao abrir o cartão).
  *
- * `onConfirm` faz o PATCH; se falhar, o cartão fica aberto para tentar de novo.
+ * `onConfirm` faz o PATCH; se falhar, o cartão fica aberto — com o texto
+ * digitado — para tentar de novo.
  */
 
 /** Nó da etapa no cartão, na cor dela; a escolhida em azul-marinho. */
@@ -71,33 +82,60 @@ const SEGMENT: Record<TrackSegment, string> = {
 
 const NO_STAGE = "Sem requerimento";
 
+const METER_TRIGGER =
+  "block w-full cursor-pointer rounded-xl text-left transition outline-none hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-secondary/60";
+
 export function RequestStageChanger({
   clientId,
   clientName,
   requestStage,
   onConfirm,
+  trigger,
+  triggerClassName,
 }: {
   /** Para buscar a trilha (as datas). Sem id, o cartão só não as mostra. */
   clientId?: string;
   clientName: string;
   /** Rótulo como a API devolve; nulo = ainda não foi ao INSS. */
   requestStage?: string | null;
-  onConfirm: (stage: RequestStage) => Promise<void>;
+  /**
+   * Grava a etapa. `justification` vem sem os espaços das pontas, e vazia
+   * quando a etapa não pede.
+   */
+  onConfirm: (stage: RequestStage, justification: string) => Promise<void>;
+  /** O que abre o cartão. Sem ele, o medidor da lista (selo + trilho). */
+  trigger?: ReactNode;
+  triggerClassName?: string;
 }) {
   const current = requestStageOf(requestStage);
   const [picked, setPicked] = useState<RequestStage | null>(null);
+  const [justification, setJustification] = useState("");
+  const [touched, setTouched] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const card = useHoverCard({ keepOpen: picked !== null, onClose: () => setPicked(null) });
+  const card = useHoverCard({
+    keepOpen: picked !== null,
+    onClose: () => {
+      setPicked(null);
+      setJustification("");
+      setTouched(false);
+    },
+  });
   const changed = picked !== null && picked.key !== current?.key;
+  const asksJustification = changed && requiresJustification(picked.key);
+  const justificationError = changed ? requestStageJustificationError(picked.key, justification) : null;
   const trail = useRequestStageTrail(clientId, card.isOpen);
   const reachedAt = trailReachedAt(trail ?? [], (entry) => requestStageOf(entry.currentStage)?.key);
 
   const confirm = async () => {
     if (!picked || !changed) return;
+    if (justificationError) {
+      setTouched(true);
+      return;
+    }
     setIsSaving(true);
     try {
-      await onConfirm(picked);
+      await onConfirm(picked, asksJustification ? justification.trim() : "");
       card.close();
     } catch {
       // O interceptor já mostrou o erro; o cartão fica para tentar de novo.
@@ -111,9 +149,9 @@ export function RequestStageChanger({
       <Popover.Trigger
         {...card.triggerProps}
         aria-label={`Mudar a situação no INSS de ${clientName}`}
-        className="block w-full cursor-pointer rounded-xl text-left transition outline-none hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-secondary/60"
+        className={triggerClassName ?? METER_TRIGGER}
       >
-        <RequestStageMeter stage={current} />
+        {trigger ?? <RequestStageMeter stage={current} />}
       </Popover.Trigger>
 
       <Popover.Content {...card.contentProps} placement="bottom" className="w-80">
@@ -175,11 +213,35 @@ export function RequestStageChanger({
             })}
           </ol>
 
+          {asksJustification && (
+            <div className="mt-3">
+              <TextAreaField
+                label="Justificativa"
+                isRequired
+                rows={3}
+                placeholder={JUSTIFICATION_PLACEHOLDER[picked.key]}
+                value={justification}
+                maxLength={REQUEST_STAGE_JUSTIFICATION_MAX}
+                onChange={setJustification}
+                onBlur={() => setTouched(true)}
+                isDisabled={isSaving}
+                isInvalid={touched && !!justificationError}
+                errorMessage={touched ? (justificationError ?? undefined) : undefined}
+              />
+            </div>
+          )}
+
           <ActionGroup shape="pill" className="mt-3">
             <ActionButton shape="pill" tone="neutral" disabled={isSaving} onClick={card.close}>
               Cancelar
             </ActionButton>
-            <ActionButton shape="pill" tone="primary" grow disabled={!changed || isSaving} onClick={() => void confirm()}>
+            <ActionButton
+              shape="pill"
+              tone="primary"
+              grow
+              disabled={!changed || isSaving || !!justificationError}
+              onClick={() => void confirm()}
+            >
               {isSaving ? "Salvando…" : changed && picked ? `Mover para ${picked.short}` : "Escolha uma etapa"}
             </ActionButton>
           </ActionGroup>

@@ -53,6 +53,7 @@ describe("toClientListParams", () => {
           ...EMPTY_WITHOUT_SEARCH,
           benefitType: ["APOSENTADORIA_POR_IDADE", ""],
           situation: ["ANALISE_DOCUMENTAL"],
+          requestStage: ["EXIGENCIA", ""],
           clientType: ["POTENCIAL"],
         },
         "",
@@ -60,6 +61,7 @@ describe("toClientListParams", () => {
     ).toEqual({
       benefitType: ["APOSENTADORIA_POR_IDADE"],
       situation: ["ANALISE_DOCUMENTAL"],
+      requestStage: ["EXIGENCIA"],
       clientType: ["POTENCIAL"],
     });
   });
@@ -96,6 +98,7 @@ describe("hasActiveClientFilters", () => {
 
   it("qualquer filtro — inclusive a busca ainda sem debounce — conta", () => {
     expect(hasActiveClientFilters({ ...EMPTY_CLIENT_FILTERS, search: "a" })).toBe(true);
+    expect(hasActiveClientFilters({ ...EMPTY_CLIENT_FILTERS, requestStage: ["RECURSO"] })).toBe(true);
     expect(hasActiveClientFilters({ ...EMPTY_CLIENT_FILTERS, situation: ["X"] })).toBe(true);
     expect(hasActiveClientFilters({ ...EMPTY_CLIENT_FILTERS, notBillable: false })).toBe(true);
     expect(

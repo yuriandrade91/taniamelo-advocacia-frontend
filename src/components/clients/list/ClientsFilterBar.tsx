@@ -14,6 +14,7 @@ import {
   BENEFIT_FILTER_OPTIONS,
   CLIENT_TYPE_SEGMENTS,
   NOT_BILLABLE_SEGMENTS,
+  REQUEST_STAGE_FILTER_OPTIONS,
   SITUATION_FILTER_OPTIONS,
   buildFilterChips,
   notBillableFromSegment,
@@ -23,7 +24,7 @@ import {
 
 /**
  * A barra de Clientes: busca, Tipo e isenção em cima; benefício,
- * situação, período e "Limpar" embaixo; chips dos filtros ativos. Só desenha:
+ * situação, etapa no INSS, período e "Limpar" embaixo; chips dos filtros ativos. Só desenha:
  * estado, regras e requisições ficam em `useClientFilters`.
  */
 export function ClientsFilterBar({
@@ -77,6 +78,15 @@ export function ClientsFilterBar({
           options={SITUATION_FILTER_OPTIONS}
           selectedKeys={state.situation}
           onSelectionChange={state.setSituation}
+        />
+        <MultiSelectField
+          label="Situação no INSS"
+          placeholder="Todas"
+          hideLabel
+          className={`min-w-48 flex-1 ${FIELD_SURFACE}`}
+          options={REQUEST_STAGE_FILTER_OPTIONS}
+          selectedKeys={state.requestStage}
+          onSelectionChange={state.setRequestStage}
         />
         {dateRangeField && <div className={`min-w-60 shrink-0 ${FIELD_SURFACE}`}>{dateRangeField}</div>}
         <ClearFilters isVisible={state.hasActiveFilters} onClear={state.clear} />

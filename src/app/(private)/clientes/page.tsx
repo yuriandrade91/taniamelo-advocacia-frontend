@@ -13,7 +13,7 @@ import { ClientsList } from "@/components/clients/list/ClientsList";
 import { useClientFilters } from "@/components/clients/list/useClientFilters";
 import { invalidateRequestStageTrail, invalidateSituationTrail } from "@/components/clients/stage/stageTrails";
 import { situationChangedMessage } from "@/components/clients/stage/stages";
-import { requestStageChangedMessage } from "@/components/clients/stage/requestStages";
+import { changeRequestStage } from "@/components/clients/stage/requestStageChange";
 import { SituationLabelByKey, type SituationKey } from "@/enums/situation/Situation";
 import { RequestStageLabelByKey, type RequestStageKey } from "@/enums/requestStage/RequestStage";
 import type { ClientListItem } from "@/interfaces/client/Client.interface";
@@ -155,16 +155,18 @@ function ClientsPageContent() {
     invalidate();
   };
 
-  /** Muda a situação no INSS na linha (PATCH `requestStage`). Mesmo contrato do `changeSituation`. */
-  const changeRequestStage = async (client: ClientListItem, requestStage: RequestStageKey) => {
+  /**
+   * Muda a situação no INSS na linha (PATCH `requestStage`, com a
+   * justificativa quando a etapa pede). Mesmo contrato do `changeSituation`.
+   */
+  const changeStageInInss = async (client: ClientListItem, requestStage: RequestStageKey, justification: string) => {
     if (!client.id) return;
     const id = String(client.id);
-    await patchClient(id, { requestStage }, { successMessage: requestStageChangedMessage(client.fullName, requestStage) });
+    await changeRequestStage(id, client.fullName, requestStage, justification);
     setSituationOverrides((current) => ({
       ...current,
       [id]: { ...current[id], requestStage: RequestStageLabelByKey[requestStage], updatedAt: new Date().toISOString() },
     }));
-    invalidateRequestStageTrail(id);
     invalidate();
   };
 
@@ -213,7 +215,7 @@ function ClientsPageContent() {
             if (client.id) setDeleteTarget({ id: String(client.id), name: client.fullName });
           },
           onChangeSituation: changeSituation,
-          onChangeRequestStage: changeRequestStage,
+          onChangeRequestStage: changeStageInInss,
           onViewFinance: canSeeFinance
             ? (client) => {
                 if (client.id) setFinanceTarget({ id: String(client.id), name: client.fullName });

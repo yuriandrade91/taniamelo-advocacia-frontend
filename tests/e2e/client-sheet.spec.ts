@@ -199,13 +199,13 @@ test("a seção Pagamentos só busca o financeiro do cliente quando é aberta", 
 test("abrir e baixar um arquivo passam pela API, com o token", async ({ page }) => {
   const sheet = await viewSheet(page);
   await sheet.getByRole("navigation", { name: "Seções da ficha" }).getByRole("button", { name: "Arquivos" }).click();
-  const row = sheet.getByRole("row").filter({ hasText: FILENAME });
+  const card = sheet.getByRole("listitem").filter({ hasText: FILENAME });
   const fileRequest = () =>
     page.waitForResponse((r) => r.url().endsWith("/download") && r.request().method() === "GET");
 
   const fetched = fileRequest();
   const download = page.waitForEvent("download");
-  await row.getByRole("button", { name: "Baixar" }).click();
+  await card.getByRole("button", { name: "Baixar" }).click();
   const response = await fetched;
   expect(response.status()).toBe(200);
   expect(await response.request().headerValue("authorization")).toMatch(/^Bearer /);
@@ -216,7 +216,7 @@ test("abrir e baixar um arquivo passam pela API, com o token", async ({ page }) 
   // o Chromium sem janela não tem visualizador e baixa.
   const opened = fileRequest();
   const popup = page.waitForEvent("popup");
-  await row.getByRole("button", { name: "Visualizar" }).click();
+  await card.getByRole("button", { name: "Visualizar" }).click();
   expect((await opened).status()).toBe(200);
   await popup;
 });

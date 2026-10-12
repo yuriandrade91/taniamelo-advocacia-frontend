@@ -14,11 +14,13 @@ function state(overrides: Partial<Parameters<typeof buildFilterChips>[0]> = {}) 
     notBillable: null as boolean | null,
     benefitType: [] as string[],
     situation: [] as string[],
+    requestStage: [] as string[],
     dateRange: null,
     setClientType: vi.fn(),
     setNotBillable: vi.fn(),
     setBenefitType: vi.fn(),
     setSituation: vi.fn(),
+    setRequestStage: vi.fn(),
     setDateRange: vi.fn(),
     ...overrides,
   };
@@ -97,5 +99,15 @@ describe("buildFilterChips", () => {
       state({ dateRange: { start: new CalendarDate(2026, 9, 1) } as never }),
     );
     expect(chips).toEqual([]);
+  });
+});
+
+describe("chips da etapa no INSS", () => {
+  it("um chip por etapa, com o prefixo que separa da situação do escritório", () => {
+    const s = state({ requestStage: ["EXIGENCIA", "RECURSO"] });
+    const chips = buildFilterChips(s);
+    expect(chips.map((chip) => chip.label)).toEqual(["INSS: Exigência", "INSS: Recurso"]);
+    chips[0].remove();
+    expect(s.setRequestStage).toHaveBeenCalledWith(["RECURSO"]);
   });
 });

@@ -18,7 +18,7 @@ import { deleteFile } from "@/services/clientFileService";
 import { plural } from "@/lib/format";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
 import { InssPasswordField } from "../inss/InssPasswordField";
-import { ClientInssPanel, type ClientInssPanelHandle } from "../inss/ClientInssPanel";
+import { ClientInssPanel } from "../inss/ClientInssPanel";
 import {
   ClientDisabilityPanel,
   type ClientDisabilityPanelHandle,
@@ -39,7 +39,7 @@ import { PersonalDataSection } from "../form/sections/PersonalDataSection";
 import { ProfessionalDataSection } from "../form/sections/ProfessionalDataSection";
 import { ServiceSection } from "../form/sections/ServiceSection";
 import { SituationHistorySection } from "../form/sections/SituationHistorySection";
-import { FilesSection } from "../form/sections/files/FilesSection";
+import { DocumentCatalogPanel } from "../form/sections/files/DocumentCatalogPanel";
 import { FilesUpload } from "../form/sections/files/upload/FilesUpload";
 import { uploadStagedFiles } from "../form/sections/files/uploadStaged";
 import {
@@ -146,8 +146,6 @@ export default function ClientDetailsModal({
   const [fileRemoval, setFileRemoval] = useState<string | null>(null);
   const disabilityRef = useRef<ClientDisabilityPanelHandle>(null);
   const [disabilityCount, setDisabilityCount] = useState(0);
-  const inssRef = useRef<ClientInssPanelHandle>(null);
-  const [inssStatus, setInssStatus] = useState<string | undefined>();
   const sections = { service: service.values, personal: personal.values, professional: professional.values };
   const progress = sheetProgress(sections);
   const benefitLabel = formatValue(serviceSchema.benefit, service.values.benefit);
@@ -188,13 +186,9 @@ export default function ClientDetailsModal({
     const saved = await sheet.save({
       // Todos validam (e revelam os erros) antes de decidir: `&&` pararia no primeiro.
       validateExtra: () =>
-        [disabilityRef.current?.validate() ?? true, inssRef.current?.validate() ?? true, filesComplete()].every(
-          Boolean,
-        ),
+        [disabilityRef.current?.validate() ?? true, filesComplete()].every(Boolean),
       afterSave: async () => {
-        const wroteDisability = (await disabilityRef.current?.save()) ?? false;
-        const wroteInss = (await inssRef.current?.save()) ?? false;
-        const wroteRecords = wroteDisability || wroteInss;
+        const wroteRecords = (await disabilityRef.current?.save()) ?? false;
         if (stagedDocuments.length === 0 && stagedSimulations.length === 0) return wroteRecords;
         const sent = await uploadStagedFiles(clientId, stagedDocuments, stagedSimulations, { silent: true });
         if (sent.documents) setStagedDocuments([]);
@@ -331,25 +325,23 @@ export default function ClientDetailsModal({
       content: sheet.isLoading ? (
         <RowSkeletons count={2} />
       ) : (
-        <div className="flex flex-col gap-6">
-          {/* Lendo, só abrir e baixar; editando, excluir o gravado e
-              escolher novos — no mesmo desenho do cadastro. */}
-          <FilesSection
-            clientId={clientId}
-            documents={record?.documents ?? []}
-            simulations={record?.simulations ?? []}
-            onDelete={isEditing ? setFileRemoval : undefined}
-          />
-          {isEditing && (
-            <FilesUpload
-              documents={stagedDocuments}
-              simulations={stagedSimulations}
-              onDocumentsChange={setStagedDocuments}
-              onSimulationsChange={setStagedSimulations}
-              showErrors={filesRevealed}
-            />
-          )}
-        </div>
+        // O componente do cadastro: lendo, só abrir e baixar o gravado;
+        // editando, excluí-lo e escolher novos, que sobem no "Salvar".
+        <FilesUpload
+          documents={stagedDocuments}
+          simulations={stagedSimulations}
+          onDocumentsChange={setStagedDocuments}
+          onSimulationsChange={setStagedSimulations}
+          showErrors={filesRevealed}
+          isReadOnly={!isEditing}
+          saved={{
+            clientId,
+            documents: record?.documents ?? [],
+            simulations: record?.simulations ?? [],
+            onDelete: isEditing ? setFileRemoval : undefined,
+          }}
+          documentsAside={<DocumentCatalogPanel />}
+        />
       ),
     },
     // Dinheiro é de quem vê o financeiro (D3): para os demais a seção nem existe.
@@ -384,17 +376,21 @@ export default function ClientDetailsModal({
     {
       id: "andamento-inss",
       title: "Andamento no INSS",
-      description: "Requerimento, exigências, decisão e recurso — do evento mais recente para o mais antigo.",
+      description: "A etapa do requerimento e cada mudança, com a data, quem mudou e a justificativa.",
       icon: <GavelIcon className="h-5 w-5" />,
-      badge: inssStatus,
-      content: (
+      badge: record?.client?.requestStage ?? undefined,
+      content: sheet.isLoading ? (
+        <RowSkeletons count={3} />
+      ) : (
         <ClientInssPanel
-          ref={isEditing ? inssRef : undefined}
           clientId={clientId}
-          isEditing={isEditing}
-          canDeleteSaved={canDestroy}
+          clientName={record?.client?.fullName || clientName}
+          requestStage={record?.client?.requestStage}
           authors={authors}
-          onStatusChange={setInssStatus}
+          onChanged={(requestStage) => {
+            sheet.setRequestStage(requestStage);
+            onConfirm?.();
+          }}
         />
       ),
     },

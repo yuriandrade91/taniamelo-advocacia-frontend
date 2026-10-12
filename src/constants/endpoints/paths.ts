@@ -40,7 +40,6 @@ const clientResource = (name: string) => {
 
 const addresses = clientResource("addresses");
 const disabilityPeriods = clientResource("disability-periods");
-const inssSteps = clientResource("inss-steps");
 const interviews = clientResource("interviews");
 const clientPayments = clientResource("payments");
 const files = clientResource("files");
@@ -177,22 +176,6 @@ const endpoints = {
       `${disabilityPeriods.base(clientId)}/conversion`,
     UPDATE: disabilityPeriods.byId,
     DELETE: disabilityPeriods.byId,
-  },
-
-  /**
-   * /api/v1/clients/{clientId}/inss-steps — o andamento do processo no INSS
-   * (requerimento, exigência, decisão, recurso). **Contrato proposto**: o
-   * backend ainda não tem a rota; o grupo `inss-steps` fica em
-   * `NEXT_PUBLIC_PENDING_INTEGRATIONS` até ela subir.
-   *
-   * GET devolve todos os eventos, sem paginação: o processo de um cliente
-   * cabe numa tela, e a esteira precisa de todos para dizer onde ele está.
-   */
-  CLIENT_INSS_STEPS: {
-    LIST: inssSteps.base,
-    CREATE: inssSteps.base,
-    UPDATE: inssSteps.byId,
-    DELETE: inssSteps.byId,
   },
 
   /** /api/v1/clients/{clientId}/interviews */
