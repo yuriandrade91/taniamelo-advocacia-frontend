@@ -14,6 +14,12 @@ test.describe("guarda de rota", () => {
   // Sem storageState: este bloco precisa de um navegador anônimo.
   test.use({ storageState: { cookies: [], origins: [] } });
 
+  test("a raiz abre o site institucional sem sessão", async ({ page }) => {
+    await page.goto("/");
+    await expect(page).toHaveURL(/\/site$/);
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Tânia");
+  });
+
   for (const route of [
     "/home",
     "/clientes",
