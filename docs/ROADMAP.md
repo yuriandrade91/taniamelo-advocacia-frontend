@@ -60,10 +60,9 @@ decisão do escritório.
 
 ### Ambiente e entrega
 
-- **Instância de desenvolvimento uma build atrás:** `users-me`, `payments`,
-  `expenses`, `revenues` e `cep` estão pausados em `env/development.env`
-  (`NEXT_PUBLIC_PENDING_INTEGRATIONS`). Publicar o backend atual lá e apagar a
-  linha — o código das telas não muda.
+- **Instância de desenvolvimento uma build atrás:** aceita, mas não grava,
+  `rgIssuer`, `rgIssueDate` e `notes` do cliente (backend `39a7bdc`) — o e2e
+  `client-sheet` "editar o nome não apaga…" falha lá até a publicação.
 - **Site HTTPS chamando API HTTP** (bloqueado como *mixed content*): o
   comportamento `/api/*` no CloudFront descrito em [`DEPLOY.md`](DEPLOY.md).
 - **Credencial do deploy:** trocar a chave de acesso da AWS por OIDC
