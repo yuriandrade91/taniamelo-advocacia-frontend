@@ -92,7 +92,8 @@ test("avança, pula e volta etapas pela lista, com justificativa onde é preciso
     card = await openCard(page, name);
     await expect(card.getByRole("button", { name: "Planejamento em execução (pulada)" })).toBeVisible();
     await expect(card.getByRole("button", { name: "Planejamento concluído (pulada)" })).toBeVisible();
-    await expect(card.getByRole("button", { name: "Análise documental (concluída)" })).toBeVisible();
+    // A etapa cumprida leva a data no nome ("concluída, em dd/mm/aaaa").
+    await expect(card.getByRole("button", { name: /^Análise documental \(concluída, em / })).toBeVisible();
 
     // 4. Voltar: justificativa obrigatória, e nada vai antes de confirmar.
     await card.getByRole("button", { name: /Análise documental/ }).click();

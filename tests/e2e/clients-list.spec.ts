@@ -205,7 +205,8 @@ test("etapas cumpridas aparecem como concluídas, em verde — e as puladas, ris
   await expect(stages.nth(3)).toHaveAttribute("data-state", "current");
   await expect(stages.nth(4)).toHaveAttribute("data-state", "upcoming");
 
-  const completed = card.getByRole("button", { name: "Formulário preenchido (concluída)" });
+  // A etapa cumprida leva a data no nome ("concluída, em dd/mm/aaaa").
+  const completed = card.getByRole("button", { name: /^Formulário preenchido \(concluída, em / });
   await expect(completed).toContainText("✓");
   // O nó da etapa cumprida é verde (bg-success), não mais o azul da marca.
   await expect(completed.locator("span.bg-success")).toHaveCount(1);
