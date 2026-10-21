@@ -35,6 +35,7 @@ Cada item aponta a peça que já existe. Tela nova nasce nelas; não crie uma va
 
 ### Requisições
 - Nada de pedir duas vezes a mesma coisa: `createRequestCache` (lista/tela) ou `createSessionCache` (dados da sessão, limpos no logout por `clearSessionCaches`).
+- Valor fixo da montagem à desmontagem (o cache da tela, o "hoje" da tela, o estado inicial): `useConstant` (`hooks/useConstant`) — não `useState` sem setter nem `useMemo`.
 - Leituras independentes: `useSettled` + `settledValue` — "carregando" é `null`, derivado, e uma falha não apaga as outras.
 - Modal, drawer, gráfico e editor rico entram com `next/dynamic` e só montam quando abrem.
 - **Toda gravação tem retorno**, e quem o dá é a central (`notificationService`): o serviço declara a mensagem com `feedback("Cliente atualizado.", options)` (`services/requestFeedback`). Quem chama troca a mensagem (`successMessage`) ou cala (`silent`) — fluxo de várias requisições avisa uma vez no fim; janela de desfazer já avisou no clique. Não chame `notificationCenter.success` depois de uma requisição.
@@ -47,6 +48,7 @@ O que carrega ocupa o espaço do que vai aparecer: os rótulos e a moldura apare
 - Selo, contagem, dica: `LoadingCircle` (`ProgressCircle` indeterminado) no tamanho do selo.
 - Acordeão e drawer: só os valores em skeleton.
 - Vazio ou falha no lugar do conteúdo: `Notice` (`ListEmpty` nas listas paginadas).
+- Qual dos quatro desenhar (carregando, falha, vazio, conteúdo): `loadView` (`lib/loadView`), não ternários encaixados.
 
 ### Visual
 Sem sombras, pouco traço (divisor só entre seções), grupos de ação via `ActionGroup`. Listas sem zebra.
@@ -59,3 +61,14 @@ Sem sombras, pouco traço (divisor só entre seções), grupos de ação via `Ac
 
 ### Decisões em aberto
 A Revisão do cadastro ainda compara *Blocos* e *Documento* (`docs/adr/0002-client-form-layout.md`). Não escreva nem altere testes de uma opção antes de ela ser escolhida. O que falta construir está em `docs/ROADMAP.md`.
+
+## Como mudar código
+
+Siga sempre as quatro regras da skill `karpathy-guidelines` (`.claude/skills/karpathy-guidelines/SKILL.md`, de [andrej-karpathy-skills](https://github.com/multica-ai/andrej-karpathy-skills)) — em toda tarefa, não só quando a skill for acionada:
+
+1. **Pense antes de codar.** Diga as suposições. Com mais de uma leitura possível, apresente-as em vez de escolher calado; se houver caminho mais simples, diga; se algo não está claro, pare e pergunte.
+2. **Simplicidade primeiro.** O mínimo de código que resolve. Nada de funcionalidade, abstração de uso único, configurabilidade ou tratamento de erro para cenário impossível que não foram pedidos.
+3. **Mudanças cirúrgicas.** Toque só no necessário; não "melhore" código, comentário ou formatação vizinhos; siga o estilo que já existe. Código morto que já estava lá: aponte, não apague. Remova só o que a sua mudança deixou órfão.
+4. **Execução guiada por objetivo.** Transforme a tarefa em critério verificável (ex.: um teste que reproduz o bug e depois passa). Em tarefa de várias etapas, plano curto: passo → verificação.
+
+Em tarefa trivial, use bom senso: as regras trocam velocidade por cautela.
