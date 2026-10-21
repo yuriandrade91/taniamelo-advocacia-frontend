@@ -138,7 +138,7 @@ const plainText = (html: string) =>
   html
     .replaceAll(/<\/(p|li|h\d|blockquote)>/gi, "\n")
     .replaceAll(/<br\s*\/?>/gi, "\n")
-    .replaceAll(/<[^>]*>/g, "")
+    .replaceAll(/<[^<>]*>/g, "")
     .replaceAll("&nbsp;", " ")
     .replaceAll("&amp;", "&")
     .replaceAll("&lt;", "<")

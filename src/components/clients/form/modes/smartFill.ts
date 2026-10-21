@@ -93,7 +93,8 @@ const clean = (text: string) =>
   text
     .split(/[\n;|]/)[0]
     .replaceAll(/\s+/g, " ")
-    .replaceAll(/^[\s:\-–,.]+|[\s,.;:\-–]+$/g, "")
+    .replace(/^[\s:\-–,.]+/, "")
+    .replace(/(?<![\s,.;:\-–])[\s,.;:\-–]+$/, "")
     .trim();
 
 /** "maria aparecida DA SILVA" → "Maria Aparecida da Silva". */
@@ -168,7 +169,7 @@ type Put = (key: SmartFieldKey, value: string, source: string, display?: string)
 /** E-mail, CPF e celular — o celular não pode ser o próprio CPF. */
 function extractContact(text: string, put: Put): void {
   // E-mail: formato inconfundível.
-  const email = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/.exec(text);
+  const email = /(?<![\w.+-])[\w.+-]+@[\w-]+(?:\.[\w-]+)+/.exec(text);
   if (email) put("email", email[0].toLowerCase(), email[0]);
 
   // CPF: com rótulo, aceita só dígitos; sem rótulo, só com pontuação.
@@ -195,7 +196,7 @@ function extractBirthDate(text: string, put: Put): void {
   // faça sentido como nascimento (14+ anos atrás).
   const dateRe = /(?<!\d)(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?!\d)/;
   const birthLabeled = new RegExp(
-      `(?:nasc\\w*|data de nascimento|\\bdn\\b|nascid[oa] em)\\D{0,15}${dateRe.source}`,
+      String.raw`(?:nasc\w*|data de nascimento|\bdn\b|nascid[oa] em)\D{0,15}${dateRe.source}`,
       "i",
     ).exec(text);
   if (birthLabeled) {
@@ -242,21 +243,21 @@ function extractName(text: string, put: Put): void {
 /** Mãe, gênero e estado civil. */
 function extractFamily(text: string, put: Put): void {
   // Mãe: "mãe:", "filiação:", "filho(a) de … e …" (a mãe vem depois do "e").
-  const mother = /\bm[ãa]e[ \t]*[:\-–]?[ \t]*([a-zÀ-ú][^\n,;0-9]+)/i.exec(text);
-  const filiation = /\b(?:filia[çc][ãa]o|filh[oa] de)[ \t]*[:\-–]?[ \t]*([a-zÀ-ú][^\n;0-9]+?)(?=[,;\n]|$)/i.exec(text);
+  const mother = /\bm[ãa]e[ \t]*(?:[:\-–][ \t]*)?([a-zÀ-ú][^\n,;0-9]+)/i.exec(text);
+  const filiation = /\b(?:filia[çc][ãa]o|filh[oa] de)[ \t]*(?:[:\-–][ \t]*)?([a-zÀ-ú][^\n;0-9][^\n;0-9,]*)(?=[,;\n]|$)/i.exec(text);
   if (mother) {
     put("motherName", titleCase(clean(mother[1])), mother[0]);
   } else if (filiation) {
-    const parents = clean(filiation[1]).split(/\s+e\s+/);
+    const parents = clean(filiation[1]).split(/(?<!\s)\s+e\s+/);
     put("motherName", titleCase(parents.at(-1)!), filiation[0]);
   }
 
   // Gênero: palavra explícita, ou "filha de"/"filho de".
   const gender =
-    /\b(feminino|sexo\s*:?\s*f\b|mulher)\b/i.exec(text) ??
+    /\b(feminino|sexo\s*(?::\s*)?f\b|mulher)\b/i.exec(text) ??
     /\bfilha de\b/i.exec(text);
   const male =
-    /\b(masculino|sexo\s*:?\s*m\b|homem)\b/i.exec(text) ??
+    /\b(masculino|sexo\s*(?::\s*)?m\b|homem)\b/i.exec(text) ??
     /\bfilho de\b/i.exec(text);
   if (gender && !male) put("gender", "FEMININO", gender[0], "Feminino");
   else if (male && !gender) put("gender", "MASCULINO", male[0], "Masculino");
@@ -272,10 +273,10 @@ function extractFamily(text: string, put: Put): void {
 
 /** RG, NIT/PIS e profissão. */
 function extractDocuments(text: string, put: Put): void {
-  const rg = /\brg\b\s*(?:n[ºo°.]*)?\s*[:\-–]?\s*([\dx.\-]{5,14})/i.exec(text);
+  const rg = /\brg\b\s*(?:n[ºo°.]*\s*)?(?:[:\-–]\s*)?([\dx.-]{5,14})/i.exec(text);
   if (rg) put("rg", maskRG(rg[1]), rg[0]);
 
-  const nit = /\b(?:nit|pis|pasep|nis)(?:\s*\/\s*pis)?\s*[:\-–]?\s*(\d[\d.\-]{9,14})/i.exec(text);
+  const nit = /\b(?:nit|pis|pasep|nis)\s*(?:\/\s*pis\s*)?(?:[:\-–]\s*)?(\d[\d.-]{9,14})/i.exec(text);
   if (nit) put("nitPis", maskNIT(nit[1]), nit[0]);
 
   const profession = /\b(?:profiss[ãa]o|ocupa[çc][ãa]o|trabalha como|trabalhou como)[ \t]*[:\-–]?[ \t]*([^\n,;.]+)/i.exec(text);
@@ -289,7 +290,7 @@ function extractDocuments(text: string, put: Put): void {
 function extractAddress(text: string, put: Put, has: (key: SmartFieldKey) => boolean): void {
   // Endereço.
   const cep =
-    /\bcep\s*[:\-–]?\s*(\d{5}-?\d{3})(?!\d)/i.exec(text) ??
+    /\bcep\s*(?:[:\-–]\s*)?(\d{5}-?\d{3})(?!\d)/i.exec(text) ??
     /(?<!\d)(\d{5}-\d{3})(?!\d)/.exec(text);
   if (cep) put("zipCode", maskCEP(cep[1]), cep[0]);
 

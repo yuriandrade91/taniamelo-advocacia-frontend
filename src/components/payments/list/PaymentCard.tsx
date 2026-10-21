@@ -2,8 +2,7 @@
 
 import { Skeleton } from "@heroui/react";
 import { LoadingCircle } from "@/components/ui/feedback/Loading";
-import { formatDateBR } from "@/lib/format";
-import { initials, plural } from "@/lib/format";
+import { formatDateBR, initials, plural } from "@/lib/format";
 import { bucketOf, type PaymentBucket } from "../paymentBuckets";
 import { dueLabel, installmentOf, moneyOf, type Payment } from "../paymentDisplay";
 import { AgreementTotal } from "../AgreementTotal";

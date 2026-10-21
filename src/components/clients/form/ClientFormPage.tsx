@@ -1220,7 +1220,7 @@ export function ClientFormPage() {
                 className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-secondary px-1.5 text-[11px] font-semibold text-white"
               >
                 N
-              </span>
+              </span>{" "}
               Os números nas abas indicam quantos itens obrigatórios faltam em
               cada etapa para que o cliente possa ser cadastrado.
             </span>

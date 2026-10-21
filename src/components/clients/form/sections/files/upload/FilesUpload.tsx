@@ -512,7 +512,7 @@ function SimulationCard({
   sims: ReturnType<typeof useSimulations>;
 }>) {
   const errors = showErrors ? simulationErrors(entry.simulation) : {};
-  const { simulation: simulation, file } = entry;
+  const { simulation, file } = entry;
   return (
     <li className={CARD_CLASS}>
       <CardHeader file={file}>

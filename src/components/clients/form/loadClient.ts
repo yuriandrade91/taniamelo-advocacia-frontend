@@ -40,8 +40,8 @@ const settled = <T,>(result: PromiseSettledResult<T>): T | undefined =>
   result.status === "fulfilled" ? result.value : undefined;
 
 /** Mais recente primeiro. */
-export const newestFirst = <T,>(items: T[] = [], at: (item: T) => string | undefined) =>
-  [...items].sort((a, b) => (at(b) ?? "").localeCompare(at(a) ?? ""));
+export const newestFirst = <T,>(items: T[] | undefined, at: (item: T) => string | undefined) =>
+  [...(items ?? [])].sort((a, b) => (at(b) ?? "").localeCompare(at(a) ?? ""));
 
 /** Os arquivos inteiros: a ficha mostra todos e pagina na própria tela. */
 const allDocuments = (clientId: string) => fetchAllPages((params) => listDocuments(clientId, params));

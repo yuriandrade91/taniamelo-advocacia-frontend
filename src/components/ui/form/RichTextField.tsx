@@ -195,7 +195,7 @@ export function RichTextField({
 
   const characters =
     editor?.storage.characterCount?.characters() ??
-    value.replaceAll(/<[^>]*>/g, "").length;
+    value.replaceAll(/<[^<>]*>/g, "").length;
 
   return (
     <div className={className}>

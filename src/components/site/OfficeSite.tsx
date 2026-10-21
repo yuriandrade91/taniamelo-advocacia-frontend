@@ -361,7 +361,7 @@ function Header() {
           style={{ "--d": "450ms" } as CSSProperties}
           className={`pr-drop group/cta flex items-center gap-4 text-[17px] font-medium max-[1100px]:hidden ${PRESS}`}
         >
-          Vamos conversar
+          Vamos conversar{" "}
           <span className="grid h-10 w-10 place-items-center rounded-full border border-secondary text-gold-light transition duration-300 group-hover/cta:rotate-45 group-hover/cta:bg-secondary group-hover/cta:text-white">
             <ArrowUpRight className="h-4 w-4" />
           </span>
@@ -473,7 +473,7 @@ function Hero() {
                 <path d="M12 5v14" />
                 <path d="m19 12-7 7-7-7" />
               </svg>
-            </span>
+            </span>{" "}
             Explore nossa atuação
           </a>
           <span className="mr-[50px] text-[15px] opacity-70 max-[760px]:hidden">Cada história é única. Nossa atenção também.</span>

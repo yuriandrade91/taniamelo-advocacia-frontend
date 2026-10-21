@@ -195,7 +195,7 @@ const secondsUntil = (hideAt: number) =>
  */
 const TICK_MS = 250;
 
-function HidesIn({ hideAt: hideAt }: Readonly<{ hideAt: number }>) {
+function HidesIn({ hideAt }: Readonly<{ hideAt: number }>) {
   const [segundos, setSegundos] = useState(() => secondsUntil(hideAt));
 
   // Sem acerto inicial aqui: quem monta passa `key={prazo}`, então um prazo

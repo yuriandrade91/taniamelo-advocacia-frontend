@@ -74,8 +74,8 @@ function Funnel({ r }: Readonly<{ r: Report }>) {
                 </div>
               </div>
               <p className="text-xs text-gray-100 lg:text-right">
-                <span className="font-medium text-primary tabular-nums">{s.count}</span> nesta etapa
-                <span className="text-gray-100/70 tabular-nums"> · {s.share}%</span>
+                <span className="font-medium text-primary tabular-nums">{s.count}</span> nesta etapa{" "}
+                <span className="text-gray-100/70 tabular-nums">· {s.share}%</span>
               </p>
             </div>
           </li>
