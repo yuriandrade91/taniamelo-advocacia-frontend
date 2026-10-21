@@ -19,5 +19,6 @@ export default defineConfig([
     "playwright-report/**",
     "test-results/**",
     ".pnpm-store/**",
+    "coverage/**",
   ]),
 ]);

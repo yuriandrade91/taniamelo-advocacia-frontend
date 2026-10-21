@@ -4,15 +4,15 @@ Duas suítes, com papéis que não se sobrepõem.
 
 | | Vitest (unidade) | Playwright (ponta a ponta) |
 |---|---|---|
-| Cobre | função pura: validação, conversão de payload, cálculo de data, regra de tela sem DOM | a tela inteira, com o backend de verdade |
+| Cobre | função pura (`*.test.ts`) e tela/componente com a API de mentira (`*.test.tsx`, jsdom) | a tela inteira, com o backend de verdade |
 | Onde | `tests/unit/`, espelhando `src/` | `tests/e2e/`, um arquivo por fluxo |
 | Precisa de backend | não | **sim** |
 | Roda no CI | sim (`ci.yml`, `deploy.yml`, `buildspec.yml`) | não — localmente, antes de subir |
 | Demora | segundos | minutos |
 
-Se uma regra dá para afirmar sem navegador, ela é teste de unidade. E2E é caro
-e fica para o que só existe com tudo ligado: rota protegida, formulário que
-grava, resposta do servidor chegando na tela.
+Se uma regra dá para afirmar sem o backend, ela é teste de unidade — inclusive
+a de tela, desenhada no jsdom. E2E é caro e fica para o que só existe com tudo
+ligado: o contrato real com a API, o layout, o navegador de verdade.
 
 ---
 
@@ -21,15 +21,41 @@ grava, resposta do servidor chegando na tela.
 ```bash
 pnpm test           # uma vez
 pnpm test:watch     # enquanto edita
+pnpm test:coverage  # com o relatório lcov que o Sonar lê (coverage/)
 ```
 
-- **Ambiente `node`, sem DOM** (`vitest.config.ts`). O que se testa aqui é
-  função: por isso a regra de tela mora em módulo puro (`appointmentForm.ts`,
-  `stageMoves.ts`, `review.ts`…) e o componente só desenha.
+Dois projetos em `vitest.config.ts`, escolhidos pela extensão:
+
+- **`unit` — `*.test.ts`, ambiente `node`.** Função pura: validação, payload,
+  datas. A regra de tela continua morando em módulo puro (`appointmentForm.ts`,
+  `stageMoves.ts`, `review.ts`…) e é testada aqui primeiro.
+- **`dom` — `*.test.tsx`, jsdom + Testing Library.** A tela desenhada de
+  verdade (página, modal, hook), achada por papel e nome como a pessoa vê.
+  O setup (`tests/unit/setup/dom.ts`) liga, para todo arquivo do projeto:
+  - a **API de mentira** (`support/fakeApi.ts`) no lugar da instância do
+    axios — serviço, hook e componente rodam de verdade; o teste diz o que o
+    backend responde com `onApi`/`failApi` e confere o que foi pedido com
+    `callsTo`. Rota sem registro responde envelope vazio;
+  - o **roteador do Next** de mentira (`support/next.ts`: `router`,
+    `setLocation`);
+  - os polyfills do que o jsdom não tem (layout, `<dialog>`, animações,
+    `IntersectionObserver` que anuncia tudo como visível, `Blob.text`…).
+
+  Atalhos em `tests/unit/support/`: `seedOffice()` (um escritório com dados
+  em todas as rotas de leitura), `signIn(papel)`, `renderApp(tela, { fakeTimers })`
+  (com os toasts e, se pedir, o relógio do teste para janelas de desfazer),
+  `chooseOption` (o Select do HeroUI pelo `<select>` escondido),
+  `inputByLabel`, `cardOf` e, para o cadastro, `pasteExample`/`completeRequired`.
+
 - **Caminho espelhado:** `src/lib/format.ts` ↔ `tests/unit/lib/format.test.ts`.
-  Import sempre pelo alias `@/`.
+  Import sempre pelo alias `@/`. Página também: `src/app/(private)/agenda/page.tsx`
+  ↔ `tests/unit/app/(private)/agenda/page.test.tsx`.
+- **Cobertura conta `src/` inteiro** (`coverage.include`): arquivo que nenhum
+  teste toca entra com 0%, como o Sonar o conta.
 - **Convenções viram teste** em `tests/unit/conventions/`: hoje, nenhum
   `data-testid` sem justificativa escrita (ver [Localizadores](#localizadores)).
+- **Revisão do cadastro:** enquanto o ADR 0002 compara *Blocos* e *Documento*,
+  nenhum teste mira uma das duas vistas.
 
 ## Ponta a ponta (Playwright)
 

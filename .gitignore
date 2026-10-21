@@ -50,3 +50,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Artefato local do SonarScanner (ver sonar-project.properties)
+/.scannerwork
