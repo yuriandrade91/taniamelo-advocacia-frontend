@@ -13,6 +13,7 @@ import { useAppointmentActions } from "@/components/agenda/useAppointmentActions
 import { useAppointmentEditor } from "@/components/agenda/useAppointmentEditor";
 import { MONTH_LABELS } from "@/constants/date/months";
 import { AppointmentStatusLabelByKey } from "@/enums/appointment/Appointment";
+import { useConstant } from "@/hooks/useConstant";
 import { useNow } from "@/hooks/useNow";
 import { usePagedList } from "@/hooks/usePagedList";
 import { usePermissions } from "@/hooks/usePermissions";
@@ -50,11 +51,11 @@ const PENDING_STATUS_LABELS = {
   cancel: AppointmentStatusLabelByKey.CANCELADO,
 };
 
-export default function AppointmentsCard({ className = "" }: { className?: string }) {
+export default function AppointmentsCard({ className = "" }: Readonly<{ className?: string }>) {
   const { canDestroy } = usePermissions();
   const now = useNow();
-  const year = useMemo(() => new Date().getFullYear(), []);
-  const currentMonth = useMemo(() => new Date().getMonth() + 1, []);
+  const year = useConstant(() => new Date().getFullYear());
+  const currentMonth = useConstant(() => new Date().getMonth() + 1);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
 
   /** Muda depois de gravar: relê o resumo das abas. */
@@ -83,7 +84,7 @@ export default function AppointmentsCard({ className = "" }: { className?: strin
   const actions = useAppointmentActions({ onSettled: reload });
 
   /** Concluído, cancelado ou excluído na janela de desfazer já sai do cartão — e da conta. */
-  const visible = applyPendingOverlay(list.items, actions.pending, PENDING_STATUS_LABELS).filter(isScheduled);
+  const visible = applyPendingOverlay(list.items, actions.pending, PENDING_STATUS_LABELS).filter((item) => isScheduled(item));
   const monthTotal = Math.max(0, list.total - (list.items.length - visible.length));
 
   const months = useMemo(() => {
@@ -104,6 +105,8 @@ export default function AppointmentsCard({ className = "" }: { className?: strin
   }, [summary, currentMonth, selectedMonth, list.isLoading, monthTotal]);
 
   const hasAnyAppointment = (summary ?? []).some((s) => s.count > 0);
+  const isEmpty = !hasAnyAppointment && monthTotal === 0 && !list.isLoading;
+  const monthEmpty = !list.isLoading && visible.length === 0;
   const rowActions = appointmentActions({
     onViewDetails: actions.requestDetails,
     onEdit: editor.openEdit,
@@ -134,16 +137,18 @@ export default function AppointmentsCard({ className = "" }: { className?: strin
         </Tooltip>
       </header>
 
-      {summary === null ? (
+      {summary === null && (
         <div className="mt-4 flex flex-col gap-3">
           <TabBarSkeleton />
           <RowSkeletons count={COMPACT_LIMIT} label="Carregando a agenda" />
         </div>
-      ) : !hasAnyAppointment && monthTotal === 0 && !list.isLoading ? (
+      )}
+      {summary !== null && isEmpty && (
         <p className="mt-4 py-6 text-center text-sm text-gray-100/60">
           Ainda não há nenhum compromisso agendado.
         </p>
-      ) : (
+      )}
+      {summary !== null && !isEmpty && (
         <Tabs
           selectedKey={String(selectedMonth)}
           onSelectionChange={(key) => setSelectedMonth(Number(key))}
@@ -161,13 +166,15 @@ export default function AppointmentsCard({ className = "" }: { className?: strin
           </TabBar>
 
           <Tabs.Panel id={String(selectedMonth)} className="p-0">
-            {list.isLoading ? (
+            {list.isLoading && (
               <RowSkeletons count={COMPACT_LIMIT} label="Carregando os compromissos do mês" className="mt-2 flex flex-col gap-3" />
-            ) : visible.length === 0 ? (
+            )}
+            {monthEmpty && (
               <p className="py-6 text-sm text-gray-100/60">
                 Não há agendamentos para {MONTH_LABELS[selectedMonth - 1]} ainda.
               </p>
-            ) : (
+            )}
+            {!list.isLoading && visible.length > 0 && (
               <ul className="flex flex-col gap-2">
                 {visible.map((appointment) => (
                   <AppointmentLine key={appointment.id} appointment={appointment} actions={rowActions} now={now} />

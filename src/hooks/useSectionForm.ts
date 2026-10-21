@@ -9,6 +9,7 @@ import {
   type SectionSchema,
   type SectionValues,
 } from "@/components/ui/form/schema";
+import { useConstant } from "./useConstant";
 
 export type { FieldRule, FieldRules } from "@/components/ui/form/schema";
 
@@ -33,7 +34,7 @@ export type { FieldRule, FieldRules } from "@/components/ui/form/schema";
 export type FormValues = Record<string, string | boolean>;
 
 type Options<V> =
-  | { initial: V; rules?: FieldRules<V>; schema?: undefined }
+  | { initial: V; rules?: FieldRules<V>; schema?: never }
   | { schema: SectionSchema; initial?: V; rules?: FieldRules<V> };
 
 export function useSectionForm<
@@ -51,7 +52,7 @@ export function useSectionForm<V extends FormValues>(options: {
 export function useSectionForm<V extends FormValues>(options: Options<V>) {
   const { schema } = options;
   // O schema é constante de módulo: o que sai dele não muda entre renders.
-  const [initial] = useState<V>(
+  const initial = useConstant<V>(
     () => options.initial ?? (initialValues(schema!) as unknown as V),
   );
   // As do schema primeiro: `rules` acrescenta e, no mesmo campo, substitui —

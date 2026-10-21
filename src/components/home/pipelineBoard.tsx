@@ -12,7 +12,7 @@ import { Skeleton } from "@heroui/react";
 import type { SituationKey } from "@/enums/situation/Situation";
 import { STAGES, nextStageOf } from "@/components/clients/stage/stages";
 import { LoadingCircle } from "@/components/ui/feedback/Loading";
-import { stageBg, stageTile } from "@/components/ui/feedback/stageRamp";
+import { stageNeutralBg, stageNeutralTile } from "@/components/ui/feedback/stageRamp";
 import { initials, plural } from "@/lib/format";
 import { CalendarIcon } from "@/components/ui/icons/glyphs";
 import { Svg, type IconProps } from "@/components/ui/icons/Svg";
@@ -29,9 +29,10 @@ import { Svg, type IconProps } from "@/components/ui/icons/Svg";
  *
  * ── Cor ──
  * As etapas são **ordinais**: a cor segue a posição no funil, não um "tipo".
- * É a rampa de azul de `@/components/ui/stageRamp` — a mesma do funil dos
- * Relatórios e dos tipos da Agenda —, do azul cheio na primeira etapa ao mais
- * claro na última.
+ * É a rampa de `@/components/ui/stageRamp` — a do funil dos Relatórios e dos
+ * tipos da Agenda —, mas em cinza (`stageNeutral*`): com um avatar, um ponto
+ * e um selo por cartão, o azul tomava o quadro inteiro. O azul fica no texto;
+ * o botão → é cinza escuro pelo mesmo motivo.
  *
  * ── Duas formas de mover, de propósito ──
  * Arrastar o card (Swapy) é o gesto de quem está com o quadro na frente; o
@@ -70,9 +71,9 @@ function groupBySituation(cards: PipelineCard[]): PipelineColumns {
     STAGES.map((s) => [s.key, [] as PipelineCard[]]),
   ) as PipelineColumns;
 
-  cards.forEach((card) => {
+  for (const card of cards) {
     if (empty[card.situation]) empty[card.situation].push(card);
-  });
+  }
   return empty;
 }
 
@@ -198,7 +199,7 @@ export function PipelineBoard({
   isLoading = false,
   columnBodyClassName = "",
   className = "",
-}: PipelineBoardProps) {
+}: Readonly<PipelineBoardProps>) {
   const containerRef = useRef<HTMLDivElement>(null);
   const swapyRef = useRef<Swapy | null>(null);
   const [expanded, setExpanded] = useState<Partial<Record<SituationKey, boolean>>>({});
@@ -274,7 +275,7 @@ export function PipelineBoard({
               <h3 className="flex min-w-0 items-center gap-2">
                 <span
                   aria-hidden="true"
-                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${stageBg(stage.step - 1)}`}
+                  className={`h-2.5 w-2.5 shrink-0 rounded-full ${stageNeutralBg(stage.step - 1)}`}
                 />
                 <span className="truncate text-xs font-medium text-primary">
                   {stage.label}
@@ -284,7 +285,7 @@ export function PipelineBoard({
                 <LoadingCircle size={12} label={`Contando ${stage.label}`} />
               ) : (
                 <span
-                  className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${stageTile(stage.step - 1)}`}
+                  className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums ${stageNeutralTile(stage.step - 1)}`}
                 >
                   {cards.length}
                 </span>
@@ -356,11 +357,11 @@ function BoardCard({
   card,
   stageIndex,
   onMove,
-}: {
+}: Readonly<{
   card: PipelineCard;
   stageIndex: number;
   onMove: (cardId: string, situation: SituationKey) => void;
-}) {
+}>) {
   const next = nextStageOf(card.situation);
   return (
     <article
@@ -373,7 +374,7 @@ function BoardCard({
       >
         <span
           aria-hidden="true"
-          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${stageTile(stageIndex)}`}
+          className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${stageNeutralTile(stageIndex)}`}
         >
           {initials(card.name)}
         </span>
@@ -396,7 +397,7 @@ function BoardCard({
             onClick={() => onMove(card.id, next.key)}
             title={`Avançar para ${next.label}`}
             aria-label={`Avançar ${card.name} para ${next.label}`}
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary text-white transition hover:bg-primary/90 active:scale-95"
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-gray-100 text-white transition hover:bg-gray-100/85 active:scale-95"
           >
             <ArrowRightIcon className="h-3.5 w-3.5" />
           </button>
@@ -411,11 +412,11 @@ function StageSelect({
   card,
   onMove,
   className = "",
-}: {
+}: Readonly<{
   card: PipelineCard;
   onMove: (cardId: string, situation: SituationKey) => void;
   className?: string;
-}) {
+}>) {
   return (
     <label className={`relative inline-flex min-w-0 ${className}`}>
       <span className="sr-only">Mover {card.name} para</span>

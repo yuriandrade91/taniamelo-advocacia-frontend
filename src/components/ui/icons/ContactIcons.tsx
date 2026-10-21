@@ -9,7 +9,7 @@ import React from "react";
  * duplicados por arquivo.
  */
 
-export function PhoneIcon({ className = "h-4 w-4" }: { className?: string }) {
+export function PhoneIcon({ className = "h-4 w-4" }: Readonly<{ className?: string }>) {
   return (
     <svg
       viewBox="0 0 24 24"
@@ -26,7 +26,7 @@ export function PhoneIcon({ className = "h-4 w-4" }: { className?: string }) {
   );
 }
 
-export function WhatsappIcon({ className = "h-4 w-4" }: { className?: string }) {
+export function WhatsappIcon({ className = "h-4 w-4" }: Readonly<{ className?: string }>) {
   return (
     <svg
       viewBox="0 0 24 24"

@@ -55,7 +55,6 @@ import {
   professionalSchema,
   serviceSchema,
 } from "../form/schemas";
-import DeleteClientModal from "../DeleteClientModal";
 import {
   SheetSidebar,
   SheetSectionCard,
@@ -66,12 +65,16 @@ import {
 } from "./SheetLayout";
 import { sectionFill, sheetProgress } from "./clientSheet";
 import { useClientSheet } from "./useClientSheet";
+import { optionalText } from "@/lib/formValues";
+import { messageOf } from "@/lib/errorMessage";
 
 /** Os pagamentos só carregam (código e dados) quando a seção é aberta. */
 const ClientFinancePanel = dynamic(
   () => import("../finance/ClientFinancePanel").then((m) => m.ClientFinancePanel),
   { ssr: false, loading: () => <RowSkeletons count={3} /> },
 );
+/** A confirmação de exclusão só vem quando alguém pede para excluir. */
+const DeleteClientModal = dynamic(() => import("../DeleteClientModal"), { ssr: false });
 
 /**
  * A ficha do cliente: leitura e edição no mesmo desenho, no mesmo lugar.
@@ -121,6 +124,41 @@ type Props = {
   editOnOpen?: boolean;
 };
 
+/**
+ * Envia os arquivos escolhidos na edição e limpa o que subiu. Diz se não havia
+ * nada, se foi tudo ou só uma parte (a outra lista continua para reenviar).
+ */
+async function sendStagedFiles(
+  clientId: string,
+  documents: StagedDocument[],
+  simulations: StagedSimulation[],
+  clear: { clearDocuments: () => void; clearSimulations: () => void },
+): Promise<"none" | "all" | "partial"> {
+  if (documents.length === 0 && simulations.length === 0) return "none";
+  const sent = await uploadStagedFiles(clientId, documents, simulations, { silent: true });
+  if (sent.documents) clear.clearDocuments();
+  if (sent.simulations) clear.clearSimulations();
+  return sent.documents && sent.simulations ? "all" : "partial";
+}
+
+/** "3 arquivos" no selo da seção; sem nenhum, não há selo. */
+const countBadge = (count: number, one: string, many: string) =>
+  count > 0 ? plural(count, one, many) : undefined;
+
+/** Cada arquivo escolhido tem os dados que o envio exige. */
+const stagedComplete = (documents: readonly StagedDocument[], simulations: readonly StagedSimulation[]) =>
+  documents.every((item) => isDocumentComplete(item)) && simulations.every((item) => isSimulationComplete(item));
+
+/** O selo da seção no menu da ficha: "7/9", e se já está completa. */
+function fill(
+  schema: Parameters<typeof sectionFill>[0],
+  values: Parameters<typeof sectionFill>[1],
+  skip?: readonly string[],
+) {
+  const { filled, total } = sectionFill(schema, values, skip);
+  return { badge: `${filled}/${total}`, isComplete: filled === total };
+}
+
 export default function ClientDetailsModal({
   isOpen,
   onClose,
@@ -128,7 +166,7 @@ export default function ClientDetailsModal({
   clientId,
   onConfirm,
   editOnOpen = false,
-}: Props) {
+}: Readonly<Props>) {
   const { canDestroy, canSeeFinance } = usePermissions();
   const authors = useOfficeAuthors();
   const sheet = useClientSheet(clientId, isOpen);
@@ -178,23 +216,21 @@ export default function ClientDetailsModal({
     onClose();
   };
 
-  const filesComplete = () =>
-    stagedDocuments.every(isDocumentComplete) && stagedSimulations.every(isSimulationComplete);
-
   const save = async () => {
     setFilesRevealed(true);
     const saved = await sheet.save({
       // Todos validam (e revelam os erros) antes de decidir: `&&` pararia no primeiro.
       validateExtra: () =>
-        [disabilityRef.current?.validate() ?? true, filesComplete()].every(Boolean),
+        [disabilityRef.current?.validate() ?? true, stagedComplete(stagedDocuments, stagedSimulations)].every(Boolean),
       afterSave: async () => {
         const wroteRecords = (await disabilityRef.current?.save()) ?? false;
-        if (stagedDocuments.length === 0 && stagedSimulations.length === 0) return wroteRecords;
-        const sent = await uploadStagedFiles(clientId, stagedDocuments, stagedSimulations, { silent: true });
-        if (sent.documents) setStagedDocuments([]);
-        if (sent.simulations) setStagedSimulations([]);
+        const files = await sendStagedFiles(clientId, stagedDocuments, stagedSimulations, {
+          clearDocuments: () => setStagedDocuments([]),
+          clearSimulations: () => setStagedSimulations([]),
+        });
+        if (files === "none") return wroteRecords;
         await sheet.refreshFiles();
-        if (!sent.documents || !sent.simulations) throw new Error("Nem todos os arquivos foram enviados.");
+        if (files === "partial") throw new Error("Nem todos os arquivos foram enviados.");
         return true;
       },
     });
@@ -211,7 +247,7 @@ export default function ClientDetailsModal({
       onClose();
       onConfirm?.();
     } catch (reason) {
-      setActionError((reason as Error)?.message || fallbackMessages.CLIENTS.DELETE_FAILED);
+      setActionError(messageOf(reason, fallbackMessages.CLIENTS.DELETE_FAILED));
     }
   };
 
@@ -225,15 +261,6 @@ export default function ClientDetailsModal({
     } catch {
       setActionError(fallbackMessages.CLIENTS.UPDATE_FAILED);
     }
-  };
-
-  const fill = (
-    schema: Parameters<typeof sectionFill>[0],
-    values: Parameters<typeof sectionFill>[1],
-    skip?: readonly string[],
-  ) => {
-    const { filled, total } = sectionFill(schema, values, skip);
-    return { badge: `${filled}/${total}`, isComplete: filled === total };
   };
 
   const fileCount = (record?.documents.length ?? 0) + (record?.simulations.length ?? 0);
@@ -286,7 +313,7 @@ export default function ClientDetailsModal({
       description: "Grau e tempo em cada grau — mudam o tempo exigido na aposentadoria da pessoa com deficiência.",
       icon: <DisabilityIcon />,
       isHidden: !showDisability,
-      badge: disabilityCount > 0 ? plural(disabilityCount, "período", "períodos") : undefined,
+      badge: countBadge(disabilityCount, "período", "períodos"),
       content: (
         <ClientDisabilityPanel
           ref={isEditing ? disabilityRef : undefined}
@@ -321,7 +348,7 @@ export default function ClientDetailsModal({
       title: "Arquivos",
       description: "Documentos e simulações do caso.",
       icon: <FilesIcon />,
-      badge: fileCount ? plural(fileCount, "arquivo", "arquivos") : "Sem arquivos",
+      badge: countBadge(fileCount, "arquivo", "arquivos") ?? "Sem arquivos",
       content: sheet.isLoading ? (
         <RowSkeletons count={2} />
       ) : (
@@ -338,7 +365,8 @@ export default function ClientDetailsModal({
             clientId,
             documents: record?.documents ?? [],
             simulations: record?.simulations ?? [],
-            onDelete: isEditing ? setFileRemoval : undefined,
+            // Excluir é de quem exclui (o backend recusa os demais com 403).
+            onDelete: isEditing && canDestroy ? setFileRemoval : undefined,
           }}
           documentsAside={<DocumentCatalogPanel />}
         />
@@ -362,7 +390,7 @@ export default function ClientDetailsModal({
       title: "Andamento do benefício",
       description: "Da mudança de situação mais recente para a mais antiga.",
       icon: <ClockIcon className="h-5 w-5" />,
-      badge: record?.history.length ? plural(record.history.length, "mudança", "mudanças") : undefined,
+      badge: countBadge(record?.history.length ?? 0, "mudança", "mudanças"),
       content: sheet.isLoading ? (
         <RowSkeletons count={4} />
       ) : (
@@ -384,7 +412,7 @@ export default function ClientDetailsModal({
       ) : (
         <ClientInssPanel
           clientId={clientId}
-          clientName={record?.client?.fullName || clientName}
+          clientName={optionalText(record?.client?.fullName) ?? clientName}
           requestStage={record?.client?.requestStage}
           authors={authors}
           onChanged={(requestStage) => {
@@ -516,7 +544,7 @@ function SheetActions({
   onCancel,
   onSave,
   onDelete,
-}: {
+}: Readonly<{
   isEditing: boolean;
   isSaving: boolean;
   /** Sem os dados ainda, não há o que editar nem salvar. */
@@ -526,7 +554,7 @@ function SheetActions({
   onCancel: () => void;
   onSave: () => void;
   onDelete: () => void;
-}) {
+}>) {
   return (
     <ActionGroup shape="pill" surface="dark">
       {isEditing ? (

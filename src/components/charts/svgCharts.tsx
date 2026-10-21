@@ -83,12 +83,12 @@ export function DeltaChip({
   value,
   invert = false,
   className = "",
-}: {
+}: Readonly<{
   value: number | null;
   /** Para despesa, subir é ruim. */
   invert?: boolean;
   className?: string;
-}) {
+}>) {
   if (value === null) return null;
   const good = invert ? value <= 0 : value >= 0;
   return (
@@ -130,13 +130,13 @@ export function Sparkline({
   height = 40,
   area = true,
   className = "",
-}: {
+}: Readonly<{
   values: readonly number[];
   tone?: Tone;
   height?: number;
   area?: boolean;
   className?: string;
-}) {
+}>) {
   if (values.length === 0) return <div style={{ height }} className={className} />;
   const w = 100;
   const max = Math.max(...values);
@@ -182,10 +182,10 @@ export function LineChart({
   series,
   height = 200,
   area = false,
-  format = (v: number) => String(v),
+  format = String,
   className = "",
   dark = false,
-}: {
+}: Readonly<{
   labels: readonly string[];
   series: readonly Series[];
   height?: number;
@@ -194,7 +194,7 @@ export function LineChart({
   className?: string;
   /** Sobre fundo escuro: grade e rótulos claros. */
   dark?: boolean;
-}) {
+}>) {
   const all = series.flatMap((s) => s.values);
   const max = Math.max(1, ...all);
   const min = Math.min(0, ...all);
@@ -258,7 +258,10 @@ export function LineChart({
       </div>
       <div className={`mt-2 flex justify-between text-[10px] ${labelClass}`}>
         {labels.map((l, i) => (
-          <span key={`${l}-${i}`} className="min-w-0 truncate">
+          <span
+            key={`${l}-${i}`} // NOSONAR: a posição no eixo é a identidade (o rótulo se repete)
+            className="min-w-0 truncate"
+          >
             {l}
           </span>
         ))}
@@ -278,10 +281,10 @@ export function BarChart({
   series,
   height = 180,
   stacked = false,
-  format = (v: number) => String(v),
+  format = String,
   className = "",
   dark = false,
-}: {
+}: Readonly<{
   labels: readonly string[];
   series: readonly Series[];
   height?: number;
@@ -289,7 +292,7 @@ export function BarChart({
   format?: (value: number) => string;
   className?: string;
   dark?: boolean;
-}) {
+}>) {
   const totals = labels.map((_, i) =>
     series.reduce((sum, s) => sum + Math.max(0, s.values[i] ?? 0), 0),
   );
@@ -302,7 +305,10 @@ export function BarChart({
     <div className={className}>
       <div className="flex items-end gap-2" style={{ height }}>
         {labels.map((label, i) => (
-          <div key={`${label}-${i}`} className="flex h-full min-w-0 flex-1 items-end justify-center gap-1">
+          <div
+            key={`${label}-${i}`} // NOSONAR: a posição no eixo é a identidade (o rótulo se repete)
+            className="flex h-full min-w-0 flex-1 items-end justify-center gap-1"
+          >
             {stacked ? (
               <div className="flex h-full w-full max-w-10 flex-col-reverse overflow-hidden rounded-lg">
                 {series.map((s) => {
@@ -335,7 +341,10 @@ export function BarChart({
       </div>
       <div className={`mt-2 flex gap-2 text-[10px] ${labelClass}`}>
         {labels.map((l, i) => (
-          <span key={`${l}-${i}`} className="min-w-0 flex-1 truncate text-center">
+          <span
+            key={`${l}-${i}`} // NOSONAR: a posição no eixo é a identidade (o rótulo se repete)
+            className="min-w-0 flex-1 truncate text-center"
+          >
             {l}
           </span>
         ))}
@@ -347,15 +356,15 @@ export function BarChart({
 /** Ranking em barras horizontais, com rótulo e valor em cada linha. */
 export function HBarList({
   items,
-  format = (v: number) => String(v),
+  format = String,
   className = "",
   dark = false,
-}: {
+}: Readonly<{
   items: readonly { label: string; value: number; tone?: Tone }[];
   format?: (value: number) => string;
   className?: string;
   dark?: boolean;
-}) {
+}>) {
   const max = Math.max(1, ...items.map((i) => i.value));
   return (
     <ul className={`flex flex-col gap-3 ${className}`}>
@@ -391,14 +400,14 @@ export function Donut({
   children,
   className = "",
   track = "rgba(9,13,76,0.06)",
-}: {
+}: Readonly<{
   slices: readonly Slice[];
   size?: number;
   thickness?: number;
   children?: ReactNode;
   className?: string;
   track?: string;
-}) {
+}>) {
   const r = (size - thickness) / 2;
   const c = 2 * Math.PI * r;
   const total = slices.reduce((s, x) => s + Math.max(0, x.value), 0);
@@ -448,7 +457,7 @@ export function RadialProgress({
   children,
   track = "rgba(9,13,76,0.08)",
   className = "",
-}: {
+}: Readonly<{
   value: number;
   size?: number;
   thickness?: number;
@@ -456,7 +465,7 @@ export function RadialProgress({
   children?: ReactNode;
   track?: string;
   className?: string;
-}) {
+}>) {
   const r = (size - thickness) / 2;
   const c = 2 * Math.PI * r;
   const v = Math.min(1, Math.max(0, value));
@@ -492,13 +501,13 @@ export function Meter({
   tone = "primary",
   className = "",
   track = "bg-light-gray/60",
-}: {
+}: Readonly<{
   value: number;
   max?: number;
   tone?: Tone;
   className?: string;
   track?: string;
-}) {
+}>) {
   const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
   return (
     <div className={`h-2 overflow-hidden rounded-full ${track} ${className}`}>
@@ -514,10 +523,10 @@ export function Meter({
 export function SegmentBar({
   segments,
   className = "h-3",
-}: {
+}: Readonly<{
   segments: readonly Slice[];
   className?: string;
-}) {
+}>) {
   const total = segments.reduce((s, x) => s + Math.max(0, x.value), 0);
   return (
     <div className={`flex w-full gap-0.5 overflow-hidden rounded-full bg-light-gray/50 ${className}`}>
@@ -541,11 +550,11 @@ export function Legend({
   items,
   className = "",
   dark = false,
-}: {
+}: Readonly<{
   items: readonly { label: string; tone: Tone; value?: string }[];
   className?: string;
   dark?: boolean;
-}) {
+}>) {
   return (
     <ul className={`flex flex-wrap gap-x-4 gap-y-1.5 text-xs ${dark ? "text-white/70" : "text-gray-100"} ${className}`}>
       {items.map((item) => (

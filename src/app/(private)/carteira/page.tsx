@@ -108,6 +108,14 @@ type Params = NonNullable<ReturnType<typeof listParams>>;
 
 type Target = { kind: EntryKind; id: string; description: string };
 
+/** O que dizer quando a lista vem vazia: falhou, o filtro não achou ou o mês está limpo. */
+function emptyMessageOf(noun: string, failed: boolean, hasActiveFilter: boolean): string {
+  if (failed) return `Não foi possível carregar as ${noun}s. Tente novamente.`;
+  return hasActiveFilter
+    ? `Nenhuma ${noun} encontrada para os filtros escolhidos.`
+    : `Nenhuma ${noun} com vencimento neste mês.`;
+}
+
 export default function WalletPage() {
   /**
    * Dinheiro do escritório é de quem administra (D3). A guarda aqui é da tela
@@ -207,11 +215,7 @@ export default function WalletPage() {
   const list = tab === "expense" ? expenses : revenues;
   const filters = tab === "expense" ? expenseFilters : revenueFilters;
   const noun = KIND_META[tab].noun;
-  const emptyMessage = list.failed
-    ? `Não foi possível carregar as ${noun}s. Tente novamente.`
-    : filters.hasActive
-      ? `Nenhuma ${noun} encontrada para os filtros escolhidos.`
-      : `Nenhuma ${noun} com vencimento neste mês.`;
+  const emptyMessage = emptyMessageOf(noun, list.failed, filters.hasActive);
 
   return (
     <div className="flex flex-col gap-5 pb-16">
@@ -233,14 +237,14 @@ export default function WalletPage() {
       <WalletMonthSummary summary={monthData.summary} isLoading={monthData.state === "loading"} month={month} />
 
       {(monthData.state === "partial" || monthData.state === "error") && (
-        <div role="status" className="rounded-2xl border border-secondary/40 bg-light-secondary px-5 py-4 text-sm text-primary">
+        <output className="block rounded-2xl border border-secondary/40 bg-light-secondary px-5 py-4 text-sm text-primary">
           <p className="font-medium">{monthData.state === "error" ? "Não foi possível carregar" : "Dados parciais"}</p>
           <p className="mt-1 text-gray-100">
             {monthData.state === "error"
               ? "Nem as receitas nem as despesas responderam. Os valores estão zerados por falta de resposta, não por falta de movimento — recarregue a página antes de tirar qualquer conclusão deles."
               : "Uma das metades não respondeu, então o saldo acima está incompleto. Ele soma só o que chegou."}
           </p>
-        </div>
+        </output>
       )}
 
       {/* Filtro → lista → paginação, da aba aberta: cada aba guarda os seus filtros. */}

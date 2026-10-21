@@ -25,7 +25,7 @@ describe("localizadores", () => {
   it("todo data-testid tem justificativa escrita", () => {
     const withTestId = sourceFiles("src")
       .filter((file) => readFileSync(file, "utf8").includes("data-testid"))
-      .map((file) => file.replace(/\\/g, "/"));
+      .map((file) => file.replaceAll("\\", "/"));
     expect(withTestId.filter((file) => !(file in ALLOWED))).toEqual([]);
   });
 });

@@ -36,7 +36,7 @@ export function TablePagination({
   totalPages,
   onPageChange,
   noun,
-}: TablePaginationProps) {
+}: Readonly<TablePaginationProps>) {
   if (totalPages <= 1) return null;
 
   const { start, end } = pageRange(pageNumber, pageSize, total);
@@ -61,9 +61,10 @@ export function TablePagination({
             </Pagination.Previous>
           </Pagination.Item>
 
-          {buildPageList(pageNumber, totalPages).map((entry, index) =>
+          {buildPageList(pageNumber, totalPages).map((entry, index, list) =>
             entry === ELLIPSIS ? (
-              <Pagination.Item key={`gap-${index}`}>
+              // Reticências não têm número; a página que vem depois dela, sim.
+              <Pagination.Item key={`gap-before-${list[index + 1]}`}>
                 <Pagination.Ellipsis className="text-sm text-gray-100" />
               </Pagination.Item>
             ) : (

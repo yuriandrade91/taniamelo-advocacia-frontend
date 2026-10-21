@@ -37,7 +37,7 @@ import type { ServiceValues, PersonalValues, ProfessionalValues, AddressValues, 
 
 /** `""` → `undefined`; caso contrário, o texto sem espaços nas pontas. */
 const orUndefined = (value: string): string | undefined =>
-  value.trim() ? value.trim() : undefined;
+  value.trim() || undefined;
 
 /**
  * `""` → `undefined`; caso contrário, o número.

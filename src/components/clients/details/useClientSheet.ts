@@ -39,6 +39,7 @@ import {
   type InterviewValues,
 } from "../form/schemas";
 import { toUpdateRequest, type KeptFields, type SheetSections } from "./clientSheet";
+import { optionalText } from "@/lib/formValues";
 
 /**
  * Estado e regras da ficha do cliente: carga, edição, validação e gravação.
@@ -87,6 +88,47 @@ function snapshotOf(loaded: LoadedClient): Snapshot {
 /** Rótulos dos campos com erro — para a mensagem do Salvar. */
 const invalidLabels = (forms: [{ errors: object }, SectionSchema][]) =>
   forms.flatMap(([form, schema]) => Object.keys(form.errors).map((key) => schema[key]?.label ?? key));
+
+/** Grava o endereço principal, se mudou; diz se gravou. */
+async function saveAddress(
+  clientId: string,
+  next: SheetRecord,
+  values: AddressValues,
+  before: AddressValues,
+): Promise<boolean> {
+  if (same(values, before)) return false;
+  const body = toAddressRequest({ ...values, isPrimary: true });
+  const saved = next.addressId
+    ? await updateAddress(clientId, next.addressId, body, { silent: true })
+    : await createAddress(clientId, body, { silent: true });
+  next.addressId = saved?.data?.id ?? next.addressId;
+  return true;
+}
+
+/** Grava a entrevista, se tem conteúdo e mudou; diz se gravou. */
+async function saveInterview(
+  clientId: string,
+  next: SheetRecord,
+  values: InterviewValues,
+  before: InterviewValues,
+): Promise<boolean> {
+  if (!hasInterviewInput(values) || same(values, before)) return false;
+  const body = toInterviewRequest(values);
+  if (next.interviewId) {
+    await updateInterview(clientId, next.interviewId, body, { silent: true });
+  } else {
+    const created = await createInterview(clientId, body, { silent: true });
+    next.interviewId = created?.data?.id ?? null;
+    next.interviewCount += 1;
+  }
+  return true;
+}
+
+/** O aviso de "Salvar" reprovado: as seções com erro, quando dá para nomeá-las. */
+const reviseMessage = (labels: readonly string[]) =>
+  labels.length
+    ? `Revise os campos destacados: ${labels.join(", ")}.`
+    : "Revise os campos destacados antes de salvar.";
 
 export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
   const service = useSectionForm({ schema: serviceSchema });
@@ -190,11 +232,7 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
         [interview, interviewSchema],
         [addressFilled ? address : { errors: {} }, addressSchema],
       ]);
-      setSaveError(
-        labels.length
-          ? `Revise os campos destacados: ${labels.join(", ")}.`
-          : "Revise os campos destacados antes de salvar.",
-      );
+      setSaveError(reviseMessage(labels));
       return false;
     }
 
@@ -207,6 +245,16 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
     };
     const before = loaded.snapshot;
     const next: SheetRecord = { ...loaded };
+    // Os arquivos ficam com o que está no estado, não com o retrato de antes:
+    // o `afterSave` os envia e `refreshFiles` os relê no meio do caminho —
+    // gravar `next` inteiro desfazia essa releitura, e o que acabara de subir
+    // sumia da ficha até reabri-la.
+    const commit = () =>
+      setRecord((current) => ({
+        ...next,
+        documents: current?.documents ?? next.documents,
+        simulations: current?.simulations ?? next.simulations,
+      }));
     let wrote = false;
     try {
       if (
@@ -216,25 +264,8 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
         next.client = envelope?.data ?? next.client;
         wrote = true;
       }
-      if (addressFilled && !same(address.values, before.address)) {
-        const body = toAddressRequest({ ...address.values, isPrimary: true });
-        const saved = next.addressId
-          ? await updateAddress(clientId, next.addressId, body, { silent: true })
-          : await createAddress(clientId, body, { silent: true });
-        next.addressId = saved?.data?.id ?? next.addressId;
-        wrote = true;
-      }
-      if (hasInterviewInput(interview.values) && !same(interview.values, before.interview)) {
-        const body = toInterviewRequest(interview.values);
-        if (next.interviewId) {
-          await updateInterview(clientId, next.interviewId, body, { silent: true });
-        } else {
-          const created = await createInterview(clientId, body, { silent: true });
-          next.interviewId = created?.data?.id ?? null;
-          next.interviewCount += 1;
-        }
-        wrote = true;
-      }
+      if (addressFilled && (await saveAddress(clientId, next, address.values, before.address))) wrote = true;
+      if (await saveInterview(clientId, next, interview.values, before.interview)) wrote = true;
       if (await hooks.afterSave?.()) wrote = true;
       if (sections.service.situation !== before.service.situation) {
         const history = await clientSituationHistory(clientId, { pageNumber: 1, pageSize: 50 }).catch(() => null);
@@ -247,13 +278,13 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
         address: address.values,
         interview: interview.values,
       };
-      setRecord(next);
+      commit();
       apply(next.snapshot);
       if (wrote) notificationCenter.success("Ficha atualizada.");
       else notificationCenter.info("Nada foi alterado.");
       return true;
     } catch (reason) {
-      setRecord(next);
+      commit();
       setSaveError(messageOf(reason, fallbackMessages.CLIENTS.UPDATE_FAILED));
       return false;
     } finally {
@@ -283,7 +314,7 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
     record: loaded,
     isLoading,
     isSaving,
-    error: loaded?.error || saveError,
+    error: optionalText(loaded?.error) ?? saveError,
     setError: setSaveError,
     save,
     cancel,

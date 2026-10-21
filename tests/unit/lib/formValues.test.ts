@@ -13,13 +13,13 @@ import { getPaymentMethodKeyByLabel } from "@/enums/payment/Payment";
 
 describe("API → campo", () => {
   it("ausente vira vazio, e zero sobrevive", () => {
-    expect(textOf(undefined)).toBe("");
+    expect(textOf()).toBe("");
     expect(textOf(null)).toBe("");
     expect(textOf("Maria")).toBe("Maria");
     expect(numberTextOf(0)).toBe("0");
-    expect(numberTextOf(undefined)).toBe("");
+    expect(numberTextOf()).toBe("");
     expect(numberTextOf(Number.NaN)).toBe("");
-    expect(flagOf(undefined)).toBe(false);
+    expect(flagOf()).toBe(false);
     expect(flagOf(true)).toBe(true);
   });
 });
@@ -40,7 +40,7 @@ describe("amountTextOf", () => {
   });
 
   it("ausente vira vazio, não 'NaN' nem '0,00'", () => {
-    expect(amountTextOf(undefined)).toBe("");
+    expect(amountTextOf()).toBe("");
     expect(amountTextOf(null)).toBe("");
     expect(amountTextOf(Number.NaN)).toBe("");
   });

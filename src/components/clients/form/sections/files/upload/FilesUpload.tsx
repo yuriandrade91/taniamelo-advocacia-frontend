@@ -25,7 +25,9 @@ import { downloadClientFile } from "@/services/clientFileService";
 import { FILE_KINDS, FILE_KIND_WORDS, FileKindLabel } from "../FileKindLabel";
 import { formatFileSize, groupByDocumentType } from "../fileGrouping";
 import {
+  ACCEPTED_TYPES,
   documentErrors,
+  fileError,
   simulationErrors,
   type FileKind,
 } from "../types";
@@ -96,7 +98,7 @@ type DocumentRow = { entry: DocEntry } | { saved: ClientFileDocumentResponse };
 type SimulationRow = { entry: SimulationEntry } | { saved: ClientFileSimulationResponse };
 
 const hasFiles = (event: DragEvent) =>
-  Array.from(event.dataTransfer?.types ?? []).includes("Files");
+  [...event.dataTransfer?.types ?? []].includes("Files");
 
 /**
  * Imagem colada chega como "image.png" — todas com o mesmo nome. Dá um nome
@@ -129,6 +131,12 @@ const StarIcon = ({ isFilled }: { isFilled: boolean }) => (
     />
   </Svg>
 );
+
+/** O convite da zona: soltar agora, arrastar o primeiro ou acrescentar. */
+function dropTitle(isOver: boolean, isEmpty: boolean, what: string): string {
+  if (isOver) return "Pode soltar";
+  return isEmpty ? `Arraste ${what} para cá` : "Adicionar mais";
+}
 
 export function FilesUpload({
   showErrors,
@@ -190,35 +198,35 @@ export function FilesUpload({
       depth = 0;
       setIsDragging(false);
       setIsOver(false);
-      addRef.current(Array.from(event.dataTransfer?.files ?? []));
+      addRef.current([...event.dataTransfer?.files ?? []]);
     };
     // Só cola quando há arquivo na área de transferência: texto colado num
     // campo continua indo para o campo.
     const onPaste = (event: ClipboardEvent) => {
-      const files = Array.from(event.clipboardData?.files ?? []);
+      const files = [...event.clipboardData?.files ?? []];
       if (files.length === 0) return;
       event.preventDefault();
-      addRef.current(files.map(renamePasted));
+      addRef.current(files.map((item, index) => renamePasted(item, index)));
       setLastPasted(files.length);
     };
-    window.addEventListener("dragenter", onEnter);
-    window.addEventListener("dragleave", onLeave);
-    window.addEventListener("dragover", onOver);
-    window.addEventListener("drop", onDrop);
-    window.addEventListener("paste", onPaste);
+    globalThis.addEventListener("dragenter", onEnter);
+    globalThis.addEventListener("dragleave", onLeave);
+    globalThis.addEventListener("dragover", onOver);
+    globalThis.addEventListener("drop", onDrop);
+    globalThis.addEventListener("paste", onPaste);
     return () => {
-      window.removeEventListener("dragenter", onEnter);
-      window.removeEventListener("dragleave", onLeave);
-      window.removeEventListener("dragover", onOver);
-      window.removeEventListener("drop", onDrop);
-      window.removeEventListener("paste", onPaste);
+      globalThis.removeEventListener("dragenter", onEnter);
+      globalThis.removeEventListener("dragleave", onLeave);
+      globalThis.removeEventListener("dragover", onOver);
+      globalThis.removeEventListener("drop", onDrop);
+      globalThis.removeEventListener("paste", onPaste);
     };
   }, [isReadOnly]);
 
   useEffect(() => {
     if (!lastPasted) return;
-    const timer = window.setTimeout(() => setLastPasted(0), 2500);
-    return () => window.clearTimeout(timer);
+    const timer = globalThis.setTimeout(() => setLastPasted(0), 2500);
+    return () => globalThis.clearTimeout(timer);
   }, [lastPasted]);
 
   const pendingDocs = docs.entries.filter(
@@ -264,17 +272,10 @@ export function FilesUpload({
   /** A zona viva (soltar, clicar ou colar) e o aviso do colado — só editando. */
   const dropZone = (
     <>
-      <div
+      <button
+        type="button"
         {...dropProps(add, setIsOver)}
-        role="button"
-        tabIndex={0}
         onClick={() => inputRef.current?.click()}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            inputRef.current?.click();
-          }
-        }}
         className={`group/zone flex cursor-pointer items-center gap-4 rounded-3xl border-2 border-dashed text-left transition focus-visible:ring-2 focus-visible:ring-primary/30 focus-visible:outline-none ${
           isEmpty ? "flex-col justify-center px-6 py-12 text-center" : "px-5 py-4"
         } ${
@@ -292,22 +293,17 @@ export function FilesUpload({
         </span>
         <span className="min-w-0">
           <span className="block text-sm font-semibold text-primary">
-            {isOver
-              ? "Pode soltar"
-              : isEmpty
-                ? `Arraste ${copy.title} para cá`
-                : "Adicionar mais"}
+            {dropTitle(isOver, isEmpty, copy.title)}
           </span>
           <span className="block text-xs text-gray-100">
             ou clique para escolher · cole com <Kbd>Ctrl</Kbd> + <Kbd>V</Kbd> · {copy.hint}
           </span>
         </span>
-        <HiddenFileInput inputRef={inputRef} onFiles={add} />
-      </div>
+      </button>
 
-      <p role="status" className="sr-only">
+      <output className="sr-only">
         {lastPasted ? `${lastPasted} arquivo(s) colado(s)` : ""}
-      </p>
+      </output>
       {lastPasted > 0 && (
         <p
           aria-hidden="true"
@@ -390,6 +386,14 @@ export function FilesUpload({
         }))}
       />
 
+      {/* Um seletor só, fora dos painéis. Com um em cada zona, os dois
+          dividiam o mesmo `inputRef`: trocando de aba, o painel que saía
+          desmontava depois e zerava o ref — e clicar na zona não abria mais
+          nada, nem em Simulações nem de volta em Documentos. */}
+      {!isReadOnly && (
+        <HiddenFileInput inputRef={inputRef} onFiles={add} accept={ACCEPTED_TYPES[kind].join(",")} />
+      )}
+
       {isDragging &&
         createPortal(
           <div
@@ -419,11 +423,11 @@ function CardHeader({
   file,
   detail,
   children,
-}: {
+}: Readonly<{
   file: FileLike;
   detail?: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <div className="flex items-center gap-3">
       <FileThumb file={file} className="h-11 w-11" />
@@ -435,15 +439,30 @@ function CardHeader({
 
 const CARD_CLASS = "flex flex-col gap-4 rounded-3xl bg-white p-4 ring-1 ring-light-gray sm:p-5";
 
+/**
+ * O arquivo em si não sobe (formato, tamanho). Aparece assim que ele entra,
+ * sem esperar o "Salvar": não há campo a preencher que resolva — é remover
+ * ou trocar de lado.
+ */
+function FileProblem({ kind, file }: Readonly<{ kind: FileKind; file: File }>) {
+  const message = fileError(kind, file);
+  if (!message) return null;
+  return (
+    <p role="alert" className="-mt-2 text-xs font-medium text-danger">
+      {message}
+    </p>
+  );
+}
+
 function DocumentCard({
   entry,
   showErrors,
   docs,
-}: {
+}: Readonly<{
   entry: DocEntry;
   showErrors: boolean;
   docs: ReturnType<typeof useDocuments>;
-}) {
+}>) {
   const errors = showErrors ? documentErrors(entry.doc) : {};
   return (
     <li className={CARD_CLASS}>
@@ -455,6 +474,7 @@ function DocumentCard({
         />
         <RemoveButton name={entry.file.name} onClick={() => docs.remove(entry)} />
       </CardHeader>
+      <FileProblem kind="documents" file={entry.file} />
       <FieldGrid columns={4}>
         <SelectField
           className="sm:col-span-2"
@@ -486,11 +506,11 @@ function SimulationCard({
   entry,
   showErrors,
   sims,
-}: {
+}: Readonly<{
   entry: SimulationEntry;
   showErrors: boolean;
   sims: ReturnType<typeof useSimulations>;
-}) {
+}>) {
   const errors = showErrors ? simulationErrors(entry.simulation) : {};
   const { simulation: simulation, file } = entry;
   return (
@@ -512,6 +532,7 @@ function SimulationCard({
         </IconButton>
         <RemoveButton name={file.name} onClick={() => sims.remove(entry)} />
       </CardHeader>
+      <FileProblem kind="simulations" file={file} />
       <FieldGrid columns={4}>
         <DatePickerField
           label="Data da simulação"
@@ -538,7 +559,7 @@ function SimulationCard({
           value={simulation.vinculos}
           // Só dígitos: `type="number"` deixaria passar "e", "+" e "-".
           onChange={(event) =>
-            sims.update(entry, { vinculos: event.target.value.replace(/\D/g, "") })
+            sims.update(entry, { vinculos: event.target.value.replaceAll(/\D/g, "") })
           }
           isInvalid={!!errors.vinculos}
           errorMessage={errors.vinculos}
@@ -584,11 +605,11 @@ function SavedFileActions({
   clientId,
   file,
   onDelete,
-}: {
+}: Readonly<{
   clientId: string;
   file: SavedFile;
   onDelete?: (fileId: string) => void;
-}) {
+}>) {
   const load = () => downloadClientFile(clientId, file.id);
   // O erro da requisição já sai pela central; aqui só não deixa a promessa solta.
   return (
@@ -625,12 +646,12 @@ function SavedCard({
   badge,
   actions,
   children,
-}: {
+}: Readonly<{
   file: SavedFile;
   badge?: ReactNode;
   actions: ReactNode;
   children: ReactNode;
-}) {
+}>) {
   return (
     <li className={CARD_CLASS}>
       <CardHeader file={fileLikeOf(file)} detail={savedDetail(file)}>
@@ -647,10 +668,10 @@ function SavedCard({
 function SavedDocumentCard({
   file,
   children,
-}: {
+}: Readonly<{
   file: ClientFileDocumentResponse;
   children: ReactNode;
-}) {
+}>) {
   return (
     <SavedCard file={file} actions={children}>
       <SelectField
@@ -678,10 +699,10 @@ function SavedDocumentCard({
 function SavedSimulationCard({
   file,
   children,
-}: {
+}: Readonly<{
   file: ClientFileSimulationResponse;
   children: ReactNode;
-}) {
+}>) {
   return (
     <SavedCard
       file={file}

@@ -107,3 +107,35 @@ describe("nome em caixa de título", () => {
     );
   });
 });
+
+describe("bordas do reconhecimento", () => {
+  it("sem rótulos: CPF e celular soltos, nascimento pela data mais antiga, nome pela primeira linha", () => {
+    const text = `João Batista Ferreira
+390.533.447-05
+contato 31 98888-7777 / 31 3333-4444
+datas: 10/02/2020, 05/07/1958, 99/99/1999
+filho de Pedro Ferreira e Marta Souza
+rg MG-12.345.678 · viúvo
+r. Afonso Pena n° 45, Belo Horizonte - MG
+benefício: deficiência`;
+    expect(valueOf(text, "fullName")).toBe("João Batista Ferreira");
+    expect(valueOf(text, "cpf")).toBe("390.533.447-05");
+    expect(valueOf(text, "birthDate")).toBe("1958-07-05");
+    expect(valueOf(text, "motherName")).toBe("Marta Souza");
+    expect(valueOf(text, "gender")).toBe("MASCULINO");
+    expect(valueOf(text, "maritalStatus")).toBe("VIUVO");
+    expect(valueOf(text, "benefit")).toBe("APOSENTADORIA_POR_DEFICIENCIA");
+  });
+
+  it("primeira linha que não parece nome não vira nome; gênero ambíguo não é escolhido", () => {
+    const text = `cpf 39053344705 sexo: F
+filho de alguém, mulher e homem`;
+    expect(valueOf(text, "fullName")).toBeUndefined();
+    expect(valueOf(text, "gender")).toBeUndefined();
+  });
+
+  it("feminino pelo texto e número do endereço solto", () => {
+    expect(valueOf("sexo feminino\nRua Ipê, sem número\nnº 77", "gender")).toBe("FEMININO");
+    expect(valueOf("sexo feminino\nRua Ipê, sem número\nnº 77", "addressNumber")).toBe("77");
+  });
+});

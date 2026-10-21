@@ -21,7 +21,7 @@ export function ClientSearchField({
   isDisabled,
   errorMessage,
   className,
-}: {
+}: Readonly<{
   value: ClientLink;
   onChange: (next: ClientLink) => void;
   label?: string;
@@ -30,7 +30,7 @@ export function ClientSearchField({
   errorMessage?: string;
   /** A célula da grade de campos (ex.: `col-span-full`). */
   className?: string;
-}) {
+}>) {
   /** A sugestão recém-escolhida: o ComboBox reescreve o texto com o nome dela, e isso não desfaz o vínculo. */
   const picked = useRef<ClientLink | null>(null);
   const { suggestions } = useClientSearch({
@@ -46,8 +46,8 @@ export function ClientSearchField({
         onInputChange={(clientName) =>
           onChange({ clientName, clientId: picked.current?.clientName === clientName ? picked.current.clientId : "" })
         }
-        selectedKey={value.clientId || null}
-        onSelectionChange={(key) => {
+        value={value.clientId || null}
+        onChange={(key) => {
           const match = suggestions.find((client) => client.id === String(key));
           if (!match?.id) return;
           picked.current = { clientId: match.id, clientName: match.fullName };

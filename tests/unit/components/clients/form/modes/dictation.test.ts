@@ -9,12 +9,14 @@ import {
 } from "@/components/clients/form/modes/dictation";
 import { extractClientData } from "@/components/clients/form/modes/smartFill";
 
+/** Os reconhecedores criados, na ordem: o teste fala com eles. */
+const recognitions: FakeRecognition[] = [];
+
 /**
  * Reconhecedor falso, com as manias do Chrome: `start()` com ele já ligado
  * lança, e ele "termina" sozinho (silêncio) quando o teste manda.
  */
 class FakeRecognition implements RecognitionLike {
-  static instances: FakeRecognition[] = [];
   lang = "";
   continuous = false;
   interimResults = false;
@@ -25,7 +27,7 @@ class FakeRecognition implements RecognitionLike {
   onerror: RecognitionLike["onerror"] = null;
 
   constructor() {
-    FakeRecognition.instances.push(this);
+    recognitions.push(this);
   }
   start() {
     if (this.running) throw new Error("InvalidStateError");
@@ -72,7 +74,7 @@ const handlers = () => {
 };
 
 beforeEach(() => {
-  FakeRecognition.instances = [];
+  recognitions.length = 0;
   vi.useFakeTimers();
 });
 afterEach(() => vi.useRealTimers());
@@ -81,7 +83,7 @@ describe("a sessão de ditado", () => {
   it("liga em pt-BR, contínuo e com resultado parcial", () => {
     const { h, calls } = handlers();
     new DictationSession(FakeRecognition, h).start();
-    const r = FakeRecognition.instances[0];
+    const r = recognitions[0];
     expect(r.lang).toBe("pt-BR");
     expect(r.continuous).toBe(true);
     expect(r.interimResults).toBe(true);
@@ -92,7 +94,7 @@ describe("a sessão de ditado", () => {
   it("religa sozinha quando o navegador para por silêncio", () => {
     const { h, calls } = handlers();
     new DictationSession(FakeRecognition, h, 250).start();
-    const r = FakeRecognition.instances[0];
+    const r = recognitions[0];
 
     r.endBySilence();
     expect(r.running).toBe(false);
@@ -111,14 +113,14 @@ describe("a sessão de ditado", () => {
     session.start();
     session.stop();
     vi.advanceTimersByTime(1000);
-    expect(FakeRecognition.instances[0].running).toBe(false);
+    expect(recognitions[0].running).toBe(false);
     expect(calls.listening.at(-1)).toBe(false);
   });
 
   it("microfone negado para e explica, sem religar", () => {
     const { h, calls } = handlers();
     new DictationSession(FakeRecognition, h, 250).start();
-    const r = FakeRecognition.instances[0];
+    const r = recognitions[0];
     r.fail("not-allowed");
     vi.advanceTimersByTime(1000);
     expect(calls.errors).toEqual(["not-allowed"]);
@@ -131,13 +133,13 @@ describe("a sessão de ditado", () => {
     const session = new DictationSession(FakeRecognition, h);
     session.start();
     expect(() => session.start()).not.toThrow();
-    expect(FakeRecognition.instances).toHaveLength(1);
+    expect(recognitions).toHaveLength(1);
   });
 
   it("entrega o final para acrescentar e o parcial para mostrar", () => {
     const { h, calls } = handlers();
     new DictationSession(FakeRecognition, h).start();
-    const r = FakeRecognition.instances[0];
+    const r = recognitions[0];
     r.say("maria aparecida", false);
     r.say("maria aparecida da silva", true);
     expect(calls.interim).toContain("maria aparecida");
@@ -150,7 +152,7 @@ describe("a sessão de ditado", () => {
     session.start();
     session.dispose();
     vi.advanceTimersByTime(1000);
-    expect(FakeRecognition.instances[0].running).toBe(false);
+    expect(recognitions[0].running).toBe(false);
     expect(calls.listening).toEqual([true]);
   });
 });

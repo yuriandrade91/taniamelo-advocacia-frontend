@@ -103,6 +103,20 @@ const PAGE_SIZE = 12;
 const statusOf = (reason: unknown) =>
   (reason as { response?: { status?: number } })?.response?.status;
 
+/** 404 não é "não achei pagamento", é "a rota não existe": a tela diz isso, em vez de mentir. */
+function loadStateOf(isLoading: boolean, failed: boolean, reason: unknown): PaymentsLoadState {
+  if (isLoading) return "loading";
+  if (!failed) return "ready";
+  return statusOf(reason) === 404 ? "missing-endpoint" : "error";
+}
+
+const EMPTY_MESSAGE: Record<PaymentsLoadState, string> = {
+  loading: "",
+  ready: "Nenhum recebimento encontrado para os filtros escolhidos.",
+  "missing-endpoint": "A lista respondeu 404 — confira se o servidor está atualizado.",
+  error: "Não foi possível carregar os valores. Tente novamente.",
+};
+
 export default function PaymentsPage() {
   /**
    * D3: dinheiro é só do administrador. O backend impõe (`@RequerAdmin`), e
@@ -147,14 +161,7 @@ export default function PaymentsPage() {
         pageSize: PAGE_SIZE,
       }).then(pageFromEnvelope),
   });
-  /** 404 não é "não achei pagamento", é "a rota não existe": a tela diz isso, em vez de mentir. */
-  const state: PaymentsLoadState = list.isLoading
-    ? "loading"
-    : list.failed
-      ? statusOf(list.failureReason) === 404
-        ? "missing-endpoint"
-        : "error"
-      : "ready";
+  const state = loadStateOf(list.isLoading, list.failed, list.failureReason);
 
   /** Depois de gravar ou excluir: a lista e as parcelas de cada acordo podem ter mudado. */
   const reload = () => {
@@ -197,12 +204,7 @@ export default function PaymentsPage() {
   if (!canSeeFinance)
     return <NoFinanceAccess title="Pagamentos aos clientes" />;
 
-  const emptyMessage =
-    state === "missing-endpoint"
-      ? "A lista respondeu 404 — confira se o servidor está atualizado."
-      : state === "error"
-        ? "Não foi possível carregar os valores. Tente novamente."
-        : "Nenhum recebimento encontrado para os filtros escolhidos.";
+  const emptyMessage = EMPTY_MESSAGE[state];
 
   return (
     <div className="flex flex-col gap-5 pb-16">
@@ -276,9 +278,8 @@ export default function PaymentsPage() {
       />
 
       {state === "missing-endpoint" && (
-        <div
-          role="status"
-          className="rounded-2xl border border-danger/40 bg-danger/5 px-5 py-4 text-sm text-primary"
+        <output
+          className="block rounded-2xl border border-danger/40 bg-danger/5 px-5 py-4 text-sm text-primary"
         >
           <p className="font-medium">A lista respondeu 404</p>
           <p className="mt-1 text-gray-100">
@@ -286,7 +287,7 @@ export default function PaymentsPage() {
             é sinal de servidor desatualizado ou de proxy apontando para outro
             lugar — não de recurso que falta.
           </p>
-        </div>
+        </output>
       )}
 
       {detailsTarget && (

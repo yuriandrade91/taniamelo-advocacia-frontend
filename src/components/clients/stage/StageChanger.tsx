@@ -1,15 +1,20 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
+import dynamic from "next/dynamic";
 import { Popover, Skeleton } from "@heroui/react";
 import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import { STAGES, stageOf, type Stage } from "./stages";
-import { StageMoveDialog } from "./StageMoveDialog";
 import { useSituationTrail } from "./stageTrails";
 import { planStageMove, trailReachedAt, trailSkippedStages, type StageMove } from "./stageMoves";
 import { formatInstantDateBR } from "@/lib/format";
 import { useHoverCard } from "@/hooks/useHoverCard";
 import { Pill } from "@/components/ui/feedback/Badges";
+
+/** A confirmação de pular ou voltar etapa: fora do JS inicial da lista. */
+const StageMoveDialog = dynamic(() => import("./StageMoveDialog").then((m) => m.StageMoveDialog), {
+  ssr: false,
+});
 
 /**
  * Mudar a situação direto na lista: clicar no selo/trilho abre a esteira em
@@ -61,13 +66,27 @@ const STEP_STATE_LABEL: Record<StepState, string> = {
 /** Diálogo aberto depois do cartão: confirmar um pulo ou um retrocesso. */
 type PendingConfirmation = { stage: Stage; move: StageMove };
 
+/** O texto do botão de confirmar, pelo tipo de movimento. */
+function moveLabel(kind: StageMove["kind"], short: string): string {
+  switch (kind) {
+    case "none":
+      return "Escolha uma etapa";
+    case "regress":
+      return `Voltar para ${short}…`;
+    case "skip":
+      return `Pular para ${short}…`;
+    default:
+      return `Mover para ${short}`;
+  }
+}
+
 export function StageChanger({
   clientId,
   clientName,
   situation,
   onConfirm,
   children,
-}: {
+}: Readonly<{
   /** Para buscar a trilha (etapas puladas). Sem id, o cartão só não as marca. */
   clientId?: string;
   clientName: string;
@@ -75,7 +94,7 @@ export function StageChanger({
   onConfirm: (stage: Stage) => Promise<void>;
   /** O gatilho — o selo + trilho da linha. */
   children: ReactNode;
-}) {
+}>) {
   const current = stageOf(situation);
   const [picked, setPicked] = useState<Stage | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -139,15 +158,7 @@ export function StageChanger({
     card.hide();
   };
 
-  const confirmLabel = isSaving
-    ? "Salvando…"
-    : move.kind === "none"
-      ? "Escolha uma etapa"
-      : move.kind === "regress"
-        ? `Voltar para ${target.short}…`
-        : move.kind === "skip"
-          ? `Pular para ${target.short}…`
-          : `Mover para ${target.short}`;
+  const confirmLabel = isSaving ? "Salvando…" : moveLabel(move.kind, target.short);
 
   const dialogKind =
     pending?.move.kind === "regress" || pending?.move.kind === "skip" ? pending.move.kind : null;
@@ -184,6 +195,7 @@ export function StageChanger({
                 const isReached = state === "done" || state === "current";
                 const reached = reachedAt.get(stage.key);
                 const date = reached ? formatInstantDateBR(reached) : null;
+                const dateNote = isReached && date ? `, em ${date}` : "";
                 return (
                   <li key={stage.key} className="relative" data-state={state}>
                     {!isLast && (
@@ -198,7 +210,7 @@ export function StageChanger({
                       type="button"
                       onClick={() => setPicked(stage.key === current.key ? null : stage)}
                       aria-pressed={isPicked}
-                      aria-label={`${stage.label} (${STEP_STATE_LABEL[state]}${isReached && date ? `, em ${date}` : ""})`}
+                      aria-label={`${stage.label} (${STEP_STATE_LABEL[state]}${dateNote})`}
                       disabled={isSaving}
                       className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-1.5 text-left text-sm transition ${
                         isPicked ? "bg-primary/5 ring-1 ring-primary/20" : "hover:bg-primary/5"
@@ -288,28 +300,37 @@ export function StageChanger({
  * destino dourada e o resto cinza claro. Destino na última etapa fecha tudo
  * (menos as puladas) em verde.
  */
+/** A cor de cada segmento da prévia: pulada, feita, alvo ou por vir. */
+function previewTone(
+  stage: Stage,
+  target: Stage,
+  skippedKeys: ReadonlySet<string>,
+  finished: boolean,
+): string {
+  if (skippedKeys.has(stage.key) && stage.step < target.step) return "bg-gray-100/30";
+  if (stage.step < target.step || (finished && stage.step === target.step)) return "bg-success";
+  return stage.step === target.step ? "bg-secondary" : "bg-light-gray/70";
+}
+
 function StagePreview({
   target,
   skippedKeys,
-}: {
+}: Readonly<{
   target: Stage;
   skippedKeys: ReadonlySet<string>;
-}) {
+}>) {
   const finished = target.step === STAGES.length;
   return (
     <div className="mt-2 flex gap-1" aria-hidden="true">
       {STAGES.map((stage) => (
         <span
           key={stage.key}
-          className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${
-            skippedKeys.has(stage.key) && stage.step < target.step
-              ? "bg-gray-100/30"
-              : stage.step < target.step || (finished && stage.step === target.step)
-                ? "bg-success"
-                : stage.step === target.step
-                  ? "bg-secondary"
-                  : "bg-light-gray/70"
-          }`}
+          className={`h-1.5 flex-1 rounded-full transition-colors duration-300 ${previewTone(
+            stage,
+            target,
+            skippedKeys,
+            finished,
+          )}`}
         />
       ))}
     </div>

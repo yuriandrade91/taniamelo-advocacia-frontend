@@ -151,7 +151,7 @@ export function baseBarOptions({
     responsive: true,
     maintainAspectRatio: false,
     // A camada de hover é padrão, não opcional: um gráfico em tela é
-    // interativo, e o tooltip é o que substitui rotular todo ponto.
+    // interativo, e o tooltip é o que substitui rotular cada ponto.
     interaction: { mode: "index", intersect: false },
     plugins: {
       legend: { display: false },

@@ -20,7 +20,7 @@ export default function DeleteClientModal({
   onClose,
   clientName,
   onConfirm,
-}: DeleteClientModalProps) {
+}: Readonly<DeleteClientModalProps>) {
   return (
     <ConfirmDialog
       isOpen={isOpen}

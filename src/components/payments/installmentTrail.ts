@@ -65,7 +65,7 @@ export function useInstallmentTrail(
     };
   }, [clientId, enabled]);
 
-  return loaded && loaded.id === clientId
+  return loaded?.id === clientId
     ? loaded.state
     : { status: "loading" };
 }
@@ -78,7 +78,7 @@ const INSTALLMENT_IN_TEXT =
   /\s*[-–(]?\s*(parcela\s*)?\d+\s*(\/|de)\s*\d+\s*\)?/gi;
 
 const normalize = (description: string) =>
-  description.replace(INSTALLMENT_IN_TEXT, "").trim().toLowerCase();
+  description.replaceAll(INSTALLMENT_IN_TEXT, "").trim().toLowerCase();
 
 /**
  * As parcelas do mesmo acordo que `payment`: mesmo total de parcelas e mesma

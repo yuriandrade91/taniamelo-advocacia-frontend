@@ -37,7 +37,7 @@ export function useCepLookup(onFound: (address: CepLookupResponse) => void) {
   });
 
   const handleCepChange = useCallback((value: string) => {
-    const digits = value.replace(/\D/g, "");
+    const digits = value.replaceAll(/\D/g, "");
 
     if (!isCompleteCep(digits)) {
       // CEP incompleto: o aviso do anterior não vale mais para este valor.

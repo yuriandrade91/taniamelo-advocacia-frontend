@@ -65,32 +65,33 @@ describe("validateInstallment", () => {
   });
 });
 
+const validIncome = () => ({
+  ...emptyIncomeForm(),
+  clientId: "c-1",
+  clientName: "Maria",
+  description: "Honorários",
+  amount: "1.500,00",
+  dueDate: "2026-09-10",
+});
+
 describe("incomeRules", () => {
-  const filled = () => ({
-    ...emptyIncomeForm(),
-    clientId: "c-1",
-    clientName: "Maria",
-    description: "Honorários",
-    amount: "1.500,00",
-    dueDate: "2026-09-10",
-  });
 
   it("aceita o mínimo do backend", () => {
-    expect(validateIncome(filled())).toEqual({});
+    expect(validateIncome(validIncome())).toEqual({});
   });
 
   it("aceita receita sem cliente — nem toda entrada vem de um", () => {
-    const errors = validateIncome({ ...filled(), clientId: "", clientName: "" });
+    const errors = validateIncome({ ...validIncome(), clientId: "", clientName: "" });
     expect(errors.clientName).toBeUndefined();
   });
 
   it("recusa nome digitado sem escolher da lista: o texto solto sumiria no envio", () => {
-    const errors = validateIncome({ ...filled(), clientId: "", clientName: "Maria" });
+    const errors = validateIncome({ ...validIncome(), clientId: "", clientName: "Maria" });
     expect(errors.clientName).toBeDefined();
   });
 
   it("exige data quando marcado como recebido", () => {
-    const errors = validateIncome({ ...filled(), isSettled: true });
+    const errors = validateIncome({ ...validIncome(), isSettled: true });
     expect(errors.paidDate).toBeDefined();
   });
 });
@@ -168,22 +169,23 @@ describe("expenseRules", () => {
   });
 });
 
+const sharedIncome = (): IncomeFormValues => ({
+  ...emptyIncomeForm(),
+  clientId: "c-1",
+  clientName: "Maria",
+  description: "Honorários",
+  amount: "1.500,00",
+  dueDate: "2026-09-10",
+  isSettled: true,
+  paidDate: "2026-09-01",
+  paymentMethod: "PIX",
+  notes: "combinado em reunião",
+});
+
 describe("carryShared", () => {
-  const filled = (): IncomeFormValues => ({
-    ...emptyIncomeForm(),
-    clientId: "c-1",
-    clientName: "Maria",
-    description: "Honorários",
-    amount: "1.500,00",
-    dueDate: "2026-09-10",
-    isSettled: true,
-    paidDate: "2026-09-01",
-    paymentMethod: "PIX",
-    notes: "combinado em reunião",
-  });
 
   it("leva os sete campos comuns para o outro tipo", () => {
-    const expense = carryShared(emptyExpenseForm(), filled());
+    const expense = carryShared(emptyExpenseForm(), sharedIncome());
     expect(expense.description).toBe("Honorários");
     expect(expense.amount).toBe("1.500,00");
     expect(expense.dueDate).toBe("2026-09-10");
@@ -194,7 +196,7 @@ describe("carryShared", () => {
   });
 
   it("não inventa tradução entre campos próprios de cada tipo", () => {
-    const expense = carryShared(emptyExpenseForm(), filled());
+    const expense = carryShared(emptyExpenseForm(), sharedIncome());
     // Cliente não vira fornecedor: são coisas diferentes, não sinônimos.
     expect(expense.supplier).toBe("");
     expect(expense.category).toBe("");
@@ -202,13 +204,13 @@ describe("carryShared", () => {
 
   it("preserva o que o destino já tinha nos campos próprios", () => {
     const expense = { ...emptyExpenseForm(), supplier: "Imobiliária", category: "ALUGUEL" };
-    const after = carryShared(expense, filled());
+    const after = carryShared(expense, sharedIncome());
     expect(after.supplier).toBe("Imobiliária");
     expect(after.category).toBe("ALUGUEL");
   });
 
   it("é reversível: voltar não perde o que era do outro lado", () => {
-    const income = filled();
+    const income = sharedIncome();
     const expense = carryShared(
       { ...emptyExpenseForm(), supplier: "Imobiliária" },
       income,

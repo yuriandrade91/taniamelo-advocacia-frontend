@@ -30,7 +30,7 @@ export function useSettled<T>(
     // `load` é recriado a cada render; o que muda a leitura é `key`/`version`.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, version]);
-  return loaded && loaded.key === key ? loaded.results : null;
+  return key !== null && loaded?.key === key ? loaded.results : null;
 }
 
 /** O valor de uma leitura que deu certo, ou `fallback`. */

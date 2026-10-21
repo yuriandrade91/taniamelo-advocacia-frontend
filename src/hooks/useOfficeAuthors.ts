@@ -40,7 +40,7 @@ export function useOfficeAuthors(): Record<string, string> {
       // Silêncio é a resposta certa: a autoria é enfeite de uma tela que funciona sem ela.
       .then((found) => {
         if (active) setIndice(found);
-      }, () => undefined);
+      }, () => {});
     return () => {
       active = false;
     };

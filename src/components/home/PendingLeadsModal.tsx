@@ -23,6 +23,7 @@ import {
 } from "./pendingLeads";
 import { whatsappLink } from "@/lib/contactLinks";
 import { Notice } from "@/components/ui/feedback/Notice";
+import { loadView } from "@/lib/loadView";
 
 /**
  * Quem preencheu o formulário e ainda não virou cliente.
@@ -94,11 +95,11 @@ const FILTERS: { id: "todos" | LeadUrgency; label: string }[] = [
 function LeadRow({
   lead,
   onView,
-}: {
+}: Readonly<{
   lead: PendingLead;
   /** Ausente, a linha não mostra o botão de ficha. */
   onView?: (lead: PendingLead) => void;
-}) {
+}>) {
   return (
     <li className="flex items-center gap-3 rounded-2xl bg-white px-3 py-2.5 ring-1 ring-black/5 transition hover:bg-secondary/5">
       <span
@@ -153,7 +154,7 @@ function LeadRow({
           dois meses. Nada é enviado sozinho — abre a conversa com o texto
           pronto para revisar.
 
-          Vale para todo número: a listagem não diz se ele tem WhatsApp, a
+          Vale para qualquer número: a listagem não diz se ele tem WhatsApp, a
           maioria tem, e o custo de descobrir que não é a própria tela do
           WhatsApp dizendo.
         */}
@@ -173,7 +174,7 @@ export function PendingLeadsModal({
   isOpen,
   onClose,
   onViewClient,
-}: PendingLeadsModalProps) {
+}: Readonly<PendingLeadsModalProps>) {
   const [search, setSearch] = useState("");
   /** Faixa de espera escolhida no topo — "todos" é o estado inicial. */
   const [urgency, setUrgency] = useState<"todos" | LeadUrgency>("todos");
@@ -206,6 +207,7 @@ export function PendingLeadsModal({
   const leads = useMemo(() => current?.leads ?? [], [current]);
   const isLoading = isOpen && current === null;
   const hasError = current?.failed ?? false;
+  const view = loadView({ isLoading, failed: hasError, isEmpty: leads.length === 0 });
 
   const visible = useMemo(() => {
     const found = filterLeads(leads, search);
@@ -242,19 +244,22 @@ export function PendingLeadsModal({
       hideFooter
     >
       <div className="flex flex-col gap-4">
-        {isLoading ? (
+        {view === "loading" && (
           <div className="flex flex-col gap-2">
             {[0, 1, 2, 3].map((row) => (
               <Skeleton key={row} className="h-16 w-full rounded-2xl" />
             ))}
           </div>
-        ) : hasError ? (
+        )}
+        {view === "failed" && (
           <p className="rounded-2xl bg-danger/5 px-4 py-3 text-sm text-primary ring-1 ring-danger/30">
             Não foi possível carregar a lista. Tente abrir de novo.
           </p>
-        ) : leads.length === 0 ? (
+        )}
+        {view === "empty" && (
           <Notice>Ninguém esperando. Todo formulário preenchido já virou atendimento.</Notice>
-        ) : (
+        )}
+        {view === "ready" && (
           <>
             {/*
               A faixa do topo responde antes de qualquer clique: a frase diz o
@@ -265,7 +270,7 @@ export function PendingLeadsModal({
             */}
             <div className="flex flex-col gap-3 rounded-2xl bg-page px-4 py-3">
               {summary && <p className="text-sm text-primary">{summary}</p>}
-              <div role="group" aria-label="Filtrar por tempo de espera" className="flex flex-wrap gap-1.5">
+              <fieldset aria-label="Filtrar por tempo de espera" className="flex min-w-0 flex-wrap gap-1.5">
                 {FILTERS.map((filter) => {
                   const count =
                     filter.id === "todos"
@@ -300,7 +305,7 @@ export function PendingLeadsModal({
                     </button>
                   );
                 })}
-              </div>
+              </fieldset>
             </div>
 
             {/* A busca só aparece quando a lista é grande o bastante para

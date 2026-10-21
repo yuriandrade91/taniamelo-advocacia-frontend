@@ -13,8 +13,11 @@
  * Ausente ou ilegível devolve `null` — quem chama mostra o texto genérico em
  * vez de inventar um número.
  */
+/** O cabeçalho `Retry-After` como o axios entrega: texto, número ou nada. */
+type RetryAfterHeader = string | number | null | undefined;
+
 export function waitSeconds(
-  retryAfter: string | number | null | undefined,
+  retryAfter: RetryAfterHeader,
   now: Date = new Date(),
 ): number | null {
   if (retryAfter === null || retryAfter === undefined) return null;

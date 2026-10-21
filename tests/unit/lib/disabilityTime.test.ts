@@ -29,10 +29,10 @@ const ORDER: DisabilityGradeKey[] = [
  * cálculo idênticas.
  */
 const WOMAN = [
-  [1.0, 1.2, 1.4, 1.5],
-  [0.83, 1.0, 1.17, 1.25],
-  [0.71, 0.86, 1.0, 1.07],
-  [0.67, 0.8, 0.93, 1.0],
+  [1, 1.2, 1.4, 1.5],
+  [0.83, 1, 1.17, 1.25],
+  [0.71, 0.86, 1, 1.07],
+  [0.67, 0.8, 0.93, 1],
 ];
 
 /**
@@ -44,10 +44,10 @@ const WOMAN = [
  * quatro que faltavam.
  */
 const MAN = [
-  [1.0, 1.16, 1.32, 1.4],
-  [0.86, 1.0, 1.14, 1.21],
-  [0.76, 0.88, 1.0, 1.06],
-  [0.71, 0.83, 0.94, 1.0],
+  [1, 1.16, 1.32, 1.4],
+  [0.86, 1, 1.14, 1.21],
+  [0.76, 0.88, 1, 1.06],
+  [0.71, 0.83, 0.94, 1],
 ];
 
 describe("a tabela de multiplicadores", () => {
@@ -55,13 +55,13 @@ describe("a tabela de multiplicadores", () => {
     ["FEMININO" as const, WOMAN],
     ["MASCULINO" as const, MAN],
   ])("%s: as 16 células saem de destino ÷ origem", (basis, expected) => {
-    ORDER.forEach((from, i) => {
-      ORDER.forEach((to, j) => {
+    for (const [i, from] of ORDER.entries()) {
+      for (const [j, to] of ORDER.entries()) {
         expect(factor(from, to, basis), `de ${from} para ${to}`).toBe(
           expected[i][j],
         );
-      });
-    });
+      }
+    }
   });
 
   it("converter para o próprio grau é sempre 1,00", () => {
@@ -141,7 +141,7 @@ describe("a base de conversão", () => {
   it("não-binário, outro e ausente não têm — devolve null em vez de supor", () => {
     expect(basisFromGender("Não-binário")).toBeNull();
     expect(basisFromGender("Outro")).toBeNull();
-    expect(basisFromGender(undefined)).toBeNull();
+    expect(basisFromGender()).toBeNull();
     expect(basisFromGender("")).toBeNull();
   });
 });

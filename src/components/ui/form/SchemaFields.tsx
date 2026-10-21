@@ -53,7 +53,7 @@ export function SchemaField<V extends FormValues>({
   form,
   name,
   schema = form.schema,
-  isReadOnly,
+  isReadOnly = false,
   isDisabled,
   isRequired: isRequiredProp,
   className,
@@ -61,7 +61,7 @@ export function SchemaField<V extends FormValues>({
   inputRef,
   onValueChange,
   isLoading,
-}: SchemaFieldProps<V>) {
+}: Readonly<SchemaFieldProps<V>>) {
   const def = schema?.[name];
   if (!def) throw new Error(`Campo "${name}" fora do schema.`);
   const strategy = FIELD_STRATEGIES[def.kind];
@@ -205,7 +205,7 @@ export function SchemaField<V extends FormValues>({
 }
 
 /** Um campo carregando: o rótulo fixo e o valor em skeleton, no tamanho do controle. */
-export function FieldSkeleton({ label, isSwitch, className }: { label: string; isSwitch?: boolean; className?: string }) {
+export function FieldSkeleton({ label, isSwitch, className }: Readonly<{ label: string; isSwitch?: boolean; className?: string }>) {
   return (
     <div className={className}>
       <p className="text-sm font-medium text-secondary">{label}</p>

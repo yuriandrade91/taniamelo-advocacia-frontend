@@ -32,7 +32,7 @@ import type { ReportViewProps } from "./types";
  * (agenda).
  */
 
-function Funnel({ r }: { r: Report }) {
+function Funnel({ r }: Readonly<{ r: Report }>) {
   const top = Math.max(1, r.funnel.stages[0]?.reached ?? 0);
   const bottleneckKey = r.funnel.bottleneck?.to.key;
   return (
@@ -85,7 +85,7 @@ function Funnel({ r }: { r: Report }) {
   );
 }
 
-export function JourneyView(props: ReportViewProps) {
+export function JourneyView(props: Readonly<ReportViewProps>) {
   const { canSeeFinance, isLoading, isFinanceLoading } = props;
   const r = useReport(props);
   const c = r.intake.current;

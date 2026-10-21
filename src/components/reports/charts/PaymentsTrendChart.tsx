@@ -12,6 +12,7 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import { ChartCard } from "@/components/charts/ChartCard";
+import { useConstant } from "@/hooks/useConstant";
 import {
   LINE_SPEC,
   STATUS_COLORS,
@@ -52,7 +53,7 @@ export type PaymentsTrendChartProps = {
 export function PaymentsTrendChart({
   isLoading = false,
   points,
-}: PaymentsTrendChartProps) {
+}: Readonly<PaymentsTrendChartProps>) {
   const data = useMemo(
     () => ({
       labels: points.map((point) => formatMonthAxis(point.month)),
@@ -71,10 +72,7 @@ export function PaymentsTrendChart({
     [points],
   );
 
-  const options = useMemo(
-    () => baseLineOptions({ formatValue: formatBRLCompact }),
-    [],
-  );
+  const options = useConstant(() => baseLineOptions({ formatValue: formatBRLCompact }));
 
   return (
     <ChartCard

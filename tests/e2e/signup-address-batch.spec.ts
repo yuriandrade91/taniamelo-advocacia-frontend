@@ -97,7 +97,7 @@ test("dois endereços viram uma requisição, e não duas", async ({ page }) => 
     const creation = page.waitForResponse(
       (r) =>
         r.request().method() === "POST" &&
-        /\/api\/v1\/clients$/.test(new URL(r.url()).pathname),
+        new URL(r.url()).pathname.endsWith("/api/v1/clients"),
     );
     const batchBody = page.waitForResponse((r) => r.url().endsWith("/addresses/batch"));
 

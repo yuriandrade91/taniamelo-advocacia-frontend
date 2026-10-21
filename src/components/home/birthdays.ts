@@ -1,6 +1,7 @@
 import { daysBetween } from "@/lib/period";
 import { OFFICE_NAME } from "@/constants/office";
 import type { UpcomingBirthdayResponse } from "@/interfaces/client/Client.interface";
+import { optionalText } from "@/lib/formValues";
 
 /**
  * Os próximos aniversários — hoje e os que vêm, nunca os que já passaram.
@@ -94,7 +95,7 @@ export function toBirthdayPeople(
           date,
           inDays,
           turning: row.turningAge > 0 ? row.turningAge : null,
-          phone: row.mobilePhone?.trim() || null,
+          phone: optionalText(row.mobilePhone) ?? null,
           isWhatsapp: row.isWhatsapp !== false,
         },
       ];

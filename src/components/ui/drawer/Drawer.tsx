@@ -102,7 +102,7 @@ export default function Drawer({
   actions = "buttons",
   className = "",
   dialogClassName = "",
-}: DrawerProps) {
+}: Readonly<DrawerProps>) {
   /**
    * Intercepta o fechamento (backdrop, Esc, botão de fechar). Abrir passa
    * direto; fechar com `confirmClose` só notifica e deixa o painel aberto.

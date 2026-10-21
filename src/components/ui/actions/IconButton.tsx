@@ -55,7 +55,7 @@ export function IconButton({
   isDisabled = false,
   tone,
   children,
-}: IconButtonProps) {
+}: Readonly<IconButtonProps>) {
   return (
     <Tooltip delay={0}>
       <Tooltip.Content showArrow placement="bottom">

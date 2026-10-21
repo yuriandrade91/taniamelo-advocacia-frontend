@@ -11,13 +11,14 @@ import {
 } from "@/components/clients/list/clientFilters";
 
 const day = (y: number, m: number, d: number) => new CalendarDate(y, m, d);
-const { search: _ignored, ...EMPTY_WITHOUT_SEARCH } = EMPTY_CLIENT_FILTERS;
-void _ignored;
+const EMPTY_WITHOUT_SEARCH = Object.fromEntries(
+  Object.entries(EMPTY_CLIENT_FILTERS).filter(([key]) => key !== "search"),
+) as Omit<typeof EMPTY_CLIENT_FILTERS, "search">;
 
 describe("toApiDate", () => {
   it("manda o dia puro, sem hora nem fuso", () => {
     // Antes ia como meia-noite UTC — em UTC-3, o último dia do período ficava
-    // quase todo de fora. O backend resolve o dia no fuso do escritório.
+    // quase inteiro de fora. O backend resolve o dia no fuso do escritório.
     expect(toApiDate(day(2026, 10, 3))).toBe("2026-10-03");
     expect(toApiDate(day(2026, 1, 9))).toBe("2026-01-09");
   });

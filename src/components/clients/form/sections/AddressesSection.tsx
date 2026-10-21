@@ -45,7 +45,7 @@ export function AddressesSection({
   onRemoveAddresses,
   onRequestPrimary,
   renderActions,
-}: {
+}: Readonly<{
   slots: AddressSlot[];
   selectedKey: string;
   onSelectionChange: (key: string) => void;
@@ -57,7 +57,7 @@ export function AddressesSection({
   onRequestPrimary: (slot: AddressSlot) => void;
   /** Rodapé de cada aba (botão de salvar) — quem sabe salvar é a página. */
   renderActions: (slot: AddressSlot) => ReactNode;
-}) {
+}>) {
   // Com um endereço só não há barra: uma aba "Endereço atual" sozinha não
   // tem de quem se distinguir. As abas aparecem a partir do segundo, e com
   // elas o "Excluir" — o último endereço não se exclui.

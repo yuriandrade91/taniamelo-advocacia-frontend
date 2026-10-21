@@ -104,8 +104,8 @@ import {
   removeSlots,
   withPrimaryAt,
 } from "@/components/clients/form/primaryAddress";
-import RemoveAddressesDialog from "@/components/clients/form/RemoveAddressesDialog";
 import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
+import { useConstant } from "@/hooks/useConstant";
 import { useSectionForm } from "@/hooks/useSectionForm";
 import { todayIso } from "@/lib/period";
 import { clearClientsCache } from "@/lib/clientsCache";
@@ -128,12 +128,16 @@ import { sectionHasInput } from "@/components/clients/form/unsaved";
 import { createClient, patchClient } from "@/services/clientService";
 import { notificationCenter } from "@/services/notificationService";
 
-/** Modal: fora do pacote da página, como as outras (ver CLAUDE.md). */
+/** Modais: fora do pacote da página, como as outras (ver CLAUDE.md). */
 const GenderPromptModal = dynamic(
   () =>
     import("@/components/clients/form/GenderPromptModal").then(
       (m) => m.GenderPromptModal,
     ),
+  { ssr: false },
+);
+const RemoveAddressesDialog = dynamic(
+  () => import("@/components/clients/form/RemoveAddressesDialog"),
   { ssr: false },
 );
 
@@ -255,9 +259,9 @@ export function ClientFormPage() {
       addressForms.map((form) => form.values),
       index,
     );
-    addressForms.forEach((form, i) => {
+    for (const [i, form] of addressForms.entries()) {
       form.setField("isPrimary", next[i].isPrimary);
-    });
+    }
   };
 
   /**
@@ -306,7 +310,7 @@ export function ClientFormPage() {
     const finalValues =
       promoteAt >= 0 ? withPrimaryAt(result.values, promoteAt) : result.values;
 
-    addressForms.forEach((form, i) => form.setValues(finalValues[i]));
+    for (const [i, form] of addressForms.entries()) form.setValues(finalValues[i]);
     setAddressIds(result.ids);
 
     const remaining = Math.max(1, addressCount - removed.length);
@@ -350,7 +354,7 @@ export function ClientFormPage() {
    * lugar, uma tela aberta à meia-noite poderia validar contra um dia e
    * converter contra outro.
    */
-  const today = useMemo(() => todayIso(), []);
+  const today = useConstant(todayIso);
 
   const disabilityErrors = useMemo(
     () =>
@@ -524,64 +528,11 @@ export function ClientFormPage() {
     // `setClientId` criaria um segundo cliente.
     if (clientId || isCreating) return;
 
-    // Sempre obrigatórias (compõem o POST /clients).
-    const requiredChecks = [
-      [SECTION_KEYS.service, service.revealErrors()],
-      [SECTION_KEYS.personal, personal.revealErrors()],
-      [SECTION_KEYS.professional, professional.revealErrors()],
-    ] as const;
-    const requiredOk = requiredChecks.every(([, ok]) => ok);
-
-    // Opcionais: só são validadas se o usuário mexeu nelas. Uma seção em
-    // branco não pode reprovar um cadastro que está completo.
     // Cada aba de endereço é um POST independente; só as preenchidas contam.
     const filledAddresses = addressSlots.filter((slot) =>
       hasAddressInput(slot.form.values),
     );
-    const interviewTouched = hasInterviewInput(interview.values);
-    const disabilityTouched = hasAnyDisabilityInput(disabilityPeriods);
-
-    let disabilityOk = true;
-    if (disabilityTouched) {
-      setDisabilityRevealed(true);
-      disabilityOk =
-        Object.keys(validateDisabilityPeriods(disabilityPeriods, today))
-          .length === 0;
-    }
-
-    const optionalOk =
-      filledAddresses.every((slot) => slot.form.revealErrors()) &&
-      (!interviewTouched || interview.revealErrors()) &&
-      disabilityOk;
-
-    if (!requiredOk || !optionalOk) {
-      notificationCenter.warning("Revise os campos destacados.", {
-        description: "Há campos obrigatórios pendentes.",
-      });
-      // Com abas ou etapas a seção com erro pode nem estar na tela.
-      const firstInvalid = requiredChecks.find(([, ok]) => !ok)?.[0];
-      if (firstInvalid) focusSection(firstInvalid);
-      else if (!disabilityOk) focusSection(SECTION_KEYS.disability);
-      return;
-    }
-
-
-    // Rede de segurança do nosso lado: a interface já impede dois principais,
-    // então cair aqui significa bug de estado — melhor descobrir antes do 400.
-    if (
-      !isValidPrimarySelection(filledAddresses.map((slot) => slot.form.values))
-    ) {
-      notificationCenter.warning("Escolha um único endereço principal.");
-      focusSection(SECTION_KEYS.address);
-      return;
-    }
-
-    // No cadastro todo campo do arquivo é obrigatório (menos a principal).
-    if (!validateFiles()) {
-      notificationCenter.warning("Complete os dados de cada arquivo.");
-      focusSection(SECTION_KEYS.documents);
-      return;
-    }
+    if (!validateCreation(filledAddresses)) return;
 
     // Todas as gravações daqui saem caladas: o aviso é um só, no fim —
     // "Cliente cadastrado." ou a lista do que ficou por gravar.
@@ -614,108 +565,12 @@ export function ClientFormPage() {
        * isolado: um endereço que falha não impede a entrevista de entrar, e a
        * seção que falhou continua editável, com o botão próprio de salvar.
        */
-      const failed: string[] = [];
-
-      /**
-       * Os endereços vão numa requisição só (`/addresses/batch`), e não num
-       * POST por aba.
-       *
-       * Com um POST por aba, cada um tinha transação própria: o segundo
-       * falhando deixava o primeiro gravado e a ficha pela metade, com a tela
-       * dizendo que "endereço 2" falhou e nada explicando por que o 1 ficou.
-       * No lote, ou entram todos ou não entra nenhum — e a aba inteira volta
-       * a ficar por gravar, que é um estado que a pessoa entende e consegue
-       * repetir pelo botão de salvar da seção.
-       *
-       * O backend devolve os criados **na ordem enviada**, o que é o que
-       * permite casar cada resposta com a aba que a originou e guardar o id —
-       * sem ele, uma edição posterior viraria um endereço novo em vez de PUT.
-       */
-      if (filledAddresses.length > 0) {
-        try {
-          const saved = await createAddresses(
-            newId,
-            filledAddresses.map((slot) => toAddressRequest(slot.form.values)),
-            { silent: true },
-          );
-          const created = saved?.data ?? [];
-          const sent = filledAddresses.map((slot) =>
-            Number(slot.key.replace("address-", "")),
-          );
-          setAddressIds((current) =>
-            matchAddressIds(current, sent, created),
-          );
-          markSaved(SECTION_KEYS.address);
-        } catch (error) {
-          console.error("Erro ao salvar endereços:", error);
-          failed.push(filledAddresses.length > 1 ? "endereços" : "endereço");
-        }
-      }
-
-      /**
-       * Os intervalos de deficiência vão num POST cada: não há rota de lote,
-       * e aqui isso não é perda. Um intervalo é independente dos outros — o
-       * segundo falhar não torna o primeiro inválido, ao contrário dos
-       * endereços, onde o conjunto é que define qual é o principal.
-       *
-       * Guardamos o id de cada um que entrou, para que um reenvio pelo botão da
-       * seção vire PUT em vez de duplicar o intervalo.
-       */
-      if (disabilityTouched) {
-        const toSave = disabilityPeriods.filter(hasDisabilityInput);
-        let savedCount = 0;
-        for (const period of toSave) {
-          try {
-            const saved = await createDisabilityPeriod(
-              newId,
-              toDisabilityPeriodRequest(period),
-              { silent: true },
-            );
-            const savedId = saved?.data?.id;
-            if (savedId) {
-              savedCount += 1;
-              // O id vai para o rascunho: um reenvio pelo botão da seção
-              // precisa virar PUT, senão duplica o intervalo.
-              updateDisabilityPeriod(period.key, { id: savedId });
-            }
-          } catch (error) {
-            console.error("Erro ao salvar período de deficiência:", error);
-          }
-        }
-        if (savedCount === toSave.length) {
-          markSaved(SECTION_KEYS.disability);
-        } else {
-          failed.push(
-            toSave.length > 1
-              ? "períodos de deficiência"
-              : "período de deficiência",
-          );
-        }
-      }
-
-      if (interviewTouched) {
-        try {
-          const saved = await createInterview(
-            newId,
-            toInterviewRequest(interview.values),
-            { silent: true },
-          );
-          setInterviewId(saved?.data?.id ?? null);
-          markSaved(SECTION_KEYS.interview);
-        } catch (error) {
-          console.error("Erro ao salvar entrevista:", error);
-          failed.push("entrevista");
-        }
-      }
-
-      if (stagedDocuments.length > 0 || stagedSimulations.length > 0) {
-        const sent = await uploadStagedFiles(newId, stagedDocuments, stagedSimulations, { silent: true });
-        if (sent.documents) setStagedDocuments([]);
-        else failed.push("documentos");
-        if (sent.simulations) setStagedSimulations([]);
-        else failed.push("simulações");
-        if (sent.documents || sent.simulations) markSaved(SECTION_KEYS.documents);
-      }
+      const failed = [
+        ...(await createAddressesStep(newId, filledAddresses)),
+        ...(await createDisabilityStep(newId)),
+        ...(await createInterviewStep(newId)),
+        ...(await uploadFilesStep(newId)),
+      ];
 
       if (failed.length > 0) {
         notificationCenter.warning("Cliente criado, com pendências.", {
@@ -733,6 +588,170 @@ export function ClientFormPage() {
     } finally {
       setIsCreating(false);
     }
+  };
+
+  /**
+   * Revela os erros e diz se dá para criar. Leva o foco à primeira seção com
+   * problema — com abas ou etapas, ela pode nem estar na tela.
+   */
+  const validateCreation = (filledAddresses: typeof addressSlots): boolean => {
+    // Sempre obrigatórias (compõem o POST /clients).
+    const requiredChecks = [
+      [SECTION_KEYS.service, service.revealErrors()],
+      [SECTION_KEYS.personal, personal.revealErrors()],
+      [SECTION_KEYS.professional, professional.revealErrors()],
+    ] as const;
+    const requiredOk = requiredChecks.every(([, ok]) => ok);
+
+    // Opcionais: só são validadas se o usuário mexeu nelas. Uma seção em
+    // branco não pode reprovar um cadastro que está completo.
+    const disabilityOk = validateDisabilityOnSave();
+    const optionalOk =
+      filledAddresses.every((slot) => slot.form.revealErrors()) &&
+      (!hasInterviewInput(interview.values) || interview.revealErrors()) &&
+      disabilityOk;
+
+    if (!requiredOk || !optionalOk) {
+      notificationCenter.warning("Revise os campos destacados.", {
+        description: "Há campos obrigatórios pendentes.",
+      });
+      const firstInvalid = requiredChecks.find(([, ok]) => !ok)?.[0];
+      if (firstInvalid) focusSection(firstInvalid);
+      else if (!disabilityOk) focusSection(SECTION_KEYS.disability);
+      return false;
+    }
+
+    // Rede de segurança do nosso lado: a interface já impede dois principais,
+    // então cair aqui significa bug de estado — melhor descobrir antes do 400.
+    if (
+      !isValidPrimarySelection(filledAddresses.map((slot) => slot.form.values))
+    ) {
+      notificationCenter.warning("Escolha um único endereço principal.");
+      focusSection(SECTION_KEYS.address);
+      return false;
+    }
+
+    // No cadastro cada campo do arquivo é obrigatório (menos a principal).
+    if (!validateFiles()) {
+      notificationCenter.warning("Complete os dados de cada arquivo.");
+      focusSection(SECTION_KEYS.documents);
+      return false;
+    }
+    return true;
+  };
+
+  /** Intervalos de deficiência só reprovam o cadastro se alguém mexeu neles. */
+  const validateDisabilityOnSave = (): boolean => {
+    if (!hasAnyDisabilityInput(disabilityPeriods)) return true;
+    setDisabilityRevealed(true);
+    return Object.keys(validateDisabilityPeriods(disabilityPeriods, today)).length === 0;
+  };
+
+  /**
+   * Os endereços vão numa requisição só (`/addresses/batch`), e não num
+   * POST por aba.
+   *
+   * Com um POST por aba, cada um tinha transação própria: o segundo
+   * falhando deixava o primeiro gravado e a ficha pela metade, com a tela
+   * dizendo que "endereço 2" falhou e nada explicando por que o 1 ficou.
+   * No lote, ou entram todos ou não entra nenhum — e a aba inteira volta
+   * a ficar por gravar, que é um estado que a pessoa entende e consegue
+   * repetir pelo botão de salvar da seção.
+   *
+   * O backend devolve os criados **na ordem enviada**, o que é o que
+   * permite casar cada resposta com a aba que a originou e guardar o id —
+   * sem ele, uma edição posterior viraria um endereço novo em vez de PUT.
+   *
+   * Cada passo devolve o nome do que ficou por gravar (ou nada).
+   */
+  const createAddressesStep = async (newId: string, filledAddresses: typeof addressSlots): Promise<string[]> => {
+    if (filledAddresses.length === 0) return [];
+    try {
+      const saved = await createAddresses(
+        newId,
+        filledAddresses.map((slot) => toAddressRequest(slot.form.values)),
+        { silent: true },
+      );
+      const created = saved?.data ?? [];
+      const sent = filledAddresses.map((slot) =>
+        Number(slot.key.replace("address-", "")),
+      );
+      setAddressIds((current) =>
+        matchAddressIds(current, sent, created),
+      );
+      markSaved(SECTION_KEYS.address);
+      return [];
+    } catch (error) {
+      console.error("Erro ao salvar endereços:", error);
+      return [filledAddresses.length > 1 ? "endereços" : "endereço"];
+    }
+  };
+
+  /**
+   * Os intervalos de deficiência vão num POST cada: não há rota de lote,
+   * e aqui isso não é perda. Um intervalo é independente dos outros — o
+   * segundo falhar não torna o primeiro inválido, ao contrário dos
+   * endereços, onde o conjunto é que define qual é o principal.
+   *
+   * Guardamos o id de cada um que entrou, para que um reenvio pelo botão da
+   * seção vire PUT em vez de duplicar o intervalo.
+   */
+  const createDisabilityStep = async (newId: string): Promise<string[]> => {
+    if (!hasAnyDisabilityInput(disabilityPeriods)) return [];
+    const toSave = disabilityPeriods.filter((item) => hasDisabilityInput(item));
+    let savedCount = 0;
+    for (const period of toSave) {
+      try {
+        const saved = await createDisabilityPeriod(
+          newId,
+          toDisabilityPeriodRequest(period),
+          { silent: true },
+        );
+        const savedId = saved?.data?.id;
+        if (savedId) {
+          savedCount += 1;
+          // O id vai para o rascunho: um reenvio pelo botão da seção
+          // precisa virar PUT, senão duplica o intervalo.
+          updateDisabilityPeriod(period.key, { id: savedId });
+        }
+      } catch (error) {
+        console.error("Erro ao salvar período de deficiência:", error);
+      }
+    }
+    if (savedCount === toSave.length) {
+      markSaved(SECTION_KEYS.disability);
+      return [];
+    }
+    return [toSave.length > 1 ? "períodos de deficiência" : "período de deficiência"];
+  };
+
+  const createInterviewStep = async (newId: string): Promise<string[]> => {
+    if (!hasInterviewInput(interview.values)) return [];
+    try {
+      const saved = await createInterview(
+        newId,
+        toInterviewRequest(interview.values),
+        { silent: true },
+      );
+      setInterviewId(saved?.data?.id ?? null);
+      markSaved(SECTION_KEYS.interview);
+      return [];
+    } catch (error) {
+      console.error("Erro ao salvar entrevista:", error);
+      return ["entrevista"];
+    }
+  };
+
+  const uploadFilesStep = async (newId: string): Promise<string[]> => {
+    if (stagedDocuments.length === 0 && stagedSimulations.length === 0) return [];
+    const failed: string[] = [];
+    const sent = await uploadStagedFiles(newId, stagedDocuments, stagedSimulations, { silent: true });
+    if (sent.documents) setStagedDocuments([]);
+    else failed.push("documentos");
+    if (sent.simulations) setStagedSimulations([]);
+    else failed.push("simulações");
+    if (sent.documents || sent.simulations) markSaved(SECTION_KEYS.documents);
+    return failed;
   };
 
   /**
@@ -787,7 +806,7 @@ export function ClientFormPage() {
    */
   const handleSaveAddress = async (index: number) => {
     const form = addressForms[index];
-    if (!clientId || !form || !form.revealErrors()) return;
+    if (!clientId || !form?.revealErrors()) return;
 
     const body = toAddressRequest(form.values);
     const existingId = addressIds[index];
@@ -819,7 +838,7 @@ export function ClientFormPage() {
    */
   const handleSaveDisability = async () => {
     if (!clientId) return;
-    const toSave = disabilityPeriods.filter(hasDisabilityInput);
+    const toSave = disabilityPeriods.filter((item) => hasDisabilityInput(item));
     if (toSave.length === 0) {
       notificationCenter.info("Nenhum período de deficiência preenchido.");
       return;
@@ -896,8 +915,8 @@ export function ClientFormPage() {
   function validateFiles() {
     setFilesRevealed(true);
     return (
-      stagedDocuments.every(isDocumentComplete) &&
-      stagedSimulations.every(isSimulationComplete)
+      stagedDocuments.every((item) => isDocumentComplete(item)) &&
+      stagedSimulations.every((item) => isSimulationComplete(item))
     );
   }
 
@@ -1003,7 +1022,7 @@ export function ClientFormPage() {
           />
           <SectionActions
             isVisible={isCreated}
-            onSave={handleSaveService}
+            onSave={() => void handleSaveService()}
             label="Salvar atendimento"
           />
         </div>
@@ -1048,7 +1067,7 @@ export function ClientFormPage() {
           />
           <SectionActions
             isVisible={isCreated}
-            onSave={handleSaveDisability}
+            onSave={() => void handleSaveDisability()}
             label="Salvar períodos de deficiência"
           />
         </div>
@@ -1067,7 +1086,7 @@ export function ClientFormPage() {
           <PersonalDataSection form={personal} />
           <SectionActions
             isVisible={isCreated}
-            onSave={handleSavePersonal}
+            onSave={() => void handleSavePersonal()}
             label="Salvar dados pessoais"
           />
         </div>
@@ -1088,7 +1107,7 @@ export function ClientFormPage() {
           <ProfessionalDataSection form={professional} />
           <SectionActions
             isVisible={isCreated}
-            onSave={handleSaveProfessional}
+            onSave={() => void handleSaveProfessional()}
             label="Salvar dados profissionais"
           />
         </div>
@@ -1119,7 +1138,7 @@ export function ClientFormPage() {
               <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
                 <SectionActions
                   isVisible={isCreated}
-                  onSave={() => handleSaveAddress(index)}
+                  onSave={() => void handleSaveAddress(index)}
                   label={
                     addressIds[index] ? "Atualizar endereço" : "Salvar endereço"
                   }
@@ -1144,7 +1163,7 @@ export function ClientFormPage() {
           <InterviewSection form={interview} />
           <SectionActions
             isVisible={isCreated}
-            onSave={handleSaveInterview}
+            onSave={() => void handleSaveInterview()}
             label="Salvar entrevista"
           />
         </div>
@@ -1161,8 +1180,8 @@ export function ClientFormPage() {
       ...toSectionProps(
         statusOf(
           SECTION_KEYS.documents,
-          stagedDocuments.every(isDocumentComplete) &&
-            stagedSimulations.every(isSimulationComplete),
+          stagedDocuments.every((item) => isDocumentComplete(item)) &&
+            stagedSimulations.every((item) => isSimulationComplete(item)),
         ),
       ),
       content: (
@@ -1228,8 +1247,7 @@ export function ClientFormPage() {
       <FillModeDisclosure value={fillMode} onChange={setFillMode} />
 
       {fillMode === "abas" ? (
-        <>
-          <div>
+        <div>
             <ClientFormTabs
               sections={sections}
               focus={focus}
@@ -1246,7 +1264,6 @@ export function ClientFormPage() {
               }}
             />
           </div>
-        </>
       ) : (
         <FillModeView
           mode={fillMode}
@@ -1357,7 +1374,7 @@ export function ClientFormPage() {
             tone="primary"
             grow
             disabled={!canCreate}
-            onClick={handleSaveAll}
+            onClick={() => void handleSaveAll()}
           >
             {isCreating ? "Salvando…" : "Salvar cliente"}
           </ActionButton>
@@ -1379,11 +1396,11 @@ function SectionActions({
   onSave,
   label,
   isVisible,
-}: {
+}: Readonly<{
   onSave: () => void;
   label: string;
   isVisible: boolean;
-}) {
+}>) {
   if (!isVisible) return null;
   return (
     <div className="flex justify-end pt-2">

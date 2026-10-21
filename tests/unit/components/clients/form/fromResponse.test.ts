@@ -22,7 +22,7 @@ const client = (extra: Partial<ClientDetails> = {}): ClientDetails =>
     benefit: "Aposentadoria por idade",
     situation: "Análise documental",
     ...extra,
-  }) as ClientDetails;
+  });
 
 describe("rótulo → chave", () => {
   it("converte o label que a API devolve na chave que o select usa", () => {
@@ -62,7 +62,7 @@ describe("campos ausentes", () => {
     // `value={undefined}` torna o input não-controlado e o React reclama na
     // primeira digitação.
     for (const value of Object.values(values)) {
-      expect(value === undefined).toBe(false);
+      expect(value).toBeDefined();
     }
     expect(values.rg).toBe("");
     expect(values.email).toBe("");
@@ -119,15 +119,16 @@ describe("máscaras na carga", () => {
   });
 });
 
+const address = (extra: Partial<ClientAddressResponse> = {}) =>
+  ({
+    id: "a-1",
+    street: "Rua A",
+    city: "São Paulo",
+    state: "SP",
+    ...extra,
+  });
+
 describe("endereço", () => {
-  const address = (extra: Partial<ClientAddressResponse> = {}) =>
-    ({
-      id: "a-1",
-      street: "Rua A",
-      city: "São Paulo",
-      state: "SP",
-      ...extra,
-    }) as ClientAddressResponse;
 
   it("converte o tipo de endereço para chave", () => {
     const values = toAddressValues(address({ addressType: "Residencial" }));
@@ -150,7 +151,7 @@ describe("instantToLocalInput", () => {
   });
 
   it("devolve vazio para ausente ou inválido", () => {
-    expect(instantToLocalInput(undefined)).toBe("");
+    expect(instantToLocalInput()).toBe("");
     expect(instantToLocalInput(null)).toBe("");
     expect(instantToLocalInput("lixo")).toBe("");
   });

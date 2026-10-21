@@ -67,9 +67,10 @@ describe("isValidPrimarySelection", () => {
   });
 });
 
+const v = (tag: string) => ({ tag, isPrimary: false });
+
 describe("removeSlots", () => {
   const BLANK = { tag: "vazio", isPrimary: false };
-  const v = (tag: string) => ({ tag, isPrimary: false });
 
   it("desloca valores e ids juntos ao remover o do meio", () => {
     const result = removeSlots(

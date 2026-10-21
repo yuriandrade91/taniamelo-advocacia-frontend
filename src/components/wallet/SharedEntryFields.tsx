@@ -37,7 +37,7 @@ export function SharedEntryFields<V extends SharedValues & FormValues>({
   isDisabled,
   settledHintOn,
   settledHintOff,
-}: SharedEntryFieldsProps<V>) {
+}: Readonly<SharedEntryFieldsProps<V>>) {
   const field = (name: keyof V & string, className = "col-span-full") => (
     <SchemaField
       form={form}
@@ -55,7 +55,7 @@ export function SharedEntryFields<V extends SharedValues & FormValues>({
       {field("paymentMethod")}
 
       {/*
-        A caixa é o que liga esta tela ao caixa do escritório. Sem ela, todo
+        A caixa é o que liga esta tela ao caixa do escritório. Sem ela, cada
         lançamento nasce "a vencer" e o mês fecha sem movimento nenhum — a
         Carteira pareceria quebrada funcionando direito, porque ela mede
         pagamento e não vencimento.
@@ -70,7 +70,7 @@ export function SharedEntryFields<V extends SharedValues & FormValues>({
           // Desmarcar limpa a data: "não foi pago" com data de pagamento
           // preenchida é um estado contraditório que o backend rejeitaria — e
           // que aqui viraria um payload com `paidDate` sem sentido.
-          if (next === "false") form.setField("paidDate", "" as V["paidDate"]);
+          if (next === "false") form.setField("paidDate", "");
         }}
       />
 

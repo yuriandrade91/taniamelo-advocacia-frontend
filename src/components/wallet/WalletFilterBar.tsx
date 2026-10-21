@@ -24,7 +24,7 @@ export type WalletFilterBarProps = {
   filters: FiltersState<typeof expenseFilters> | FiltersState<typeof revenueFilters>;
 };
 
-export function WalletFilterBar({ tab, onTabChange, counts, filters }: WalletFilterBarProps) {
+export function WalletFilterBar({ tab, onTabChange, counts, filters }: Readonly<WalletFilterBarProps>) {
   // As duas abas têm schemas diferentes (categoria só na saída); a barra só desenha.
   const state = filters as FiltersState<typeof expenseFilters>;
   const field = (name: keyof typeof expenseFilters, className?: string) => (

@@ -18,6 +18,7 @@ import {
   type TimelineStepId,
 } from "./entryDetails";
 import { PulseHalo, STATUS_DOT } from "./PulseHalo";
+import { optionalText } from "@/lib/formValues";
 
 /**
  * Detalhe de um valor com vencimento em blocos ("bento") — o desenho escolhido
@@ -101,7 +102,7 @@ export function DetailBento({
   onEdit,
   onSettle,
   summary,
-}: DetailBentoProps) {
+}: Readonly<DetailBentoProps>) {
   const today = todayIso();
   const due = dueLine(entry, today);
   const progress = dueProgress(entry, today);
@@ -205,13 +206,13 @@ export function DetailBento({
             Observações
           </p>
           <p className="mt-1 text-sm leading-relaxed whitespace-pre-line text-gray-100">
-            {entry.notes?.trim() || "Nada anotado."}
+            {optionalText(entry.notes) ?? "Nada anotado."}
           </p>
         </Tile>
       </div>
 
       {/* ── ações: no fim do painel, fixas ao rolar ── */}
-      {(onEdit || onSettle) && (
+      {(onEdit ?? onSettle) && (
         <div className="sticky bottom-0 mt-auto bg-white pt-3">
           <div className="flex gap-2 rounded-2xl bg-page p-1.5 ring-1 ring-light-gray">
             {onSettle && isOpen && (
@@ -247,10 +248,10 @@ export function DetailBento({
 function Tile({
   className = "",
   children,
-}: {
+}: Readonly<{
   className?: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <section
       className={`rounded-2xl bg-page/80 ring-1 ring-light-gray/70 transition duration-200 hover:-translate-y-0.5 hover:ring-secondary/40 motion-reduce:hover:translate-y-0 ${className}`}
@@ -260,7 +261,7 @@ function Tile({
   );
 }
 
-function Mini({ label, value }: { label: string; value: ReactNode }) {
+function Mini({ label, value }: Readonly<{ label: string; value: ReactNode }>) {
   return (
     <Tile className="col-span-2 p-3">
       <p className="text-[10px] tracking-wide text-gray-100/60 uppercase">
@@ -274,7 +275,7 @@ function Mini({ label, value }: { label: string; value: ReactNode }) {
 }
 
 /** Copia o valor no formato que cola em planilha: "599,16". */
-function CopyAmount({ amount }: { amount: number }) {
+function CopyAmount({ amount }: Readonly<{ amount: number }>) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     try {
@@ -301,11 +302,11 @@ function Ring({
   fraction,
   bucket,
   center,
-}: {
+}: Readonly<{
   fraction: number;
   bucket: PaymentBucket;
   center: string;
-}) {
+}>) {
   const radius = 20;
   const circumference = 2 * Math.PI * radius;
   return (
@@ -356,6 +357,18 @@ const PROGRESS_FILL: Record<PaymentBucket, string> = {
 /** Etapa já percorrida: sempre a cor positiva, qualquer que seja o status. */
 const PAST_FILL = "[--progress-bar-fill:var(--color-success)]";
 
+/** Em que pé está o marco, para o leitor de tela. */
+function markStatus(isLive: boolean, reached: boolean): string {
+  if (isLive) return "em andamento";
+  return reached ? "concluída" : "pendente";
+}
+
+/** O preenchimento do marco: indeterminado enquanto anda, cheio ou vazio depois. */
+function markValue(isLive: boolean, reached: boolean): number | undefined {
+  if (isLive) return undefined;
+  return reached ? 100 : 0;
+}
+
 /**
  * Etapas em segmentos — o estilo de exibição de status da versão "Noturno",
  * trazido para o fundo claro: uma barra por etapa, o nome e a data embaixo, e
@@ -373,11 +386,11 @@ function Track({
   entry: data,
   bucket,
   settledStep,
-}: {
+}: Readonly<{
   entry: BentoEntry;
   bucket: PaymentBucket;
   settledStep: string;
-}) {
+}>) {
   const now = currentStep(bucket);
   const isOpenEntry = bucket === "upcoming" || bucket === "overdue";
   const marks: {
@@ -414,15 +427,9 @@ function Track({
         return (
           <li key={mark.id} aria-current={isCurrent ? "step" : undefined}>
             <ProgressBar
-              aria-label={`${mark.label}: ${
-                isLive
-                  ? "em andamento"
-                  : mark.reached
-                    ? "concluída"
-                    : "pendente"
-              }`}
+              aria-label={`${mark.label}: ${markStatus(isLive, mark.reached)}`}
               isIndeterminate={isLive}
-              value={isLive ? undefined : mark.reached ? 100 : 0}
+              value={markValue(isLive, mark.reached)}
               className={`gap-0 ${isCurrent ? PROGRESS_FILL[bucket] : PAST_FILL}`}
             >
               <ProgressBar.Track className="h-1 rounded-full bg-light-gray">
@@ -462,14 +469,14 @@ export function DetailBentoSkeleton({
   eyebrow,
   partyLabel,
   factLabels,
-}: {
+}: Readonly<{
   eyebrow: string;
   partyLabel: string;
   factLabels: [string, string, string];
-}) {
+}>) {
   const label = "text-[11px] tracking-wide text-gray-100/60 uppercase";
   return (
-    <div role="status" aria-label="Carregando o detalhe" className="grid grid-cols-6 gap-3">
+    <output aria-label="Carregando o detalhe" className="grid grid-cols-6 gap-3">
       <Tile className="col-span-6 bg-white p-5 ring-1 ring-light-gray">
         <div className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-col gap-1.5">
@@ -514,6 +521,6 @@ export function DetailBentoSkeleton({
         <p className={label}>Observações</p>
         <Skeleton className="mt-1.5 h-4 w-3/4 rounded-md" />
       </Tile>
-    </div>
+    </output>
   );
 }

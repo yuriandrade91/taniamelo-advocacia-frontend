@@ -86,14 +86,14 @@ const UFS = new Set(
   ),
 );
 
-const digits = (text: string) => text.replace(/\D/g, "");
+const digits = (text: string) => text.replaceAll(/\D/g, "");
 
 /** Corta o valor de texto no primeiro separador e tira pontuação das pontas. */
 const clean = (text: string) =>
   text
     .split(/[\n;|]/)[0]
-    .replace(/\s+/g, " ")
-    .replace(/^[\s:\-–,.]+|[\s,.;:\-–]+$/g, "")
+    .replaceAll(/\s+/g, " ")
+    .replaceAll(/^[\s:\-–,.]+|[\s,.;:\-–]+$/g, "")
     .trim();
 
 /** "maria aparecida DA SILVA" → "Maria Aparecida da Silva". */
@@ -121,6 +121,29 @@ const isoDate = (day: string, month: string, year: string) => {
 
 const brDate = (iso: string) => iso.split("-").reverse().join("/");
 
+/** Rótulos de telefone que alguém escreve antes do número. */
+const PHONE_LABELS = ["cel(?:ular)?", "telefone", "tel", "fone", "whats(?:app)?", "contato", "zap"];
+/** Celular ou fixo, com DDD: "(31) 9 8888-7777", "31988887777". */
+const PHONE_NUMBER = String.raw`\(?\d{2}\)?\s?9?\s?\d{4}[-\s]?\d{4}`;
+const PHONE_LABELED = new RegExp(String.raw`(?:${PHONE_LABELS.join("|")})\D{0,8}(${PHONE_NUMBER})`, "i");
+
+/** O começo de um logradouro: "rua", "av.", "praça"… */
+const STREET_KINDS = ["rua", String.raw`r\.`, "avenida", String.raw`av\.?`, "travessa", "alameda", "rodovia", "estrada", "pra[çc]a"];
+/** O número logo depois da vírgula ("rua X, nº 12"), quando há. */
+const STREET_NUMBER = String.raw`,\s*(?:n[ºo°.]*\s*)?(\d+[a-z]?)\b`;
+const STREET = new RegExp(
+  String.raw`\b((?:${STREET_KINDS.join("|")})\s+[^,\n;]+?)\s*(?:${STREET_NUMBER}|$|[,\n;])`,
+  "i",
+);
+
+/** Uma palavra de nome próprio: maiúscula e o resto em letras. */
+const PROPER_WORD = "[A-ZÀ-Ú][A-Za-zÀ-ú]+";
+/** "Belo Horizonte/MG", "São João del Rei - MG": cidade (com "da/de/do") e UF. */
+const CITY_UF = new RegExp(
+  String.raw`(${PROPER_WORD}(?:\s+(?:d[aeo]s?\s+)?${PROPER_WORD})*)\s*[/\-–]\s*([A-Z]{2})\b`,
+  "g",
+);
+
 const BENEFIT_RULES: [RegExp, string][] = [
   [/defici[êe]ncia|\bpcd\b/i, "APOSENTADORIA_POR_DEFICIENCIA"],
   [/professor/i, "APOSENTADORIA_POR_TEMPO_PROFESSOR"],
@@ -139,39 +162,24 @@ const MARITAL_RULES: [RegExp, string, string][] = [
   [/\bvi[úu]v[oa]\b/i, "VIUVO", "Viúvo(a)"],
 ];
 
-export function extractClientData(input: string): ExtractedField[] {
-  const text = input.replace(/\r/g, "");
-  const found = new Map<
-    SmartFieldKey,
-    Omit<ExtractedField, "key" | "label" | "target">
-  >();
-  const put = (
-    key: SmartFieldKey,
-    value: string,
-    source: string,
-    display = value,
-  ) => {
-    if (!value || found.has(key)) return;
-    found.set(key, { value, display, source: source.trim() });
-  };
+/** Guarda o primeiro valor achado para cada campo; os seguintes não sobrescrevem. */
+type Put = (key: SmartFieldKey, value: string, source: string, display?: string) => void;
 
+/** E-mail, CPF e celular — o celular não pode ser o próprio CPF. */
+function extractContact(text: string, put: Put): void {
   // E-mail: formato inconfundível.
-  const email = text.match(/[\w.+-]+@[\w-]+(?:\.[\w-]+)+/);
+  const email = /[\w.+-]+@[\w-]+(?:\.[\w-]+)+/.exec(text);
   if (email) put("email", email[0].toLowerCase(), email[0]);
 
   // CPF: com rótulo, aceita só dígitos; sem rótulo, só com pontuação.
-  const cpfLabeled = text.match(
-    /cpf\D{0,12}(\d{3}\.?\d{3}\.?\d{3}-?\d{2})(?!\d)/i,
-  );
-  const cpfLoose = text.match(/(?<!\d)\d{3}\.\d{3}\.\d{3}-\d{2}(?!\d)/);
+  const cpfLabeled = /cpf\D{0,12}(\d{3}\.?\d{3}\.?\d{3}-?\d{2})(?!\d)/i.exec(text);
+  const cpfLoose = /(?<!\d)\d{3}\.\d{3}\.\d{3}-\d{2}(?!\d)/.exec(text);
   const cpf = cpfLabeled?.[1] ?? cpfLoose?.[0];
   if (cpf) put("cpf", maskCPF(cpf), (cpfLabeled ?? cpfLoose)![0]);
   const cpfDigits = cpf ? digits(cpf) : "";
 
   // Celular: com rótulo, ou o padrão de celular (DDD + 9) que não seja o CPF.
-  const phoneLabeled = text.match(
-    /(?:cel(?:ular)?|telefone|tel|fone|whats(?:app)?|contato|zap)\D{0,8}(\(?\d{2}\)?\s?9?\s?\d{4}[-\s]?\d{4})/i,
-  );
+  const phoneLabeled = PHONE_LABELED.exec(text);
   const phoneLoose = [
     ...text.matchAll(/(?<!\d)\(?(\d{2})\)?\s?(9\d{4})[-\s]?(\d{4})(?!\d)/g),
   ].find((match) => digits(match[0]) !== cpfDigits);
@@ -179,16 +187,17 @@ export function extractClientData(input: string): ExtractedField[] {
   if (phone && digits(phone).length >= 10) {
     put("mobilePhone", maskMobile(phone), (phoneLabeled ?? phoneLoose)![0]);
   }
+}
 
+/** A data de nascimento. */
+function extractBirthDate(text: string, put: Put): void {
   // Data de nascimento: perto de "nasc"/"DN"; senão, a data mais antiga que
   // faça sentido como nascimento (14+ anos atrás).
   const dateRe = /(?<!\d)(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})(?!\d)/;
-  const birthLabeled = text.match(
-    new RegExp(
+  const birthLabeled = new RegExp(
       `(?:nasc\\w*|data de nascimento|\\bdn\\b|nascid[oa] em)\\D{0,15}${dateRe.source}`,
       "i",
-    ),
-  );
+    ).exec(text);
   if (birthLabeled) {
     const iso = isoDate(birthLabeled[1], birthLabeled[2], birthLabeled[3]);
     if (iso) put("birthDate", iso, birthLabeled[0], brDate(iso));
@@ -207,11 +216,12 @@ export function extractClientData(input: string): ExtractedField[] {
       );
     }
   }
+}
 
+/** O nome completo. */
+function extractName(text: string, put: Put): void {
   // Nome: rótulo "nome"; senão, a primeira linha que pareça um nome.
-  const nameLabeled = text.match(
-    /\bnome(?: completo)?[ \t]*[:\-–][ \t]*([^\n,;]+)/i,
-  );
+  const nameLabeled = /\bnome(?: completo)?[ \t]*[:\-–][ \t]*([^\n,;]+)/i.exec(text);
   if (nameLabeled) {
     put("fullName", titleCase(clean(nameLabeled[1])), nameLabeled[0]);
   } else {
@@ -227,92 +237,90 @@ export function extractClientData(input: string): ExtractedField[] {
       put("fullName", titleCase(firstLine), firstLine);
     }
   }
+}
 
+/** Mãe, gênero e estado civil. */
+function extractFamily(text: string, put: Put): void {
   // Mãe: "mãe:", "filiação:", "filho(a) de … e …" (a mãe vem depois do "e").
-  const mother = text.match(
-    /\bm[ãa]e[ \t]*[:\-–]?[ \t]*([A-Za-zÀ-ú][^\n,;0-9]+)/i,
-  );
-  const filiation = text.match(
-    /\b(?:filia[çc][ãa]o|filh[oa] de)[ \t]*[:\-–]?[ \t]*([A-Za-zÀ-ú][^\n;0-9]+?)(?=[,;\n]|$)/i,
-  );
+  const mother = /\bm[ãa]e[ \t]*[:\-–]?[ \t]*([a-zÀ-ú][^\n,;0-9]+)/i.exec(text);
+  const filiation = /\b(?:filia[çc][ãa]o|filh[oa] de)[ \t]*[:\-–]?[ \t]*([a-zÀ-ú][^\n;0-9]+?)(?=[,;\n]|$)/i.exec(text);
   if (mother) {
     put("motherName", titleCase(clean(mother[1])), mother[0]);
   } else if (filiation) {
     const parents = clean(filiation[1]).split(/\s+e\s+/);
-    put("motherName", titleCase(parents[parents.length - 1]), filiation[0]);
+    put("motherName", titleCase(parents.at(-1)!), filiation[0]);
   }
 
   // Gênero: palavra explícita, ou "filha de"/"filho de".
   const gender =
-    text.match(/\b(feminino|sexo\s*:?\s*f\b|mulher)\b/i) ??
-    text.match(/\bfilha de\b/i);
+    /\b(feminino|sexo\s*:?\s*f\b|mulher)\b/i.exec(text) ??
+    /\bfilha de\b/i.exec(text);
   const male =
-    text.match(/\b(masculino|sexo\s*:?\s*m\b|homem)\b/i) ??
-    text.match(/\bfilho de\b/i);
+    /\b(masculino|sexo\s*:?\s*m\b|homem)\b/i.exec(text) ??
+    /\bfilho de\b/i.exec(text);
   if (gender && !male) put("gender", "FEMININO", gender[0], "Feminino");
   else if (male && !gender) put("gender", "MASCULINO", male[0], "Masculino");
 
   for (const [re, value, display] of MARITAL_RULES) {
-    const match = text.match(re);
+    const match = re.exec(text);
     if (match) {
       put("maritalStatus", value, match[0], display);
       break;
     }
   }
+}
 
-  const rg = text.match(
-    /\brg\b\s*(?:n[ºo°.]*)?\s*[:\-–]?\s*([\dxX.\-]{5,14})/i,
-  );
+/** RG, NIT/PIS e profissão. */
+function extractDocuments(text: string, put: Put): void {
+  const rg = /\brg\b\s*(?:n[ºo°.]*)?\s*[:\-–]?\s*([\dx.\-]{5,14})/i.exec(text);
   if (rg) put("rg", maskRG(rg[1]), rg[0]);
 
-  const nit = text.match(
-    /\b(?:nit|pis|pasep|nis)(?:\s*\/\s*pis)?\s*[:\-–]?\s*(\d[\d.\-]{9,14})/i,
-  );
+  const nit = /\b(?:nit|pis|pasep|nis)(?:\s*\/\s*pis)?\s*[:\-–]?\s*(\d[\d.\-]{9,14})/i.exec(text);
   if (nit) put("nitPis", maskNIT(nit[1]), nit[0]);
 
-  const profession = text.match(
-    /\b(?:profiss[ãa]o|ocupa[çc][ãa]o|trabalha como|trabalhou como)[ \t]*[:\-–]?[ \t]*([^\n,;.]+)/i,
-  );
+  const profession = /\b(?:profiss[ãa]o|ocupa[çc][ãa]o|trabalha como|trabalhou como)[ \t]*[:\-–]?[ \t]*([^\n,;.]+)/i.exec(text);
   if (profession) {
     const value = clean(profession[1]);
     put("profession", value[0].toUpperCase() + value.slice(1), profession[0]);
   }
+}
 
+/** CEP, logradouro, número, bairro, cidade e UF. */
+function extractAddress(text: string, put: Put, has: (key: SmartFieldKey) => boolean): void {
   // Endereço.
   const cep =
-    text.match(/\bcep\s*[:\-–]?\s*(\d{5}-?\d{3})(?!\d)/i) ??
-    text.match(/(?<!\d)(\d{5}-\d{3})(?!\d)/);
+    /\bcep\s*[:\-–]?\s*(\d{5}-?\d{3})(?!\d)/i.exec(text) ??
+    /(?<!\d)(\d{5}-\d{3})(?!\d)/.exec(text);
   if (cep) put("zipCode", maskCEP(cep[1]), cep[0]);
 
-  const street = text.match(
-    /\b((?:rua|r\.|avenida|av\.?|travessa|alameda|rodovia|estrada|pra[çc]a)\s+[^,\n;]+?)\s*(?:,\s*(?:n[ºo°.]*\s*)?(\d+[A-Za-z]?)\b|$|[,\n;])/i,
-  );
+  const street = STREET.exec(text);
   if (street) {
     put("street", clean(street[1]), street[0]);
     if (street[2]) put("addressNumber", street[2], street[0]);
   }
-  if (!found.has("addressNumber")) {
-    const number = text.match(/\bn[ºo°]\.?\s*(\d+[A-Za-z]?)\b/i);
+  if (!has("addressNumber")) {
+    const number = /\bn[ºo°]\.?\s*(\d+[a-z]?)\b/i.exec(text);
     if (number) put("addressNumber", number[1], number[0]);
   }
 
-  const neighborhood = text.match(/\bbairro[ \t]*[:\-–]?[ \t]*([^\n,;]+)/i);
+  const neighborhood = /\bbairro[ \t]*[:\-–]?[ \t]*([^\n,;]+)/i.exec(text);
   if (neighborhood)
     put("neighborhood", clean(neighborhood[1]), neighborhood[0]);
 
   const cityUf = [
-    ...text.matchAll(
-      /([A-ZÀ-Ú][A-Za-zÀ-ú]+(?:\s+(?:d[aeo]s?\s+)?[A-ZÀ-Ú][A-Za-zÀ-ú]+)*)\s*[/\-–]\s*([A-Z]{2})\b/g,
-    ),
+    ...text.matchAll(CITY_UF),
   ].find((match) => UFS.has(match[2]));
   if (cityUf) {
     put("city", cityUf[1], cityUf[0]);
     put("state", cityUf[2], cityUf[0]);
   }
+}
 
+/** O benefício pretendido. */
+function extractBenefit(text: string, put: Put): void {
   // Benefício: o primeiro tipo reconhecido, na ordem do mais específico.
   for (const [re, value] of BENEFIT_RULES) {
-    const match = text.match(re);
+    const match = re.exec(text);
     if (match) {
       const label =
         BenefitOptions.find((option) => option.value === value)?.label ?? value;
@@ -320,6 +328,26 @@ export function extractClientData(input: string): ExtractedField[] {
       break;
     }
   }
+}
+
+export function extractClientData(input: string): ExtractedField[] {
+  const text = input.replaceAll("\r", "");
+  const found = new Map<
+    SmartFieldKey,
+    Omit<ExtractedField, "key" | "label" | "target">
+  >();
+  const put: Put = (key, value, source, display = value) => {
+    if (!value || found.has(key)) return;
+    found.set(key, { value, display, source: source.trim() });
+  };
+
+  extractContact(text, put);
+  extractBirthDate(text, put);
+  extractName(text, put);
+  extractFamily(text, put);
+  extractDocuments(text, put);
+  extractAddress(text, put, (key) => found.has(key));
+  extractBenefit(text, put);
 
   return (Object.keys(FIELDS) as SmartFieldKey[])
     .filter((key) => found.has(key))

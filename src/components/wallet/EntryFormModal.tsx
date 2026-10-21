@@ -65,6 +65,24 @@ export type EntryFormModalProps = {
   editing?: EntryEditing | null;
 };
 
+/** Título, descrição e botão: editar, lançar cobrança ou lançar no caixa. */
+function modalCopy(isEditing: boolean, isIncome: boolean, isCharge: boolean) {
+  if (isEditing) {
+    return {
+      title: isIncome ? "Editar entrada" : "Editar saída",
+      description: "O registro é substituído pelo que estiver aqui ao salvar.",
+      confirm: "Salvar",
+    };
+  }
+  return {
+    title: isCharge ? "Lançar cobrança" : "Novo lançamento",
+    description: isCharge
+      ? "Uma parcela de honorários. Nasce a vencer, a menos que já tenha sido recebida."
+      : "O caixa do mês conta pelo que foi efetivamente pago ou recebido.",
+    confirm: isIncome ? "Lançar receita" : "Lançar saída",
+  };
+}
+
 export function EntryFormModal({
   isOpen,
   onOpenChange,
@@ -72,13 +90,14 @@ export function EntryFormModal({
   initialKind = "income",
   lockedKind,
   editing = null,
-}: EntryFormModalProps) {
+}: Readonly<EntryFormModalProps>) {
   const form = useEntryForm({
     initialKind,
     lockedKind,
     editing,
   });
   const { isEditing, isIncome, isSubmitting } = form;
+  const copy = modalCopy(isEditing, isIncome, lockedKind === "income");
 
   const close = () => {
     form.reset();
@@ -96,30 +115,14 @@ export function EntryFormModal({
     <FormModal
       isOpen={isOpen}
       onOpenChange={(open) => (open ? onOpenChange(true) : close())}
-      title={
-        isEditing
-          ? isIncome
-            ? "Editar entrada"
-            : "Editar saída"
-          : lockedKind === "income"
-            ? "Lançar cobrança"
-            : "Novo lançamento"
-      }
-      description={
-        isEditing
-          ? "O registro é substituído pelo que estiver aqui ao salvar."
-          : lockedKind === "income"
-            ? "Uma parcela de honorários. Nasce a vencer, a menos que já tenha sido recebida."
-            : "O caixa do mês conta pelo que foi efetivamente pago ou recebido."
-      }
+      title={copy.title}
+      description={copy.description}
       size="lg"
       // O modelo de botões do painel de detalhes, que a Carteira já usa na
       // lista — a modal fala a mesma língua da tela que a abre.
       actions="pill"
-      confirmLabel={
-        isEditing ? "Salvar" : isIncome ? "Lançar receita" : "Lançar saída"
-      }
-      onConfirm={handleConfirm}
+      confirmLabel={copy.confirm}
+      onConfirm={() => void handleConfirm()}
       isSubmitting={isSubmitting}
     >
       <EntryFormFields form={form} />

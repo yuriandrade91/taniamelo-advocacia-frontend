@@ -23,10 +23,13 @@ import { toast } from "@heroui/react";
 import { notificationCenter } from "@/services/notificationService";
 import { feedback } from "@/services/requestFeedback";
 
+/** Corpo de sucesso padrão das respostas fabricadas. */
+const OK_BODY = { success: true, data: { id: "1" } };
+
 const response = (
   method: string,
   config: Record<string, unknown> = {},
-  data: unknown = { success: true, data: { id: "1" } },
+  data: unknown = OK_BODY,
   status = 200,
 ) =>
   ({

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ListPage } from "@/lib/pagination";
 import { createRequestCache, listKey, type RequestCache } from "@/lib/requestCache";
+import { useConstant } from "./useConstant";
 
 /**
  * Uma lista paginada do servidor que só vai buscar quando precisa.
@@ -41,7 +42,7 @@ export function usePagedList<T, P>({
   fetchPage: (params: P, page: number) => Promise<ListPage<T>>;
   cache?: RequestCache<ListPage<T>>;
 }) {
-  const [ownCache] = useState(() => createRequestCache<ListPage<T>>());
+  const ownCache = useConstant(() => createRequestCache<ListPage<T>>());
   const cache = sharedCache ?? ownCache;
   // A função muda de identidade a cada render; o que importa é a consulta.
   const fetchRef = useRef(fetchPage);

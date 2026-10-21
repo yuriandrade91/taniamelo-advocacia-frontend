@@ -12,10 +12,10 @@ import React from "react";
 export function Card({
   children,
   className = "",
-}: {
+}: Readonly<{
   children: React.ReactNode;
   className?: string;
-}) {
+}>) {
   return (
     <div
       className={`rounded-2xl border border-black/5 bg-white p-5 ${className}`}
@@ -30,11 +30,11 @@ export function SectionTitle({
   children,
   as: Tag = "h2",
   className = "",
-}: {
+}: Readonly<{
   children: React.ReactNode;
   as?: "h1" | "h2" | "h3";
   className?: string;
-}) {
+}>) {
   return (
     <Tag className={`inline-flex flex-col gap-1.5 ${className}`}>
       <span className="text-lg font-medium text-primary">{children}</span>

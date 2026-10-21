@@ -44,7 +44,7 @@ export type CopyableValueProps = {
   value?: string;
 };
 
-export default function CopyableValue({ label, value }: CopyableValueProps) {
+export default function CopyableValue({ label, value }: Readonly<CopyableValueProps>) {
   // Mesmo traço de campo vazio do resto das listagens ("—", não "-").
   if (!value || value.trim() === "") return <>—</>;
 

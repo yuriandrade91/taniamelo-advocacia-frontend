@@ -7,6 +7,8 @@ import { formatBRLCompact } from "@/lib/format";
 import { Card, SectionTitle } from "@/components/ui/layout/Card";
 import { MonthPicker } from "@/components/ui/filters/MonthPicker";
 import { currentMonth, formatMonthLabel, type MonthRef } from "@/lib/period";
+import { Notice } from "@/components/ui/feedback/Notice";
+import { loadView } from "@/lib/loadView";
 
 const RING = <Skeleton className="h-36 w-36 shrink-0 rounded-full" />;
 
@@ -49,6 +51,8 @@ export type MonthlyBalanceProps = {
   className?: string;
   /** Carregando: o anel e as fatias em skeleton, no mesmo lugar. */
   isLoading?: boolean;
+  /** A leitura falhou — diferente de "nada pago no mês". */
+  failed?: boolean;
 };
 
 /** Balanço mensal — doughnut com o total no centro e a legenda ao lado. */
@@ -59,7 +63,8 @@ export default function MonthlyBalance({
   onMonthChange,
   className = "",
   isLoading = false,
-}: MonthlyBalanceProps) {
+  failed = false,
+}: Readonly<MonthlyBalanceProps>) {
   const colored = useMemo(
     () =>
       slices.map((slice, index) => ({
@@ -69,6 +74,7 @@ export default function MonthlyBalance({
       })),
     [slices],
   );
+  const view = loadView({ isLoading, failed, isEmpty: colored.length === 0 });
 
   return (
     <Card className={className}>
@@ -92,7 +98,7 @@ export default function MonthlyBalance({
         é "não há dado". São afirmações diferentes, e num cartão de dinheiro a
         diferença importa.
       */}
-      {isLoading ? (
+      {view === "loading" && (
         <div className="mt-6 flex items-center gap-6" aria-hidden="true">
           {RING}
           <ul className="flex flex-1 flex-col gap-2.5">
@@ -104,12 +110,19 @@ export default function MonthlyBalance({
             ))}
           </ul>
         </div>
-      ) : colored.length === 0 ? (
-        <p className="mt-6 text-sm text-gray-100/70">
+      )}
+      {view === "failed" && (
+        <Notice tone="danger" className="mt-6">
+          Não foi possível carregar o balanço.
+        </Notice>
+      )}
+      {view === "empty" && (
+        <Notice className="mt-6">
           Sem despesas pagas para compor o balanço de{" "}
           {month ? formatMonthLabel(month).toLowerCase() : "deste mês"}.
-        </p>
-      ) : (
+        </Notice>
+      )}
+      {view === "ready" && (
       <div className="mt-6 flex items-center gap-6">
         <div className="relative h-36 w-36 shrink-0">
           <BalanceDoughnut slices={colored} />

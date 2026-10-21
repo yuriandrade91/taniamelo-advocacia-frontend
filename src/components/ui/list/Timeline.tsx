@@ -9,7 +9,7 @@ import { Svg } from "@/components/ui/icons/Svg";
  * É o desenho do "Andamento do benefício" e do "Andamento no INSS" — a cor do
  * nó vem de quem usa, porque cada esteira pinta pela sua etapa.
  */
-export function Timeline({ label, children }: { label: string; children: ReactNode }) {
+export function Timeline({ label, children }: Readonly<{ label: string; children: ReactNode }>) {
   return (
     <ol aria-label={label} className="flex flex-col">
       {children}
@@ -22,13 +22,13 @@ export function TimelineItem({
   isCurrent,
   isLast,
   children,
-}: {
+}: Readonly<{
   /** Fundo e anel do nó: `bg-success ring-success/20`. */
   dotClassName: string;
   isCurrent: boolean;
   isLast: boolean;
   children: ReactNode;
-}) {
+}>) {
   return (
     <li className="grid grid-cols-[20px_minmax(0,1fr)] gap-x-3">
       {/* O trilho: o nó do registro e a linha até o anterior. */}
@@ -72,7 +72,7 @@ const CalendarGlyph = () => (
  * esteira sabe se a sua é `Instant` (com fuso) ou `LocalDate` (sem).
  * Sem autor, a linha fica sem autoria; nunca o UUID cru.
  */
-export function TimelineMeta({ date, author, children }: { date: string; author?: string; children?: ReactNode }) {
+export function TimelineMeta({ date, author, children }: Readonly<{ date: string; author?: string; children?: ReactNode }>) {
   return (
     <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-100/80">
       <span className="flex items-center gap-1 whitespace-nowrap">

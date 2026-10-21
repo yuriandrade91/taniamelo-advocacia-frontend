@@ -50,10 +50,10 @@ describe("createEnum", () => {
   });
 
   it("devolve undefined para entrada ausente, vazia ou desconhecida", () => {
-    expect(e.getKeyByLabel(undefined)).toBeUndefined();
+    expect(e.getKeyByLabel()).toBeUndefined();
     expect(e.getKeyByLabel("")).toBeUndefined();
     expect(e.getKeyByLabel("Gama")).toBeUndefined();
-    expect(e.getLabelByKey(undefined)).toBeUndefined();
+    expect(e.getLabelByKey()).toBeUndefined();
     // chave inexistente em runtime (o tipo já barra em tempo de compilação)
     expect(e.getLabelByKey("GAMA" as never)).toBeUndefined();
   });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { settledValue, useSettled } from "@/hooks/useSettled";
 import { SITUATION_ENTRIES } from "@/enums/situation/Situation";
 import { createRequestCache } from "@/lib/requestCache";
@@ -23,6 +23,7 @@ import {
   withMovingAverage,
 } from "./reportSeries";
 import type { ReportViewProps, ReportsLoadState } from "./views/types";
+import { useConstant } from "@/hooks/useConstant";
 
 /**
  * Os dados de Relatórios: cada série carrega por conta própria (`allSettled`),
@@ -44,9 +45,18 @@ const INTAKE_AVERAGE = 3;
 
 const valueOr = settledValue;
 
+/** Sem permissão, nada a esperar; com ela, carregando até as quatro séries chegarem. */
+function financeStateOf(
+  canSeeFinance: boolean,
+  finance: (readonly PromiseSettledResult<unknown>[] | null)[],
+): ReportsLoadState {
+  if (!canSeeFinance) return "ready";
+  return finance.every(Boolean) ? stateOf(finance.flatMap((results) => results ?? [])) : "loading";
+}
+
 export function useReportsData(month: MonthRef, canSeeFinance: boolean) {
   /** Contagens de clientes por filtro, enquanto a página estiver aberta. */
-  const [counts] = useState(() => createRequestCache<number>(200));
+  const counts = useConstant(() => createRequestCache<number>(200));
   const count = (key: string, params: ClientListRequest) =>
     counts.load(key, () =>
       fetchClients({ ...params, pageNumber: 1, pageSize: 1 }).then((e) => e?.pagination?.totalRecords ?? 0),
@@ -67,7 +77,7 @@ export function useReportsData(month: MonthRef, canSeeFinance: boolean) {
   const situationResults = useSettled("situations", () =>
     Promise.allSettled(SITUATION_ENTRIES.map(([key]) => count(`situation:${key}`, { situation: [key] }))),
   );
-  const intakeResults = useSettled(intakeMonths.map(monthKey).join(), () =>
+  const intakeResults = useSettled(intakeMonths.map((item) => monthKey(item)).join(), () =>
     Promise.allSettled(
       intakeMonths.flatMap((m) => [
         count(`intake:${monthKey(m)}:V`, { ...createdRange(m), clientType: ["VERIFICADO"] }),
@@ -91,7 +101,7 @@ export function useReportsData(month: MonthRef, canSeeFinance: boolean) {
     Promise.allSettled([getOfficeExpenseTimeline({ ...window6, basis: "paid" })]),
   );
   /*
-    A rosca usa a mesma janela de 6 meses: recortada no mês, ficava vazia todo
+    A rosca usa a mesma janela de 6 meses: recortada no mês, ficava vazia a cada
     início de mês ao lado de gráficos cheios — e parecia quebrada.
   */
   const expenseSummary = useSettled(financeKey, () =>
@@ -108,11 +118,7 @@ export function useReportsData(month: MonthRef, canSeeFinance: boolean) {
     ? [...situationResults, ...intakeResults, ...agendaResults]
     : null;
   const operationState: ReportsLoadState = operation ? stateOf(operation) : "loading";
-  const financeState: ReportsLoadState = !canSeeFinance
-    ? "ready"
-    : finance.every(Boolean)
-      ? stateOf(finance.flatMap((results) => results ?? []))
-      : "loading";
+  const financeState = financeStateOf(canSeeFinance, finance);
 
   const situations = toSituationCounts(
     Object.fromEntries(SITUATION_ENTRIES.map(([key], i) => [key, valueOr(situationResults?.[i], 0)])),

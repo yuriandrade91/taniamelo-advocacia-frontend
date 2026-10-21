@@ -5,9 +5,11 @@ import { useState } from "react";
 import type { SituationKey } from "@/enums/situation/Situation";
 import { SectionTitle } from "@/components/ui/layout/Card";
 import { LoadingCircle } from "@/components/ui/feedback/Loading";
+import { Notice } from "@/components/ui/feedback/Notice";
+import { loadView } from "@/lib/loadView";
 import { plural } from "@/lib/format";
 import {
-  COLUMN_LIMIT,
+  
   PipelineBoard,
   usePipelineColumns,
   type PipelineCard,
@@ -26,8 +28,8 @@ import { SeeAllLink } from "./CardControls";
  * porque o cartão divide a largura da Home com o resto; a modal mostra tudo.
  */
 
-export { COLUMN_LIMIT };
-export type { PipelineCard };
+
+
 
 /** A modal só existe depois do clique em "Ver todos". */
 const PipelineFullModal = dynamic(() => import("./PipelineFullModal"), {
@@ -41,6 +43,8 @@ export type ContributorPipelineProps = {
   className?: string;
   /** Carregando: as colunas ficam, com cartões em skeleton. */
   isLoading?: boolean;
+  /** A leitura falhou — diferente de "ninguém na esteira". */
+  failed?: boolean;
 };
 
 export default function ContributorPipeline({
@@ -48,8 +52,10 @@ export default function ContributorPipeline({
   onMove,
   className = "",
   isLoading = false,
-}: ContributorPipelineProps) {
+  failed = false,
+}: Readonly<ContributorPipelineProps>) {
   const { columns, total, moveCard } = usePipelineColumns(cards, onMove);
+  const view = loadView({ isLoading, failed, isEmpty: total === 0 });
   const [isFullOpen, setIsFullOpen] = useState(false);
 
   return (
@@ -77,11 +83,13 @@ export default function ContributorPipeline({
         className="mt-5"
       />
 
-      {!isLoading && total === 0 ? (
-        <p className="mt-6 text-center text-sm text-gray-100/60">
-          Nenhum cliente na esteira.
-        </p>
-      ) : (
+      {view === "failed" && (
+        <Notice tone="danger" className="mt-6">
+          Não foi possível carregar a esteira.
+        </Notice>
+      )}
+      {view === "empty" && <Notice className="mt-6">Nenhum cliente na esteira.</Notice>}
+      {(view === "loading" || view === "ready") && (
         <SeeAllLink onClick={() => setIsFullOpen(true)} />
       )}
 
@@ -99,3 +107,5 @@ export default function ContributorPipeline({
     </section>
   );
 }
+
+export {COLUMN_LIMIT, type PipelineCard} from "./pipelineBoard";

@@ -16,9 +16,9 @@ import { expect, type Locator, type Page } from "@playwright/test";
 export async function fillDateSegments(scope: Page | Locator, label: string | RegExp, parts: readonly string[]) {
   const page = "keyboard" in scope ? scope : scope.page();
   const segments = scope.getByRole("group", { name: label }).getByRole("spinbutton");
-  for (let i = 0; i < parts.length; i++) {
+  for (const [i, part] of parts.entries()) {
     await segments.nth(i).click();
-    await page.keyboard.type(parts[i]);
+    await page.keyboard.type(part);
   }
 }
 

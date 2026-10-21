@@ -75,7 +75,7 @@ describe("paridade com o cálculo do backend", () => {
     expect(result.targetYears).toBe(expected.targetYears);
     expect(result.lines).toHaveLength(expected.lines.length);
 
-    result.lines.forEach((line, i) => {
+    for (const [i, line] of result.lines.entries()) {
       const ref = expected.lines[i];
       expect(line.gradeYears, `linha ${i}: anos do grau`).toBe(ref.gradeYears);
       expect(line.days, `linha ${i}: dias corridos`).toBe(ref.days);
@@ -83,7 +83,7 @@ describe("paridade com o cálculo do backend", () => {
       expect(line.convertedDays, `linha ${i}: dias convertidos`).toBe(
         ref.convertedDays,
       );
-    });
+    }
 
     expect(result.total.totalDays).toBe(expected.totalDays);
     expect(result.total.label).toBe(expected.totalLabel);

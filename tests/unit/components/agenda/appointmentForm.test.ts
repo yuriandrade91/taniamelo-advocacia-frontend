@@ -6,11 +6,14 @@ import { describe, expect, it } from "vitest";
 import {
   EMPTY_APPOINTMENT_FORM,
   type AppointmentFormValues,
+  fromResponse,
   isStartInPast,
+  toIsoInstant,
   shiftAfter,
   toRequest,
   validateAppointmentForm,
 } from "@/components/agenda/appointmentForm";
+import { overTheWire } from "../../support/json";
 
 /**
  * Estes testes travam o contrato com o backend: cada regra aqui espelha uma
@@ -144,7 +147,7 @@ describe("toRequest", () => {
     // objeto: `{ location: undefined }` ainda "tem" a propriedade em JS, mas
     // `JSON.stringify` a descarta — e é isso que trafega na requisição.
     const body = toRequest(validForm(), { isEditing: false });
-    const serialized = JSON.parse(JSON.stringify(body));
+    const serialized = overTheWire(body);
 
     expect(serialized).not.toHaveProperty("location");
     expect(serialized).not.toHaveProperty("meetingUrl");
@@ -188,14 +191,15 @@ describe("toRequest", () => {
   });
 });
 
+/**
+ * ISO gerado a partir do horário local, e não uma string fixa em Z: o que
+ * `shiftAfter` recebe é o `endAt` que o backend devolveu (um `Instant`), e a
+ * asserção precisa valer em qualquer fuso onde a suíte rodar.
+ */
+const isoOf = (dt: CalendarDateTime) =>
+  dt.toDate(getLocalTimeZone()).toISOString();
+
 describe("shiftAfter — reagendar logo após o conflito", () => {
-  /**
-   * ISO gerado a partir do horário local, e não uma string fixa em Z: o que
-   * `shiftAfter` recebe é o `endAt` que o backend devolveu (um `Instant`), e a
-   * asserção precisa valer em qualquer fuso onde a suíte rodar.
-   */
-  const isoOf = (dt: CalendarDateTime) =>
-    dt.toDate(getLocalTimeZone()).toISOString();
 
   const nextYear = new Date().getFullYear() + 1;
 
@@ -261,5 +265,47 @@ describe("shiftAfter — reagendar logo após o conflito", () => {
 
     expect(shiftAfter(form, "")).toBe(form);
     expect(shiftAfter(form, "amanhã de manhã")).toBe(form);
+  });
+});
+
+describe("bordas da validação e da conversão", () => {
+  it("duração curta e descrição curta têm mensagem própria", () => {
+    const nextYear = new Date().getFullYear() + 1;
+    const errors = validateAppointmentForm(
+      validForm({ endAt: at(nextYear, 8, 20, 14, 33), description: "oi" }),
+      { isEditing: false },
+    );
+    expect(errors.endAt).toMatch(/precisa durar pelo menos/);
+    expect(errors.description).toMatch(/pelo menos/);
+  });
+
+  it("data inválida no fuso não vira instante", () => {
+    const broken = { toDate: () => { throw new Error("fuso"); } } as unknown as CalendarDateTime;
+    expect(toIsoInstant(broken)).toBeNull();
+    expect(toIsoInstant(null)).toBeNull();
+  });
+
+  it("deslocar sem término calculável devolve o formulário como estava", () => {
+    const form = validForm();
+    expect(shiftAfter(form, "não é data")).toBe(form);
+    expect(shiftAfter({ ...form, endAt: form.startAt }, "2030-01-01T10:00:00Z")).toEqual({ ...form, endAt: form.startAt });
+  });
+
+  it("compromisso da API com campos ausentes vira formulário vazio nesses campos", () => {
+    const values = fromResponse({
+      id: "a",
+      title: undefined as unknown as string,
+      type: "Desconhecido",
+      startAt: "2030-01-01T10:00:00Z",
+      endAt: "2030-01-01T11:00:00Z",
+      status: "Agendado",
+      modality: null,
+      location: null,
+      meetingUrl: null,
+      description: null,
+      clientId: null,
+      clientName: null,
+    });
+    expect(values).toMatchObject({ title: "", type: "", modality: "", location: "", description: "", clientId: "", clientName: "" });
   });
 });

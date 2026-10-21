@@ -28,6 +28,7 @@ import {
   updateDisabilityPeriod,
 } from "@/services/clientDisabilityPeriodService";
 import { todayIso } from "@/lib/period";
+import { useConstant } from "@/hooks/useConstant";
 
 /** O que a ficha pede ao painel: conferir antes de salvar, e salvar. */
 export type ClientDisabilityPanelHandle = {
@@ -57,7 +58,7 @@ export type ClientDisabilityPanelProps = {
 /** Gravados viram rascunho editável; sem nenhum, uma linha em branco. */
 const draftsFrom = (list: DisabilityPeriodResponse[]) =>
   list.length > 0
-    ? list.map(disabilityDraftFromResponse)
+    ? list.map((item) => disabilityDraftFromResponse(item))
     : [newDisabilityPeriod()];
 
 /**
@@ -80,7 +81,7 @@ export function ClientDisabilityPanel({
   canDeleteSaved,
   onSavedCountChange,
   ref,
-}: ClientDisabilityPanelProps) {
+}: Readonly<ClientDisabilityPanelProps>) {
   const [saved, setSaved] = useState<DisabilityPeriodResponse[]>([]);
   const [drafts, setDrafts] = useState<DisabilityPeriodDraft[]>([
     newDisabilityPeriod(),
@@ -89,7 +90,7 @@ export function ClientDisabilityPanel({
   const [conversion, setConversion] = useState<ConversionResult | null>(null);
   const [conversionFailed, setConversionFailed] = useState(false);
   const [removal, setRemoval] = useState<DisabilityPeriodDraft | null>(null);
-  const [today] = useState(() => todayIso());
+  const today = useConstant(todayIso);
 
   const load = useCallback(async () => {
     let list: DisabilityPeriodResponse[] = [];
@@ -230,23 +231,12 @@ export function ClientDisabilityPanel({
           onRemove={requestRemove}
           canDeleteSaved={canDeleteSaved}
         />
-      ) : saved.length === 0 ? (
-        <p className="text-sm text-gray-100">
-          Nenhum período de deficiência cadastrado. Use Editar para incluir.
-        </p>
-      ) : conversion ? (
-        <DisabilityConversion
+      ) : (
+        <SavedPeriodsView
+          saved={saved}
           conversion={conversion}
           gender={gender}
-          hasBasis
-          hasPeriods
-          source="server"
-        />
-      ) : (
-        <SavedPeriodsFallback
-          periods={saved}
-          gender={gender}
-          explainBasis={conversionFailed}
+          conversionFailed={conversionFailed}
         />
       )}
 
@@ -264,6 +254,49 @@ export function ClientDisabilityPanel({
   );
 }
 
+/** A ficha em leitura: nada cadastrado, a conversão do servidor ou a lista crua. */
+function SavedPeriodsView({
+  saved,
+  conversion,
+  gender,
+  conversionFailed,
+}: Readonly<{
+  saved: DisabilityPeriodResponse[];
+  conversion: ConversionResult | null;
+  gender?: string;
+  conversionFailed: boolean;
+}>) {
+  if (saved.length === 0) {
+    return (
+      <p className="text-sm text-gray-100">
+        Nenhum período de deficiência cadastrado. Use Editar para incluir.
+      </p>
+    );
+  }
+  if (conversion) {
+    return (
+      <DisabilityConversion
+        conversion={conversion}
+        gender={gender}
+        hasBasis
+        hasPeriods
+        source="server"
+      />
+    );
+  }
+  return <SavedPeriodsFallback periods={saved} gender={gender} explainBasis={conversionFailed} />;
+}
+
+/** Por que a conversão não veio: falta de tabela para o sexo, sexo em branco ou falha. */
+function fallbackExplanation(withoutColumn: boolean, gender?: string): string {
+  if (!withoutColumn) {
+    return "Não foi possível obter o tempo convertido agora. Os períodos acima estão gravados.";
+  }
+  return gender
+    ? `A conversão da LC 142/2013 tem tabela apenas para os sexos masculino e feminino — o deste cliente está como "${gender}".`
+    : "Informe o sexo do cliente em Dados pessoais para calcular o tempo convertido.";
+}
+
 /**
  * Os intervalos crus, quando a conta do servidor não veio.
  *
@@ -275,11 +308,11 @@ function SavedPeriodsFallback({
   periods,
   gender,
   explainBasis,
-}: {
+}: Readonly<{
   periods: DisabilityPeriodResponse[];
   gender?: string;
   explainBasis: boolean;
-}) {
+}>) {
   const withoutColumn = !basisFromGender(gender);
   return (
     <div className="flex flex-col gap-3">
@@ -297,11 +330,7 @@ function SavedPeriodsFallback({
       </ul>
       {explainBasis && (
         <p className="rounded-lg bg-light-gray/50 p-3 text-sm text-gray-100">
-          {withoutColumn
-            ? gender
-              ? `A conversão da LC 142/2013 tem tabela apenas para os sexos masculino e feminino — o deste cliente está como "${gender}".`
-              : "Informe o sexo do cliente em Dados pessoais para calcular o tempo convertido."
-            : "Não foi possível obter o tempo convertido agora. Os períodos acima estão gravados."}
+          {fallbackExplanation(withoutColumn, gender)}
         </p>
       )}
     </div>

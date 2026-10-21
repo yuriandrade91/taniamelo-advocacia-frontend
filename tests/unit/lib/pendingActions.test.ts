@@ -5,6 +5,7 @@ import {
   type PendingKind,
   type PendingMap,
 } from "@/lib/pendingActions";
+import { overTheWire } from "../support/json";
 
 const LABELS = { complete: "Concluído", cancel: "Cancelado" };
 
@@ -44,7 +45,7 @@ describe("applyPendingOverlay", () => {
   });
 
   it("não muta a entrada", () => {
-    const original = JSON.parse(JSON.stringify(items));
+    const original = overTheWire(items);
     applyPendingOverlay(items, mapOf([["a", "complete"]]), LABELS);
     expect(items).toEqual(original);
   });

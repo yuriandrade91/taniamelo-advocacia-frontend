@@ -16,7 +16,7 @@ import { extractClientData } from "./smartFill";
 import { Svg, type IconProps } from "@/components/ui/icons/Svg";
 
 const recognitionCtor = (): RecognitionCtor | null => {
-  const w = window as unknown as {
+  const w = globalThis as unknown as {
     SpeechRecognition?: RecognitionCtor;
     webkitSpeechRecognition?: RecognitionCtor;
   };
@@ -34,13 +34,28 @@ const MicIcon = ({ className = "h-9 w-9" }: IconProps) => (
  * Medidor de volume ao vivo: prova que o microfone está captando som, que
  * é a primeira dúvida quando "o ditado não funciona".
  */
-function LevelMeter({ level }: { level: number }) {
-  const bars = [0.35, 0.6, 0.85, 1, 0.85, 0.6, 0.35];
+/** O peso de cada barra: o meio sobe mais que as pontas, como um equalizador. */
+const METER_BARS = [0.35, 0.6, 0.85, 1, 0.85, 0.6, 0.35].map((weight, i) => ({ id: `bar-${i}`, weight }));
+
+/** O título do painel de ditado, pelo estado do microfone. */
+function voiceHeading(blocked: boolean, starting: boolean, listening: boolean): string {
+  if (blocked) return "O ditado não está disponível aqui";
+  if (starting) return "Pedindo acesso ao microfone…";
+  return listening ? "Ouvindo… pode falar com pausas" : "Toque no microfone e fale";
+}
+
+/** A dica abaixo do título: o que as barras dizem, ou um exemplo do que falar. */
+const voiceHint = (listening: boolean) =>
+  listening
+    ? "As barras mostram que o som está chegando. Toque de novo para parar."
+    : "Ex.: “nome Maria Aparecida da Silva, CPF 390 533 447 05, nascida em 20 de maio de 1965, mãe Ana Rosa, celular 31 98888 7777, aposentadoria por idade.”";
+
+function LevelMeter({ level }: Readonly<{ level: number }>) {
   return (
     <div aria-hidden="true" className="flex h-8 items-center gap-1">
-      {bars.map((weight, i) => (
+      {METER_BARS.map(({ id, weight }) => (
         <span
-          key={i}
+          key={id}
           className="w-1.5 rounded-full bg-secondary transition-[height] duration-75"
           style={{
             height: `${Math.max(4, Math.min(32, level * weight * 90))}px`,
@@ -62,7 +77,7 @@ function LevelMeter({ level }: { level: number }) {
  * permissão do navegador e diz com clareza "bloqueado" ou "sem microfone" —
  * e o mesmo áudio alimenta o medidor de volume.
  */
-export function VoiceMode(props: FillModeProps) {
+export function VoiceMode(props: Readonly<FillModeProps>) {
   const [support, setSupport] = useState<"checking" | "ok" | DictationError>(
     "checking",
   );
@@ -94,15 +109,15 @@ export function VoiceMode(props: FillModeProps) {
     audio.current = null;
     if (!current) return;
     cancelAnimationFrame(current.frame);
-    current.stream.getTracks().forEach((track) => track.stop());
+    for (const track of current.stream.getTracks()) track.stop();
     void current.context.close();
     setLevel(0);
   };
 
   useEffect(() => {
-    if (!window.isSecureContext) setSupport("insecure");
-    else if (!recognitionCtor()) setSupport("unsupported");
-    else setSupport("ok");
+    if (!globalThis.isSecureContext) setSupport("insecure");
+    else if (recognitionCtor()) {setSupport("ok");}
+    else {setSupport("unsupported");}
     return () => {
       session.current?.dispose();
       stopMeter();
@@ -237,20 +252,10 @@ export function VoiceMode(props: FillModeProps) {
           className="mt-2 text-lg font-semibold text-primary"
           aria-live="polite"
         >
-          {blocked
-            ? "O ditado não está disponível aqui"
-            : starting
-              ? "Pedindo acesso ao microfone…"
-              : listening
-                ? "Ouvindo… pode falar com pausas"
-                : "Toque no microfone e fale"}
+          {voiceHeading(blocked, starting, listening)}
         </h3>
         <p className="mt-1 max-w-md text-sm text-gray-100">
-          {blocked
-            ? DICTATION_ERROR_MESSAGES[support as DictationError]
-            : listening
-              ? "As barras mostram que o som está chegando. Toque de novo para parar."
-              : "Ex.: “nome Maria Aparecida da Silva, CPF 390 533 447 05, nascida em 20 de maio de 1965, mãe Ana Rosa, celular 31 98888 7777, aposentadoria por idade.”"}
+          {blocked ? DICTATION_ERROR_MESSAGES[support] : voiceHint(listening)}
         </p>
         {error && (
           <p
@@ -266,14 +271,13 @@ export function VoiceMode(props: FillModeProps) {
           </p>
         )}
         {listening && stalled && (
-          <p
-            role="status"
-            className="mt-3 max-w-md rounded-2xl bg-light-secondary px-4 py-3 text-sm text-secondary"
+          <output
+            className="block mt-3 max-w-md rounded-2xl bg-light-secondary px-4 py-3 text-sm text-secondary"
           >
             O microfone está captando som, mas o navegador não está devolvendo
             texto. Verifique a internet — a transcrição é feita por um serviço
             online — ou use o Chrome ou o Edge atualizados.
-          </p>
+          </output>
         )}
 
         <div className="mt-6 w-full text-left">

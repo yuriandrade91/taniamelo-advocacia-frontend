@@ -81,7 +81,7 @@ export default function AppointmentFormFields({
   onShiftAfter,
   isDisabled = false,
   compact = false,
-}: AppointmentFormFieldsProps) {
+}: Readonly<AppointmentFormFieldsProps>) {
   const showPastWarning = isStartInPast(values);
   // Modalidade online é a única em que a URL da reunião faz sentido.
   const isOnline = values.modality === "ONLINE";
@@ -146,9 +146,8 @@ export default function AppointmentFormFields({
         conflito" sem dizer com o quê obriga a abrir outra tela para decidir.
       */}
       {conflicts.length > 0 && (
-        <div
-          role="status"
-          className="col-span-full rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3"
+        <output
+          className="block col-span-full rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3"
         >
           <p className="text-sm font-medium text-primary">
             {conflicts.length === 1
@@ -196,7 +195,7 @@ export default function AppointmentFormFields({
             Não impede de agendar. Ao salvar, você escolhe entre manter os dois
             ou substituir.
           </p>
-        </div>
+        </output>
       )}
 
       {/* Data no passado: o backend recusa com 422 sem esta confirmação. */}

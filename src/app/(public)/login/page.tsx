@@ -25,6 +25,10 @@ import fallbackMessages from "@/constants/messages/fallbackMessages";
 import { tooManyAttemptsMessage } from "@/lib/retryAfter";
 import { EyeIcon, EyeOffIcon } from "@/components/ui/icons/glyphs";
 
+// O backend exige apenas que os campos não sejam vazios (@NotBlank).
+const validateLogin = (value: string) => value.trim() !== "";
+const validatePassword = (value: string) => value !== "";
+
 function LoginForm() {
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
@@ -52,10 +56,6 @@ function LoginForm() {
    * sem motivo — e no lugar dos toasts de erro que a tela anterior daria.
    */
   const isExpired = searchParams.get("expired") === "1";
-
-  // O backend exige apenas que os campos não sejam vazios (@NotBlank).
-  const validateLogin = (value: string) => value.trim() !== "";
-  const validatePassword = (value: string) => value !== "";
 
   const toggleVisibility = () => setIsVisible(!isVisible);
 
@@ -130,40 +130,48 @@ function LoginForm() {
       // inválidas"); os textos abaixo só entram em cena se ela não mandar nada.
       const apiMessage = getApiErrorMessage(error.response?.data);
 
-      if (status === 401) {
-        // Erro atribuível aos campos — vai para `validationErrors` do `Form`,
-        // não para o toast (padrão de erro de servidor da doc do HeroUI).
-        const message = apiMessage ?? fallbackMessages.AUTH.INVALID_CREDENTIALS;
-        setFormErrors({ login: message, password: message });
-      } else if (status === 429) {
-        // O backend freia depois de algumas senhas erradas — por IP, por login
-        // e travando a conta. Mostrar "credenciais inválidas" aqui mandaria a
-        // pessoa tentar mais uma vez, que é o que aprofunda o bloqueio. O
-        // `Retry-After` diz quando volta; sem ele, texto genérico.
-        //
-        // A mensagem é a mesma para conta bloqueada e conta inexistente, de
-        // propósito: diferenciar entregaria a lista de quem tem login aqui.
-        const message = tooManyAttemptsMessage(
-          error.response?.headers?.["retry-after"],
-        );
-        setFormErrors({ login: message, password: message });
-      } else if (status === 403) {
-        notificationCenter.danger(
-          apiMessage ?? fallbackMessages.AUTH.ACCESS_DENIED,
-        );
-      } else if (status === 404 || status === 400) {
-        // Tenant inexistente/!ativo cai aqui (header X-Tenant-Id inválido).
-        notificationCenter.danger(
-          apiMessage ??
-            error.response?.data?.message ??
-            fallbackMessages.AUTH.TENANT_NOT_FOUND,
-        );
-      } else {
-        notificationCenter.danger(
-          apiMessage ??
-            error.response?.data?.message ??
-            fallbackMessages.AUTH.SERVER_ERROR,
-        );
+      switch (status) {
+        case 401: {
+          // Erro atribuível aos campos — vai para `validationErrors` do `Form`,
+          // não para o toast (padrão de erro de servidor da doc do HeroUI).
+          const message = apiMessage ?? fallbackMessages.AUTH.INVALID_CREDENTIALS;
+          setFormErrors({ login: message, password: message });
+          break;
+        }
+        case 429: {
+          // O backend freia depois de algumas senhas erradas — por IP, por login
+          // e travando a conta. Mostrar "credenciais inválidas" aqui mandaria a
+          // pessoa tentar mais uma vez, que é o que aprofunda o bloqueio. O
+          // `Retry-After` diz quando volta; sem ele, texto genérico.
+          //
+          // A mensagem é a mesma para conta bloqueada e conta inexistente, de
+          // propósito: diferenciar entregaria a lista de quem tem login aqui.
+          const message = tooManyAttemptsMessage(
+            error.response?.headers?.["retry-after"],
+          );
+          setFormErrors({ login: message, password: message });
+          break;
+        }
+        case 403:
+          notificationCenter.danger(
+            apiMessage ?? fallbackMessages.AUTH.ACCESS_DENIED,
+          );
+          break;
+        case 400:
+        case 404:
+          // Tenant inexistente/!ativo cai aqui (header X-Tenant-Id inválido).
+          notificationCenter.danger(
+            apiMessage ??
+              error.response?.data?.message ??
+              fallbackMessages.AUTH.TENANT_NOT_FOUND,
+          );
+          break;
+        default:
+          notificationCenter.danger(
+            apiMessage ??
+              error.response?.data?.message ??
+              fallbackMessages.AUTH.SERVER_ERROR,
+          );
       }
     } finally {
       setLoading(false);
@@ -198,9 +206,9 @@ function LoginForm() {
           className="w-full lg:w-1/2 flex flex-col gap-5 align-middle"
         >
           {isExpired && (
-            <p role="status" className="w-full rounded-2xl bg-light-secondary px-4 py-3 text-sm text-primary">
+            <output className="block w-full rounded-2xl bg-light-secondary px-4 py-3 text-sm text-primary">
               Sua sessão expirou. Entre de novo para continuar de onde parou.
-            </p>
+            </output>
           )}
           <TextField
             className="w-full"

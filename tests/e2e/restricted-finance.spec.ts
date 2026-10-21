@@ -14,7 +14,7 @@ import { STAFF, signInAsStaff } from "./helpers";
  * O que se prova aqui são as duas metades: o item some do menu para quem não
  * pode, e quem digitar o endereço direto encontra uma explicação em vez de uma
  * tela vazia. A contraprova no fim do arquivo é o que impede isto de passar
- * verde com o menu quebrado para todo mundo.
+ * verde com o menu quebrado para qualquer papel.
  */
 
 
@@ -87,7 +87,7 @@ test.describe("atendente vê Relatórios sem o financeiro", () => {
 
 /**
  * A contraprova. Sem ela, um menu quebrado — ou um `canSeeFinance` que
- * devolve `false` para todo mundo — deixaria os testes acima verdes.
+ * devolve `false` para qualquer papel — deixaria os testes acima verdes.
  */
 test.describe("para o administrador, o financeiro está lá", () => {
   test.use({ storageState: ADMIN_STORAGE_STATE });

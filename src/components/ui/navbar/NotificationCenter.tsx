@@ -6,6 +6,7 @@ import { useDismiss } from "@/hooks/useDismiss";
 import { BellIcon, CheckAllIcon } from "./navIcons";
 import { AlertIcon, CalendarIcon } from "@/components/ui/icons/glyphs";
 import { FileIcon } from "@/components/ui/icons/actions";
+import { plural } from "@/lib/format";
 
 /**
  * Central de notificações do navbar.
@@ -17,7 +18,7 @@ import { FileIcon } from "@/components/ui/icons/actions";
  * O painel desce por `animate__slideInDown` e sobe por `animate__slideOutUp`
  * (o `useAnimatedPresence` mantém o nó montado durante a saída).
  *
- * ⚠️ TODO(backend): não existe endpoint de notificações. O componente é
+ * ⚠️ Pendente no backend (docs/ROADMAP.md): não existe endpoint de notificações. O componente é
  * controlado por props — quem monta passa `items` — para que a troca de dados
  * de exemplo por dados reais não exija tocar nesta árvore.
  */
@@ -94,13 +95,13 @@ export default function NotificationCenter({
   onMarkAllRead,
   onSelect,
   className = "",
-}: NotificationCenterProps) {
+}: Readonly<NotificationCenterProps>) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Painel ancorado abaixo do sino: desce ao abrir e sobe ao fechar — o
   // movimento acompanha a origem do clique, diferente do lateral que usávamos.
-  const { ref: panelRef, ...panel } = useAnimatedPresence(isOpen, {
+  const { ref: panelRef, ...panel } = useAnimatedPresence<HTMLDialogElement>(isOpen, {
     enter: "animate__slideInDown",
     exit: "animate__slideOutUp",
     durationMs: 320,
@@ -119,10 +120,10 @@ export default function NotificationCenter({
     );
 
     const byBucket = new Map<string, NotificationItem[]>();
-    sorted.forEach((item) => {
+    for (const item of sorted) {
       const bucket = dayBucket(item.createdAt);
       byBucket.set(bucket, [...(byBucket.get(bucket) ?? []), item]);
-    });
+    }
 
     return GROUP_ORDER.filter((bucket) => byBucket.has(bucket)).map(
       (bucket) => ({ bucket, items: byBucket.get(bucket) ?? [] }),
@@ -180,20 +181,18 @@ export default function NotificationCenter({
             panel.isLeaving ? "animate__fadeOut" : "animate__fadeIn"
           }`}
         >
-          <div
+          <dialog
             ref={panelRef}
             style={panel.style}
-            role="dialog"
+            open
             aria-label="Central de notificações"
-            className={`overflow-hidden rounded-2xl border border-black/5 bg-white ${panel.className}`}
+            className={`static m-0 w-full max-w-none overflow-hidden rounded-2xl border border-black/5 bg-white p-0 text-inherit ${panel.className}`}
           >
           <header className="flex items-center justify-between gap-3 border-b border-black/5 px-4 py-3">
             <div>
               <p className="text-sm font-medium text-primary">Notificações</p>
               <p className="text-xs text-gray-100/60">
-                {unreadCount === 0
-                  ? "Tudo em dia"
-                  : `${unreadCount} não lida${unreadCount === 1 ? "" : "s"}`}
+                {unreadCount === 0 ? "Tudo em dia" : plural(unreadCount, "não lida", "não lidas")}
               </p>
             </div>
 
@@ -270,7 +269,7 @@ export default function NotificationCenter({
               </section>
             ))}
             </div>
-          </div>
+          </dialog>
         </div>
       )}
     </div>

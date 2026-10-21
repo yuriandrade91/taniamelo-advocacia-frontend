@@ -32,7 +32,7 @@ export default function PendingForms({
   onContact,
   onChangePeriod,
   className = "",
-}: PendingFormsProps) {
+}: Readonly<PendingFormsProps>) {
   return (
     <Card className={className}>
       <header className="flex items-start justify-between gap-4">

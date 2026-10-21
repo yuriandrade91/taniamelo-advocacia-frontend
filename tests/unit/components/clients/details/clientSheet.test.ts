@@ -7,6 +7,7 @@ import {
   serviceSchema,
 } from "@/components/clients/form/schemas";
 import { sectionFill, sheetProgress, toUpdateRequest } from "@/components/clients/details/clientSheet";
+import { overTheWire } from "../../../support/json";
 
 const sections = {
   service: { ...serviceInitial, benefit: "APOSENTADORIA_RURAL", situation: "ANALISE_DOCUMENTAL" },
@@ -54,7 +55,7 @@ describe("toUpdateRequest — o PUT é substituição total", () => {
 
   it("notas ausentes não viram `null` no JSON", () => {
     const body = toUpdateRequest(sections, { notes: undefined });
-    expect(JSON.parse(JSON.stringify(body))).not.toHaveProperty("notes");
+    expect(overTheWire(body)).not.toHaveProperty("notes");
   });
 });
 

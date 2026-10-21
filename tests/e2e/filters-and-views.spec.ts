@@ -78,7 +78,7 @@ test.describe("Relatórios", () => {
     const views = page.getByRole("radiogroup", { name: "Visão do relatório" });
     for (const name of ["Indicadores", "Jornada do cliente", "Mês a mês", "Proporções", "Visão geral"]) {
       await views.getByRole("radio", { name: new RegExp(name) }).click();
-      await expect(views.getByRole("radio", { name: new RegExp(name) })).toHaveAttribute("aria-checked", "true");
+      await expect(views.getByRole("radio", { name: new RegExp(name) })).toBeChecked();
     }
     await expect(page.getByText("Não foi possível carregar")).toHaveCount(0);
   });

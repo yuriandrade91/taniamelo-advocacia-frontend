@@ -82,7 +82,7 @@ test.describe("o que o atendente NÃO vê", () => {
  * A contraprova.
  *
  * Sem ela, todos os testes acima passariam se o botão tivesse simplesmente
- * sumido da tela para TODO mundo — um erro de layout, um `canDestroy` que
+ * sumido da tela para QUALQUER papel — um erro de layout, um `canDestroy` que
  * devolve `false` sempre, uma regressão no hook. "Não está lá" só significa
  * alguma coisa quando se sabe que, para outra pessoa, está.
  */

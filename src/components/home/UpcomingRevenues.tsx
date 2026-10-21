@@ -7,6 +7,8 @@ import { SeeAllLink } from "./CardControls";
 import { StatusBadge, type BadgeTone } from "@/components/ui/feedback/Badges";
 import { Skeleton } from "@heroui/react";
 import { CalendarIcon } from "@/components/ui/icons/glyphs";
+import { Notice } from "@/components/ui/feedback/Notice";
+import { loadView } from "@/lib/loadView";
 
 /**
  * Status exibido na lista. `ATRASADO` não existe no enum do backend — é
@@ -38,6 +40,8 @@ export type UpcomingRevenuesProps = {
   className?: string;
   /** Carregando: linhas no formato do item, no lugar da lista. */
   isLoading?: boolean;
+  /** A leitura falhou — diferente de "nada a receber". */
+  failed?: boolean;
 };
 
 /** Lista "Próximas receitas" — alimentada por `clientPaymentService`. */
@@ -46,13 +50,15 @@ export default function UpcomingRevenues({
   onSeeAll,
   className = "",
   isLoading = false,
-}: UpcomingRevenuesProps) {
+  failed = false,
+}: Readonly<UpcomingRevenuesProps>) {
+  const view = loadView({ isLoading, failed, isEmpty: items.length === 0 });
   return (
     <Card className={`flex flex-col ${className}`}>
       <SectionTitle>Próximas receitas</SectionTitle>
 
       <ul className="mt-5 flex flex-1 flex-col gap-4">
-        {isLoading &&
+        {view === "loading" &&
           Array.from({ length: 5 }, (_, i) => (
             <li key={i} className="flex items-center gap-3" aria-hidden="true">
               <Skeleton className="h-2 w-2 shrink-0 rounded-full" />
@@ -64,9 +70,14 @@ export default function UpcomingRevenues({
             </li>
           ))}
 
-        {!isLoading && items.length === 0 && (
-          <li className="text-sm text-gray-100/60">
-            Nenhuma receita prevista.
+        {view === "failed" && (
+          <li>
+            <Notice tone="danger">Não foi possível carregar as próximas receitas.</Notice>
+          </li>
+        )}
+        {view === "empty" && (
+          <li>
+            <Notice>Nenhuma receita prevista.</Notice>
           </li>
         )}
 

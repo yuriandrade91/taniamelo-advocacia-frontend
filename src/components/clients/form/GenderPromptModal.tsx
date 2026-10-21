@@ -17,13 +17,13 @@ export function GenderPromptModal({
   currentGender,
   onChoose,
   onClose,
-}: {
+}: Readonly<{
   isOpen: boolean;
   /** Chave atual do campo "Gênero" — a opção correspondente vem marcada. */
   currentGender: string;
   onChoose: (gender: (typeof GENDER_PROMPT_OPTIONS)[number]["value"]) => void;
   onClose: () => void;
-}) {
+}>) {
   const current = initialGenderChoice(currentGender);
 
   return (

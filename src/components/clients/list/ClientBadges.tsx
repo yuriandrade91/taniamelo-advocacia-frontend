@@ -11,7 +11,7 @@ import { SparkleIcon } from "@/components/ui/icons/glyphs";
 const BADGE =
   "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase";
 
-export function LeadBadge({ className = "" }: { className?: string }) {
+export function LeadBadge({ className = "" }: Readonly<{ className?: string }>) {
   return (
     <span
       title="Cliente potencial — ainda não fechou com o escritório"
@@ -23,7 +23,7 @@ export function LeadBadge({ className = "" }: { className?: string }) {
   );
 }
 
-export function ExemptBadge({ className = "" }: { className?: string }) {
+export function ExemptBadge({ className = "" }: Readonly<{ className?: string }>) {
   return (
     <span
       title="Cliente isento do serviço"

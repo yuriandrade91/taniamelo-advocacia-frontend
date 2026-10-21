@@ -350,7 +350,7 @@ export function toExpenseRequest(values: ExpenseFormValues): OfficeExpenseReques
  * neutros quando a tela de Pagamentos passou a precisar deles — um módulo de
  * `payments` importando de `wallet` seria dependência na direção errada.
  */
-export { todayIso, validatePaidDate };
+
 
 // ───────────────────── Situação, e o cuidado com o PUT ─────────────────────
 
@@ -422,3 +422,6 @@ export function expenseFormFrom(
     category: enumKeyOf(expense.category, getExpenseCategoryKeyByLabel),
   };
 }
+
+export {todayIso} from "@/lib/period";
+export {validatePaidDate} from "@/lib/validators";

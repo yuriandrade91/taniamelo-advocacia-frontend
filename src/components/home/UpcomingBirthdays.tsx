@@ -13,6 +13,8 @@ import {
   birthdayMessage,
   type BirthdayPerson,
 } from "./birthdays";
+import { loadView } from "@/lib/loadView";
+import { Notice } from "@/components/ui/feedback/Notice";
 
 /**
  * Aniversariantes — quem completa idade nos próximos dias.
@@ -32,9 +34,10 @@ import {
  * dia vira, mesmo com a página aberta desde ontem, e os cinco são relidos
  * para o dia novo (`useUpcomingBirthdays`).
  *
- * O ladrilho de data é o mesmo da Agenda (mês em cima, dia embaixo; azul
- * cheio quando é hoje): é a mesma pergunta — "quando" —, e duas respostas com
- * desenhos diferentes na mesma tela custam atenção sem dar nada.
+ * O ladrilho de data tem o desenho da Agenda (mês em cima, dia embaixo): é a
+ * mesma pergunta — "quando" —, e duas respostas com desenhos diferentes na
+ * mesma tela custam atenção sem dar nada. Hoje ele fica cinza escuro, não
+ * azul: o "hoje" já tem o dourado do selo, e o azul cheio pesava no cartão.
  *
  * `items` em `null` é "ainda carregando": o cartão mostra linhas em skeleton,
  * nunca o "ninguém faz aniversário", que é uma afirmação diferente.
@@ -69,8 +72,9 @@ export default function UpcomingBirthdays({
   failed = false,
   onViewClient,
   className = "",
-}: UpcomingBirthdaysProps) {
+}: Readonly<UpcomingBirthdaysProps>) {
   const isLoading = items === null;
+  const view = loadView({ isLoading, failed, isEmpty: items?.length === 0 });
 
   return (
     <Card className={`flex flex-col ${className}`}>
@@ -78,7 +82,7 @@ export default function UpcomingBirthdays({
         <SectionTitle>Aniversariantes</SectionTitle>
       </header>
 
-      {isLoading ? (
+      {view === "loading" && (
         <ul className="mt-4 flex flex-col gap-1" aria-hidden="true">
           {Array.from({ length: SKELETON_ROWS }, (_, i) => (
             <li key={i} className="flex items-center gap-3 px-1 py-2">
@@ -91,19 +95,22 @@ export default function UpcomingBirthdays({
             </li>
           ))}
         </ul>
-      ) : failed ? (
-        <p className="mt-4 py-6 text-sm text-gray-100/60">
+      )}
+      {view === "failed" && (
+        <Notice tone="danger" className="mt-4">
           Não foi possível carregar os aniversariantes agora.
-        </p>
-      ) : items.length === 0 ? (
-        // A janela é o ano inteiro: isto só acontece quando nenhum cliente
-        // ativo tem data de nascimento — todo aniversário cai em 365 dias.
-        <p className="mt-4 py-6 text-sm text-gray-100/60">
+        </Notice>
+      )}
+      {/* A janela é o ano inteiro: vazio só quando nenhum cliente ativo tem
+          data de nascimento — cada aniversário cai em 365 dias. */}
+      {view === "empty" && (
+        <Notice className="mt-4">
           Nenhum cliente com data de nascimento cadastrada.
-        </p>
-      ) : (
+        </Notice>
+      )}
+      {view === "ready" && (
         <ul className="mt-4 flex flex-col">
-          {items.map((person) => (
+          {(items ?? []).map((person) => (
             <li key={person.id} className="flex items-center gap-3 px-1 py-2">
               <BirthdayRow person={person} onView={() => onViewClient(person)} />
             </li>
@@ -122,7 +129,7 @@ export default function UpcomingBirthdays({
  * pessoa revisa e envia. Sem celular no cadastro, o botão não aparece em vez
  * de virar link quebrado.
  */
-function BirthdayRow({ person, onView }: { person: BirthdayPerson; onView: () => void }) {
+function BirthdayRow({ person, onView }: Readonly<{ person: BirthdayPerson; onView: () => void }>) {
   const [, month, day] = person.date.split("-").map(Number);
   const isToday = person.inDays <= 0;
 
@@ -138,7 +145,7 @@ function BirthdayRow({ person, onView }: { person: BirthdayPerson; onView: () =>
         <span
           aria-hidden="true"
           className={`flex h-11 w-11 shrink-0 flex-col items-center justify-center rounded-2xl ${
-            isToday ? "bg-primary text-white" : "bg-page text-primary"
+            isToday ? "bg-gray-100 text-white" : "bg-page text-gray-100"
           }`}
         >
           <span className="text-[9px] tracking-wider uppercase opacity-70">

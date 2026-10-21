@@ -59,7 +59,7 @@ export default function ModalShell({
   icon,
   iconClassName = "",
   children,
-}: ModalShellProps) {
+}: Readonly<ModalShellProps>) {
   return (
     <Modal
       isOpen={isOpen}

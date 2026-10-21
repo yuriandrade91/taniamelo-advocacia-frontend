@@ -35,7 +35,7 @@ describe("papéis", () => {
   });
 
   it("sem papel mostra travessão", () => {
-    expect(getRoleLabel(undefined)).toBe("—");
+    expect(getRoleLabel()).toBe("—");
     expect(getRoleLabel("")).toBe("—");
   });
 });

@@ -51,7 +51,7 @@ export default function ConfirmDialog({
   icon,
   children,
   isConfirmDisabled = false,
-}: ConfirmDialogProps) {
+}: Readonly<ConfirmDialogProps>) {
   const iconTone =
     tone === "danger"
       ? "bg-danger/10 text-danger"
@@ -66,7 +66,7 @@ export default function ConfirmDialog({
       icon={icon ?? <WarningIcon className="size-5" />}
       iconClassName={iconTone}
     >
-      {(description || children) && (
+      {(Boolean(description) || Boolean(children)) && (
         <Modal.Body>
           {description && (
             <div className="mt-1 text-sm text-gray-100/70">{description}</div>

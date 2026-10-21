@@ -13,7 +13,7 @@ import { PageHeader } from "@/components/ui/layout/PageHeader";
  * O texto nomeia o papel que resolve. "Acesso negado" manda o usuário abrir um
  * chamado para descobrir o que já poderia estar escrito aqui.
  */
-export function NoFinanceAccess({ title }: { title: string }) {
+export function NoFinanceAccess({ title }: Readonly<{ title: string }>) {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={title} />

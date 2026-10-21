@@ -3,7 +3,7 @@
 import { Button, Modal } from "@heroui/react";
 import ModalShell from "@/components/ui/modals/ModalShell";
 import type { SituationKey } from "@/enums/situation/Situation";
-import { stageBg } from "@/components/ui/feedback/stageRamp";
+import { stageNeutralBg } from "@/components/ui/feedback/stageRamp";
 import { plural } from "@/lib/format";
 import { STAGES } from "@/components/clients/stage/stages";
 import { PipelineBoard, type PipelineColumns } from "./pipelineBoard";
@@ -25,14 +25,14 @@ export default function PipelineFullModal({
   columns,
   total,
   onMove,
-}: {
+}: Readonly<{
   isOpen: boolean;
   onClose: () => void;
   columns: PipelineColumns;
   total: number;
   /** `moveCard` de `usePipelineColumns` — o mesmo do quadro do cartão. */
   onMove: (cardId: string, situation: SituationKey, index: number) => void;
-}) {
+}>) {
   return (
     <ModalShell
       isOpen={isOpen}
@@ -73,7 +73,7 @@ export default function PipelineFullModal({
             <li key={stage.key} className="inline-flex items-center gap-1.5">
               <span
                 aria-hidden="true"
-                className={`h-2 w-2 rounded-full ${stageBg(stage.step - 1)}`}
+                className={`h-2 w-2 rounded-full ${stageNeutralBg(stage.step - 1)}`}
               />
               {stage.label}
               <span className="tabular-nums text-gray-100/60">

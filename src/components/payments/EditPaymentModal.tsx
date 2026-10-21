@@ -28,7 +28,7 @@ export function EditPaymentModal({
   payment,
   onClose,
   onSaved,
-}: EditPaymentModalProps) {
+}: Readonly<EditPaymentModalProps>) {
   const form = usePaymentForm(
     payment ? { clientId: payment.clientId, payment } : null,
   );
@@ -53,7 +53,7 @@ export function EditPaymentModal({
       // O rodapé em cápsula da Carteira, como as outras modais de lançamento.
       actions="pill"
       confirmLabel="Salvar"
-      onConfirm={handleConfirm}
+      onConfirm={() => void handleConfirm()}
       isSubmitting={form.isSubmitting}
     >
       <PaymentFormFields form={form} />

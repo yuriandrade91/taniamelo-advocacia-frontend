@@ -76,7 +76,7 @@ export function AppointmentsByMonthChart({
   points,
   year,
   isLoading = false,
-}: AppointmentsByMonthChartProps) {
+}: Readonly<AppointmentsByMonthChartProps>) {
   const total = points.reduce((sum, p) => sum + p.totalCount, 0);
   const cancelled = points.reduce((sum, p) => sum + p.cancelledCount, 0);
 
@@ -85,7 +85,7 @@ export function AppointmentsByMonthChart({
       labels: points.map((p) => formatMonthAxis(p.month)),
       datasets: SERIES.map((series) => ({
         label: series.label,
-        data: points.map(series.value),
+        data: points.map((item) => series.value(item)),
         ...barColors(series.color),
         ...BAR_SPEC,
         ...REPORT_BAR,
@@ -117,7 +117,7 @@ export function AppointmentsByMonthChart({
 
   const range =
     points.length > 0
-      ? `${formatMonthAxis(points[0].month)} a ${formatMonthAxis(points[points.length - 1].month)}`
+      ? `${formatMonthAxis(points[0].month)} a ${formatMonthAxis(points.at(-1)!.month)}`
       : String(year);
 
   return (

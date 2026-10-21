@@ -249,7 +249,7 @@ export function validatePaidDate(
 /**
  * Dinheiro digitado em pt-BR.
  *
- * Vazio é válido, como todo validador de formato daqui — quem exige o valor é
+ * Vazio é válido, como cada validador de formato daqui — quem exige o valor é
  * `validateRequired` (ou o `required` do schema).
  *
  * Zero é recusado porque o backend recusa (`@DecimalMin("0.01")`): melhor

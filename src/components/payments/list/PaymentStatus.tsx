@@ -34,7 +34,7 @@ export const STATUS_FILL: Record<PaymentBucket, string> = {
 };
 
 /** Selo branco: ícone colorido + rótulo em `gray-100`. */
-export function StatusChip({ bucket }: { bucket: PaymentBucket }) {
+export function StatusChip({ bucket }: Readonly<{ bucket: PaymentBucket }>) {
   const Icon = STATUS_ICON[bucket];
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white py-0.5 pr-2.5 pl-1.5 text-[11px] font-medium text-gray-100 ring-1 ring-black/10">

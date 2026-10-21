@@ -14,7 +14,7 @@ import { test, expect } from "@playwright/test";
  * famílias, o teste reprovava justamente a tela que estava funcionando.
  *
  * Com nada pausado a lista fica vazia, e o teste se reduz à outra metade — que
- * continua valendo em todo ambiente: nenhuma tela recebe 4xx/5xx da API.
+ * continua valendo em qualquer ambiente: nenhuma tela recebe 4xx/5xx da API.
  */
 const PREFIX_BY_GROUP: Readonly<Record<string, string>> = {
   "users-me": "/api/v1/users/me",
@@ -29,7 +29,7 @@ const OFFLINE_ROUTES = (process.env.NEXT_PUBLIC_PENDING_INTEGRATIONS ?? "")
   .map((name) => name.trim().toLowerCase())
   .filter(Boolean)
   .map((group) => PREFIX_BY_GROUP[group])
-  .filter((prefixo): prefixo is string => Boolean(prefixo));
+  .filter(Boolean);
 
 for (const screen of [
   "/home",

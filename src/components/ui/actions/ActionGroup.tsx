@@ -94,12 +94,12 @@ export function ActionGroup({
   shape = "rounded",
   surface = "light",
   className = "",
-}: {
+}: Readonly<{
   children: ReactNode;
   shape?: ActionShape;
   surface?: ActionSurface;
   className?: string;
-}) {
+}>) {
   return (
     <ShapeContext.Provider value={shape}>
       <div

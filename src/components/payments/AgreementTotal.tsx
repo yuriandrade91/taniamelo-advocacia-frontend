@@ -2,7 +2,7 @@
 
 import { Skeleton } from "@heroui/react";
 import type { ClientPaymentResponse } from "@/interfaces/client/ClientSubResources.interface";
-import { formatBRL } from "@/lib/format";
+import { formatBRL, plural } from "@/lib/format";
 import { useAgreementTotals, type AgreementTotals } from "./installmentTrail";
 
 /**
@@ -16,12 +16,12 @@ export function AgreementTotal({
   clientId,
   payment,
   size = "sm",
-}: {
+}: Readonly<{
   clientId: string;
   payment: ClientPaymentResponse;
   /** `sm` no cartão; `md` no painel de detalhes. */
   size?: "sm" | "md";
-}) {
+}>) {
   const state = useAgreementTotals(clientId, payment);
   const md = size === "md";
 
@@ -47,18 +47,17 @@ export function AgreementTotal({
           </span>
         )}
       </div>
-      {state.status === "ready" ? (
-        <Breakdown totals={state} md={md} />
-      ) : state.status === "error" ? (
+      {state.status === "ready" && <Breakdown totals={state} md={md} />}
+      {state.status === "error" && (
         <p className="mt-0.5 text-[11px] text-gray-100">
           Não foi possível somar as parcelas.
         </p>
-      ) : null}
+      )}
     </div>
   );
 }
 
-function Breakdown({ totals, md }: { totals: AgreementTotals; md: boolean }) {
+function Breakdown({ totals, md }: Readonly<{ totals: AgreementTotals; md: boolean }>) {
   return (
     <p className={`mt-0.5 text-gray-100 ${md ? "text-xs" : "text-[11px]"}`}>
       <span className="text-success">
@@ -66,7 +65,7 @@ function Breakdown({ totals, md }: { totals: AgreementTotals; md: boolean }) {
       </span>
       {" · "}falta {formatBRL(totals.remaining)}
       {totals.missing > 0 &&
-        ` · ${totals.missing} ${totals.missing === 1 ? "parcela não lançada" : "parcelas não lançadas"} fora da conta`}
+        ` · ${plural(totals.missing, "parcela não lançada", "parcelas não lançadas")} fora da conta`}
     </p>
   );
 }

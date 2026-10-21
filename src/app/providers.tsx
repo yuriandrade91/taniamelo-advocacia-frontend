@@ -13,9 +13,9 @@ import { Toast } from "@heroui/react";
  */
 export default function Providers({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <>
       <Toast.Provider placement="top end" />

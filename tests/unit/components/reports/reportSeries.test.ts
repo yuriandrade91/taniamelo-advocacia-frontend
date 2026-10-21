@@ -11,7 +11,7 @@ import {
 
 describe("lastMonths", () => {
   it("termina no mês pedido e atravessa a virada do ano", () => {
-    expect(lastMonths({ year: 2026, month: 2 }, 4).map(monthKey)).toEqual([
+    expect(lastMonths({ year: 2026, month: 2 }, 4).map((month) => monthKey(month))).toEqual([
       "2025-11",
       "2025-12",
       "2026-01",
@@ -47,12 +47,13 @@ describe("toSituationCounts", () => {
   });
 });
 
+const point = (month: string, verified: number, potential: number) => ({
+  month,
+  verified,
+  potential,
+});
+
 describe("withMovingAverage", () => {
-  const point = (month: string, verified: number, potential: number) => ({
-    month,
-    verified,
-    potential,
-  });
 
   it("usa os meses de base e devolve só os visíveis", () => {
     const result = withMovingAverage(

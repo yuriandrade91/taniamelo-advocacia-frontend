@@ -6,6 +6,18 @@ import {
   type PaymentBucket,
 } from "@/components/payments/paymentBuckets";
 
+/** "Vence hoje", "Vence amanhã", "Vence em 3 dias". */
+function dueText(left: number): string {
+  if (left <= 0) return "Vence hoje";
+  return left === 1 ? "Vence amanhã" : `Vence em ${plural(left, "dia", "dias")}`;
+}
+
+/** A legenda sob o número de dias. */
+function dueCaption(left: number): string {
+  if (left === 0) return "vence";
+  return left === 1 ? "dia restante" : "dias restantes";
+}
+
 /**
  * Frase de prazo do detalhe de um lançamento: "vence em 7 dias", "atrasado
  * há 3 dias", "pago em 05/10/2026".
@@ -50,12 +62,7 @@ export function dueLine(
       const left = daysBetween(today, entry.dueDate);
       return {
         bucket,
-        text:
-          left <= 0
-            ? "Vence hoje"
-            : left === 1
-              ? "Vence amanhã"
-              : `Vence em ${plural(left, "dia", "dias")}`,
+        text: dueText(left),
       };
     }
   }
@@ -110,8 +117,7 @@ export function dueProgress(
     bucket,
     fraction,
     center: left === 0 ? "hoje" : String(left),
-    caption:
-      left === 0 ? "vence" : left === 1 ? "dia restante" : "dias restantes",
+    caption: dueCaption(left),
   };
 }
 

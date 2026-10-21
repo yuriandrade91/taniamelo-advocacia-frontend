@@ -16,7 +16,7 @@ import type { PaymentForm } from "./usePaymentForm";
  * "já foi recebido", data, forma e observações são os mesmos sete campos, na
  * mesma ordem. O que é só daqui — número e total da parcela — fica aqui.
  */
-export function PaymentFormFields({ form }: { form: PaymentForm }) {
+export function PaymentFormFields({ form }: Readonly<{ form: PaymentForm }>) {
   const { isSubmitting } = form;
   const cancelled =
     installmentStatus(form.values) === PaymentStatusLabelByKey.CANCELADO;
@@ -24,13 +24,12 @@ export function PaymentFormFields({ form }: { form: PaymentForm }) {
   return (
     <div className="flex flex-col gap-4">
       {cancelled && (
-        <p
-          role="status"
-          className="rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3 text-sm text-primary"
+        <output
+          className="block rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3 text-sm text-primary"
         >
           Esta parcela está <strong>cancelada</strong>. Salvar mantém o
           cancelamento; marcar que já foi recebida a reabre.
-        </p>
+        </output>
       )}
 
       <FieldGrid>

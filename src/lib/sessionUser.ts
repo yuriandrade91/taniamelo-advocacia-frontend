@@ -19,8 +19,8 @@ const STORAGE_KEY = "session_user";
 
 /** Avisa quem está na tela que o usuário da sessão mudou. */
 function announce(): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(new Event(STORED_VALUE_EVENT));
+  if (typeof document === "undefined") return;
+  globalThis.dispatchEvent(new Event(STORED_VALUE_EVENT));
 }
 
 export type SessionUser = {
@@ -31,7 +31,7 @@ export type SessionUser = {
 };
 
 export function saveSessionUser(response: LoginResponse): void {
-  if (typeof window === "undefined") return;
+  if (typeof document === "undefined") return;
   const user: SessionUser = {
     fullName: response.fullName ?? "",
     email: response.email ?? "",
@@ -39,7 +39,7 @@ export function saveSessionUser(response: LoginResponse): void {
     tenantSlug: response.tenantSlug ?? "",
   };
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
     announce();
   } catch {
     // Modo privativo ou storage cheio: seguir sem persistir é aceitável,
@@ -48,9 +48,9 @@ export function saveSessionUser(response: LoginResponse): void {
 }
 
 export function getSessionUser(): SessionUser | null {
-  if (typeof window === "undefined") return null;
+  if (typeof document === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = globalThis.localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<SessionUser>;
     // Conteúdo do storage é dado externo: só aceitamos se tiver o mínimo.
@@ -74,11 +74,11 @@ export function getSessionUser(): SessionUser | null {
  * a tela pareceria não ter salvado.
  */
 export function patchSessionUser(partial: Partial<SessionUser>): void {
-  if (typeof window === "undefined") return;
+  if (typeof document === "undefined") return;
   const current = getSessionUser();
   if (!current) return;
   try {
-    window.localStorage.setItem(
+    globalThis.localStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({ ...current, ...partial }),
     );
@@ -89,9 +89,9 @@ export function patchSessionUser(partial: Partial<SessionUser>): void {
 }
 
 export function clearSessionUser(): void {
-  if (typeof window === "undefined") return;
+  if (typeof document === "undefined") return;
   try {
-    window.localStorage.removeItem(STORAGE_KEY);
+    globalThis.localStorage.removeItem(STORAGE_KEY);
     announce();
   } catch {
     /* nada a fazer */
@@ -110,10 +110,10 @@ let cachedRaw: string | null = null;
 let cachedUser: SessionUser | null = null;
 
 export function sessionUserSnapshot(): SessionUser | null {
-  if (typeof window === "undefined") return null;
+  if (typeof document === "undefined") return null;
   let raw: string | null = null;
   try {
-    raw = window.localStorage.getItem(STORAGE_KEY);
+    raw = globalThis.localStorage.getItem(STORAGE_KEY);
   } catch {
     return null;
   }

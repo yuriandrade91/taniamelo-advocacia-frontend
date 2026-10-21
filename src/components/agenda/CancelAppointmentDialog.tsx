@@ -29,7 +29,7 @@ export default function CancelAppointmentDialog({
   onClose,
   onConfirm,
   appointmentTitle,
-}: CancelAppointmentDialogProps) {
+}: Readonly<CancelAppointmentDialogProps>) {
   const [justification, setJustification] = useState("");
   const [touched, setTouched] = useState(false);
 

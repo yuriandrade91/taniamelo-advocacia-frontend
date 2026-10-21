@@ -40,7 +40,7 @@ export const clients = async (
   );
   return {
     ...response.data,
-    data: (response.data?.data ?? []).map(normalizeClient),
+    data: (response.data?.data ?? []).map((item) => normalizeClient(item)),
   };
 };
 
@@ -78,8 +78,8 @@ export const listUpcomingBirthdays = async (
  * o próximo rename volta a doer.
  *
  * Aceita as duas grafias de propósito, enquanto durar a transição: a instância
- * local já renomeou e a da AWS pode estar num build anterior. Quando todo mundo
- * estiver no contrato novo, o `?? bruto.id` pode cair.
+ * local já renomeou e a da AWS pode estar num build anterior. Quando os dois ambientes
+ * estiverem no contrato novo, o `?? bruto.id` pode cair.
  */
 function normalizeClient<T extends { id?: string; clientId?: string }>(
   raw: T,

@@ -19,7 +19,7 @@ import { getSessionUser } from "@/lib/sessionUser";
  * inclusive. Ali não se trata de risco de perder dado, e sim de quem tem que
  * ver honorários.
  *
- * O papel vem do `LoginResponse`, guardado na sessão local. Como todo dado de
+ * O papel vem do `LoginResponse`, guardado na sessão local. Como qualquer dado de
  * storage, pode estar ausente ou adulterado: na dúvida devolvemos `false`, que
  * esconde o botão. Errar para menos aqui custa um "não achei o botão"; errar
  * para mais custa um clique que toma 403 na cara do usuário.

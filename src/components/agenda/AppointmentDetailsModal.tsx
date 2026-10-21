@@ -16,10 +16,10 @@ import { formatWhen } from "./agendaGrouping";
 export function AppointmentDetailsModal({
   appointment,
   onClose,
-}: {
+}: Readonly<{
   appointment: AppointmentResponse | null;
   onClose: () => void;
-}) {
+}>) {
   return (
     <ModalShell
       isOpen={appointment !== null}

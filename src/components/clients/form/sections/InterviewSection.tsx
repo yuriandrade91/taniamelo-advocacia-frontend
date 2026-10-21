@@ -25,12 +25,12 @@ export function InterviewSection({
   form,
   isReadOnly,
   isLoading,
-}: {
+}: Readonly<{
   form: SectionForm<InterviewValues>;
   isReadOnly?: boolean;
   /** Carregando: rótulos fixos, valores em skeleton. */
   isLoading?: boolean;
-}) {
+}>) {
   const error = form.errorOf("content");
   return (
     <FieldGrid columns={4}>

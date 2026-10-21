@@ -9,7 +9,7 @@ const bySection = (missing: readonly MissingField[]) =>
   missing.reduce<
     { key: ReviewSectionKey; section: string; labels: string[] }[]
   >((groups, field) => {
-    const last = groups[groups.length - 1];
+    const last = groups.at(-1);
     if (last?.key === field.key) last.labels.push(field.label);
     else
       groups.push({
@@ -24,10 +24,10 @@ const bySection = (missing: readonly MissingField[]) =>
 function MissingRing({
   progress,
   missing,
-}: {
+}: Readonly<{
   progress: number;
   missing: number;
-}) {
+}>) {
   const radius = 15;
   const circumference = 2 * Math.PI * radius;
   const isReady = missing === 0;
@@ -95,7 +95,7 @@ export function FormActionBar({
   isReviewing,
   onGoTo,
   children,
-}: {
+}: Readonly<{
   /** Obrigatórios vazios no formulário inteiro, na ordem do formulário. */
   missing: readonly MissingField[];
   /** 0–100, o mesmo do anel do cabeçalho. */
@@ -106,7 +106,7 @@ export function FormActionBar({
   onGoTo: (key: ReviewSectionKey) => void;
   /** Os botões. */
   children: ReactNode;
-}) {
+}>) {
   const isReady = missing.length === 0;
   const showList = !isReviewing && !isReady;
 
@@ -126,7 +126,7 @@ export function FormActionBar({
         {!isReviewing && (
           <div className="flex items-center gap-3 sm:pl-1">
             <MissingRing progress={progress} missing={missing.length} />
-            <p role="status" className="text-sm leading-tight">
+            <output className="block text-sm leading-tight">
               {isReady ? (
                 <span className="font-semibold text-success">
                   Pronto para salvar
@@ -142,7 +142,7 @@ export function FormActionBar({
                   <span className="text-gray-100">faltando</span>
                 </>
               )}
-            </p>
+            </output>
           </div>
         )}
 
@@ -168,9 +168,9 @@ export function FormActionBar({
                 {group.section}
               </dt>
               <dd className="flex flex-wrap gap-1.5">
-                {group.labels.map((label, index) => (
+                {group.labels.map((label) => (
                   <button
-                    key={`${label}-${index}`}
+                    key={label}
                     type="button"
                     onClick={() => onGoTo(group.key)}
                     className="flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium whitespace-nowrap text-danger ring-1 ring-danger/25 transition hover:bg-danger/10 focus-visible:ring-2 focus-visible:ring-danger/40 focus-visible:outline-none active:scale-[0.97] motion-reduce:active:scale-100"

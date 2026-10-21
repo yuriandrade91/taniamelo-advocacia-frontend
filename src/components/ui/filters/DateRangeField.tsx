@@ -27,12 +27,12 @@ export function DateRangeField({
   onChange,
   error,
   className = "",
-}: {
+}: Readonly<{
   value: DateRange;
   onChange: (range: DateRange) => void;
   error?: string | null;
   className?: string;
-}) {
+}>) {
   return (
     <div className={`relative min-w-[240px] ${className}`}>
       <I18nProvider locale="pt-BR">

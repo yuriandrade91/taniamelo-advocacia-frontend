@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   ELLIPSIS,
+  MAX_PAGE_SIZE,
   buildPageList,
   clampPage,
+  fetchAllPages,
   pageRange,
   slicePage,
 } from "@/lib/pagination";
@@ -46,13 +48,13 @@ describe("buildPageList", () => {
   it("nunca produz reticências entre páginas consecutivas", () => {
     for (let current = 1; current <= 30; current++) {
       const pages = buildPageList(current, 30);
-      pages.forEach((entry, i) => {
-        if (entry !== ELLIPSIS) return;
+      for (const [i, entry] of pages.entries()) {
+        if (entry !== ELLIPSIS) continue;
         const before = pages[i - 1] as number;
         const after = pages[i + 1] as number;
         // Reticências só fazem sentido se houver ao menos uma página oculta.
         expect(after - before).toBeGreaterThan(1);
-      });
+      }
     }
   });
 });
@@ -101,5 +103,53 @@ describe("slicePage", () => {
 
   it("lista vazia tem uma página, vazia", () => {
     expect(slicePage([], 1, 10)).toEqual({ current: 1, totalPages: 1, slice: [] });
+  });
+});
+
+/** Um servidor com `total` linhas, que pagina como a API (1-based). */
+const server = (total: number) =>
+  vi.fn(async ({ pageNumber, pageSize }: { pageNumber: number; pageSize: number }) => {
+    const start = (pageNumber - 1) * pageSize;
+    const data = Array.from({ length: Math.max(0, Math.min(pageSize, total - start)) }, (_, i) => start + i);
+    return { data, pagination: { pageNumber, pageSize, totalRecords: total, hasNextPage: start + pageSize < total } };
+  });
+
+describe("fetchAllPages", () => {
+
+  it("pede o teto da API, não os 10 do padrão — a ficha mostrava só 10 arquivos", async () => {
+    const list = server(11);
+    const all = await fetchAllPages(list);
+    expect(all.data).toHaveLength(11);
+    expect(list).toHaveBeenCalledExactlyOnceWith({ pageNumber: 1, pageSize: MAX_PAGE_SIZE });
+  });
+
+  it("acima do teto, segue página a página até o fim", async () => {
+    const list = server(250);
+    const all = await fetchAllPages(list);
+    expect(all.data).toEqual(Array.from({ length: 250 }, (_, i) => i));
+    expect(list.mock.calls.map(([params]) => params.pageNumber)).toEqual([1, 2, 3]);
+  });
+
+  it("lista vazia: uma chamada só", async () => {
+    const list = server(0);
+    expect((await fetchAllPages(list)).data).toEqual([]);
+    expect(list).toHaveBeenCalledOnce();
+  });
+
+  it("envelope sem `pagination` não vira laço sem fim", async () => {
+    const list = vi.fn(async () => ({ data: [1, 2] }));
+    expect((await fetchAllPages(list)).data).toEqual([1, 2]);
+    expect(list).toHaveBeenCalledOnce();
+  });
+
+  it("servidor que jura haver mais e manda página vazia também para", async () => {
+    const list = vi.fn(async () => ({ data: [], pagination: { hasNextPage: true } }));
+    await fetchAllPages(list);
+    expect(list).toHaveBeenCalledOnce();
+  });
+
+  it("a falha de uma página chega a quem chamou", async () => {
+    const list = vi.fn().mockRejectedValue(new Error("500"));
+    await expect(fetchAllPages(list)).rejects.toThrow("500");
   });
 });

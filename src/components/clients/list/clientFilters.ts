@@ -9,7 +9,7 @@ import type { ClientListRequest } from "@/interfaces/client/Client.interface";
  * deste projeto roda em `node`, sem DOM) e para o hook ficar só com estado.
  */
 
-export type { DateRange };
+
 
 export type ClientFiltersState = {
   search: string;
@@ -41,7 +41,7 @@ export const INVERTED_RANGE_MESSAGE = "Data inicial deve ser anterior à data fi
  *
  * Antes ia como `new Date(...).toISOString()`, isto é, meia-noite **UTC**. O
  * backend recebe um instante e compara direto: em UTC-3, "até 03/10" virava
- * "até 02/10 às 21h" — o último dia do período ficava quase todo de fora, e o
+ * "até 02/10 às 21h" — o último dia do período ficava quase inteiro de fora, e o
  * primeiro começava três horas antes. Com a data pura, o backend resolve o dia
  * no fuso do escritório (início às 00:00, fim às 23:59:59.999).
  */
@@ -127,3 +127,5 @@ export function sameFilterValues(
     return a === b;
   });
 }
+
+export {type DateRange} from "@/components/ui/filters/DateRangeField";

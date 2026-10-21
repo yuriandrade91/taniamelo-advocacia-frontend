@@ -69,7 +69,8 @@ export interface OfficeExpenseListRequest extends FinancePeriodFilter {
 
 /** Uma fatia do balanço por categoria, no formato que o `MonthlyBalance` já usa. */
 export interface ExpenseCategoryTotal {
-  category: ExpenseCategoryLabel | string;
+  /** Em geral um `ExpenseCategoryLabel`; `string` porque o backend pode trazer uma categoria nova. */
+  category: string;
   amount: number;
 }
 

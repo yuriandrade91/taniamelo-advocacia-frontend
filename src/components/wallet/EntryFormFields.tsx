@@ -24,10 +24,10 @@ import type { EntryForm } from "./useEntryForm";
 export function EntryFormFields({
   form,
   compact = false,
-}: {
+}: Readonly<{
   form: EntryForm;
   compact?: boolean;
-}) {
+}>) {
   const {
     isIncome,
     isEditing,
@@ -46,13 +46,12 @@ export function EntryFormFields({
           registro inteiro: sem dizer isto, quem só vem corrigir a descrição
           não descobre que pode reabrir o lançamento marcando "já foi pago". */}
       {isEditing && isCancelled(values) && (
-        <p
-          role="status"
-          className="rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3 text-sm text-primary"
+        <output
+          className="block rounded-xl border border-secondary/40 bg-light-secondary px-4 py-3 text-sm text-primary"
         >
           Este lançamento está <strong>cancelado</strong>. Salvar mantém o
           cancelamento; marcar que já foi liquidado o reabre como pago.
-        </p>
+        </output>
       )}
 
       {/*

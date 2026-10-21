@@ -9,7 +9,7 @@ import type { ReportViewProps } from "./types";
  * O relatório que as visões de Relatórios desenham — uma conta só.
  *
  * As cinco visões discordam só no desenho. O que **não** muda fica aqui: as
- * séries normalizadas na janela (todo mês presente, mesmo zerado), os totais,
+ * séries normalizadas na janela (cada mês presente, mesmo zerado), os totais,
  * as comparações com o mês anterior, as frases de destaque e a cor de cada
  * série. Assim "Atrasado" é vermelho e "Pago" é verde em todos eles, e uma
  * frase como "Saídas superaram entradas em 2 dos 6 meses" sai da mesma conta.
@@ -200,7 +200,7 @@ function buildReport(input: Inputs): Report {
   const { month } = input;
   const key = monthKey(month);
   const prev = shiftMonth(month, -1);
-  const windowKeys = lastMonths(month, WINDOW).map(monthKey);
+  const windowKeys = lastMonths(month, WINDOW).map((item) => monthKey(item));
 
   // Pagamentos aos clientes, por vencimento.
   const payByMonth = new Map(input.payments.map((p) => [p.month, p]));
@@ -245,7 +245,7 @@ function buildReport(input: Inputs): Report {
   }
   const slices = others > 0 ? [...known, { label: "Demais categorias", value: others, tone: "gray" as Tone }] : known;
   const top = input.expenseSlices[0]
-    ? { label: input.expenseSlices[0].label, value: input.expenseSlices[0].percentage, tone: CATEGORY_TONE[input.expenseSlices[0].label] ?? ("gray" as Tone) }
+    ? { label: input.expenseSlices[0].label, value: input.expenseSlices[0].percentage, tone: CATEGORY_TONE[input.expenseSlices[0].label] ?? ("gray") }
     : null;
 
   // Cadastros (já vêm com os 6 meses e a média móvel).
@@ -258,7 +258,7 @@ function buildReport(input: Inputs): Report {
     average: p.average,
   }));
   const intakeEmptyRow: IntakeRow = { month: key, label: formatMonthAxis(key), verified: 0, potential: 0, total: 0, average: 0 };
-  const intakeCurrent = intakeRows.find((r) => r.month === key) ?? intakeRows[intakeRows.length - 1] ?? intakeEmptyRow;
+  const intakeCurrent = intakeRows.find((r) => r.month === key) ?? intakeRows.at(-1) ?? intakeEmptyRow;
   const intakePrev = intakeRows.find((r) => r.month === monthKey(prev)) ?? null;
   const intakeSum = {
     verified: sum(intakeRows.map((r) => r.verified)),
@@ -331,8 +331,8 @@ function buildReport(input: Inputs): Report {
     payments: {
       rows: paymentRows,
       hasData: input.payments.length > 0 && paySum.total > 0,
-      current: paymentRows[paymentRows.length - 1],
-      previous: paymentRows[paymentRows.length - 2],
+      current: paymentRows.at(-1)!,
+      previous: paymentRows.at(-2)!,
       sum: paySum,
       paidRate: share(paySum.paid, paySum.total),
       overdueRate: share(paySum.overdue, paySum.total),
@@ -340,10 +340,10 @@ function buildReport(input: Inputs): Report {
     flow: {
       rows: flowRows,
       hasData: input.flow.length > 0 && flowSum.inflow + flowSum.outflow > 0,
-      current: flowRows[flowRows.length - 1],
-      previous: flowRows[flowRows.length - 2],
+      current: flowRows.at(-1)!,
+      previous: flowRows.at(-2)!,
       sum: flowSum,
-      balance: flowRows[flowRows.length - 1].cumulative,
+      balance: flowRows.at(-1)!.cumulative,
       negativeMonths: flowRows.filter((f) => f.outflow > f.inflow).length,
     },
     expenses: {
@@ -365,8 +365,8 @@ function buildReport(input: Inputs): Report {
     agenda: {
       rows: agendaRows,
       hasData: agSum.total > 0,
-      current: agendaRows[agendaRows.length - 1],
-      previous: agendaRows.length > 1 ? agendaRows[agendaRows.length - 2] : null,
+      current: agendaRows.at(-1)!,
+      previous: agendaRows.length > 1 ? agendaRows.at(-2)! : null,
       sum: agSum,
       doneRate: share(agSum.completed, agSum.total),
       cancelRate: share(agSum.cancelled, agSum.total),
@@ -387,25 +387,22 @@ function buildReport(input: Inputs): Report {
   return r;
 }
 
+/** O fim da frase do mês: na média, acima ou abaixo dela, ou só o ponto final. */
+function vsAverageText(v: number | null): string {
+  if (v === null) return ".";
+  if (v === 0) return ", na média de 3 meses.";
+  const direction = v > 0 ? "acima" : "abaixo";
+  return `, ${Math.abs(v)}% ${direction} da média de 3 meses.`;
+}
+
 /** Frases curtas tiradas dos números — o "e daí" de cada série. */
 function buildInsights(r: Report): Report["insights"] {
-  const finance: string[] = [];
-  const clients: string[] = [];
+  return { finance: financeInsights(r), clients: clientInsights(r) };
+}
 
-  if (r.flow.hasData) {
-    const n = r.flow.negativeMonths;
-    finance.push(
-      n === 0
-        ? `Entradas cobriram as saídas em todos os ${r.flow.rows.length} meses.`
-        : `Saídas superaram entradas em ${n} dos ${r.flow.rows.length} meses.`,
-    );
-    finance.push(
-      `Saldo acumulado da janela: ${formatBRLSigned(r.flow.balance)}${r.flow.balance < 0 ? " — no vermelho" : ""}.`,
-    );
-    const d = deltaPercent(r.flow.current.inflow, r.flow.previous.inflow);
-    if (d !== null && d !== 0)
-      finance.push(`Entradas de ${r.monthOnly.toLowerCase()} ${d > 0 ? "subiram" : "caíram"} ${Math.abs(d)}% sobre ${r.prevOnly.toLowerCase()}.`);
-  }
+function financeInsights(r: Report): string[] {
+  const finance: string[] = [];
+  if (r.flow.hasData) finance.push(...flowInsights(r));
   if (r.payments.hasData) {
     finance.push(
       r.payments.sum.overdue > 0
@@ -416,14 +413,32 @@ function buildInsights(r: Report): Report["insights"] {
   if (r.expenses.top) {
     finance.push(`${r.expenses.top.label} é a maior despesa: ${r.expenses.top.value}% do que foi pago.`);
   }
+  return finance;
+}
 
+/** Cobertura das saídas, saldo e a variação das entradas sobre o mês anterior. */
+function flowInsights(r: Report): string[] {
+  const n = r.flow.negativeMonths;
+  const months = r.flow.rows.length;
+  const redNote = r.flow.balance < 0 ? " — no vermelho" : "";
+  const lines = [
+    n === 0
+      ? `Entradas cobriram as saídas em todos os ${months} meses.`
+      : `Saídas superaram entradas em ${n} dos ${months} meses.`,
+    `Saldo acumulado da janela: ${formatBRLSigned(r.flow.balance)}${redNote}.`,
+  ];
+  const d = deltaPercent(r.flow.current.inflow, r.flow.previous.inflow);
+  if (d !== null && d !== 0) {
+    const verb = d > 0 ? "subiram" : "caíram";
+    lines.push(`Entradas de ${r.monthOnly.toLowerCase()} ${verb} ${Math.abs(d)}% sobre ${r.prevOnly.toLowerCase()}.`);
+  }
+  return lines;
+}
+
+function clientInsights(r: Report): string[] {
+  const clients: string[] = [];
   if (r.intake.hasData) {
-    const c = r.intake.current;
-    const v = r.intake.vsAverage;
-    clients.push(
-      `${r.monthOnly} teve ${plural(c.total, "cadastro", "cadastros")}` +
-        (v === null ? "." : v === 0 ? ", na média de 3 meses." : `, ${Math.abs(v)}% ${v > 0 ? "acima" : "abaixo"} da média de 3 meses.`),
-    );
+    clients.push(`${r.monthOnly} teve ${plural(r.intake.current.total, "cadastro", "cadastros")}` + vsAverageText(r.intake.vsAverage));
     if (r.intake.verifiedShare !== null)
       clients.push(`${r.intake.verifiedShare}% dos cadastros da janela já são clientes verificados.`);
   }
@@ -441,7 +456,7 @@ function buildInsights(r: Report): Report["insights"] {
       `No ano, ${r.agenda.doneRate ?? 0}% dos compromissos foram concluídos e ${r.agenda.cancelRate ?? 0}% cancelados.`,
     );
   }
-  return { finance, clients };
+  return clients;
 }
 
 /** O relatório derivado das props — uma conta só, memorizada. */

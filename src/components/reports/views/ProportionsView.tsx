@@ -7,7 +7,6 @@ import {
   RadialProgress,
   TONE,
   TONE_BG,
-  type Tone,
 } from "@/components/charts/svgCharts";
 import { ConcentricRings, type Ring } from "../../charts/ConcentricRings";
 import {
@@ -38,12 +37,12 @@ function RingCard({
   basis,
   className = "",
   children,
-}: {
+}: Readonly<{
   title: string;
   basis?: string;
   className?: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <section
       className={`flex min-w-0 flex-col items-center gap-4 rounded-3xl bg-white p-5 text-center ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:ring-secondary/40 motion-reduce:hover:translate-y-0 ${className}`}
@@ -57,7 +56,7 @@ function RingCard({
   );
 }
 
-function Center({ value, label }: { value: string; label: string }) {
+function Center({ value, label }: Readonly<{ value: string; label: string }>) {
   return (
     <>
       <span className="text-2xl font-semibold tracking-tight text-primary tabular-nums">{value}</span>
@@ -66,7 +65,7 @@ function Center({ value, label }: { value: string; label: string }) {
   );
 }
 
-export function ProportionsView(props: ReportViewProps) {
+export function ProportionsView(props: Readonly<ReportViewProps>) {
   const { canSeeFinance, isLoading, isFinanceLoading } = props;
   const r = useReport(props);
 
@@ -127,16 +126,14 @@ export function ProportionsView(props: ReportViewProps) {
       <section className="relative isolate grid grid-cols-1 items-center gap-6 overflow-hidden rounded-3xl bg-white p-6 ring-1 ring-black/5 sm:p-8 md:grid-cols-[auto_1fr]">
         <span className="pointer-events-none absolute -top-24 -left-24 -z-10 h-72 w-72 rounded-full bg-secondary/10 blur-3xl" />
         <div className="flex justify-center">
-          {heroLoading ? (
-            <LoadingBlock className="h-56 w-56 rounded-full" />
-          ) : visibleHero.length ? (
+          {heroLoading && <LoadingBlock className="h-56 w-56 rounded-full" />}
+          {!heroLoading && visibleHero.length > 0 && (
             <ConcentricRings rings={visibleHero} size={224} thickness={16} gap={6}>
               <span className="text-[10px] tracking-[0.2em] text-gray-100 uppercase">taxas em</span>
               <span className="text-lg font-semibold text-primary">6 meses</span>
             </ConcentricRings>
-          ) : (
-            <p className="text-sm text-gray-100">Sem taxas para mostrar.</p>
           )}
+          {!heroLoading && visibleHero.length === 0 && <p className="text-sm text-gray-100">Sem taxas para mostrar.</p>}
         </div>
         <div>
           <p className="text-[11px] font-medium tracking-[0.2em] text-secondary uppercase">Proporções · {r.windowLabel}</p>
@@ -249,7 +246,7 @@ export function ProportionsView(props: ReportViewProps) {
                   rings={r.funnel.stages.map((s) => ({
                     label: `${s.label}: ${s.count}`,
                     value: s.share / 100,
-                    tone: "primary" as Tone,
+                    tone: "primary",
                     opacity: stageOpacity(s.index),
                   }))}
                 >

@@ -1,3 +1,9 @@
+/** Preenchido, faltando (obrigatório vazio) ou só vazio. */
+function itemState(text: string, required?: boolean): "filled" | "missing" | "empty" {
+  if (text) return "filled";
+  return required ? "missing" : "empty";
+}
+
 /**
  * A revisão do cadastro: todos os campos do formulário, com rótulo e valor
  * legível, antes de salvar.
@@ -53,6 +59,12 @@ export type ReviewItem = {
   state: ReviewItemState;
   /** Ocupa a linha inteira (texto longo, como o relato da entrevista). */
   wide?: boolean;
+  /**
+   * O valor como o editor rico o escreveu (HTML), para a Revisão mostrar a
+   * formatação. `value` continua sendo o texto puro: é ele que diz se o campo
+   * está vazio.
+   */
+  html?: string;
 };
 
 export type ReviewGroup = {
@@ -124,28 +136,29 @@ const yesNo = (value: boolean) => (value ? "Sim" : "Não");
 /** O relato vem do editor rico: tira as tags e junta os parágrafos. */
 const plainText = (html: string) =>
   html
-    .replace(/<\/(p|li|h\d|blockquote)>/gi, "\n")
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\n{2,}/g, "\n")
+    .replaceAll(/<\/(p|li|h\d|blockquote)>/gi, "\n")
+    .replaceAll(/<br\s*\/?>/gi, "\n")
+    .replaceAll(/<[^>]*>/g, "")
+    .replaceAll("&nbsp;", " ")
+    .replaceAll("&amp;", "&")
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll(/\n{2,}/g, "\n")
     .trim();
 
 /** Um item; `required` vazio vira "faltando", opcional vazio vira "—". */
 const item = (
   label: string,
   value: string,
-  options: { required?: boolean; wide?: boolean } = {},
+  options: { required?: boolean; wide?: boolean; html?: string } = {},
 ): ReviewItem => {
   const text = value.trim();
   return {
     label,
     value: text,
-    state: text ? "filled" : options.required ? "missing" : "empty",
+    state: itemState(text, options.required),
     ...(options.wide ? { wide: true } : {}),
+    ...(text && options.html ? { html: options.html } : {}),
   };
 };
 
@@ -189,7 +202,7 @@ const contributionTime = ({
       ([value, one, many]) => `${value} ${Number(value) === 1 ? one : many}`,
     );
   if (parts.length <= 1) return parts.join("");
-  return `${parts.slice(0, -1).join(", ")} e ${parts[parts.length - 1]}`;
+  return `${parts.slice(0, -1).join(", ")} e ${parts.at(-1)}`;
 };
 
 /** Campos do endereço na revisão — o "principal" já vai no título do grupo. */
@@ -213,6 +226,7 @@ const section = (
 export function buildClientReview(input: ClientReviewInput): ReviewSection[] {
   const { service, personal, professional } = input;
   const age = ageFromBirthDate(personal.birthDate);
+  const ageText = age === null ? "" : `${age} anos`;
 
   const sections: ReviewSection[] = [
     section("service", "Atendimento", [
@@ -221,7 +235,7 @@ export function buildClientReview(input: ClientReviewInput): ReviewSection[] {
   ];
 
   if (input.disability) {
-    const periods = input.disability.filter(hasDisabilityInput);
+    const periods = input.disability.filter((item) => hasDisabilityInput(item));
     sections.push(
       section(
         "disability",
@@ -258,9 +272,7 @@ export function buildClientReview(input: ClientReviewInput): ReviewSection[] {
       PERSONAL_GROUPS.map((group) => ({
         title: group.title,
         items: group.names.map((name) =>
-          name === "age"
-            ? item("Idade", age === null ? "" : `${age} anos`)
-            : schemaItem(personalSchema, personal, name),
+          name === "age" ? item("Idade", ageText) : schemaItem(personalSchema, personal, name),
         ),
       })),
     ),
@@ -321,20 +333,18 @@ export function buildClientReview(input: ClientReviewInput): ReviewSection[] {
                 item("Conteúdo", plainText(interview.content), {
                   required: true,
                   wide: true,
+                  html: interview.content,
                 }),
               ],
             },
           ]
         : [{ items: [], emptyMessage: "Nenhuma entrevista registrada." }],
     ),
-  );
-
-  sections.push(
     section("documents", "Arquivos", [
       {
         title: "Documentos",
         qualifier: "Tipo do arquivo",
-        // Arquivo incompleto conta como pendente: no cadastro todo campo dele
+        // Arquivo incompleto conta como pendente: no cadastro cada campo dele
         // é obrigatório (`documentErrors`/`simulationErrors`).
         items: input.documents.map((doc) =>
           item(

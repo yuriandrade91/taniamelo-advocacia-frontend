@@ -7,7 +7,7 @@ import { useEffect, useRef, type RefObject } from "react";
  *
  * ## Por que existe
  *
- * É o que todo menu não modal precisa e nenhum componente de biblioteca
+ * É o que qualquer menu não modal precisa e nenhum componente de biblioteca
  * entrega quando o painel é desenhado à mão: o menu do perfil, a central de
  * notificações, o cartão do acordo e o trilho de etapas tinham cada um a sua
  * cópia dos mesmos dois ouvintes, do mesmo `removeEventListener` no retorno e

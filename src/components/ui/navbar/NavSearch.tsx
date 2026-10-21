@@ -59,7 +59,7 @@ export default function NavSearch({
   onClose,
   // A busca vai para a lista de Clientes, que casa nome ou CPF.
   placeholder = "Buscar cliente por nome ou CPF…",
-}: NavSearchProps) {
+}: Readonly<NavSearchProps>) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {

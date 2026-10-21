@@ -12,11 +12,11 @@ export function Notice({
   tone = "neutral",
   className = "",
   children,
-}: {
+}: Readonly<{
   tone?: "neutral" | "danger";
   className?: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <p
       className={`rounded-2xl px-4 py-6 text-center text-sm ${

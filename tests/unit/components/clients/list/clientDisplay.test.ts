@@ -12,7 +12,7 @@ import type { ClientListItem } from "@/interfaces/client/Client.interface";
 
 describe("display", () => {
   it("vazio, nulo e só espaços viram o mesmo traço", () => {
-    expect(display(undefined)).toBe(EMPTY_VALUE);
+    expect(display()).toBe(EMPTY_VALUE);
     expect(display(null)).toBe(EMPTY_VALUE);
     expect(display("   ")).toBe(EMPTY_VALUE);
     expect(display("Aposentadoria por idade")).toBe("Aposentadoria por idade");
@@ -23,7 +23,7 @@ describe("formatDate", () => {
   it("instante válido vira dd/mm/aaaa; inválido vira o traço", () => {
     expect(formatDate("2026-03-15T15:00:00Z")).toBe("15/03/2026");
     expect(formatDate("não é data")).toBe(EMPTY_VALUE);
-    expect(formatDate(undefined)).toBe(EMPTY_VALUE);
+    expect(formatDate()).toBe(EMPTY_VALUE);
   });
 });
 

@@ -32,20 +32,20 @@ export function SearchInput({
   onChange,
   placeholder,
   className = "",
-}: {
+}: Readonly<{
   /** Nome acessível ("Pesquisar lançamento"). */
   label: string;
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
   className?: string;
-}) {
+}>) {
   return (
     <label className={`group/search relative block ${className}`}>
-      <span className="sr-only">{label}</span>
       <SearchIcon className="pointer-events-none absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-gray-100/50 transition group-focus-within/search:text-primary" />
       <input
         type="search"
+        aria-label={label}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
@@ -125,7 +125,7 @@ export function Segmented({
   size = "md",
   grow = false,
   className = "",
-}: {
+}: Readonly<{
   label: string;
   mode: "radio" | "tab" | "toggle";
   segments: readonly Segment[];
@@ -136,7 +136,7 @@ export function Segmented({
   /** Divide a largura entre as opções, em vez de cada uma ocupar o seu texto. */
   grow?: boolean;
   className?: string;
-}) {
+}>) {
   const role = { radio: "radiogroup", tab: "tablist", toggle: "group" }[mode];
   return (
     <div
@@ -172,13 +172,13 @@ function SegmentButton({
   shape,
   grow,
   onPress,
-}: {
+}: Readonly<{
   segment: Segment;
   mode: "radio" | "tab" | "toggle";
   shape: SegmentedShape;
   grow?: boolean;
   onPress: (id: string) => void;
-}) {
+}>) {
   const { handlers, showLayer, layer } = useSlideHover(segment.active);
   return (
     <button
@@ -222,7 +222,7 @@ function SegmentButton({
               segment.active ? "bg-secondary text-white" : "bg-page text-gray-100"
             }`}
           >
-            {segment.count === null ? <LoadingCircle size={10} label={`Contando ${segment.label}`} /> : segment.count}
+            {segment.count ?? <LoadingCircle size={10} label={`Contando ${segment.label}`} />}
           </span>
         )}
       </span>
@@ -231,7 +231,7 @@ function SegmentButton({
 }
 
 /** Os filtros ativos como chips removíveis. */
-export function FilterChips({ chips, className = "mt-3" }: { chips: readonly FilterChip[]; className?: string }) {
+export function FilterChips({ chips, className = "mt-3" }: Readonly<{ chips: readonly FilterChip[]; className?: string }>) {
   if (chips.length === 0) return null;
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
@@ -256,7 +256,7 @@ export function FilterChips({ chips, className = "mt-3" }: { chips: readonly Fil
 }
 
 /** "Limpar filtros" — só quando há o que limpar. */
-export function ClearFilters({ isVisible, onClear }: { isVisible: boolean; onClear: () => void }) {
+export function ClearFilters({ isVisible, onClear }: Readonly<{ isVisible: boolean; onClear: () => void }>) {
   if (!isVisible) return null;
   return (
     <ActionButton tone="neutral" shape="pill" className="h-12 shrink-0" onClick={onClear}>
@@ -284,13 +284,13 @@ export function FilterField<S extends FilterSchema, K extends keyof S & string>(
   values,
   onChange,
   className = "min-w-40 flex-1",
-}: {
+}: Readonly<{
   schema: S;
   name: K;
   values: FilterValues<S>;
   onChange: (key: K, value: FilterValues<S>[K]) => void;
   className?: string;
-}) {
+}>) {
   const def = schema[name];
   const set = (value: unknown) => onChange(name, value as FilterValues<S>[K]);
   switch (def.kind) {

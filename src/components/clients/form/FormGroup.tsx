@@ -16,11 +16,11 @@ export function FormGroup({
   title,
   action,
   children,
-}: {
+}: Readonly<{
   title: string;
   action?: ReactNode;
   children: ReactNode;
-}) {
+}>) {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-3">
@@ -39,10 +39,10 @@ export function FormGroup({
 export function AddItemButton({
   children,
   onClick,
-}: {
+}: Readonly<{
   children: ReactNode;
   onClick: () => void;
-}) {
+}>) {
   return (
     <button
       type="button"

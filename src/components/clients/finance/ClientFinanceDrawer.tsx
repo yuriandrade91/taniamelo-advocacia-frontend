@@ -9,12 +9,12 @@ export function ClientFinanceDrawer({
   client,
   onClose,
   onViewClient,
-}: {
+}: Readonly<{
   client: { id: string; name: string };
   onClose: () => void;
   /** Abre a ficha do cliente (fecha este painel antes). */
   onViewClient?: () => void;
-}) {
+}>) {
   return (
     <Drawer
       isOpen
@@ -33,7 +33,7 @@ export function ClientFinanceDrawer({
   );
 }
 
-function ClientHeader({ name, onViewClient }: { name: string; onViewClient?: () => void }) {
+function ClientHeader({ name, onViewClient }: Readonly<{ name: string; onViewClient?: () => void }>) {
   return (
     <Tile className="flex items-center gap-3 p-4">
       <span

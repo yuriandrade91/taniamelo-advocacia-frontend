@@ -45,10 +45,16 @@ export type ProgressRingProps = {
   caption?: string;
 };
 
-export function ProgressRing({ value, size = 72, label, caption }: ProgressRingProps) {
+/** O tamanho do número pelo tamanho do aro. */
+function numberClassFor(size: number): string {
+  if (size >= 96) return "text-3xl";
+  return size >= 80 ? "text-xl" : "text-base";
+}
+
+export function ProgressRing({ value, size = 72, label, caption }: Readonly<ProgressRingProps>) {
   const percent = Math.max(0, Math.min(100, Math.round(value)));
   // O número acompanha o aro: `text-base` dentro de 128px vira uma legenda.
-  const numberClass = size >= 96 ? "text-3xl" : size >= 80 ? "text-xl" : "text-base";
+  const numberClass = numberClassFor(size);
 
   return (
     <ProgressCircle.Root

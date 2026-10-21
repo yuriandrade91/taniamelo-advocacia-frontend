@@ -76,15 +76,18 @@ describe("listStageNames", () => {
   });
 });
 
+const label = (step: number) => stage(step).label;
+
+/** Uma linha da trilha: de `from` (ou cadastro, sem `from`) para `to`. */
+const entry = (to: number, from?: number) => ({
+  currentSituation: label(to),
+  previousSituation: from ? label(from) : null,
+});
+
+const skipped = (trail: ReturnType<typeof entry>[], current: number) =>
+  keys(trailSkippedStages(trail, stage(current), STAGES, stageOf));
+
 describe("trailSkippedStages", () => {
-  const label = (step: number) => stage(step).label;
-  /** Uma linha da trilha: de `from` (ou cadastro, sem `from`) para `to`. */
-  const entry = (to: number, from?: number) => ({
-    currentSituation: label(to),
-    previousSituation: from ? label(from) : null,
-  });
-  const skipped = (trail: ReturnType<typeof entry>[], current: number) =>
-    keys(trailSkippedStages(trail, stage(current), STAGES, stageOf));
 
   it("caminho completo, etapa a etapa, não pula nada", () => {
     expect(skipped([entry(1), entry(2, 1), entry(3, 2)], 3)).toEqual([]);
@@ -123,9 +126,11 @@ describe("trailSkippedStages", () => {
   });
 });
 
+const at = (step: number, changedAt: string) => ({ currentSituation: stage(step).label, changedAt });
+
+const keyOf = (entry: ReturnType<typeof at>) => stageOf(entry.currentSituation).key;
+
 describe("trailReachedAt", () => {
-  const at = (step: number, changedAt: string) => ({ currentSituation: stage(step).label, changedAt });
-  const keyOf = (entry: ReturnType<typeof at>) => stageOf(entry.currentSituation).key;
 
   it("cada etapa leva a data em que o cliente chegou a ela", () => {
     const reached = trailReachedAt([at(1, "2026-08-01T12:00:00Z"), at(2, "2026-08-10T12:00:00Z")], keyOf);

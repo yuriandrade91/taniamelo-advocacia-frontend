@@ -53,9 +53,14 @@ export function enumKeyOf(
 
 // ── campo → API ──
 
-/** Texto aparado; vazio vira `undefined`, para a chave sumir do JSON. */
-export const optionalText = (value: string): string | undefined =>
-  value.trim() === "" ? undefined : value.trim();
+/**
+ * Texto aparado; vazio (ou ausente) vira `undefined`, para a chave sumir do
+ * JSON — e para o `??` seguinte cair no padrão quando não há o que mostrar.
+ */
+export const optionalText = (value?: string | null): string | undefined => {
+  const clean = value?.trim();
+  return clean === "" ? undefined : clean;
+};
 
 /** Inteiro do campo; vazio ou não inteiro vira `undefined`. */
 export function optionalInteger(value: string): number | undefined {

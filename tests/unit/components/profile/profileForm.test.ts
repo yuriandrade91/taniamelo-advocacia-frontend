@@ -14,6 +14,9 @@ import {
 } from "@/components/profile/profileForm";
 import type { MyProfile } from "@/interfaces/user/User.interface";
 
+/** Ordem alfabética explícita: `sort()` sem comparador ordena por código Unicode. */
+const byText = (a: string, b: string) => a.localeCompare(b);
+
 const profile: MyProfile = {
   id: "u-1",
   fullName: "Tânia Melo",
@@ -134,7 +137,7 @@ describe("validatePassword", () => {
 
   it("tudo vazio acusa os três campos de uma vez", () => {
     const errors = validatePassword(EMPTY_PASSWORD_VALUES);
-    expect(Object.keys(errors).sort()).toEqual([
+    expect(Object.keys(errors).sort(byText)).toEqual([
       "confirmPassword",
       "currentPassword",
       "newPassword",

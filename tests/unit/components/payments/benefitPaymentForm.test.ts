@@ -6,6 +6,9 @@ import {
   validateBenefitPayment,
 } from "@/components/payments/benefitPaymentForm";
 
+/** Ordem alfabética explícita: `sort()` sem comparador ordena por código Unicode. */
+const byText = (a: string, b: string) => a.localeCompare(b);
+
 const TODAY = "2026-10-05";
 const valid = {
   ...emptyBenefitPayment(),
@@ -23,7 +26,7 @@ describe("validateBenefitPayment", () => {
 
   it("vazio acusa cliente, descrição, valor e previsão", () => {
     const errors = validateBenefitPayment(emptyBenefitPayment(), TODAY);
-    expect(Object.keys(errors).sort()).toEqual(["amount", "clientName", "description", "expectedDate"].sort());
+    expect(Object.keys(errors).sort(byText)).toEqual(["amount", "clientName", "description", "expectedDate"].sort(byText));
   });
 
   it("valor precisa ser número positivo", () => {

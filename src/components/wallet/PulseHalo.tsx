@@ -34,11 +34,11 @@ const HALO: Record<PaymentBucket, string> = {
 export function PulseHalo({
   bucket,
   colorClass,
-}: {
+}: Readonly<{
   bucket: PaymentBucket;
   /** Sobrescreve a cor (ex.: fundo escuro, onde o navy do previsto sumiria). */
   colorClass?: string;
-}) {
+}>) {
   if (bucket === "cancelled") return null;
   return (
     <span

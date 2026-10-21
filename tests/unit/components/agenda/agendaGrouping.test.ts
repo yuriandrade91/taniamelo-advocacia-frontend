@@ -19,7 +19,7 @@ import type { AppointmentResponse } from "@/interfaces/appointment/Appointment.i
  * não passa a depender do relógio da máquina que roda a suíte.
  */
 const at = (iso: string, id = iso): AppointmentResponse =>
-  ({ id, title: id, type: "Reunião", startAt: iso, endAt: iso, status: "Agendado" }) as AppointmentResponse;
+  ({ id, title: id, type: "Reunião", startAt: iso, endAt: iso, status: "Agendado" });
 
 describe("groupByDay", () => {
   it("junta compromissos do mesmo dia local", () => {
@@ -83,9 +83,12 @@ describe("formatDayHeader", () => {
   });
 });
 
+const local = (h: number, m = 0) => new Date(2026, 9, 5, h, m).toISOString();
+
+const appt = (startAt: string, endAt: string, status = "Agendado") =>
+  ({ ...at(startAt), startAt, endAt, status });
+
 describe("tempo de um compromisso", () => {
-  const appt = (startAt: string, endAt: string, status = "Agendado") =>
-    ({ ...at(startAt), startAt, endAt, status }) as AppointmentResponse;
 
   it("duração e ocupação do dia, sem contar cancelado", () => {
     const a = appt("2026-10-05T12:00:00Z", "2026-10-05T13:30:00Z");
@@ -104,11 +107,10 @@ describe("tempo de um compromisso", () => {
     const a = appt("2026-10-05T12:00:00Z", "2026-10-05T13:00:00Z");
     expect(isOngoing(a, Date.parse("2026-10-05T12:30:00Z"))).toBe(true);
     expect(isOngoing(a, Date.parse("2026-10-05T13:30:00Z"))).toBe(false);
-    expect(isOngoing({ ...a, status: "Concluído" } as AppointmentResponse, Date.parse("2026-10-05T12:30:00Z"))).toBe(false);
+    expect(isOngoing({ ...a, status: "Concluído" }, Date.parse("2026-10-05T12:30:00Z"))).toBe(false);
   });
 
   it("régua do expediente (07h–20h): corta nas pontas e some fora dela", () => {
-    const local = (h: number, m = 0) => new Date(2026, 9, 5, h, m).toISOString();
     expect(rulerSpan(appt(local(7), local(20)))).toEqual({ left: 0, width: 100 });
     expect(rulerSpan(appt(local(6), local(8)))?.left).toBe(0);
     expect(rulerSpan(appt(local(21), local(22)))).toBeNull();

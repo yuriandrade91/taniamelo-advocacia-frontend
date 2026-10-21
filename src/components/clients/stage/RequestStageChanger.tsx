@@ -63,6 +63,18 @@ const BADGE: Record<RequestStageTone | "none", string> = {
   none: "bg-page text-gray-100",
 };
 
+/** O nó da etapa: escolhida, atual (na cor do andamento) ou as demais. */
+function nodeTone(isPicked: boolean, isCurrent: boolean, tone: RequestStageTone): string {
+  if (isPicked) return "bg-primary text-white ring-4 ring-primary/15";
+  return isCurrent ? NODE[tone] : "bg-white text-gray-100 ring-1 ring-light-gray";
+}
+
+/** O texto do botão de confirmar. */
+function confirmLabel(isSaving: boolean, target: { short: string } | null): string {
+  if (isSaving) return "Salvando…";
+  return target ? `Mover para ${target.short}` : "Escolha uma etapa";
+}
+
 const DOT: Record<RequestStageTone | "none", string> = {
   waiting: "bg-secondary",
   action: "bg-previsto",
@@ -92,7 +104,7 @@ export function RequestStageChanger({
   onConfirm,
   trigger,
   triggerClassName,
-}: {
+}: Readonly<{
   /** Para buscar a trilha (as datas). Sem id, o cartão só não as mostra. */
   clientId?: string;
   clientName: string;
@@ -106,7 +118,7 @@ export function RequestStageChanger({
   /** O que abre o cartão. Sem ele, o medidor da lista (selo + trilho). */
   trigger?: ReactNode;
   triggerClassName?: string;
-}) {
+}>) {
   const current = requestStageOf(requestStage);
   const [picked, setPicked] = useState<RequestStage | null>(null);
   const [justification, setJustification] = useState("");
@@ -170,26 +182,26 @@ export function RequestStageChanger({
               const tone = REQUEST_STAGE_TONE[stage.key];
               const reached = reachedAt.get(stage.key);
               const date = reached ? formatInstantDateBR(reached) : null;
+              const currentNote = isCurrent ? " (etapa atual)" : "";
+              const dateNote = date ? `, em ${date}` : "";
               return (
                 <li key={stage.key}>
                   <button
                     type="button"
                     onClick={() => setPicked(isCurrent ? null : stage)}
                     aria-pressed={isPicked}
-                    aria-label={`${stage.label}${isCurrent ? " (etapa atual)" : ""}${date ? `, em ${date}` : ""}`}
+                    aria-label={`${stage.label}${currentNote}${dateNote}`}
                     disabled={isSaving}
                     className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-1.5 text-left text-sm transition ${
                       isPicked ? "bg-primary/5 ring-1 ring-primary/20" : "hover:bg-primary/5"
                     }`}
                   >
                     <span
-                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${
-                        isPicked
-                          ? "bg-primary text-white ring-4 ring-primary/15"
-                          : isCurrent
-                            ? NODE[tone]
-                            : "bg-white text-gray-100 ring-1 ring-light-gray"
-                      }`}
+                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${nodeTone(
+                        isPicked,
+                        isCurrent,
+                        tone,
+                      )}`}
                     >
                       {stage.step}
                     </span>
@@ -242,7 +254,7 @@ export function RequestStageChanger({
               disabled={!changed || isSaving || !!justificationError}
               onClick={() => void confirm()}
             >
-              {isSaving ? "Salvando…" : changed && picked ? `Mover para ${picked.short}` : "Escolha uma etapa"}
+              {confirmLabel(isSaving, changed ? picked : null)}
             </ActionButton>
           </ActionGroup>
         </Popover.Dialog>
@@ -256,7 +268,7 @@ export function RequestStageChanger({
  * situação do benefício. Sem "n/6": a esteira do INSS não é contagem de
  * etapas cumpridas.
  */
-function RequestStageMeter({ stage }: { stage: RequestStage | null }) {
+function RequestStageMeter({ stage }: Readonly<{ stage: RequestStage | null }>) {
   const tone = stage ? REQUEST_STAGE_TONE[stage.key] : "none";
   const label = stage?.label ?? NO_STAGE;
   return (
@@ -272,10 +284,11 @@ function RequestStageMeter({ stage }: { stage: RequestStage | null }) {
         )}
         <span className="truncate">{label}</span>
       </span>
-      <div role="img" aria-label={`Situação no INSS: ${label}`} className="mt-2 flex gap-1">
+      <span className="sr-only">Situação no INSS: {label}</span>
+      <div aria-hidden="true" className="mt-2 flex gap-1">
         {requestStageTrack(stage).map((segment, index) => (
           <span
-            key={index}
+            key={index} // NOSONAR: a trilha tem tamanho fixo; a posição é o ponto da etapa
             className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${SEGMENT[segment]}`}
           />
         ))}

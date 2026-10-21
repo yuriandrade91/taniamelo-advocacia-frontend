@@ -43,7 +43,7 @@ describe("formatDateBR", () => {
   });
 
   it("vazio e inválido viram travessão", () => {
-    expect(formatDateBR(undefined)).toBe("—");
+    expect(formatDateBR()).toBe("—");
     expect(formatDateBR("")).toBe("—");
     expect(formatDateBR("12/03/2026")).toBe("—");
   });
@@ -55,8 +55,8 @@ describe("formatInstallment", () => {
   });
 
   it("pagamento único vira travessão", () => {
-    expect(formatInstallment(undefined, undefined)).toBe("—");
-    expect(formatInstallment(1, undefined)).toBe("—");
+    expect(formatInstallment()).toBe("—");
+    expect(formatInstallment(1)).toBe("—");
   });
 });
 

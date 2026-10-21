@@ -12,11 +12,17 @@ import type { ClientFormSection, SectionFocus } from "./types";
 import { useActiveSection } from "./useActiveSection";
 import { Svg } from "@/components/ui/icons/Svg";
 
+
+/** " · faltam 3 obrigatórios" — ou nada, quando não falta. */
+function missingNote(missing?: number): string {
+  if (!missing) return "";
+  return missing === 1 ? " · falta 1 obrigatório" : ` · faltam ${missing} obrigatórios`;
+}
 /** Entrada suave do painel — Web Animations, sem keyframe no CSS global. */
-function Enter({ children }: { children: ReactNode }) {
+function Enter({ children }: Readonly<{ children: ReactNode }>) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     ref.current?.animate(
       [
         { opacity: 0, transform: "translateY(6px)" },
@@ -33,7 +39,7 @@ function Enter({ children }: { children: ReactNode }) {
  * obrigatórios faltam, um ✓ quando está completa, ou nada (opcional ainda
  * intocada). O texto vai para o leitor de tela pelo `sr-only` da aba.
  */
-function TabState({ section }: { section: ClientFormSection }) {
+function TabState({ section }: Readonly<{ section: ClientFormSection }>) {
   if (section.missing) {
     return <CountBadge tone="pending" count={section.missing} />;
   }
@@ -79,7 +85,7 @@ export function ClientFormTabs({
   focus = NO_FOCUS,
   review,
   onActiveChange,
-}: {
+}: Readonly<{
   sections: readonly ClientFormSection[];
   /** Pedido da página para mostrar uma aba (erro de validação, "Revisar"). */
   focus?: SectionFocus;
@@ -87,7 +93,7 @@ export function ClientFormTabs({
   review?: { id: string; title: string; content: ReactNode };
   /** A aba visível mudou — o rodapé da página muda na Revisão. */
   onActiveChange?: (id: string | undefined) => void;
-}) {
+}>) {
   const topRef = useRef<HTMLDivElement>(null);
   const tabs = review ? [...sections, { id: review.id }] : sections;
   const [active, setActive] = useActiveSection(tabs, focus);
@@ -113,7 +119,7 @@ export function ClientFormTabs({
     const to = tabs.findIndex((tab) => tab.id === key);
     for (let i = Math.max(0, from); i < to; i += 1) {
       const section = sections[i];
-      if (section && section.validate && !section.validate()) {
+      if (section?.validate && !section.validate()) {
         notificationCenter.warning("Preencha os obrigatórios para continuar.", {
           description: `Faltam campos em ${section.title}.`,
         });
@@ -144,11 +150,7 @@ export function ClientFormTabs({
               <span className="sr-only">
                 {" "}
                 ({section.statusLabel}
-                {section.missing === 1
-                  ? " · falta 1 obrigatório"
-                  : section.missing
-                    ? ` · faltam ${section.missing} obrigatórios`
-                    : ""}
+                {missingNote(section.missing)}
                 )
               </span>
               <TabState section={section} />

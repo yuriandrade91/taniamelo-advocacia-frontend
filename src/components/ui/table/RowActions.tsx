@@ -51,11 +51,11 @@ export function RowActions<T>({
   row,
   actions,
   className = "",
-}: {
+}: Readonly<{
   row: T;
   actions: readonly RowAction<T>[];
   className?: string;
-}) {
+}>) {
   return (
     <span className={`flex shrink-0 items-center gap-0.5 ${className}`}>
       {actions

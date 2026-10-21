@@ -15,7 +15,7 @@ export function ServiceSection({
   isReadOnly,
   isLoading,
   onBenefitChange,
-}: {
+}: Readonly<{
   form: SectionForm<ServiceValues>;
   isReadOnly?: boolean;
   /** Carregando: rótulos fixos, valores em skeleton. */
@@ -25,7 +25,7 @@ export function ServiceSection({
    * passa a ser por deficiência. Quem decide o que fazer é a página.
    */
   onBenefitChange?: (next: string, previous: string) => void;
-}) {
+}>) {
   const previous = form.values.benefit;
   return (
     <FieldGrid columns={4}>

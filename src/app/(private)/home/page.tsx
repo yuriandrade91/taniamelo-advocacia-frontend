@@ -156,7 +156,7 @@ export default function Home() {
     <div className="flex flex-col gap-4 pb-12">
       {/* ── Formulários pendentes + Próximas receitas ── */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
-        {/* TODO(backend): os três indicadores abaixo continuam ilustrativos —
+        {/* Pendente no backend (docs/ROADMAP.md): os três indicadores abaixo continuam ilustrativos —
             não há endpoint de métricas. O contador do topo, não: vem de
             `GET /clients?situation=FORMULARIO_PREENCHIDO`. */}
         <PendingForms
@@ -167,7 +167,7 @@ export default function Home() {
         />
 
         {/*
-          O cartão fica na tela para todo mundo; o que depende de papel é o
+          O cartão fica na tela para qualquer papel; o que depende de papel é o
           **dado**, não a moldura.
 
           Eu tinha escondido o cartão inteiro atrás de `canSeeFinance`, e
@@ -185,6 +185,7 @@ export default function Home() {
         <UpcomingRevenues
           items={upcomingRevenues}
           isLoading={canSeeFinance && payments === null}
+          failed={payments?.[0]?.status === "rejected"}
           onSeeAll={() => router.push("/pagamentos")}
         />
       </section>
@@ -192,7 +193,7 @@ export default function Home() {
       {/* ── Balanço + aniversariantes + agenda ── */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Despesas pagas no mês, por categoria — o mesmo resumo da Carteira.
-            Presente para todo mundo pelo mesmo motivo do cartão acima; sem
+            Presente para qualquer papel pelo mesmo motivo do cartão acima; sem
             permissão não há consulta, e ele desenha o próprio vazio.
 
             O mês é navegável: `balanceMonth` troca a chave da leitura, e o
@@ -206,6 +207,7 @@ export default function Home() {
           onMonthChange={setBalanceMonth}
           slices={monthOutflows.slices}
           isLoading={canSeeFinance && outflowSummary === null}
+          failed={outflowSummary?.[0]?.status === "rejected"}
         />
 
         {/* No lugar das "Documentações pendentes", que eram três linhas
@@ -225,6 +227,7 @@ export default function Home() {
       <ContributorPipeline
         cards={cards}
         isLoading={pipeline === null}
+        failed={pipeline?.[0]?.status === "rejected"}
         onMove={handleMove}
       />
 

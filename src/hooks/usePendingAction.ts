@@ -136,7 +136,7 @@ export function usePendingAction() {
 
   /** Efetiva tudo que está na janela. Usado ao sair da tela. */
   const flush = useCallback(() => {
-    for (const key of Array.from(entriesRef.current.keys())) commitNow(key);
+    for (const key of entriesRef.current.keys()) commitNow(key);
   }, [commitNow]);
 
   const flushRef = useRef(flush);

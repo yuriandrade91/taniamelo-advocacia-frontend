@@ -15,7 +15,7 @@ export const EMPTY_VALUE = "—";
 
 /** Texto do campo, ou o traço quando vazio (`null`, `undefined` ou só espaços). */
 export const display = (value?: string | null): string =>
-  value && value.trim() ? value : EMPTY_VALUE;
+  value?.trim() ? value : EMPTY_VALUE;
 
 /** Instante da API → "dd/mm/aaaa" no fuso de quem vê; inválido vira o traço. */
 export function formatDate(iso?: string | null): string {

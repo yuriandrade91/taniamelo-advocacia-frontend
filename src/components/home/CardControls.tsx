@@ -9,11 +9,11 @@ export function MonthPill({
   label,
   onClick,
   className = "",
-}: {
+}: Readonly<{
   label: string;
   onClick?: () => void;
   className?: string;
-}) {
+}>) {
   return (
     <button
       type="button"
@@ -30,10 +30,10 @@ export function MonthPill({
 export function SeeAllLink({
   onClick,
   label = "Ver todos",
-}: {
+}: Readonly<{
   onClick?: () => void;
   label?: string;
-}) {
+}>) {
   return (
     <div className="flex justify-center pt-4">
       <button

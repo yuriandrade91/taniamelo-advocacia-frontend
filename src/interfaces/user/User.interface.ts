@@ -8,14 +8,13 @@
  *
  * Não traz e-mail nem credencial — de propósito. O backend também não expõe.
  */
-import type { RoleKey } from "@/enums/role/Role";
 
 export interface UserSummary {
   id: string;
   fullName: string;
   username: string;
-  /** Nome da constante (`"ADMIN"`), não rótulo PT-BR — ver `enums/role/Role`. */
-  role: RoleKey | string;
+  /** Nome da constante (`"ADMIN"`, um `RoleKey`), não rótulo PT-BR — ver `enums/role/Role`. */
+  role: string;
   active: boolean;
 }
 

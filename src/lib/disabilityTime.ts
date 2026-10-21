@@ -30,6 +30,7 @@ import {
   REQUIRED_YEARS,
   type DisabilityGradeKey,
 } from "@/enums/disabilityGrade/DisabilityGrade";
+import { optionalText } from "@/lib/formValues";
 
 /** Dias por ano e por mês na contagem de tempo de contribuição. */
 const DAYS_PER_YEAR = 365;
@@ -147,7 +148,7 @@ export function timeLabel(years: number, months: number, days: number): string {
   if (days > 0) parts.push(`${days} ${days === 1 ? "dia" : "dias"}`);
   if (parts.length === 0) return "0 dias";
   if (parts.length === 1) return parts[0];
-  return `${parts.slice(0, -1).join(", ")} e ${parts[parts.length - 1]}`;
+  return `${parts.slice(0, -1).join(", ")} e ${parts.at(-1)}`;
 }
 
 /** Um intervalo, no mínimo que o cálculo precisa saber dele. */
@@ -209,7 +210,7 @@ export function convertIntervals(
   today: string,
 ): ConversionResult {
   const lines = intervals.map((interval) => {
-    const end = interval.endedOn ? interval.endedOn : today;
+    const end = optionalText(interval.endedOn) ?? today;
     const days = daysBetween(interval.startedOn, end);
     return {
       grade: interval.grade,

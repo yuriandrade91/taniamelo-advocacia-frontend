@@ -25,11 +25,11 @@ export function WalletMonthSummary({
   summary,
   isLoading,
   month,
-}: {
+}: Readonly<{
   summary: MonthSummary;
   isLoading: boolean;
   month: MonthRef;
-}) {
+}>) {
   const { inflow, outflow, expectedIn, expectedOut, overdueIn, overdueOut, balance, projected } = summary;
   const status = balanceStatus(balance);
   const done = (inflow?.amount ?? 0) + (outflow?.amount ?? 0);
@@ -118,12 +118,12 @@ export function WalletMonthSummary({
   );
 }
 
-function Tile({ className = "", children }: { className?: string; children: ReactNode }) {
+function Tile({ className = "", children }: Readonly<{ className?: string; children: ReactNode }>) {
   return <div className={`rounded-3xl bg-white ring-1 ring-black/5 ${className}`}>{children}</div>;
 }
 
 /** A parte já realizada, só o número; `null` carregando (o rótulo fica, o número é skeleton). */
-function Share({ fraction, label, className }: { fraction: number | null; label: string; className: string }) {
+function Share({ fraction, label, className }: Readonly<{ fraction: number | null; label: string; className: string }>) {
   return (
     <span className="flex shrink-0 flex-col items-end text-right leading-none">
       {fraction === null ? (
@@ -143,7 +143,7 @@ function SmallTile({
   aside,
   isLoading,
   children,
-}: {
+}: Readonly<{
   label: string;
   dot: string;
   note: ReactNode;
@@ -151,7 +151,7 @@ function SmallTile({
   /** No canto de cima, à direita do rótulo (a porcentagem realizada). */
   aside?: ReactNode;
   children: ReactNode;
-}) {
+}>) {
   return (
     <Tile className="flex flex-col gap-2 px-4 py-3.5">
       <div className="flex items-start justify-between gap-3">
@@ -174,13 +174,13 @@ function Num({
   className = "text-2xl",
   plus = false,
   skeleton = "h-5 w-28",
-}: {
+}: Readonly<{
   value: number | null | undefined;
   isLoading: boolean;
   className?: string;
   plus?: boolean;
   skeleton?: string;
-}) {
+}>) {
   if (isLoading) return <Skeleton className={`rounded-lg ${skeleton}`} />;
   return (
     <span title={exact(value)} className={`leading-none font-semibold whitespace-nowrap tabular-nums ${className}`}>
@@ -190,12 +190,12 @@ function Num({
 }
 
 /** Ponto de cor ao lado do rótulo. */
-function Dot({ className }: { className: string }) {
+function Dot({ className }: Readonly<{ className: string }>) {
   return <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${className}`} />;
 }
 
 /** Pílula de status: ponto na cor + texto, como no painel de detalhe. */
-function StatusPill({ dot, children }: { dot: string; children: ReactNode }) {
+function StatusPill({ dot, children }: Readonly<{ dot: string; children: ReactNode }>) {
   return (
     <span className="inline-flex shrink-0 items-center gap-2 rounded-full bg-primary/5 px-3 py-1 text-xs font-medium text-primary ring-1 ring-primary/10">
       <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${dot}`} />

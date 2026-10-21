@@ -49,12 +49,12 @@ function Cell({
   basis,
   loading,
   children,
-}: {
+}: Readonly<{
   title: string;
   basis: string;
   loading: boolean;
   children: ReactNode;
-}) {
+}>) {
   return (
     <div className="min-w-0 rounded-2xl bg-page/70 p-3.5">
       <p className="flex items-baseline justify-between gap-2 text-[11px] text-gray-100">
@@ -63,10 +63,10 @@ function Cell({
       </p>
       <div className="mt-2">
         {loading ? (
-          <div className="flex flex-col gap-1.5" role="status" aria-label="Carregando…">
+          <output className="flex flex-col gap-1.5" aria-label="Carregando…">
             <Skeleton className="h-5 w-20 rounded" />
             <Skeleton className="h-2 w-full rounded" />
-          </div>
+          </output>
         ) : (
           children
         )}
@@ -77,7 +77,7 @@ function Cell({
 
 const NoData = () => <p className="text-xs text-gray-100/70">Sem dados para mostrar.</p>;
 
-export function MonthByMonthView(props: ReportViewProps) {
+export function MonthByMonthView(props: Readonly<ReportViewProps>) {
   const { canSeeFinance, isLoading, isFinanceLoading } = props;
   const r = useReport(props);
 
@@ -242,9 +242,7 @@ export function MonthByMonthView(props: ReportViewProps) {
                       )}
                     </Cell>
                     <Cell title="Agenda" basis="por status" loading={isLoading}>
-                      {!a ? (
-                        <p className="text-xs text-gray-100/70">Fora do ano da agenda ({r.year}).</p>
-                      ) : r.agenda.hasData ? (
+                      {a && r.agenda.hasData && (
                         <>
                           <p className="text-lg font-semibold text-primary tabular-nums">
                             {a.total} <span className="text-xs font-normal text-gray-100">compromissos</span>
@@ -261,9 +259,9 @@ export function MonthByMonthView(props: ReportViewProps) {
                             {a.completed} concl. · {a.scheduled} agend. · {a.cancelled} canc.
                           </p>
                         </>
-                      ) : (
-                        <NoData />
                       )}
+                      {a && !r.agenda.hasData && <NoData />}
+                      {!a && <p className="text-xs text-gray-100/70">Fora do ano da agenda ({r.year}).</p>}
                     </Cell>
                   </div>
                 </article>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
 import { usePendingAction } from "@/hooks/usePendingAction";
 import type { PendingKind } from "@/lib/pendingActions";
@@ -10,8 +11,13 @@ import {
   completeAppointment,
   deleteAppointment,
 } from "@/services/appointmentService";
-import { AppointmentDetailsModal } from "./AppointmentDetailsModal";
-import CancelAppointmentDialog from "./CancelAppointmentDialog";
+
+/** Descrição e cancelamento só vêm quando alguém os abre: fora do JS da Agenda e da Home. */
+const AppointmentDetailsModal = dynamic(
+  () => import("./AppointmentDetailsModal").then((m) => m.AppointmentDetailsModal),
+  { ssr: false },
+);
+const CancelAppointmentDialog = dynamic(() => import("./CancelAppointmentDialog"), { ssr: false });
 
 /**
  * Concluir, cancelar e excluir um compromisso — com a confirmação de cada um

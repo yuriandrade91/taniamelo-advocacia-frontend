@@ -159,9 +159,8 @@ export default function ProfilePage() {
       />
 
       {loadFailed && (
-        <div
-          role="status"
-          className="rounded-2xl border border-danger/40 bg-danger/5 px-5 py-4 text-sm text-primary"
+        <output
+          className="block rounded-2xl border border-danger/40 bg-danger/5 px-5 py-4 text-sm text-primary"
         >
           <p className="font-medium">Não foi possível load seus dados</p>
           <p className="mt-1 text-gray-100">
@@ -175,7 +174,7 @@ export default function ProfilePage() {
               Tentar de novo
             </button>
           </p>
-        </div>
+        </output>
       )}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -22,11 +22,11 @@ export function FileKindLabel({
   kind,
   count,
   pending = 0,
-}: {
+}: Readonly<{
   kind: FileKind;
   count: number;
   pending?: number;
-}) {
+}>) {
   const { label, one, many, attached } = FILE_KIND_WORDS[kind];
   return (
     <>

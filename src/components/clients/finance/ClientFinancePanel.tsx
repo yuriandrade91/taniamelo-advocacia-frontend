@@ -94,7 +94,7 @@ async function loadBlock<T>(
   const [listed, summed] = await Promise.allSettled([list(), summary()]);
   if (listed.status === "rejected") return { state: "error" };
 
-  const entries = (listed.value.data ?? []).map(toEntry);
+  const entries = (listed.value.data ?? []).map((item) => toEntry(item));
   const fromServer = summed.status === "fulfilled" ? summed.value.data : undefined;
   return {
     state: "ok",
@@ -152,7 +152,7 @@ async function loadFinance(clientId: string): Promise<Loaded> {
  * o usa só o monta quando ele vai aparecer (o drawer ao abrir, a ficha ao
  * expandir a seção).
  */
-export function ClientFinancePanel({ clientId }: { clientId: string }) {
+export function ClientFinancePanel({ clientId }: Readonly<{ clientId: string }>) {
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   const [tab, setTab] = useState<TabId>("benefit");
 
@@ -206,6 +206,12 @@ const TABS: Record<TabId, TabMeta> = {
   },
 };
 
+/** O número do selo: o total quando carregou, nada se falhou, `null` carregando. */
+function tabCount(block: Loaded[TabId] | undefined): number | null | undefined {
+  if (!block) return null;
+  return block.state === "ok" ? block.total : undefined;
+}
+
 /**
  * As abas: o `Segmented` das listas, com o total de cada lado no selo. Sem
  * selo onde não há número (rota em pausa, erro); carregando, o círculo no
@@ -215,11 +221,11 @@ function TabSwitch({
   value,
   onChange,
   data,
-}: {
+}: Readonly<{
   value: TabId;
   onChange: (tab: TabId) => void;
   data: Loaded | null;
-}) {
+}>) {
   return (
     <Segmented
       label="Financeiro do cliente"
@@ -232,7 +238,7 @@ function TabSwitch({
           id,
           label: TABS[id].label,
           active: id === value,
-          count: !block ? null : block.state === "ok" ? block.total : undefined,
+          count: tabCount(block),
         };
       })}
     />
@@ -243,7 +249,7 @@ function TabSwitch({
 
 export const EYEBROW = "text-[11px] font-medium tracking-wide text-gray-100/60 uppercase";
 
-function TabBody({ block, meta }: { block: Block | null; meta: TabMeta }) {
+function TabBody({ block, meta }: Readonly<{ block: Block | null; meta: TabMeta }>) {
   if (!block) return <TabBodySkeleton receivedLabel={meta.receivedLabel} />;
   if (block.state === "paused") {
     return <Notice>Esta parte ainda não está no ar neste ambiente.</Notice>;
@@ -268,10 +274,10 @@ function TabBody({ block, meta }: { block: Block | null; meta: TabMeta }) {
  * nos valores (na largura deles) e nas linhas da lista — nada salta quando o
  * financeiro chega.
  */
-function TabBodySkeleton({ receivedLabel }: { receivedLabel: string }) {
+function TabBodySkeleton({ receivedLabel }: Readonly<{ receivedLabel: string }>) {
   const value = (width: string, height = "h-4") => <Skeleton className={`${height} ${width} rounded-md`} />;
   return (
-    <div className="flex flex-col gap-3" role="status" aria-label="Carregando financeiro">
+    <output className="flex flex-col gap-3" aria-label="Carregando financeiro">
       <Tile className="p-5">
         <p className={EYEBROW}>Total lançado</p>
         <div className="mt-2">{value("w-44", "h-9")}</div>
@@ -316,7 +322,7 @@ function TabBodySkeleton({ receivedLabel }: { receivedLabel: string }) {
           className="mt-3 flex flex-col gap-3 rounded-xl bg-white p-3 ring-1 ring-light-gray/70"
         />
       </Tile>
-    </div>
+    </output>
   );
 }
 
@@ -328,7 +334,7 @@ const PARTS = [
   { key: "overdue", dot: "bg-danger" },
 ] as const;
 
-function Composition({ totals, receivedLabel }: { totals: Totals; receivedLabel: string }) {
+function Composition({ totals, receivedLabel }: Readonly<{ totals: Totals; receivedLabel: string }>) {
   const sum = totals.paid.amount + totals.upcoming.amount + totals.overdue.amount;
   const label = { paid: receivedLabel, upcoming: "A receber", overdue: "Em atraso" };
   const share = (amount: number) => (sum > 0 ? amount / sum : 0);
@@ -351,9 +357,11 @@ function Composition({ totals, receivedLabel }: { totals: Totals; receivedLabel:
       </div>
 
       {/* A composição em segmentos, na proporção do valor — sem rosquinha. */}
+      <span className="sr-only">
+        {PARTS.map((p) => `${label[p.key]}: ${Math.round(share(totals[p.key].amount) * 100)}%`).join(", ")}
+      </span>
       <div
-        role="img"
-        aria-label={PARTS.map((p) => `${label[p.key]}: ${Math.round(share(totals[p.key].amount) * 100)}%`).join(", ")}
+        aria-hidden="true"
         className="mt-5 flex h-2.5 gap-1 overflow-hidden rounded-full bg-light-gray/60"
       >
         {sum > 0 &&
@@ -402,7 +410,7 @@ function inDays(days: number): string {
   return `em ${days} dias`;
 }
 
-function NextDue({ entries }: { entries: Entry[] }) {
+function NextDue({ entries }: Readonly<{ entries: Entry[] }>) {
   const next = entries
     .filter((e) => e.bucket === "upcoming")
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
@@ -417,7 +425,7 @@ function NextDue({ entries }: { entries: Entry[] }) {
   );
 }
 
-function LastReceived({ entries }: { entries: Entry[] }) {
+function LastReceived({ entries }: Readonly<{ entries: Entry[] }>) {
   const last = entries
     .filter((e) => e.bucket === "paid" && e.paidDate)
     .sort((a, b) => (b.paidDate ?? "").localeCompare(a.paidDate ?? ""))[0];
@@ -438,13 +446,13 @@ function Highlight({
   entry,
   date,
   note,
-}: {
+}: Readonly<{
   label: string;
   dot: string;
   entry?: Entry;
   date?: string;
   note: string;
-}) {
+}>) {
   return (
     <Tile className="flex items-center gap-3 p-4">
       {date ? <DateBlock iso={date} /> : <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white text-gray-100/40 ring-1 ring-light-gray">—</span>}
@@ -465,7 +473,7 @@ function Highlight({
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
 /** A data como folhinha de calendário: dia grande, mês e ano pequenos. */
-function DateBlock({ iso, muted = false }: { iso: string; muted?: boolean }) {
+function DateBlock({ iso, muted = false }: Readonly<{ iso: string; muted?: boolean }>) {
   const [y, m, d] = iso.slice(0, 10).split("-");
   return (
     <span
@@ -497,7 +505,7 @@ const FILTERS: { id: Filter; label: string }[] = [
 /** Atrasado primeiro (pede ação), depois o que vence, recebido e cancelado. */
 const BUCKET_ORDER: Record<PaymentBucket, number> = { overdue: 0, upcoming: 1, paid: 2, cancelled: 3 };
 
-function EntryList({ block, empty }: { block: Extract<Block, { state: "ok" }>; empty: string }) {
+function EntryList({ block, empty }: Readonly<{ block: Extract<Block, { state: "ok" }>; empty: string }>) {
   const [filter, setFilter] = useState<Filter>("all");
   const count = (id: Filter) => (id === "all" ? block.entries.length : block.entries.filter((e) => e.bucket === id).length);
   const shown = block.entries
@@ -554,7 +562,16 @@ function EntryList({ block, empty }: { block: Extract<Block, { state: "ok" }>; e
   );
 }
 
-function EntryRow({ entry }: { entry: Entry }) {
+/** Quando: recebido em, dias de atraso ou vencimento. */
+function EntryWhen({ entry, overdue, late }: Readonly<{ entry: Entry; overdue: boolean; late: number }>) {
+  if (entry.paidDate) return <span>Recebido em {formatDateBR(entry.paidDate)}</span>;
+  if (overdue) {
+    return <span className="text-danger">{late === 1 ? "1 dia de atraso" : `${late} dias de atraso`}</span>;
+  }
+  return <span>Vence em {formatDateBR(entry.dueDate)}</span>;
+}
+
+function EntryRow({ entry }: Readonly<{ entry: Entry }>) {
   const cancelled = entry.bucket === "cancelled";
   const overdue = entry.bucket === "overdue";
   const late = overdue ? daysBetween(entry.dueDate, todayIso()) : 0;
@@ -567,13 +584,7 @@ function EntryRow({ entry }: { entry: Entry }) {
         </p>
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-gray-100/70">
           {entry.installment && <span>Parcela {entry.installment}</span>}
-          {entry.paidDate ? (
-            <span>Recebido em {formatDateBR(entry.paidDate)}</span>
-          ) : overdue ? (
-            <span className="text-danger">{late === 1 ? "1 dia de atraso" : `${late} dias de atraso`}</span>
-          ) : (
-            <span>Vence em {formatDateBR(entry.dueDate)}</span>
-          )}
+          <EntryWhen entry={entry} overdue={overdue} late={late} />
         </p>
       </div>
       <div className="flex shrink-0 flex-col items-end gap-1">
@@ -587,6 +598,6 @@ function EntryRow({ entry }: { entry: Entry }) {
 }
 
 /** Bloco do painel: o mesmo fundo do bento da Carteira, sem sombra. */
-export function Tile({ className = "", children }: { className?: string; children: ReactNode }) {
+export function Tile({ className = "", children }: Readonly<{ className?: string; children: ReactNode }>) {
   return <section className={`rounded-2xl bg-page/80 ring-1 ring-light-gray/70 ${className}`}>{children}</section>;
 }

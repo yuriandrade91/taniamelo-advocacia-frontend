@@ -8,6 +8,10 @@ import {
   toProfessionalDataRequest,
 } from "@/components/clients/form/payloads";
 import { serviceInitial, personalInitial, professionalInitial, addressInitial, interviewInitial } from "@/components/clients/form/schemas";
+import { overTheWire } from "../../../support/json";
+
+/** Ordem alfabética explícita: `sort()` sem comparador ordena por código Unicode. */
+const byText = (a: string, b: string) => a.localeCompare(b);
 
 const service = { ...serviceInitial, benefit: "APOSENTADORIA_RURAL", situation: "ANALISE_DOCUMENTAL" };
 const personal = {
@@ -38,7 +42,7 @@ describe("toCreateRequest", () => {
     const body = toCreateRequest(service, personal, professional);
     // A asserção é sobre o JSON serializado, que é o que a API recebe:
     // `undefined` é descartado por JSON.stringify, `""` não seria.
-    const json = JSON.parse(JSON.stringify(body));
+    const json = overTheWire(body);
     expect("rg" in json).toBe(false);
     expect("email" in json).toBe(false);
     expect("profession" in json).toBe(false);
@@ -53,8 +57,8 @@ describe("toCreateRequest", () => {
 
 describe("toPatchRequest", () => {
   it("leva só os quatro campos que o PATCH aceita", () => {
-    const json = JSON.parse(JSON.stringify(toPatchRequest(service)));
-    expect(Object.keys(json).sort()).toEqual([
+    const json = overTheWire(toPatchRequest(service));
+    expect(Object.keys(json).sort(byText)).toEqual([
       "benefit",
       "notBillable",
       "situation",
@@ -64,30 +68,26 @@ describe("toPatchRequest", () => {
 
 describe("toProfessionalDataRequest", () => {
   it("manda o tempo de contribuição como três números", () => {
-    const json = JSON.parse(
-      JSON.stringify(
+    const json = overTheWire(
         toProfessionalDataRequest({
           ...professional,
           contributionYears: "33",
           contributionMonths: "11",
           contributionDays: "5",
         }),
-      ),
-    );
+      );
     expect(json.contributionYears).toBe(33);
     expect(json.contributionMonths).toBe(11);
     expect(json.contributionDays).toBe(5);
   });
 
   it("nunca envia os derivados — contributionInMonths e contributionTime saem do servidor", () => {
-    const json = JSON.parse(
-      JSON.stringify(
+    const json = overTheWire(
         toProfessionalDataRequest({
           ...professional,
           contributionYears: "33",
         }),
-      ),
-    );
+      );
     expect("contributionInMonths" in json).toBe(false);
     expect("contributionTime" in json).toBe(false);
   });
@@ -96,25 +96,21 @@ describe("toProfessionalDataRequest", () => {
     // Os três ausentes significam "não informado"; zero significa "não
     // contribuiu". Era essa distinção que o texto livre apagava, devolvendo 0
     // para "nao informado".
-    const json = JSON.parse(
-      JSON.stringify(toProfessionalDataRequest({ ...professional })),
-    );
+    const json = overTheWire(toProfessionalDataRequest({ ...professional }));
     expect("contributionYears" in json).toBe(false);
     expect("contributionMonths" in json).toBe(false);
     expect("contributionDays" in json).toBe(false);
   });
 
   it("zero informado VAI — é diferente de não informar", () => {
-    const json = JSON.parse(
-      JSON.stringify(
+    const json = overTheWire(
         toProfessionalDataRequest({
           ...professional,
           contributionYears: "0",
           contributionMonths: "0",
           contributionDays: "0",
         }),
-      ),
-    );
+      );
     expect(json.contributionYears).toBe(0);
     expect(json.contributionMonths).toBe(0);
     expect(json.contributionDays).toBe(0);
@@ -125,23 +121,19 @@ describe("toProfessionalDataRequest", () => {
     // nenhuma desde que saiu do GET. Mandá-la vazia apagaria o acesso do
     // cliente ao INSS toda vez que alguém salvasse a aba. Ausente, o backend
     // mantém a que está gravada.
-    const json = JSON.parse(
-      JSON.stringify(
+    const json = overTheWire(
         toProfessionalDataRequest({ ...professional, inssPassword: "   " }),
-      ),
-    );
+      );
     expect("inssPassword" in json).toBe(false);
   });
 
   it("senha preenchida VAI — senão seria impossível trocá-la", () => {
-    const json = JSON.parse(
-      JSON.stringify(
+    const json = overTheWire(
         toProfessionalDataRequest({
           ...professional,
           inssPassword: "nova-senha",
         }),
-      ),
-    );
+      );
     expect(json.inssPassword).toBe("nova-senha");
   });
 });
@@ -173,11 +165,9 @@ describe("toInterviewRequest", () => {
   });
 
   it("sem data e sem duração, os dois somem do JSON", () => {
-    const json = JSON.parse(
-      JSON.stringify(
+    const json = overTheWire(
         toInterviewRequest({ ...interviewInitial, content: "<p>ok</p>" }),
-      ),
-    );
+      );
     expect("occurredAt" in json).toBe(false);
     expect("durationMinutes" in json).toBe(false);
   });
@@ -185,7 +175,7 @@ describe("toInterviewRequest", () => {
 
 describe("toPersonalDataRequest", () => {
   it("mantém os obrigatórios e descarta os vazios", () => {
-    const json = JSON.parse(JSON.stringify(toPersonalDataRequest(personal)));
+    const json = overTheWire(toPersonalDataRequest(personal));
     expect(json.fullName).toBe("Maria Aparecida");
     expect(json.gender).toBe("FEMININO");
     expect("nationality" in json).toBe(false);

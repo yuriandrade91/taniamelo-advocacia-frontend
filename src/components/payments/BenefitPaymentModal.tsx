@@ -51,7 +51,7 @@ export function BenefitPaymentModal({
   isOpen,
   onOpenChange,
   onSaved,
-}: BenefitPaymentModalProps) {
+}: Readonly<BenefitPaymentModalProps>) {
   const [values, setValues] = useState<BenefitPaymentValues>(emptyBenefitPayment);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -114,7 +114,7 @@ export function BenefitPaymentModal({
       // O rodapé em cápsula da Carteira, como as outras modais de lançamento.
       actions="pill"
       confirmLabel="Lançar"
-      onConfirm={handleConfirm}
+      onConfirm={() => void handleConfirm()}
       isSubmitting={isSubmitting}
     >
       <FieldGrid>

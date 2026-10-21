@@ -60,7 +60,7 @@ export function SheetSidebar({
   onSelect,
   actions,
   error,
-}: SheetSidebarProps) {
+}: Readonly<SheetSidebarProps>) {
   return (
     <aside className="flex shrink-0 flex-col gap-5 rounded-2xl bg-gradient-brand p-5 text-white md:w-72 md:overflow-y-auto lg:w-80">
       {/* No celular o painel vira uma faixa: nome de um lado, anel pequeno do
@@ -115,11 +115,10 @@ export function SheetSidebar({
                   {on && <span aria-hidden="true" className="absolute inset-y-2 left-0 w-1 rounded-full bg-secondary" />}
                   {item.icon}
                   <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  {item.isComplete ? (
-                    <CheckIcon className="h-4 w-4 shrink-0 text-success" />
-                  ) : item.badge ? (
+                  {item.isComplete && <CheckIcon className="h-4 w-4 shrink-0 text-success" />}
+                  {!item.isComplete && item.badge && (
                     <span className="shrink-0 text-xs tabular-nums text-white/60">{item.badge}</span>
-                  ) : null}
+                  )}
                 </button>
               </li>
             );
@@ -151,7 +150,7 @@ export function SheetSectionCard({
   icon,
   badge,
   children,
-}: {
+}: Readonly<{
   id: string;
   label: string;
   blurb?: string;
@@ -159,7 +158,7 @@ export function SheetSectionCard({
   /** "5/7", "3 arquivos" — nada nas seções que não contam campos. */
   badge?: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <section
       data-spy={id}
@@ -192,11 +191,11 @@ export function SheetSectionTabs({
   items,
   activeId,
   onSelect,
-}: {
+}: Readonly<{
   items: readonly SheetNavItem[];
   activeId: string;
   onSelect: (id: string) => void;
-}) {
+}>) {
   return (
     <nav aria-label="Seções da ficha" className="md:hidden">
       <ul className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none]">
@@ -256,7 +255,7 @@ export function useSectionAnchors(initial: string, key: string) {
   useEffect(() => {
     const root = scrollerRef.current;
     if (!root) return;
-    const sections = Array.from(root.querySelectorAll<HTMLElement>("[data-spy]"));
+    const sections = [...root.querySelectorAll<HTMLElement>("[data-spy]")];
     const appeared = new IntersectionObserver(
       (entries) =>
         markSeen(
@@ -266,14 +265,14 @@ export function useSectionAnchors(initial: string, key: string) {
         ),
       { root, threshold: 0 },
     );
-    sections.forEach((section) => appeared.observe(section));
+    for (const section of sections) appeared.observe(section);
     return () => appeared.disconnect();
   }, [key, markSeen]);
 
   useEffect(() => {
     const root = scrollerRef.current;
     if (!root) return;
-    const sections = Array.from(root.querySelectorAll<HTMLElement>("[data-spy]"));
+    const sections = [...root.querySelectorAll<HTMLElement>("[data-spy]")];
     const visible = new Set<string>();
     const observer = new IntersectionObserver(
       (entries) => {
@@ -287,7 +286,7 @@ export function useSectionAnchors(initial: string, key: string) {
       },
       { root, rootMargin: "0px 0px -60% 0px", threshold: 0 },
     );
-    sections.forEach((section) => observer.observe(section));
+    for (const section of sections) observer.observe(section);
     return () => observer.disconnect();
   }, [key]);
 
@@ -295,7 +294,7 @@ export function useSectionAnchors(initial: string, key: string) {
     setActive(id);
     markSeen([id]);
     const target = scrollerRef.current?.querySelector<HTMLElement>(`[data-spy="${id}"]`);
-    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const reduce = globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
     target?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
   };
 
@@ -315,12 +314,12 @@ export function SidebarTipButton({
   onPress,
   isDisabled,
   children,
-}: {
+}: Readonly<{
   label: string;
   onPress: () => void;
   isDisabled?: boolean;
   children: ReactNode;
-}) {
+}>) {
   return (
     <Tooltip delay={0}>
       <Tooltip.Content showArrow placement="bottom">

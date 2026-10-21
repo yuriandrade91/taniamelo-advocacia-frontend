@@ -17,6 +17,9 @@ import {
   serviceSchema,
 } from "@/components/clients/form/schemas";
 
+/** Ordem alfabética explícita: `sort()` sem comparador ordena por código Unicode. */
+const byText = (a: string, b: string) => a.localeCompare(b);
+
 /**
  * As regras do cliente vêm do schema, e o schema é o mesmo no cadastro e na
  * ficha — testar aqui é testar as duas telas.
@@ -42,8 +45,8 @@ describe("dados pessoais", () => {
 
   it("os @NotBlank/@NotNull do DTO são obrigatórios", () => {
     const errors = errorsOf(personalSchema, personalInitial);
-    expect(Object.keys(errors).sort()).toEqual(
-      ["birthDate", "cpf", "fullName", "gender", "mobilePhone", "motherName"].sort(),
+    expect(Object.keys(errors).sort(byText)).toEqual(
+      ["birthDate", "cpf", "fullName", "gender", "mobilePhone", "motherName"].sort(byText),
     );
     expect(errors.gender).toBe("Selecione o gênero.");
   });

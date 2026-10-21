@@ -76,8 +76,8 @@ export function removeSlots<T>(
   blank: T,
 ): { values: T[]; ids: (string | null)[] } {
   const keep = (_: unknown, index: number) => !removed.includes(index);
-  const nextValues = values.filter(keep);
-  const nextIds = ids.filter(keep);
+  const nextValues = values.filter((item, index) => keep(item, index));
+  const nextIds = ids.filter((item, index) => keep(item, index));
 
   // Recompõe o tamanho fixo: as últimas posições voltam a ser abas em branco,
   // sem id — senão o array encolheria e o hook das últimas abas ficaria órfão.
@@ -148,7 +148,7 @@ export function matchAddressIds(
 ): (string | null)[] {
   return currentIds.map((current, tabIndex) => {
     const positionInPayload = sent.indexOf(tabIndex);
-    if (positionInPayload < 0) return current;
+    if (positionInPayload === -1) return current;
     return created[positionInPayload]?.id ?? current;
   });
 }

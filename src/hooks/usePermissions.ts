@@ -24,8 +24,8 @@ const readKey = () =>
 
 /** Outra aba que entra ou sai muda a sessão: o evento `storage` avisa. */
 const subscribe = (onChange: () => void) => {
-  window.addEventListener("storage", onChange);
-  return () => window.removeEventListener("storage", onChange);
+  globalThis.addEventListener("storage", onChange);
+  return () => globalThis.removeEventListener("storage", onChange);
 };
 
 /**
@@ -40,7 +40,7 @@ const subscribe = (onChange: () => void) => {
 export function usePermissions(): Permissions {
   const key = useSyncExternalStore(subscribe, readKey, () => "0000");
   return useMemo(() => {
-    const [canDestroy, canSeeInssPassword, canListUsers, canSeeFinance] = key.split("").map((c) => c === "1");
+    const [canDestroy, canSeeInssPassword, canListUsers, canSeeFinance] = [...key].map((c) => c === "1");
     return {
       canDestroy,
       canSeeInssPassword,

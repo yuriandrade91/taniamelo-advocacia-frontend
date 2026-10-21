@@ -9,6 +9,7 @@ import {
   type FilterValues,
 } from "@/components/ui/filters/filters";
 import { useDebouncedValue } from "./useDebouncedValue";
+import { useConstant } from "./useConstant";
 
 /**
  * O estado de uma barra de filtros descrita por schema (`defineFilters`).
@@ -19,7 +20,7 @@ import { useDebouncedValue } from "./useDebouncedValue";
  *   é o que vai para a API; o resto dos campos são cliques, sem espera.
  */
 export function useFilters<S extends FilterSchema>(schema: S, defaults?: Partial<FilterValues<S>>) {
-  const [initial] = useState<FilterValues<S>>(() => ({ ...emptyFilters(schema), ...defaults }));
+  const initial = useConstant<FilterValues<S>>(() => ({ ...emptyFilters(schema), ...defaults }));
   const [values, setValues] = useState(initial);
 
   const set = useCallback(
@@ -30,7 +31,7 @@ export function useFilters<S extends FilterSchema>(schema: S, defaults?: Partial
   const clear = useCallback(() => setValues(initial), [initial]);
 
   const searchKey = Object.keys(schema).find((key) => schema[key].kind === "search");
-  const search = useDebouncedValue(searchKey ? String(values[searchKey]).trim() : "");
+  const search = useDebouncedValue(searchKey ? `${values[searchKey] as string}`.trim() : "");
 
   return {
     schema,

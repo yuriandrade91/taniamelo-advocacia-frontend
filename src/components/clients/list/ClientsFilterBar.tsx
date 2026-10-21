@@ -30,11 +30,11 @@ import {
 export function ClientsFilterBar({
   state,
   dateRangeField,
-}: {
+}: Readonly<{
   state: UseClientFiltersResult;
   /** O campo de período pronto (DateRangePicker em pt-BR). */
   dateRangeField?: ReactNode;
-}) {
+}>) {
   const type = selectedClientType(state.clientType);
   const notBillable = notBillableSegmentId(state.notBillable);
   return (

@@ -43,9 +43,9 @@ function useAddressCep(form: SectionForm<AddressValues>) {
   const numberRef = useRef<HTMLInputElement>(null);
   const cep = useCepLookup((found) => {
     const next = cepPatch(values, found);
-    (Object.keys(next) as (keyof typeof next)[]).forEach((key) => {
+    for (const key of (Object.keys(next) as (keyof typeof next)[])) {
       if (next[key] !== values[key]) setField(key, next[key]);
-    });
+    }
     setField("cepLookup", encodeCepLookup(found));
     requestAnimationFrame(() => numberRef.current?.focus());
   });
@@ -62,11 +62,11 @@ function useAddressCep(form: SectionForm<AddressValues>) {
   };
 }
 
-export function AddressSection({ form, onRequestPrimary, isReadOnly, isLoading }: AddressSectionProps) {
+export function AddressSection({ form, onRequestPrimary, isReadOnly = false, isLoading }: Readonly<AddressSectionProps>) {
   const { values, setField } = form;
   const cep = useAddressCep(form);
   const { numberRef, isLocked: locked } = cep;
-  const field = (name: keyof AddressValues & string) => (
+  const field = (name: Extract<keyof AddressValues, string>) => (
     <SchemaField
       key={name}
       form={form}
@@ -91,7 +91,7 @@ export function AddressSection({ form, onRequestPrimary, isReadOnly, isLoading }
         onValueChange={cep.onZipChange}
         description={isReadOnly ? undefined : (cep.hint ?? cep.notice)}
       />
-      {(["street", "addressNumber", "complement", "neighborhood", "city", "state"] as const).map(field)}
+      {(["street", "addressNumber", "complement", "neighborhood", "city", "state"] as const).map((item) => field(item))}
       {isLoading ? (
         <FieldSkeleton label="Endereço principal?" isSwitch />
       ) : (

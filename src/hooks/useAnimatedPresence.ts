@@ -39,11 +39,11 @@ type AnimatedPresenceOptions = {
   durationMs?: number;
 };
 
-type AnimatedPresence = {
+type AnimatedPresence<T extends HTMLElement> = {
   shouldRender: boolean;
   className: string;
   style: React.CSSProperties;
-  ref: React.RefObject<HTMLDivElement | null>;
+  ref: React.RefObject<T | null>;
   /**
    * `true` durante a animação de saída. Exposto para quem precisa sincronizar
    * um segundo elemento com a mesma fase — por exemplo, um contêiner externo
@@ -54,16 +54,16 @@ type AnimatedPresence = {
 };
 
 const prefersReducedMotion = () =>
-  typeof window !== "undefined" &&
-  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+  typeof document !== "undefined" &&
+  globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-export function useAnimatedPresence(
+export function useAnimatedPresence<T extends HTMLElement = HTMLDivElement>(
   isOpen: boolean,
   { enter, exit, durationMs = 400 }: AnimatedPresenceOptions,
-): AnimatedPresence {
+): AnimatedPresence<T> {
   const [shouldRender, setShouldRender] = useState(isOpen);
   const [isLeaving, setIsLeaving] = useState(false);
-  const ref = useRef<HTMLDivElement | null>(null);
+  const ref = useRef<T | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -112,9 +112,8 @@ export function useAnimatedPresence(
     };
   }, [isLeaving, durationMs]);
 
-  const animationClass = prefersReducedMotion()
-    ? ""
-    : `animate__animated ${isLeaving ? exit : enter}`;
+  const phaseClass = isLeaving ? exit : enter;
+  const animationClass = prefersReducedMotion() ? "" : `animate__animated ${phaseClass}`;
 
   return {
     shouldRender,

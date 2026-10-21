@@ -26,7 +26,7 @@ import { currentMonth, type MonthRef } from "@/lib/period";
  *
  * ## Quem vê o quê
  *
- * Clientes e agenda são de todo mundo, como na Home. O financeiro é só do
+ * Clientes e agenda são de qualquer papel, como na Home. O financeiro é só do
  * administrador (D3): sem permissão as seções de dinheiro nem são montadas e
  * as chamadas nem saem — não há 403 para tratar nem valor para vazar. A página
  * é a mesma para todos; o que depende de papel é o dado, não a moldura.
@@ -72,14 +72,14 @@ export default function ReportsPage() {
       />
 
       {(data.state === "partial" || data.state === "error") && (
-        <div role="status" className="rounded-2xl border border-secondary/40 bg-light-secondary px-5 py-4 text-sm text-primary">
+        <output className="block rounded-2xl border border-secondary/40 bg-light-secondary px-5 py-4 text-sm text-primary">
           <p className="font-medium">{data.state === "error" ? "Não foi possível carregar" : "Dados parciais"}</p>
           <p className="mt-1 text-gray-100">
             {data.state === "error"
               ? "Nenhuma série respondeu. Os gráficos estão vazios por falta de resposta, não por falta de movimento."
               : "Alguma série não respondeu, e o gráfico dela está vazio por isso — não por falta de movimento."}
           </p>
-        </div>
+        </output>
       )}
 
       <ReportViewSwitcher

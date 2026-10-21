@@ -55,7 +55,7 @@ describe("formatFileSize", () => {
   });
 
   it("ausente ou zero vira travessão", () => {
-    expect(formatFileSize(undefined)).toBe("—");
+    expect(formatFileSize()).toBe("—");
     expect(formatFileSize(0)).toBe("—");
   });
 });

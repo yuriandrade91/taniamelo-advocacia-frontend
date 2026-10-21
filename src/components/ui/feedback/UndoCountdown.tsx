@@ -44,7 +44,7 @@ export function UndoCountdown({
   deadline,
   durationMs,
   label = "Desfazer",
-}: UndoCountdownProps) {
+}: Readonly<UndoCountdownProps>) {
   const [remaining, setRemaining] = useState(() => remainingAt(deadline));
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export function UndoCountdown({
   return (
     <span className="flex items-center gap-1.5 whitespace-nowrap">
       {/*
-        Todo o visual é aria-hidden: um contador que muda várias vezes por
+        O visual inteiro é aria-hidden: um contador que muda várias vezes por
         segundo viraria ruído em leitor de tela. O nome acessível do botão vem
         do `aria-label` que o `usePendingAction` passa — estático e informativo.
 

@@ -11,7 +11,7 @@ ChartJS.register(ArcElement, Tooltip);
  * O anel do Balanço. Separado do cartão por ser quem traz o Chart.js: o cartão
  * aparece com a página, e só o anel vem sob demanda.
  */
-export default function BalanceDoughnut({ slices }: { slices: readonly { label: string; percentage: number; color: string }[] }) {
+export default function BalanceDoughnut({ slices }: Readonly<{ slices: readonly { label: string; percentage: number; color: string }[] }>) {
   const data = useMemo(
     () => ({
       labels: slices.map((s) => s.label),

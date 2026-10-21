@@ -44,9 +44,9 @@ type DocType = DocumentTypeKey | "";
 const normalize = (text: string) =>
   text
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replaceAll(/[̀-ͯ]/g, "")
     .toLowerCase()
-    .replace(/[_\-.]+/g, " ");
+    .replaceAll(/[_\-.]+/g, " ");
 
 /**
  * Palpite de tipo pelo nome (do arquivo ou da pasta). A ordem importa:
@@ -111,7 +111,7 @@ export const looksLikeOtherSide = (kind: FileKind, name: string): boolean =>
 
 /** Versão escrita no nome ("v2", "versao 3"), para já preencher. */
 const guessVersion = (name: string) =>
-  normalize(name).match(/\b(?:v|versao )(\d+)\b/)?.[1] ?? "";
+  /\b(?:v|versao )(\d+)\b/.exec(normalize(name))?.[1] ?? "";
 
 const ids = new WeakMap<File, string>();
 let nextId = 0;
@@ -151,7 +151,7 @@ export function useDocuments({
     files: Iterable<File>,
     type?: DocType | ((file: File) => DocType),
   ) => {
-    const added = Array.from(files).map((file) => ({
+    const added = [...files].map((file) => ({
       ...newStagedDocument(file),
       documentType:
         typeof type === "function"
@@ -227,7 +227,7 @@ export function useSimulations({
       | Partial<StagedSimulation>
       | ((file: File, index: number) => Partial<StagedSimulation>) = {},
   ) => {
-    const added = Array.from(files).map((file, index) => ({
+    const added = [...files].map((file, index) => ({
       ...newStagedSimulation(file),
       version: guessVersion(file.name),
       ...(typeof patch === "function" ? patch(file, index) : patch),

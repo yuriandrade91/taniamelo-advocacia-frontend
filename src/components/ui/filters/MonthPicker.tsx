@@ -43,7 +43,7 @@ export function MonthPicker({
   maxMonth,
   tone = "light",
   compact = false,
-}: MonthPickerProps) {
+}: Readonly<MonthPickerProps>) {
   const next = shiftMonth(value, 1);
   const canGoForward = !maxMonth || !isAfter(next, maxMonth);
   const isDark = tone === "dark";

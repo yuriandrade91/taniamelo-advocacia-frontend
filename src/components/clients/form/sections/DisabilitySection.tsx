@@ -68,7 +68,7 @@ export function DisabilitySection({
   onAdd,
   onRemove,
   canDeleteSaved = true,
-}: DisabilitySectionProps) {
+}: Readonly<DisabilitySectionProps>) {
   const basis = basisFromGender(gender);
   const convertible = convertibleIntervals(periods, today);
   const conversion =
@@ -187,7 +187,7 @@ export function DisabilityConversion({
   hasBasis,
   hasPeriods,
   source = "local",
-}: {
+}: Readonly<{
   conversion: ReturnType<typeof convertIntervals> | null;
   gender?: string;
   hasBasis: boolean;
@@ -198,7 +198,7 @@ export function DisabilityConversion({
    * a nota de rodapé diz qual das duas a pessoa está lendo.
    */
   source?: "local" | "server";
-}) {
+}>) {
   if (!hasBasis) {
     // Sem coluna na lei, não há conversão a oferecer. Dizer isso é melhor que
     // esconder a seção: a pessoa preencheu os intervalos e precisa saber por
@@ -227,8 +227,8 @@ export function DisabilityConversion({
       </p>
 
       <ul className="mb-3 flex flex-col gap-1 text-sm text-gray-100">
-        {conversion.lines.map((line, index) => (
-          <li key={index} className="flex flex-wrap items-baseline gap-x-2">
+        {conversion.lines.map((line) => (
+          <li key={`${line.grade}-${line.startedOn}-${line.endedOn}`} className="flex flex-wrap items-baseline gap-x-2">
             <span className="font-medium">
               {getDisabilityGradeLabelByKey(line.grade)}
             </span>

@@ -48,7 +48,7 @@ export type ClientsBySituationChartProps = {
 export function ClientsBySituationChart({
   items,
   isLoading = false,
-}: ClientsBySituationChartProps) {
+}: Readonly<ClientsBySituationChartProps>) {
   const total = items.reduce((sum, item) => sum + item.count, 0);
 
   const data = useMemo(

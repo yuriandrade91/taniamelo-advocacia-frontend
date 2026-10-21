@@ -50,9 +50,8 @@ export function usePaymentForm(editing: PaymentEditing | null) {
    * monta `editing` a cada render, e depender da referência apagaria o que a
    * pessoa está digitando. Ajuste no render: a edição já abre preenchida.
    */
-  const seedKey = editing
-    ? `${editing.payment.id}:${editing.values ? "seeded" : "record"}`
-    : null;
+  const seedSource = editing?.values ? "seeded" : "record";
+  const seedKey = editing ? `${editing.payment.id}:${seedSource}` : null;
   const [seededKey, setSeededKey] = useState<string | null>(null);
   if (seedKey !== seededKey) {
     setSeededKey(seedKey);

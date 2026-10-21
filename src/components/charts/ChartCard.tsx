@@ -41,7 +41,7 @@ export function ChartCard({
   isEmpty = false,
   isLoading = false,
   children,
-}: ChartCardProps) {
+}: Readonly<ChartCardProps>) {
   const showLegend = (isLoading || !isEmpty) && legend && legend.length >= 2;
 
   return (
@@ -80,15 +80,13 @@ export function ChartCard({
       </header>
 
       <div className="mt-4" style={{ height }}>
-        {isLoading ? (
-          <Skeleton className="h-full w-full rounded-xl" />
-        ) : isEmpty ? (
+        {isLoading && <Skeleton className="h-full w-full rounded-xl" />}
+        {!isLoading && isEmpty && (
           <div className="flex h-full items-center justify-center rounded-xl bg-page/60 text-sm text-gray-100/70">
             {emptyMessage}
           </div>
-        ) : (
-          children
         )}
+        {!isLoading && !isEmpty && children}
       </div>
     </section>
   );

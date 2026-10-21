@@ -12,6 +12,7 @@ import { useAnimatedPresence } from "@/hooks/useAnimatedPresence";
 import { useDismiss } from "@/hooks/useDismiss";
 import { LogoutIcon } from "./navIcons";
 import { UserIcon } from "@/components/ui/icons/glyphs";
+import { optionalText } from "@/lib/formValues";
 
 /**
  * Avatar + painel com os dados do usuário logado.
@@ -33,7 +34,7 @@ export type UserMenuProps = {
   className?: string;
 };
 
-export default function UserMenu({ className = "" }: UserMenuProps) {
+export default function UserMenu({ className = "" }: Readonly<UserMenuProps>) {
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const user = useSessionUser();
@@ -55,6 +56,9 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
     setIsSigningOut(true);
     try {
       await authLogout();
+    } catch {
+      // O interceptor já avisou; a sessão local foi limpa do mesmo jeito
+      // (`authLogout` limpa no `finally`), então segue para o login.
     } finally {
       setIsSigningOut(false);
       router.push(publicRoutes.login);
@@ -104,10 +108,10 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
             </span>
             <span className="min-w-0">
               <span className="block truncate text-sm font-medium text-primary">
-                {user?.fullName || "Sessão ativa"}
+                {optionalText(user?.fullName) ?? "Sessão ativa"}
               </span>
               <span className="block truncate text-xs text-gray-100/70">
-                {user?.email || "—"}
+                {optionalText(user?.email) ?? "—"}
               </span>
               {user?.role && (
                 <span className="mt-1 inline-flex rounded-md bg-light-secondary px-2 py-0.5 text-[11px] font-medium text-secondary">
@@ -146,7 +150,7 @@ export default function UserMenu({ className = "" }: UserMenuProps) {
             <button
               type="button"
               role="menuitem"
-              onClick={handleLogout}
+              onClick={() => void handleLogout()}
               disabled={isSigningOut}
               className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-danger hover:bg-danger/5 disabled:opacity-50 cursor-pointer"
             >

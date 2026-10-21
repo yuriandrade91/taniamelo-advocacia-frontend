@@ -1,7 +1,9 @@
+import { optionalText } from "@/lib/formValues";
+
 /**
  * Mapa central de endpoints da API (backend Spring — taniamelo-advocacia-backend).
  *
- * Base real: `${API_BASE_URL}/api/v1/...` — todo caminho daqui já é absoluto.
+ * Base real: `${API_BASE_URL}/api/v1/...` — cada caminho daqui já é absoluto.
  *
  * ⚠️ Toda requisição exige o header `X-Tenant-Id` (multi-tenancy) — injetado
  * automaticamente pelo `axiosService`.
@@ -11,7 +13,7 @@
  * O backend. Vem de `NEXT_PUBLIC_API_URL` (os `env/*.env`, ou as variáveis do
  * deploy) e é inlinado no build; sem ela, o backend local na porta padrão.
  */
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
+export const API_BASE_URL = optionalText(process.env.NEXT_PUBLIC_API_URL) ?? "http://localhost:8080";
 const API_V1 = `${API_BASE_URL}/api/v1`;
 
 /** Recurso de primeiro nível: `/api/v1/{name}` e `/api/v1/{name}/{id}`. */
@@ -289,6 +291,12 @@ const endpoints = {
 
     UPLOAD_SIMULATIONS: simulations.base,
     LIST_SIMULATIONS: simulations.base,
+    /**
+     * PATCH — marca a simulação como principal e desmarca a anterior. O upload
+     * não leva a escolha: cada simulação enviada vira a principal, e a última
+     * do lote fica sendo ela.
+     */
+    MARK_PRINCIPAL: (clientId: string, fileId: string) => `${simulations.byId(clientId, fileId)}/principal`,
     /** GET — o arquivo em si (documento ou simulação); exige o token, como o resto. */
     DOWNLOAD: (clientId: string, fileId: string) => `${files.byId(clientId, fileId)}/download`,
     DELETE: files.byId,

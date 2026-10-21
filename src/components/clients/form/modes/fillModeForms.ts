@@ -5,7 +5,7 @@ import type { ExtractedField } from "./smartFill";
 import type { AddressValues, PersonalValues, ProfessionalValues, ServiceValues } from "../schemas";
 
 /**
- * O que todo modo de preenchimento recebe: os MESMOS formulários da página.
+ * O que cada modo de preenchimento recebe: os MESMOS formulários da página.
  * Trocar de modo não perde nada, e "Salvar cliente" grava o que qualquer
  * modo preencheu. Endereço é o primeiro (o principal).
  */

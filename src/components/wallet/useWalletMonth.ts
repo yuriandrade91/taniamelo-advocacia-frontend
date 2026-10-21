@@ -25,6 +25,13 @@ type WalletLoadState = "loading" | "ready" | "partial" | "error";
 const dueCount = (summary: FinanceSummary | null): number | null =>
   summary ? summary.overdueCount + summary.upcomingCount + summary.paidCount : null;
 
+/** Carregando, tudo certo, só um dos lados (parcial) ou nenhum (falha). */
+function walletState(isLoading: boolean, hasRevenue: boolean, hasExpense: boolean): WalletLoadState {
+  if (isLoading) return "loading";
+  if (hasRevenue && hasExpense) return "ready";
+  return hasRevenue || hasExpense ? "partial" : "error";
+}
+
 export function useWalletMonth(range: { from: string; to: string }, enabled: boolean) {
   const [versions, setVersions] = useState<Record<EntryKind, number>>({ income: 0, expense: 0 });
   const key = enabled ? `${range.from}:${range.to}` : null;
@@ -47,14 +54,7 @@ export function useWalletMonth(range: { from: string; to: string }, enabled: boo
   const paidExpense = settledValue(expense?.[0], null)?.data ?? null;
   const dueExpense = settledValue(expense?.[1], null)?.data ?? null;
 
-  const state: WalletLoadState =
-    !revenue || !expense
-      ? "loading"
-      : paidRevenue && paidExpense
-        ? "ready"
-        : paidRevenue || paidExpense
-          ? "partial"
-          : "error";
+  const state = walletState(!revenue || !expense, Boolean(paidRevenue), Boolean(paidExpense));
 
   return {
     state,

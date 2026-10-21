@@ -20,7 +20,7 @@ import type { ReportViewProps } from "./types";
  *
  * Os `id`s são os do estudo de onde elas saíram e ficam assim de propósito:
  * são a chave guardada no navegador (`relatorios:modelo` e a ordem em
- * `relatorios:ordem`); trocá-los mandaria todo mundo de volta para a primeira
+ * `relatorios:ordem`); trocá-los mandaria cada pessoa de volta para a primeira
  * aba. A ordem desta lista é a padrão; o usuário reordena as abas.
  */
 export type ReportView = {

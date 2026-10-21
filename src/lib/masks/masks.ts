@@ -9,7 +9,7 @@
  * cópia a mais é inofensiva; quatro é onde uma delas passa a aceitar o que as
  * outras recusam sem ninguém notar.
  */
-export const digitsOf = (value: string) => value.replace(/\D/g, "");
+export const digitsOf = (value: string) => value.replaceAll(/\D/g, "");
 
 export function maskCPF(value: string) {
   return digitsOf(value)
@@ -21,10 +21,10 @@ export function maskRG(value: string) {
   return digitsOf(value)
     .replace(/(\d{2})(\d)/, "$1.$2")
     .replace(/(\d{3})(\d)/, "$1.$2")
-    .replace(/(\d{3})(\d{1})$/, "$1-$2");
+    .replace(/(\d{3})(\d)$/, "$1-$2");
 }
 export function maskEmail(value: string) {
-  return value.replace(/\s/g, "");
+  return value.replaceAll(/\s/g, "");
 }
 export function maskMobile(value: string) {
   return digitsOf(value)

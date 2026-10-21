@@ -223,6 +223,16 @@ const MONTHS = [
   "dezembro",
 ];
 
+/** Os rótulos que a pessoa fala antes de cada dado ("CPF …", "mãe …"). */
+const SPOKEN_LABELS = [
+  "cpf", "rg", "nit", "pis", "cep", "celular", "telefone", "whats(?:app)?", "e-?mail",
+  "m[ãa]e", "filh[ao] de", "nascid[ao]", "data de nascimento", "profiss[ãa]o", "trabalha como",
+  "rua", "avenida", "bairro", "estado civil", "casad[ao]", "solteir[ao]", "divorciad[ao]",
+  "vi[úu]v[ao]", "aposentadoria", "benef[íi]cio",
+];
+/** O espaço antes de um rótulo falado — onde a linha quebra. */
+const SPOKEN_LABEL_BREAK = new RegExp(String.raw`\s+(?=(?:${SPOKEN_LABELS.join("|")})\b)`, "gi");
+
 /**
  * Ajusta o texto ditado para o extrator: datas por extenso, "barra",
  * "arroba", "ponto com", números ditados em blocos ("31 98888 7777"),
@@ -231,7 +241,7 @@ const MONTHS = [
 export function normalizeDictation(text: string) {
   let out = text;
   // "20 de maio de 1965" → "20/05/1965"
-  out = out.replace(
+  out = out.replaceAll(
     new RegExp(
       `\\b(\\d{1,2})\\s+de\\s+(${MONTHS.join("|")})\\s+de\\s+(\\d{4})\\b`,
       "gi",
@@ -240,26 +250,26 @@ export function normalizeDictation(text: string) {
       `${day.padStart(2, "0")}/${String(MONTHS.indexOf(month.toLowerCase()) + 1).padStart(2, "0")}/${year}`,
   );
   out = out
-    .replace(/(\d)\s+barra\s+(\d)/gi, "$1/$2")
-    .replace(/(\d)\s+(?:traço|hífen|hifen)\s+(\d)/gi, "$1-$2")
-    .replace(/\s+(?:underline|underscore)\s+/gi, "_")
-    .replace(/\s+arroba\s+/gi, "@")
-    .replace(/\s+ponto\s+com\b/gi, ".com")
-    .replace(/\s+ponto\s+br\b/gi, ".br")
+    .replaceAll(/(\d)\s+barra\s+(\d)/gi, "$1/$2")
+    .replaceAll(/(\d)\s+(?:traço|hífen|hifen)\s+(\d)/gi, "$1-$2")
+    .replaceAll(/\s+(?:underline|underscore)\s+/gi, "_")
+    .replaceAll(/\s+arroba\s+/gi, "@")
+    .replaceAll(/\s+ponto\s+com\b/gi, ".com")
+    .replaceAll(/\s+ponto\s+br\b/gi, ".br")
     // "maria ponto silva@…": o ponto antes do @ também é do e-mail.
-    .replace(/\s+ponto\s+(?=\S*@)/gi, ".")
+    .replaceAll(/\s+ponto\s+(?=\S*@)/gi, ".")
     // "número 123" no endereço.
-    .replace(/\s+n[úu]mero\s+(\d)/gi, ", nº $1");
+    .replaceAll(/\s+n[úu]mero\s+(\d)/gi, ", nº $1");
   // Fala não tem pontuação: quebra a linha antes de cada rótulo falado, para
   // o valor de um ("mãe Ana Rosa") não engolir o próximo ("celular …").
   out = out
-    .replace(
-      /\s+(?=(?:cpf|rg|nit|pis|cep|celular|telefone|whats(?:app)?|e-?mail|m[ãa]e|filh[ao] de|nascid[ao]|data de nascimento|profiss[ãa]o|trabalha como|rua|avenida|bairro|estado civil|casad[ao]|solteir[ao]|divorciad[ao]|vi[úu]v[ao]|aposentadoria|benef[íi]cio)\b)/gi,
+    .replaceAll(
+      SPOKEN_LABEL_BREAK,
       "\n",
     )
-    .replace(/(^|\n)\s*nome(?: completo)?\s+(?![:\-–])/gi, "$1Nome: ");
+    .replaceAll(/(^|\n)\s*nome(?: completo)?\s+(?![:\-–])/gi, "$1Nome: ");
   // Blocos de dígitos ditados separados por espaço viram um número só
   // ("31 98888 7777", "390 533 447 05").
-  out = out.replace(/(\d)\s+(?=\d)/g, "$1");
+  out = out.replaceAll(/(\d)\s+(?=\d)/g, "$1");
   return out;
 }

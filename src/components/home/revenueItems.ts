@@ -13,10 +13,17 @@
  * época em que a distinção não existia, e o subtítulo é que a desfaz.
  */
 
-import { bucketOf } from "@/components/payments/paymentBuckets";
+import { bucketOf, type PaymentBucket } from "@/components/payments/paymentBuckets";
 import { formatDateBR } from "@/lib/format";
 import type { RevenueItem } from "@/components/home/UpcomingRevenues";
 import type { OfficePaymentResponse } from "@/interfaces/payment/OfficePayment.interface";
+
+/** O status do cartão pelo balde da parcela (cancelada nem entra). */
+const STATUS_BY_BUCKET: Record<Exclude<PaymentBucket, "cancelled">, RevenueItem["status"]> = {
+  overdue: "ATRASADO",
+  paid: "PAGO",
+  upcoming: "PENDENTE",
+};
 
 /** Quantas linhas cabem no cartão sem ele virar uma segunda tela de Pagamentos. */
 export const CARD_ROWS = 4;
@@ -42,8 +49,7 @@ export function toRevenueItems(
         // o cartão mostraria descrições soltas sem dizer de quem são.
         name: payment.clientName ?? "—",
         date: formatDateBR(payment.dueDate),
-        status:
-          bucket === "overdue" ? "ATRASADO" : bucket === "paid" ? "PAGO" : "PENDENTE",
+        status: STATUS_BY_BUCKET[bucket],
       };
     })
     .filter((item): item is RevenueItem => item !== null)

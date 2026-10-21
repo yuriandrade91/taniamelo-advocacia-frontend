@@ -2,6 +2,7 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useId,
@@ -33,7 +34,7 @@ const ARCHITECTURE = {
 /** A largura de tudo: 1400 px no máximo, com as margens da referência em cada faixa de tela. */
 const CONTAINER = "mx-auto w-[min(1400px,calc(100%-100px))] max-[1100px]:w-[calc(100%-64px)] max-[760px]:w-[calc(100%-40px)]";
 
-/** Clique que afunda um pouco: o retorno de toque de todo botão da página. */
+/** Clique que afunda um pouco: o retorno de toque de cada botão da página. */
 const PRESS = "transition active:scale-[0.97]";
 
 /**
@@ -43,13 +44,13 @@ const PRESS = "transition active:scale-[0.97]";
  * O conteúdo é o do escritório: os sete benefícios, as seis etapas, o
  * simulador da LC 142, as dúvidas e os canais de contato.
  *
- * Todo "falar com a equipe" abre a mesma janela: a pessoa escolhe a
+ * Cada "falar com a equipe" abre a mesma janela: a pessoa escolhe a
  * aposentadoria, recebe a mensagem já escrita e ajusta antes de ir para o
  * WhatsApp — ou escreve do zero.
  */
 export function OfficeSite() {
   const [composer, setComposer] = useState<{ topic: Topic } | null>(null);
-  const openComposer = (topic: Topic = "none") => setComposer({ topic });
+  const openComposer = useCallback((topic: Topic = "none") => setComposer({ topic }), []);
 
   return (
     <ComposerContext.Provider value={openComposer}>
@@ -86,7 +87,7 @@ const ComposerContext = createContext<(topic?: Topic) => void>(() => {});
 const useComposer = () => useContext(ComposerContext);
 
 const TOPICS: readonly { id: Topic; label: string }[] = [
-  ...SERVICES.map((service) => ({ id: service.key as Topic, label: shortBenefit(service.title) })),
+  ...SERVICES.map((service) => ({ id: service.key, label: shortBenefit(service.title) })),
   { id: "unsure", label: "Ainda não sei" },
   { id: "own", label: "Escrever do meu jeito" },
 ];
@@ -109,7 +110,7 @@ const formattedWhatsapp = SITE_CONTACT.whatsapp.replace(/^(\d{2})(\d{4,5})(\d{4}
  * A janela do "falar com a equipe". `<dialog>` de verdade: Esc fecha, o foco
  * fica dentro e o resto da página não recebe clique.
  */
-function WhatsAppComposer({ initialTopic, onClose }: { initialTopic: Topic; onClose: () => void }) {
+function WhatsAppComposer({ initialTopic, onClose }: Readonly<{ initialTopic: Topic; onClose: () => void }>) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const textRef = useRef<HTMLTextAreaElement>(null);
   const [topic, setTopic] = useState<Topic>(initialTopic);
@@ -118,7 +119,16 @@ function WhatsAppComposer({ initialTopic, onClose }: { initialTopic: Topic; onCl
   const textId = useId();
 
   useEffect(() => {
-    dialogRef.current?.showModal();
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    dialog.showModal();
+    // Clique no fundo (o próprio <dialog>, não o conteúdo) fecha. É atalho do
+    // mouse; no teclado quem fecha é o Esc, que o <dialog> já trata.
+    const closeOnBackdrop = (event: MouseEvent) => {
+      if (event.target === dialog) dialog.close();
+    };
+    dialog.addEventListener("click", closeOnBackdrop);
+    return () => dialog.removeEventListener("click", closeOnBackdrop);
   }, []);
 
   const choose = (next: Topic) => {
@@ -141,9 +151,6 @@ function WhatsAppComposer({ initialTopic, onClose }: { initialTopic: Topic; onCl
       ref={dialogRef}
       aria-labelledby={titleId}
       onClose={onClose}
-      onClick={(event) => {
-        if (event.target === dialogRef.current) dialogRef.current.close();
-      }}
       className="pr-dialog m-auto w-[min(600px,calc(100%-32px))] max-w-none bg-ivory p-0 text-primary backdrop:bg-midnight/70 backdrop:backdrop-blur-sm"
     >
       <div className="max-h-[calc(100svh-48px)] overflow-y-auto p-8 max-[760px]:p-6">
@@ -253,7 +260,7 @@ function useParallax(ref: RefObject<HTMLElement | null>, factor: number) {
 }
 
 /** Uma linha do título que sobe de trás de uma máscara. */
-function RisingLine({ delay, children }: { delay: number; children: ReactNode }) {
+function RisingLine({ delay, children }: Readonly<{ delay: number; children: ReactNode }>) {
   return (
     <span className="pr-line">
       <span style={{ "--d": `${delay}ms` } as CSSProperties}>{children}</span>
@@ -262,7 +269,7 @@ function RisingLine({ delay, children }: { delay: number; children: ReactNode })
 }
 
 /** Como a `RisingLine`, mas sobe quando o `Reveal` em volta chega à tela. */
-function ViewLine({ delay, className = "", children }: { delay: number; className?: string; children: ReactNode }) {
+function ViewLine({ delay, className = "", children }: Readonly<{ delay: number; className?: string; children: ReactNode }>) {
   return (
     <span className="pr-vline">
       <span className={className} style={{ "--d": `${delay}ms` } as CSSProperties}>
@@ -273,7 +280,7 @@ function ViewLine({ delay, className = "", children }: { delay: number; classNam
 }
 
 /** Entrada da cena do topo, em cascata pelo `delay`. */
-function Enter({ delay, className = "", children }: { delay: number; className?: string; children: ReactNode }) {
+function Enter({ delay, className = "", children }: Readonly<{ delay: number; className?: string; children: ReactNode }>) {
   return (
     <div className={`pr-in ${className}`} style={{ "--d": `${delay}ms` } as CSSProperties}>
       {children}
@@ -620,11 +627,13 @@ function Journey() {
   );
 }
 
+/** Um botão de escolha do simulador, marcado ou não. */
+const simulatorOption = (isActive: boolean) =>
+  `${PRESS} border px-5 py-3.5 text-[15px] font-medium ${isActive ? "border-primary bg-primary text-white" : "border-hairline bg-white hover:border-primary/40"}`;
+
 /** O simulador da LC 142 no desenho da referência: fios, números finos, botões retos. */
 function Simulator() {
   const { sex, setSex, grade, setGrade, required, general, saved, minAge } = useDisabilityRule();
-  const option = (isActive: boolean) =>
-    `${PRESS} border px-5 py-3.5 text-[15px] font-medium ${isActive ? "border-primary bg-primary text-white" : "border-hairline bg-white hover:border-primary/40"}`;
   const legend = "text-[13px] font-medium tracking-[1.7px] text-secondary uppercase";
   return (
     <section id="simulador" className="scroll-mt-20 border-t border-hairline bg-white py-[110px] max-[760px]:py-[60px]">
@@ -640,8 +649,8 @@ function Simulator() {
               <span>o tempo exigido é menor.</span>
             </SectionTitle>
             <div className="mt-10 flex flex-col gap-6">
-              <ChoicePills legend="Para quem" options={SEXES} value={sex} onChange={setSex} legendClassName={legend} groupClassName="mt-3 flex flex-wrap gap-2" optionClassName={option} />
-              <ChoicePills legend="Grau da deficiência" options={GRADES} value={grade} onChange={setGrade} legendClassName={legend} groupClassName="mt-3 flex flex-wrap gap-2" optionClassName={option} />
+              <ChoicePills legend="Para quem" options={SEXES} value={sex} onChange={setSex} legendClassName={legend} groupClassName="mt-3 flex flex-wrap gap-2" optionClassName={simulatorOption} />
+              <ChoicePills legend="Grau da deficiência" options={GRADES} value={grade} onChange={setGrade} legendClassName={legend} groupClassName="mt-3 flex flex-wrap gap-2" optionClassName={simulatorOption} />
             </div>
           </Reveal>
           <Reveal delay={220}>
@@ -775,7 +784,7 @@ function Footer() {
 /* ───────────── peças ───────────── */
 
 /** O sobretítulo; o fio na frente é só o do topo. */
-function Eyebrow({ children, className = "text-secondary", line = false }: { children: ReactNode; className?: string; line?: boolean }) {
+function Eyebrow({ children, className = "text-secondary", line = false }: Readonly<{ children: ReactNode; className?: string; line?: boolean }>) {
   return (
     <p className={`flex items-center gap-3.5 text-[13px] font-medium tracking-[2px] uppercase max-[760px]:text-[12px] max-[760px]:tracking-[1.5px] ${className}`}>
       {line && <span className="pr-grow-x h-px w-10 origin-left bg-current" aria-hidden="true" />}
@@ -784,7 +793,7 @@ function Eyebrow({ children, className = "text-secondary", line = false }: { chi
   );
 }
 
-function SectionTitle({ children, className = "" }: { children: ReactNode; className?: string }) {
+function SectionTitle({ children, className = "" }: Readonly<{ children: ReactNode; className?: string }>) {
   return <h2 className={`text-[46px] leading-[1.2] [&>span]:font-light [&>span]:text-muted-ink ${className}`}>{children}</h2>;
 }
 
@@ -808,7 +817,7 @@ function MainCta({ href, onClick, children }: { href?: string; onClick?: () => v
   );
 }
 
-function InlineLink({ href, children }: { href: string; children: ReactNode }) {
+function InlineLink({ href, children }: Readonly<{ href: string; children: ReactNode }>) {
   return (
     <a href={href} className="group mt-[33px] flex items-center gap-4 text-[16px] whitespace-nowrap">
       <span className="bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-left-bottom bg-no-repeat pb-1 transition-[background-size] duration-300 group-hover:bg-[length:100%_1px]">
@@ -826,13 +835,13 @@ function AccordionRow({
   isOpen,
   onToggle,
   children,
-}: {
+}: Readonly<{
   number: string;
   title: string;
   isOpen: boolean;
   onToggle: () => void;
   children: ReactNode;
-}) {
+}>) {
   const panelId = useId();
   return (
     <div className="border-t border-hairline">

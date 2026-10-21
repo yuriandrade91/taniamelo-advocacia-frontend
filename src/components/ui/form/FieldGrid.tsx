@@ -33,10 +33,10 @@ const COLUMNS = {
 export function FieldGrid({
   columns = 2,
   children,
-}: {
+}: Readonly<{
   columns?: keyof typeof COLUMNS;
   children: ReactNode;
-}) {
+}>) {
   return (
     <div data-form-fields="" className={`grid gap-4 ${COLUMNS[columns]}`}>
       {children}

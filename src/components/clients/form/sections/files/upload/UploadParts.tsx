@@ -34,7 +34,7 @@ export function dropProps(
     onDrop: (event: DragEvent) => {
       event.preventDefault();
       setOver(false);
-      onFiles(Array.from(event.dataTransfer.files));
+      onFiles([...event.dataTransfer.files]);
     },
   };
 }
@@ -71,10 +71,10 @@ const extensionOf = (file: FileLike) =>
 export function FileThumb({
   file,
   className = "h-12 w-12",
-}: {
+}: Readonly<{
   file: FileLike;
   className?: string;
-}) {
+}>) {
   const url = useObjectUrl(file instanceof File && isImage(file) ? file : undefined);
   if (url) {
     return (
@@ -99,7 +99,7 @@ export function FileThumb({
 }
 
 /** Nome e, embaixo, o tamanho (ou o que for passado em `detail`), numa coluna que trunca. */
-export function FileName({ file, detail }: { file: FileLike; detail?: string }) {
+export function FileName({ file, detail }: Readonly<{ file: FileLike; detail?: string }>) {
   return (
     <span className="min-w-0 flex-1">
       <span className="block truncate text-sm font-medium text-primary">
@@ -118,11 +118,11 @@ export function WrongSideHint({
   kind,
   name,
   onMove,
-}: {
+}: Readonly<{
   kind: FileKind;
   name: string;
   onMove: () => void;
-}) {
+}>) {
   if (!looksLikeOtherSide(kind, name)) return null;
   return (
     <button
@@ -140,11 +140,11 @@ export function RemoveButton({
   name,
   onClick,
   className = "",
-}: {
+}: Readonly<{
   name: string;
   onClick: () => void;
   className?: string;
-}) {
+}>) {
   return (
     <button
       type="button"
@@ -176,21 +176,22 @@ export function HiddenFileInput({
   inputRef,
   onFiles,
   accept,
-}: {
+}: Readonly<{
   inputRef: React.RefObject<HTMLInputElement | null>;
   onFiles: (files: File[]) => void;
   accept?: string;
-}) {
+}>) {
   return (
     <input
       ref={inputRef}
       type="file"
+      aria-label="Escolher arquivos"
       multiple
       accept={accept}
       className="sr-only"
       tabIndex={-1}
       onChange={(event) => {
-        onFiles(Array.from(event.target.files ?? []));
+        onFiles([...event.target.files ?? []]);
         event.target.value = "";
       }}
     />

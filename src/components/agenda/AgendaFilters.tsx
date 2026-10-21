@@ -41,7 +41,7 @@ export const AGENDA_DEFAULTS = { status: ["AGENDADO"] };
  * Situação em segmentos liga/desliga e "Limpar filtros". Sem chips: o que está
  * ativo já aparece no próprio campo.
  */
-export function AgendaFilters({ filters }: { filters: FiltersState<typeof agendaFilters> }) {
+export function AgendaFilters({ filters }: Readonly<{ filters: FiltersState<typeof agendaFilters> }>) {
   const { values, set } = filters;
   const statuses = agendaFilters.status.options;
   /** Cada segmento liga e desliga o seu; com todos ligados, volta a "Todas" — mesmo resultado. */

@@ -42,6 +42,10 @@ export type ConflictDecisionModalProps = {
   isSubmitting?: boolean;
 };
 
+/** O botão diz quantos compromissos vão ser cancelados. */
+const cancelLabel = (count: number) =>
+  count <= 1 ? "Cancelar o marcado e agendar" : `Cancelar os ${count} e agendar`;
+
 export function ConflictDecisionModal({
   isOpen,
   conflicts,
@@ -49,7 +53,7 @@ export function ConflictDecisionModal({
   onClose,
   onConfirm,
   isSubmitting = false,
-}: ConflictDecisionModalProps) {
+}: Readonly<ConflictDecisionModalProps>) {
   /**
    * A marcação vale para esta abertura e esta lista de conflitos: abrir de
    * novo (ou a lista mudar) começa sem nada marcado — senão a segunda
@@ -159,11 +163,7 @@ export function ConflictDecisionModal({
             onPress={() => onConfirm(selected)}
             isDisabled={isSubmitting || selected.length === 0}
           >
-            {isSubmitting
-              ? "Aplicando..."
-              : selected.length <= 1
-                ? "Cancelar o marcado e agendar"
-                : `Cancelar os ${selected.length} e agendar`}
+            {isSubmitting ? "Aplicando..." : cancelLabel(selected.length)}
           </Button>
         </div>
       </div>

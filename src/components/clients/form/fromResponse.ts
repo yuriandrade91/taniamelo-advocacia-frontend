@@ -74,9 +74,12 @@ const masked = (mask: (value: string) => string, value?: string | null): string 
  * pode corromper o que ela só foi abrir, então nesse caso o valor fica como
  * está.
  */
+/** Dois dígitos: `7` → `"07"`. */
+const pad = (n: number) => String(n).padStart(2, "0");
+
 const phone = (value?: string | null): string => {
   const raw = textOf(value);
-  const digits = raw.replace(/\D/g, "");
+  const digits = raw.replaceAll(/\D/g, "");
   return digits.length === 10 || digits.length === 11 ? maskPhone(raw) : raw;
 };
 
@@ -186,7 +189,6 @@ export function instantToLocalInput(iso?: string | null): string {
   if (!iso) return "";
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
   return (
     `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}` +
     `T${pad(date.getHours())}:${pad(date.getMinutes())}`

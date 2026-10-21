@@ -40,7 +40,7 @@ export type PageHeaderProps = {
   actions?: ReactNode;
 };
 
-export function PageHeader({ title, description, actions }: PageHeaderProps) {
+export function PageHeader({ title, description, actions }: Readonly<PageHeaderProps>) {
   return (
     <header className="rounded-2xl bg-primary px-6 py-5 text-white">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center">

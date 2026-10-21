@@ -45,7 +45,7 @@ export function RegisterReceiptModal({
   payment,
   onClose,
   onSaved,
-}: RegisterReceiptModalProps) {
+}: Readonly<RegisterReceiptModalProps>) {
   const [paidDate, setPaidDate] = useState("");
   const [notes, setNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -96,7 +96,7 @@ export function RegisterReceiptModal({
       // O rodapé em cápsula da Carteira, como as outras modais de lançamento.
       actions="pill"
       confirmLabel="Confirmar"
-      onConfirm={handleConfirm}
+      onConfirm={() => void handleConfirm()}
       isSubmitting={isSubmitting}
     >
       <div className="flex flex-col gap-4">

@@ -28,7 +28,7 @@ export default function StatCard({
   delta,
   highlighted = false,
   className = "",
-}: StatCardProps) {
+}: Readonly<StatCardProps>) {
   return (
     <div
       className={`flex flex-col gap-3 rounded-xl border p-4 ${

@@ -6,7 +6,7 @@ import { Svg } from "@/components/ui/icons/Svg";
  */
 
 /** Rótulo de período sem interação (ícone de calendário + mês). */
-export function MonthLabel({ label }: { label: string }) {
+export function MonthLabel({ label }: Readonly<{ label: string }>) {
   return (
     <span className="inline-flex items-center gap-1.5 text-xs text-gray-100/70">
       <CalendarIcon className="h-3.5 w-3.5" />
@@ -24,7 +24,7 @@ const TrendIcon = ({ isPositive }: { isPositive: boolean }) => (
 );
 
 /** Selo de variação: positivo (verde) ou negativo (vermelho). */
-export function DeltaBadge({ value }: { value: number }) {
+export function DeltaBadge({ value }: Readonly<{ value: number }>) {
   const isPositive = value >= 0;
   return (
     <span
@@ -53,10 +53,10 @@ const TONE_CLASSES: Record<BadgeTone, string> = {
 export function StatusBadge({
   label,
   tone,
-}: {
+}: Readonly<{
   label: string;
   tone: BadgeTone;
-}) {
+}>) {
   return (
     <span
       className={`inline-flex shrink-0 rounded-md px-2.5 py-1 text-xs font-medium ${TONE_CLASSES[tone]}`}
@@ -93,13 +93,13 @@ export function Pill({
   weight = "medium",
   className = "",
   children,
-}: {
+}: Readonly<{
   tone?: PillTone;
   size?: "xs" | "sm";
   weight?: "medium" | "semibold";
   className?: string;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <span
       className={`inline-flex w-fit shrink-0 items-center rounded-full px-2 py-0.5 ${

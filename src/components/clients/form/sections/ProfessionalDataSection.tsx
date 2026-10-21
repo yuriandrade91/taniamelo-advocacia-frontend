@@ -23,13 +23,13 @@ export function ProfessionalDataSection({
   isReadOnly,
   isLoading,
   inssPassword,
-}: {
+}: Readonly<{
   form: SectionForm<ProfessionalValues>;
   isReadOnly?: boolean;
   /** Carregando: rótulos fixos, valores em skeleton. */
   isLoading?: boolean;
   inssPassword?: ReactNode;
-}) {
+}>) {
   return (
     <div className="flex flex-col gap-8">
       {PROFESSIONAL_GROUPS.map((group) => (

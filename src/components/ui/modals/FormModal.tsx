@@ -96,7 +96,7 @@ export default function FormModal({
   hideFooter = false,
   actions = "buttons",
   className = "",
-}: FormModalProps) {
+}: Readonly<FormModalProps>) {
   const handleOpenChange = (open: boolean) => {
     if (open) {
       onOpenChange(true);

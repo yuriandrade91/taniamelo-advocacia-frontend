@@ -12,11 +12,27 @@ import type {
 import { splitBlankOptional, totalMissing } from "../review";
 import { Segmented } from "@/components/ui/filters/FilterBar";
 import { Svg } from "@/components/ui/icons/Svg";
+import { RichTextView } from "@/components/ui/form/RichTextView";
+import { plural } from "@/lib/format";
 
 type Filter = "all" | "missing";
 
 const cardId = (key: ReviewSectionKey) => `revisao-card-${key}`;
 
+/**
+ * O valor preenchido, igual nas duas vistas. O relato da entrevista sai com a
+ * formatação do editor (negrito, listas), em peso normal para o negrito
+ * aparecer; o resto é texto.
+ */
+const filledValue = (entry: ReviewItem) =>
+  entry.html ? <RichTextView html={entry.html} className="font-normal" /> : entry.value;
+
+
+/** O valor da linha: apagado quando vazio; texto longo guarda as quebras. */
+function valueClass(isEmpty: boolean, keepsLines: boolean): string {
+  if (isEmpty) return "text-gray-100/40";
+  return keepsLines ? "font-medium text-primary whitespace-pre-line" : "font-medium text-primary";
+}
 /**
  * "N faltando" ou "Nada pendente" — só texto, sem ícone. Não "Completo":
  * endereço em branco não tem pendência, mas também não está completo.
@@ -40,7 +56,7 @@ function SectionState({ missing }: { missing: number }) {
  * Obrigatório vazio vira um bloco tracejado em vermelho, e o "Não preenchido"
  * é um botão: leva direto à aba onde o campo está.
  */
-function Field({ entry, onFill }: { entry: ReviewItem; onFill: () => void }) {
+function Field({ entry, onFill }: Readonly<{ entry: ReviewItem; onFill: () => void }>) {
   const span = entry.wide ? "sm:col-span-2 lg:col-span-4" : "";
 
   if (entry.state === "missing") {
@@ -77,20 +93,16 @@ function Field({ entry, onFill }: { entry: ReviewItem; onFill: () => void }) {
         {entry.label}
       </dt>
       <dd
-        className={`mt-1 text-sm break-words ${
-          isEmpty
-            ? "text-gray-100/40"
-            : `font-medium text-primary ${entry.wide ? "whitespace-pre-line" : ""}`
-        }`}
+        className={`mt-1 text-sm break-words ${valueClass(isEmpty, Boolean(entry.wide && !entry.html))}`}
       >
-        {isEmpty ? "—" : entry.value}
+        {isEmpty ? "—" : filledValue(entry)}
       </dd>
     </div>
   );
 }
 
 /** Subtítulo de grupo — o mesmo rótulo com filete do `FormGroup`. */
-function GroupTitle({ children }: { children: ReactNode }) {
+function GroupTitle({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <div className="mb-3 flex items-center gap-3">
       <h3 className="shrink-0 text-xs font-semibold tracking-wider text-gray-100 uppercase">
@@ -120,10 +132,10 @@ const visibleGroups = (groups: ReviewGroup[], filter: Filter) =>
 function DocumentField({
   entry,
   onFill,
-}: {
+}: Readonly<{
   entry: ReviewItem;
   onFill: () => void;
-}) {
+}>) {
   const span = entry.wide ? "sm:col-span-2 lg:col-span-4" : "";
   return (
     <div className={span}>
@@ -149,10 +161,10 @@ function DocumentField({
       ) : (
         <dd
           className={`mt-0.5 text-sm font-medium break-words text-primary ${
-            entry.wide ? "whitespace-pre-line" : ""
+            entry.wide && !entry.html ? "whitespace-pre-line" : ""
           }`}
         >
-          {entry.value}
+          {filledValue(entry)}
         </dd>
       )}
     </div>
@@ -165,10 +177,10 @@ type View = "document" | "blocks";
 function SectionHeader({
   section,
   onEdit,
-}: {
+}: Readonly<{
   section: ReviewSection;
   onEdit: () => void;
-}) {
+}>) {
   return (
     <div className="mb-5 flex flex-wrap items-center gap-3">
       <h2
@@ -237,10 +249,12 @@ const GoToArrow = () => (
 export function ReviewPanel({
   sections,
   onEdit,
-}: {
+}: Readonly<{
   sections: readonly ReviewSection[];
   onEdit: (key: ReviewSectionKey) => void;
-}) {
+}>) {
+  /** O clique em "preencher" de um campo leva à etapa da seção dele. */
+  const editSection = (key: ReviewSectionKey) => () => onEdit(key);
   const [filter, setFilter] = useState<Filter>("all");
   const [view, setView] = useState<View>("blocks");
   const missing = totalMissing(sections);
@@ -258,24 +272,21 @@ export function ReviewPanel({
   // O resumo: no Documento é o topo do próprio cartão; nos Blocos, um
   // cartão à parte, como as seções.
   const summary = (
-    <>
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-        <div role="status">
+    <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+        <output className="block">
           <p
             className={`text-lg font-semibold ${
               isReady ? "text-success" : "text-primary"
             }`}
           >
-            {isReady
-              ? "Tudo pronto para salvar"
-              : `${missing} obrigatório${missing === 1 ? "" : "s"} sem resposta`}
+            {isReady ? "Tudo pronto para salvar" : `${plural(missing, "obrigatório", "obrigatórios")} sem resposta`}
           </p>
           <p className="text-sm text-gray-100">
             {isReady
               ? "Confira os dados abaixo e clique em “Salvar cliente”."
               : "Clique num campo pendente para ir direto a ele."}
           </p>
-        </div>
+        </output>
 
         <div className="flex flex-wrap gap-2">
           <Segmented
@@ -305,7 +316,6 @@ export function ReviewPanel({
           />
         </div>
       </div>
-    </>
   );
 
   return (
@@ -363,11 +373,11 @@ export function ReviewPanel({
                         <>
                           {fields.length > 0 && (
                             <dl className="grid grid-cols-1 gap-x-8 gap-y-4 sm:grid-cols-2 lg:grid-cols-4">
-                              {fields.map((entry, i) => (
+                              {fields.map((entry) => (
                                 <DocumentField
-                                  key={`${entry.label}-${i}`}
+                                  key={entry.label}
                                   entry={entry}
-                                  onFill={() => onEdit(section.key)}
+                                  onFill={editSection(section.key)}
                                 />
                               ))}
                             </dl>
@@ -418,11 +428,11 @@ export function ReviewPanel({
                       <EmptyGroup dashed>{group.emptyMessage}</EmptyGroup>
                     ) : (
                       <dl className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                        {group.items.map((entry, i) => (
+                        {group.items.map((entry) => (
                           <Field
-                            key={`${entry.label}-${i}`}
+                            key={entry.label}
                             entry={entry}
-                            onFill={() => onEdit(section.key)}
+                            onFill={editSection(section.key)}
                           />
                         ))}
                       </dl>

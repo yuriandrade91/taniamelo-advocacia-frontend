@@ -10,10 +10,10 @@ import { STATUS_STYLES, type ClientFormSection } from "./types";
 export function SectionCard({
   section,
   footer,
-}: {
+}: Readonly<{
   section: ClientFormSection;
   footer?: ReactNode;
-}) {
+}>) {
   return (
     <div className="overflow-hidden rounded-3xl bg-white">
       <div className="flex items-start gap-4 border-b border-light-gray/70 bg-floral px-6 py-5 sm:px-8">

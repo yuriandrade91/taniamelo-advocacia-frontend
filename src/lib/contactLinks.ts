@@ -10,7 +10,7 @@
 /** Só os dígitos, com o 55 do Brasil na frente quando falta. */
 export function toPhoneDigits(phone?: string): string | null {
   if (!phone) return null;
-  const digits = phone.replace(/\D/g, "");
+  const digits = phone.replaceAll(/\D/g, "");
   // 10 (fixo com DDD) ou 11 (celular com DDD) dígitos é número nacional.
   if (digits.length === 10 || digits.length === 11) return `55${digits}`;
   // 12/13 já vem com o código do país.

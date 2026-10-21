@@ -29,7 +29,7 @@ export function OverviewView({
   month,
   isLoading,
   isFinanceLoading,
-}: ReportViewProps) {
+}: Readonly<ReportViewProps>) {
   return (
     <>
       {canSeeFinance && (
@@ -62,7 +62,7 @@ export function OverviewView({
   );
 }
 
-function Block({ title, note, children }: { title: string; note: string; children: ReactNode }) {
+function Block({ title, note, children }: Readonly<{ title: string; note: string; children: ReactNode }>) {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-4">

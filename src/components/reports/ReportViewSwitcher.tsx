@@ -2,11 +2,11 @@
 
 import {
   useCallback,
+  useId,
   useLayoutEffect,
   useRef,
   useState,
   type DragEvent,
-  type KeyboardEvent,
   type ReactNode,
 } from "react";
 import { Popover } from "@heroui/react";
@@ -14,6 +14,12 @@ import { Popover } from "@heroui/react";
 import type { ReportView } from "./views";
 import { Svg, type IconProps } from "@/components/ui/icons/Svg";
 import { ChevronDownIcon } from "@/components/ui/icons/glyphs";
+
+/** A opção escolhida pinta o próprio fundo só até o indicador medir. */
+function optionClass(selected: boolean, hasThumb: boolean): string {
+  if (!selected) return "text-gray-100 hover:bg-page hover:text-primary";
+  return hasThumb ? "text-white" : "text-white bg-primary";
+}
 
 /**
  * Seletor das visões de Relatórios: controle segmentado na largura toda, com
@@ -34,8 +40,8 @@ import { ChevronDownIcon } from "@/components/ui/icons/glyphs";
  *
  * ## Teclado
  *
- * É um `radiogroup`: Tab entra só na opção marcada, e as setas, Home e End
- * trocam a visão, como num grupo de rádios nativo.
+ * São rádios nativos (escondidos atrás do desenho): Tab entra só na opção
+ * marcada e as setas trocam a visão — o navegador faz isso sozinho.
  *
  * ## A ordem é do usuário
  *
@@ -50,7 +56,7 @@ export function ReportViewSwitcher({
   onMove,
   onResetOrder,
   isCustomOrder,
-}: {
+}: Readonly<{
   /** As visões já na ordem do usuário. */
   views: readonly ReportView[];
   value: string;
@@ -59,9 +65,10 @@ export function ReportViewSwitcher({
   onMove: (id: string, to: number) => void;
   onResetOrder: () => void;
   isCustomOrder: boolean;
-}) {
+}>) {
   const listRef = useRef<HTMLDivElement>(null);
-  const buttonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const name = useId();
+  const optionRefs = useRef(new Map<string, HTMLLabelElement>());
   const [thumb, setThumb] = useState<{ left: number; width: number } | null>(
     null,
   );
@@ -69,7 +76,7 @@ export function ReportViewSwitcher({
   const [animate, setAnimate] = useState(false);
 
   const measure = useCallback(() => {
-    const button = buttonRefs.current.get(value);
+    const button = optionRefs.current.get(value);
     if (!button) return;
     setThumb({ left: button.offsetLeft, width: button.offsetWidth });
   }, [value]);
@@ -80,7 +87,7 @@ export function ReportViewSwitcher({
   useLayoutEffect(() => {
     measure();
     // Na fita rolável do celular, a visão escolhida não pode ficar fora da tela.
-    buttonRefs.current
+    optionRefs.current
       .get(value)
       ?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
   }, [measure, value, orderKey]);
@@ -100,26 +107,6 @@ export function ReportViewSwitcher({
     return () => cancelAnimationFrame(frame);
   }, [thumb, animate]);
 
-  const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
-    const index = views.findIndex((v) => v.id === value);
-    const last = views.length - 1;
-    const next =
-      event.key === "ArrowRight" || event.key === "ArrowDown"
-        ? index === last ? 0 : index + 1
-        : event.key === "ArrowLeft" || event.key === "ArrowUp"
-          ? index === 0 ? last : index - 1
-          : event.key === "Home"
-            ? 0
-            : event.key === "End"
-              ? last
-              : null;
-    if (next === null) return;
-    event.preventDefault();
-    const id = views[next].id;
-    onChange(id);
-    buttonRefs.current.get(id)?.focus();
-  };
-
   const active = views.find((v) => v.id === value) ?? views[0];
 
   return (
@@ -128,7 +115,6 @@ export function ReportViewSwitcher({
         ref={listRef}
         role="radiogroup"
         aria-label="Visão do relatório"
-        onKeyDown={onKeyDown}
         className="relative flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none]"
       >
         {thumb && (
@@ -150,27 +136,29 @@ export function ReportViewSwitcher({
           const Icon = view.icon;
           const selected = view.id === active.id;
           return (
-            <button
+            <label
               key={view.id}
               ref={(node) => {
-                if (node) buttonRefs.current.set(view.id, node);
-                else buttonRefs.current.delete(view.id);
+                if (node) optionRefs.current.set(view.id, node);
+                else optionRefs.current.delete(view.id);
               }}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              tabIndex={selected ? 0 : -1}
-              onClick={() => onChange(view.id)}
-              className={`relative flex flex-1 shrink-0 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary ${
-                selected
-                  ? `text-white ${thumb ? "" : "bg-primary"}`
-                  : "text-gray-100 hover:bg-page hover:text-primary"
+              className={`relative flex flex-1 shrink-0 cursor-pointer items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors duration-200 has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-secondary ${
+                optionClass(selected, Boolean(thumb))
               }`}
             >
-              {/* Sem cor própria: herda a do botão, branca quando selecionado. */}
+              <input
+                type="radio"
+                name={name}
+                value={view.id}
+                aria-label={view.label}
+                checked={selected}
+                onChange={() => onChange(view.id)}
+                className="sr-only"
+              />
+              {/* Sem cor própria: herda a do rótulo, branca quando selecionado. */}
               <Icon className="h-4 w-4" />
               {view.label}
-            </button>
+            </label>
           );
         })}
       </div>
@@ -200,12 +188,12 @@ function OrderPopover({
   onMove,
   onReset,
   isCustom,
-}: {
+}: Readonly<{
   views: readonly ReportView[];
   onMove: (id: string, to: number) => void;
   onReset: () => void;
   isCustom: boolean;
-}) {
+}>) {
   const [dragging, setDragging] = useState<string | null>(null);
 
   const onDragOver = (event: DragEvent<HTMLLIElement>, index: number) => {
@@ -236,7 +224,8 @@ function OrderPopover({
               const Icon = view.icon;
               const isDragging = dragging === view.id;
               return (
-                <li
+                // Arrastar é atalho do mouse; o teclado reordena pelas setas (MoveButton).
+                <li // NOSONAR
                   key={view.id}
                   draggable
                   onDragStart={(event) => {
@@ -295,12 +284,12 @@ function MoveButton({
   disabled,
   onPress,
   children,
-}: {
+}: Readonly<{
   label: string;
   disabled: boolean;
   onPress: () => void;
   children: ReactNode;
-}) {
+}>) {
   return (
     <button
       type="button"

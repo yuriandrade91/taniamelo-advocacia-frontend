@@ -1,3 +1,9 @@
+const TONE_CLASS: Record<"success" | "primary" | "neutral", string> = {
+  success: "text-success hover:bg-success/10",
+  primary: "text-primary hover:bg-primary/10",
+  neutral: "text-gray-100 hover:bg-gray-100/10",
+};
+
 /**
  * Botão de contato em um toque — WhatsApp, ligação, e-mail.
  *
@@ -11,19 +17,14 @@ export function ContactAction({
   label,
   tone,
   children,
-}: {
+}: Readonly<{
   href: string | null;
   label: string;
   tone: "success" | "primary" | "neutral";
   children: React.ReactNode;
-}) {
+}>) {
   if (!href) return null;
-  const toneClass =
-    tone === "success"
-      ? "text-success hover:bg-success/10"
-      : tone === "primary"
-        ? "text-primary hover:bg-primary/10"
-        : "text-gray-100 hover:bg-gray-100/10";
+  const toneClass = TONE_CLASS[tone];
 
   return (
     <a

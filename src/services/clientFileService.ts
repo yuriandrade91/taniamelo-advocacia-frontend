@@ -63,6 +63,20 @@ export const listSimulations = async (
   return data;
 };
 
+/** PATCH .../simulations/{fileId}/principal — a principal passa a ser esta. */
+export const markPrincipalSimulation = async (
+  clientId: string,
+  fileId: string,
+  options?: RequestFeedback,
+): Promise<ApiEnvelope<ClientFileSimulationResponse>> => {
+  const { data } = await axiosInstance.patch<ApiEnvelope<ClientFileSimulationResponse>>(
+    endpoints.CLIENT_FILES.MARK_PRINCIPAL(clientId, fileId),
+    undefined,
+    feedback("Simulação principal definida.", options),
+  );
+  return data;
+};
+
 // ── Genéricos (documento OU simulação) ──
 
 /**

@@ -44,7 +44,7 @@ export function DataList<T>({
   isLoading,
   empty,
   dense = false,
-}: {
+}: Readonly<{
   ariaLabel: string;
   items: readonly T[];
   columns: readonly ListColumn<T>[];
@@ -55,7 +55,7 @@ export function DataList<T>({
   /** Estado vazio (sem resultado, filtro ou falha). */
   empty: ReactNode;
   dense?: boolean;
-}) {
+}>) {
   const gap = dense ? "gap-x-5 xl:gap-x-3" : "gap-x-5";
   return (
     // `overflow-clip`, e não `hidden`: corta os cantos sem virar contêiner de
@@ -122,11 +122,11 @@ export function ListEmpty({
   tone = "neutral",
   action,
   children,
-}: {
+}: Readonly<{
   tone?: "neutral" | "danger";
   action?: ReactNode;
   children: ReactNode;
-}) {
+}>) {
   return (
     <div
       role={tone === "danger" ? "alert" : undefined}

@@ -55,7 +55,7 @@ export function groupByDocumentType<T extends GroupableFile>(
     }
   }
   // O que sobrou (tipos fora do enum) vai depois, em ordem alfabética.
-  for (const type of [...byType.keys()].sort()) {
+  for (const type of [...byType.keys()].sort((a, b) => a.localeCompare(b))) {
     ordered.push({ type, items: byType.get(type)! });
   }
   return ordered;

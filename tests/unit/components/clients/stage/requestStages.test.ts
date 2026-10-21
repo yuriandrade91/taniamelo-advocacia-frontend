@@ -27,7 +27,7 @@ describe("requestStageOf", () => {
 
   it("nulo é 'ainda não foi ao INSS', e não uma etapa", () => {
     expect(requestStageOf(null)).toBeNull();
-    expect(requestStageOf(undefined)).toBeNull();
+    expect(requestStageOf()).toBeNull();
     expect(requestStageOf("Perícia")).toBeNull();
   });
 
@@ -41,7 +41,7 @@ describe("requestStageOf", () => {
 
 describe("requestStageTrack", () => {
   it("sem requerimento, o trilho é todo cinza", () => {
-    expect(requestStageTrack(null)).toEqual(Array(REQUEST_STAGE_TRACK).fill("upcoming"));
+    expect(requestStageTrack(null)).toEqual(Array.from({ length: REQUEST_STAGE_TRACK }, () => "upcoming"));
   });
 
   it("o caminho até a etapa em verde, ela na sua cor, o resto em cinza", () => {
@@ -56,7 +56,7 @@ describe("requestStageTrack", () => {
   });
 
   it("deferido fecha o trilho inteiro em verde", () => {
-    expect(requestStageTrack(stage("Deferimento"))).toEqual(Array(REQUEST_STAGE_TRACK).fill("done"));
+    expect(requestStageTrack(stage("Deferimento"))).toEqual(Array.from({ length: REQUEST_STAGE_TRACK }, () => "done"));
   });
 
   it("indeferido fica vermelho no ponto da decisão; em recurso, a decisão continua vermelha", () => {

@@ -13,7 +13,7 @@ import { ChatIcon, InstagramIcon, MailIcon, PhoneIcon, PinIcon } from "./siteIco
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
 
 const subscribeReduced = (onChange: () => void) => {
-  const query = window.matchMedia(REDUCED_QUERY);
+  const query = globalThis.matchMedia(REDUCED_QUERY);
   query.addEventListener("change", onChange);
   return () => query.removeEventListener("change", onChange);
 };
@@ -21,7 +21,7 @@ const subscribeReduced = (onChange: () => void) => {
 export function usePrefersReducedMotion() {
   return useSyncExternalStore(
     subscribeReduced,
-    () => window.matchMedia(REDUCED_QUERY).matches,
+    () => globalThis.matchMedia(REDUCED_QUERY).matches,
     () => false,
   );
 }
@@ -33,7 +33,7 @@ export function shortBenefit(title: string) {
 }
 
 /** A marca do escritório: dourada sobre fundo escuro, azul sobre claro. */
-export function Logo({ tone = "gold", className = "h-11 w-auto", decorative = false }: { tone?: "gold" | "blue"; className?: string; decorative?: boolean }) {
+export function Logo({ tone = "gold", className = "h-11 w-auto", decorative = false }: Readonly<{ tone?: "gold" | "blue"; className?: string; decorative?: boolean }>) {
   return (
     <Image
       src={tone === "gold" ? svgPaths.LOGOS.GOLD : svgPaths.LOGOS.BLUE}
@@ -59,7 +59,7 @@ export function ChoicePills<T extends string>({
   legendClassName = "",
   groupClassName = "",
   optionClassName,
-}: {
+}: Readonly<{
   legend: string;
   options: readonly { id: T; label: string }[];
   value: T;
@@ -69,7 +69,7 @@ export function ChoicePills<T extends string>({
   groupClassName?: string;
   /** As classes de cada opção, escolhida ou não. */
   optionClassName: (isActive: boolean) => string;
-}) {
+}>) {
   const name = useId();
   return (
     <fieldset className={className}>
@@ -88,6 +88,7 @@ export function ChoicePills<T extends string>({
                 value={option.id}
                 checked={isActive}
                 onChange={() => onChange(option.id)}
+                aria-label={option.label}
                 className="sr-only"
               />
               {option.label}
@@ -106,7 +107,7 @@ function contactChannels(): Channel[] {
   const { whatsapp, phone, email, address, instagram } = SITE_CONTACT;
   const list: (Channel | false)[] = [
     !!whatsapp && { label: "WhatsApp", value: "Conversar agora", href: contactHref, icon: ChatIcon },
-    !!phone && { label: "Telefone", value: phone, href: `tel:+55${phone.replace(/\D/g, "")}`, icon: PhoneIcon },
+    !!phone && { label: "Telefone", value: phone, href: `tel:+55${phone.replaceAll(/\D/g, "")}`, icon: PhoneIcon },
     !!email && { label: "E-mail", value: email, href: `mailto:${email}`, icon: MailIcon },
     !!instagram && {
       label: "Instagram",
@@ -116,7 +117,7 @@ function contactChannels(): Channel[] {
     },
     !!address && { label: "Endereço", value: address, icon: PinIcon },
   ];
-  return list.filter((channel): channel is Channel => Boolean(channel));
+  return list.filter((channel): channel is Channel => channel !== false);
 }
 
 /**
@@ -129,13 +130,13 @@ export function ChannelList({
   iconClassName = "h-5 w-5",
   labelClassName = "block text-xs uppercase tracking-[0.15em] opacity-60",
   emptyClassName = "",
-}: {
+}: Readonly<{
   className?: string;
   itemClassName?: string;
   iconClassName?: string;
   labelClassName?: string;
   emptyClassName?: string;
-}) {
+}>) {
   const list = contactChannels();
   if (list.length === 0) {
     return <p className={emptyClassName}>Os canais de atendimento serão publicados aqui em breve.</p>;

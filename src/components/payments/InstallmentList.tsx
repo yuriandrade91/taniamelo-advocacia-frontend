@@ -3,8 +3,8 @@
 import { Skeleton } from "@heroui/react";
 import { PulseHalo } from "@/components/wallet/PulseHalo";
 import type { ClientPaymentResponse } from "@/interfaces/client/ClientSubResources.interface";
-import { formatBRL, formatDateBR, plural } from "@/lib/format";
-import { BUCKET_BADGE, bucketOf, type PaymentBucket } from "./paymentBuckets";
+import { formatBRL, plural } from "@/lib/format";
+import { BUCKET_BADGE, bucketOf, installmentWhen, type PaymentBucket } from "./paymentBuckets";
 import type { InstallmentCounts } from "./installmentTrail";
 import { STATUS_FILL } from "./list/PaymentStatus";
 
@@ -29,8 +29,8 @@ const NODE: Record<PaymentBucket, string> = {
 const NODE_MARK: Record<PaymentBucket, (n: number) => string> = {
   paid: () => "✓",
   overdue: () => "!",
-  upcoming: (n) => String(n),
-  cancelled: (n) => String(n),
+  upcoming: String,
+  cancelled: String,
 };
 
 /** Texto do estado: só atrasado e recebido com cor, como no cartão. */
@@ -51,7 +51,7 @@ export function InstallmentList<P extends ClientPaymentResponse>({
   onOpen,
   canOpenCurrent = true,
   className = "",
-}: {
+}: Readonly<{
   /** A parcela em foco: a do cartão ou a do detalhe aberto. */
   current: P;
   /** As parcelas do acordo, por número (`agreementOf`). */
@@ -62,7 +62,7 @@ export function InstallmentList<P extends ClientPaymentResponse>({
   /** No detalhe, a parcela em foco já é a que está aberta. */
   canOpenCurrent?: boolean;
   className?: string;
-}) {
+}>) {
   const numbers = numbersOf(current.installmentTotal ?? 1);
 
   return (
@@ -108,10 +108,10 @@ export function InstallmentList<P extends ClientPaymentResponse>({
 export function InstallmentStrip<P extends ClientPaymentResponse>({
   current,
   byNumber,
-}: {
+}: Readonly<{
   current: P;
   byNumber: ReadonlyMap<number, P>;
-}) {
+}>) {
   return (
     <div className="flex gap-1" aria-hidden="true">
       {numbersOf(current.installmentTotal ?? 1).map((n) => {
@@ -128,7 +128,7 @@ export function InstallmentStrip<P extends ClientPaymentResponse>({
 }
 
 /** "3 recebidas · 1 atrasada · 6 a vencer" — atrasada só quando há. */
-export function InstallmentTally({ counts }: { counts: InstallmentCounts }) {
+export function InstallmentTally({ counts }: Readonly<{ counts: InstallmentCounts }>) {
   return (
     <>
       <span className="text-success">
@@ -154,19 +154,15 @@ function InstallmentRow({
   bucket,
   isThis,
   onOpen,
-}: {
+}: Readonly<{
   n: number;
   item?: ClientPaymentResponse;
   bucket: PaymentBucket | null;
   isThis: boolean;
   onOpen?: () => void;
-}) {
+}>) {
   const label = bucket ? BUCKET_BADGE[bucket].label : "não lançada";
-  const when = !item
-    ? null
-    : bucket === "paid" && item.paidDate
-      ? `recebida em ${formatDateBR(item.paidDate)}`
-      : `vence ${formatDateBR(item.dueDate)}`;
+  const when = item ? installmentWhen(item, bucket) : null;
   return (
     <button
       type="button"

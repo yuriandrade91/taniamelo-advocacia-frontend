@@ -75,10 +75,11 @@ export function buildMonthSummary(props: {
 export const exact = (value: number | null | undefined) =>
   value === null || value === undefined ? undefined : formatBRL(value);
 
-export const countLabel = (amount: Amount | null, verb = "") =>
-  amount
-    ? `${amount.count} ${amount.count === 1 ? "lançamento" : "lançamentos"}${verb ? ` ${verb}` : ""}`
-    : "";
+export const countLabel = (amount: Amount | null, verb = "") => {
+  if (!amount) return "";
+  const noun = amount.count === 1 ? "lançamento" : "lançamentos";
+  return [`${amount.count} ${noun}`, verb].filter(Boolean).join(" ");
+};
 
 /** Saldo e projeção: perigo no negativo — negativo é resultado, não erro. */
 export const balanceTone = (value: number | null) => (value !== null && value < 0 ? "text-danger" : "text-primary");

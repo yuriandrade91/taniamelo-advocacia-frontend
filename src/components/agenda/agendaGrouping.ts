@@ -127,7 +127,7 @@ const DAY_END = 20 * 60;
 
 /**
  * Onde um compromisso cai na régua do expediente, em % da largura; `null`
- * quando fica todo fora dela. Cortado nas pontas.
+ * quando fica inteiro fora dela. Cortado nas pontas.
  */
 export function rulerSpan(a: AppointmentResponse): { left: number; width: number } | null {
   const begin = minutesOfDay(a.startAt);

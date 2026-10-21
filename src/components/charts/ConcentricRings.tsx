@@ -25,7 +25,7 @@ export function ConcentricRings({
   track = "rgba(9,13,76,0.06)",
   children,
   className = "",
-}: {
+}: Readonly<{
   rings: readonly Ring[];
   size?: number;
   thickness?: number;
@@ -33,7 +33,7 @@ export function ConcentricRings({
   track?: string;
   children?: ReactNode;
   className?: string;
-}) {
+}>) {
   const center = size / 2;
   return (
     <div className={`relative inline-flex shrink-0 ${className}`} style={{ width: size, height: size }}>

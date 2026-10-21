@@ -21,11 +21,11 @@ export const STORED_VALUE_EVENT = "stored-value";
 const LOCAL_EVENT = STORED_VALUE_EVENT;
 
 const subscribe = (onChange: () => void) => {
-  window.addEventListener("storage", onChange);
-  window.addEventListener(LOCAL_EVENT, onChange);
+  globalThis.addEventListener("storage", onChange);
+  globalThis.addEventListener(LOCAL_EVENT, onChange);
   return () => {
-    window.removeEventListener("storage", onChange);
-    window.removeEventListener(LOCAL_EVENT, onChange);
+    globalThis.removeEventListener("storage", onChange);
+    globalThis.removeEventListener(LOCAL_EVENT, onChange);
   };
 };
 
@@ -51,7 +51,7 @@ export function useStoredValue(key: string): [string | null, (next: string | nul
       } catch {
         return;
       }
-      window.dispatchEvent(new Event(LOCAL_EVENT));
+      globalThis.dispatchEvent(new Event(LOCAL_EVENT));
     },
     [key],
   );
@@ -62,7 +62,7 @@ export function useStoredValue(key: string): [string | null, (next: string | nul
 export function useUrlParam(name: string): string | null {
   return useSyncExternalStore(
     subscribe,
-    () => new URLSearchParams(window.location.search).get(name),
+    () => new URLSearchParams(globalThis.location.search).get(name),
     () => null,
   );
 }
@@ -85,9 +85,9 @@ export function useStoredChoice<T extends string>(
 
   const choose = (next: T) => {
     // A URL primeiro: gravar avisa quem lê, e a releitura já pega o parâmetro novo.
-    const url = new URL(window.location.href);
+    const url = new URL(globalThis.location.href);
     url.searchParams.set(urlParam, next);
-    window.history.replaceState(null, "", url);
+    globalThis.history.replaceState(null, "", url);
     store(next);
   };
   return [choice, choose] as const;

@@ -56,7 +56,7 @@ const SESSION_CHECK_MS = 60_000;
  * erro. O que escapar disso (um 401 no meio de uma ação) o `axiosService`
  * trata do mesmo jeito.
  */
-export function RouteGuard({ children }: { children: React.ReactNode }) {
+export function RouteGuard({ children }: Readonly<{ children: React.ReactNode }>) { // NOSONAR
   const router = useRouter();
   const pathname = usePathname();
   const [isAllowed, setIsAllowed] = useState(false);
@@ -81,9 +81,9 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
 
       // Preserva o destino para retomar após o login (?next=/rota) — o mesmo
       // contrato que o proxy usava, e que a tela de login já sabe ler.
-      const target = new URL(publicRoutes.login, window.location.origin);
+      const target = new URL(publicRoutes.login, globalThis.location.origin);
       if (pathname && pathname !== "/") {
-        target.searchParams.set("next", pathname + window.location.search);
+        target.searchParams.set("next", pathname + globalThis.location.search);
       }
       router.replace(target.pathname + target.search);
     })();
@@ -108,16 +108,16 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
       if (document.visibilityState === "visible") void check();
     };
 
-    const timer = window.setInterval(() => void check(), SESSION_CHECK_MS);
+    const timer = globalThis.setInterval(() => void check(), SESSION_CHECK_MS);
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
     return () => {
-      window.clearInterval(timer);
+      globalThis.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", onVisible);
     };
   }, [isAllowed]);
 
-  if (!isAllowed) return null;
-  return <>{children}</>;
+  // Nada até a sessão ser conferida: a tela protegida não monta (nem pede dados) antes disso.
+  return isAllowed ? children : null;
 }

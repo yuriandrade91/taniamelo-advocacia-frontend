@@ -83,13 +83,13 @@ export function validateBenefitPayment(
 
   if (!values.description.trim()) errors.description = "Informe a descrição.";
 
-  if (!values.amount.trim()) {
-    errors.amount = "Informe o valor.";
-  } else {
+  if (values.amount.trim()) {
     const parsed = parseAmountBRL(values.amount);
     if (parsed === null) errors.amount = "Valor inválido.";
     // `@DecimalMin("0.01")` no backend — melhor dizer aqui do que colher um 400.
     else if (parsed <= 0) errors.amount = "O valor deve ser maior que zero.";
+  } else {
+    errors.amount = "Informe o valor.";
   }
 
   if (!values.expectedDate.trim()) {

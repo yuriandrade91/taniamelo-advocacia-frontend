@@ -1,3 +1,5 @@
+import { optionalText } from "@/lib/formValues";
+
 /**
  * Monta o `FormData` do upload de documentos.
  *
@@ -34,7 +36,7 @@ export function buildDocumentsFormData(
 
   const metadata = uploads.map((upload) => ({
     documentType: upload.documentType,
-    notes: upload.notes?.trim() || undefined,
+    notes: optionalText(upload.notes),
   }));
 
   form.append(
@@ -75,10 +77,10 @@ export function buildSimulationsFormData(
   }
 
   const metadata = uploads.map((upload) => ({
-    simulationDate: upload.simulationDate || undefined,
-    version: upload.version?.trim() || undefined,
+    simulationDate: optionalText(upload.simulationDate),
+    version: optionalText(upload.version),
     vinculos: Number.isFinite(upload.vinculos) ? upload.vinculos : undefined,
-    notes: upload.notes?.trim() || undefined,
+    notes: optionalText(upload.notes),
   }));
 
   form.append(

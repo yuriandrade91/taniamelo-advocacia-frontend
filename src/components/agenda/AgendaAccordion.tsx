@@ -25,7 +25,7 @@ import {
 import { useNow } from "@/hooks/useNow";
 import { ChevronRightIcon } from "@/components/ui/icons/glyphs";
 
-export type { AgendaActions };
+
 
 /**
  * A agenda do mês em sanfona — o modelo escolhido no estudo visual.
@@ -56,11 +56,11 @@ export function AgendaAccordion({
   days,
   actions,
   isLoading,
-}: {
+}: Readonly<{
   days: AgendaDay[];
   actions: AgendaActions;
   isLoading: boolean;
-}) {
+}>) {
   const now = useNow();
   const today = todayKey();
 
@@ -78,7 +78,7 @@ export function AgendaAccordion({
   const [dayPage, setDayPage] = useState<number | null>(null);
   const todayIndex = days.findIndex((d) => d.date === today);
   const initialPage =
-    todayIndex >= 0 ? Math.floor(todayIndex / DAYS_PER_PAGE) + 1 : 1;
+    todayIndex === -1 ? 1 : Math.floor(todayIndex / DAYS_PER_PAGE) + 1;
   const daysPage = slicePage(days, dayPage ?? initialPage, DAYS_PER_PAGE);
 
   // Página de cada dia, por data.
@@ -199,7 +199,7 @@ export function AgendaAccordion({
  * Os tipos do dia, um ícone cada, com tooltip (o mesmo das ações da tabela):
  * o nome do tipo e quantos compromissos dele há no dia.
  */
-function TypeIcons({ day }: { day: AgendaDay }) {
+function TypeIcons({ day }: Readonly<{ day: AgendaDay }>) {
   const types = TYPE_ORDER.filter((t) => day.items.some((a) => a.type === t));
   return (
     <span className="relative z-10 flex items-center gap-1.5">
@@ -229,7 +229,7 @@ function TypeIcons({ day }: { day: AgendaDay }) {
 }
 
 /** A régua do expediente (07h–20h) com os blocos ocupados, na cor do tipo. */
-function DayRuler({ day }: { day: AgendaDay }) {
+function DayRuler({ day }: Readonly<{ day: AgendaDay }>) {
   return (
     <span
       className="pointer-events-none relative hidden h-2 w-40 overflow-hidden rounded-full bg-page md:block"
@@ -257,17 +257,17 @@ function DayRuler({ day }: { day: AgendaDay }) {
 function ListState({
   isLoading,
   actions,
-}: {
+}: Readonly<{
   isLoading: boolean;
   actions: AgendaActions;
-}) {
+}>) {
   if (isLoading) {
     return (
-      <div role="status" aria-label="Carregando a agenda" className="flex flex-col gap-3">
+      <output aria-label="Carregando a agenda" className="flex flex-col gap-3">
         {Array.from({ length: 6 }, (_, i) => (
           <DaySkeleton key={i} />
         ))}
-      </div>
+      </output>
     );
   }
   return (
@@ -302,3 +302,5 @@ function DaySkeleton() {
     </section>
   );
 }
+
+export {type AgendaActions} from "./agendaRow";

@@ -22,6 +22,8 @@ import { apiWithBrowserSession, validCpf, integrationPaused, TAG } from "./apiHe
 test.describe.configure({ mode: "serial" });
 
 const NAME = `${TAG} Ficha ${Date.now().toString(36)}`;
+/** O nome como expressão regular: os colchetes do sufixo são literais. */
+const escapedName = NAME.replaceAll(/[[\]]/g, String.raw`\$&`);
 const FILENAME = "laudo-e2e.pdf";
 /** Um PDF mínimo, mas de verdade: o backend confere o tipo do conteúdo. */
 const PDF = Buffer.from(
@@ -81,7 +83,7 @@ async function viewSheet(page: Page) {
   await page.getByRole("button", { name: "Visualizar este cliente" }).first().click();
   const sheet = page.getByRole("dialog");
   // Carregou: o nome deste cliente (um teste anterior pode tê-lo editado).
-  await expect(sheet.getByLabel("Nome completo")).toHaveValue(new RegExp(`^${NAME.replace(/[[\]]/g, "\\$&")}`));
+  await expect(sheet.getByLabel("Nome completo")).toHaveValue(new RegExp(`^${escapedName}`));
   return sheet;
 }
 
@@ -92,7 +94,7 @@ async function editSheet(page: Page) {
   await page.waitForResponse((r) => r.url().includes("searchTerm") && r.request().method() === "GET");
   await page.getByRole("button", { name: "Editar este cliente" }).first().click();
   const sheet = page.getByRole("dialog");
-  await expect(sheet.getByLabel("Nome completo")).toHaveValue(new RegExp(`^${NAME.replace(/[[\]]/g, "\\$&")}`));
+  await expect(sheet.getByLabel("Nome completo")).toHaveValue(new RegExp(`^${escapedName}`));
   return sheet;
 }
 

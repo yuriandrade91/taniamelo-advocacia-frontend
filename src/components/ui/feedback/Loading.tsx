@@ -18,11 +18,11 @@ export function LoadingCircle({
   size = 14,
   label = "Carregando",
   className = "",
-}: {
+}: Readonly<{
   size?: number;
   label?: string;
   className?: string;
-}) {
+}>) {
   return (
     <ProgressCircle isIndeterminate aria-label={label} className={`inline-flex shrink-0 ${className}`}>
       <ProgressCircle.Track style={{ width: size, height: size }}>
@@ -34,7 +34,7 @@ export function LoadingCircle({
 }
 
 /** Uma linha inteira de lista ou tabela, na altura média de uma linha. */
-export function RowSkeleton({ className = "" }: { className?: string }) {
+export function RowSkeleton({ className = "" }: Readonly<{ className?: string }>) {
   return <Skeleton className={`h-10 w-full rounded-xl ${className}`} />;
 }
 
@@ -50,12 +50,12 @@ export function RowSkeletons({
   label,
   className = "flex flex-col gap-3",
   itemClassName = "",
-}: {
+}: Readonly<{
   count?: number;
   label?: string;
   className?: string;
   itemClassName?: string;
-}) {
+}>) {
   return (
     <ul
       className={className}

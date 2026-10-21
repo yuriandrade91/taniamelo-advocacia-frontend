@@ -13,9 +13,9 @@ import { RouteGuard } from "@/components/auth/RouteGuard";
  */
 export default function PrivateLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     // `min-h-screen` (e não `h-screen`) para o conteúdo mais alto que a
     // viewport rolar em vez de ser cortado.

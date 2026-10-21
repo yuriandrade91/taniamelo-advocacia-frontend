@@ -53,6 +53,41 @@ test("o que falta fica na barra; a Revisão mostra o que foi digitado e Editar v
   await expect(page.getByText("senha-que-nao-aparece")).toHaveCount(0);
 
   await page.getByRole("button", { name: "Editar Dados pessoais" }).click();
-  await expect(tab(page, "Dados pessoais \\(")).toHaveAttribute("aria-selected", "true");
+  await expect(tab(page, String.raw`Dados pessoais \(`)).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("textbox", { name: /^Nome completo/ })).toHaveValue("Maria Revisão");
+});
+
+test("o relato da entrevista chega à Revisão com a formatação do editor", async ({ page }) => {
+  await page.goto("/clientes/novo", { waitUntil: "networkidle" });
+  await choose(page, "Benefício pretendido", "Aposentadoria por idade");
+  await choose(page, "Situação", "Formulário preenchido");
+  await openSection(page, "Dados pessoais");
+  await page.getByRole("textbox", { name: /^Nome completo/ }).fill("Maria Relato");
+  await fillDateSegments(page, "Data de nascimento", ["20", "05", "1970"]);
+  await page.getByRole("textbox", { name: /^Nome da mãe/ }).fill("Maria de Teste");
+  await page.getByRole("textbox", { name: /^Celular/ }).fill("(31) 99999-0000");
+  await choose(page, "Gênero", "Feminino");
+  await page.getByRole("textbox", { name: /^CPF/ }).fill(validCpf());
+  await openSection(page, "Dados profissionais");
+  await page.getByLabel("Senha do INSS (meu INSS)").fill("senha-que-nao-aparece");
+
+  // Escreve como a pessoa: texto, negrito pela barra, uma lista.
+  await openSection(page, "Entrevista");
+  const editor = page.locator(".tiptap");
+  await editor.click();
+  await page.keyboard.type("Trouxe a ");
+  await page.getByRole("button", { name: "Negrito" }).click();
+  await page.keyboard.type("CTPS");
+  await page.getByRole("button", { name: "Negrito" }).click();
+  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Lista com marcadores" }).click();
+  await page.keyboard.type("falta o CNIS");
+  await page.keyboard.press("Enter");
+  await page.keyboard.type("falta o laudo");
+
+  await tab(page, "Revisão").click();
+  // Vale para as duas vistas da Revisão: a formatação está no conteúdo, não no desenho.
+  const interview = page.getByRole("region", { name: "Entrevista" });
+  await expect(interview.locator("strong")).toHaveText("CTPS");
+  await expect(interview.getByRole("listitem")).toHaveText(["falta o CNIS", "falta o laudo"]);
 });

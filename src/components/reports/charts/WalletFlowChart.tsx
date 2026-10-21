@@ -10,6 +10,7 @@ import {
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
 import { ChartCard } from "@/components/charts/ChartCard";
+import { useConstant } from "@/hooks/useConstant";
 import {
   BAR_SPEC,
   REPORT_BAR,
@@ -54,7 +55,7 @@ export function WalletFlowChart({
   points,
   isEmpty,
   emptyMessage,
-}: WalletFlowChartProps) {
+}: Readonly<WalletFlowChartProps>) {
   const data = useMemo(
     () => ({
       labels: points.map((point) => formatMonthAxis(point.month)),
@@ -78,10 +79,7 @@ export function WalletFlowChart({
     [points],
   );
 
-  const options = useMemo(
-    () => baseBarOptions({ formatValue: formatBRLCompact }),
-    [],
-  );
+  const options = useConstant(() => baseBarOptions({ formatValue: formatBRLCompact }));
 
   return (
     <ChartCard

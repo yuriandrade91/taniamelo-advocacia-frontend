@@ -59,7 +59,7 @@ describe("filterChips", () => {
       method: ["PIX", "BOLETO"],
       period: { from: "2026-01-01", to: "2026-01-31" },
     };
-    const labels = filterChips(schema, values, () => undefined).map((chip) => chip.label);
+    const labels = filterChips(schema, values, () => {}).map((chip) => chip.label);
     expect(labels).toEqual(["Recebido", "Pix", "Boleto", "01/01/2026 – 31/01/2026"]);
   });
 

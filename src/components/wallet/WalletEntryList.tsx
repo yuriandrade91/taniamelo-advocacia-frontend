@@ -15,6 +15,7 @@ import { BUCKET_DOT, KIND_META, bucketLabel } from "./entryKind";
 import type { OfficeExpenseResponse } from "@/interfaces/finance/OfficeExpense.interface";
 import type { OfficeRevenueResponse } from "@/interfaces/finance/OfficeRevenue.interface";
 import { formatBRL, formatDateBR } from "@/lib/format";
+import { optionalText } from "@/lib/formValues";
 
 /**
  * Lista de lançamentos da Carteira — o "Compilado · Cascata", escolhido entre
@@ -67,7 +68,7 @@ function fromRevenue(item: OfficeRevenueResponse): WalletEntry {
     paidDate: item.paidDate,
     // Receita sem cliente é normal: parecer avulso, reembolso. O traço diz
     // "não veio de cliente", não "faltou dado".
-    party: item.clientName?.trim() || undefined,
+    party: optionalText(item.clientName),
     bucket: bucketOf(item),
   };
 }
@@ -81,14 +82,14 @@ function fromExpense(item: OfficeExpenseResponse): WalletEntry {
     amount: item.amount,
     dueDate: item.dueDate,
     paidDate: item.paidDate,
-    party: item.supplier?.trim() || undefined,
+    party: optionalText(item.supplier),
     category: item.category,
     bucket: bucketOf(item),
   };
 }
 
 /** Selo de status: texto em `gray-100`, como o resto da linha; a cor fica no ponto. */
-export function BucketChip({ kind, bucket }: { kind: EntryKind; bucket: PaymentBucket }) {
+export function BucketChip({ kind, bucket }: Readonly<{ kind: EntryKind; bucket: PaymentBucket }>) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-100 ring-1 ring-black/10">
       <span className={`h-1.5 w-1.5 rounded-full ${BUCKET_DOT[bucket]}`} />
@@ -220,7 +221,7 @@ const CANCELLED_ROW =
 
 export function WalletEntryList(props: WalletEntryListProps) {
   const { kind, isLoading, emptyMessage, actions } = props;
-  const entries = props.kind === "expense" ? props.items.map(fromExpense) : props.items.map(fromRevenue);
+  const entries = props.kind === "expense" ? props.items.map((item) => fromExpense(item)) : props.items.map((item) => fromRevenue(item));
   return (
     <DataList
       ariaLabel={KIND_META[kind].label}

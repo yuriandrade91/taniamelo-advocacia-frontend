@@ -44,7 +44,7 @@ const axiosInstance = axios.create({
    * Sem isso, o axios serializa `{ year: [2025, 2026] }` como `year[]=2025&year[]=2026`
    * (seu default pra arrays). O binding do Spring pra `List<T>` via `@RequestParam`
    * espera o parâmetro repetido SEM colchetes (`year=2025&year=2026`) — é assim
-   * que todo `List<...>` de query param é lido no backend. `indexes: null` é a
+   * que cada `List<...>` de query param é lido no backend. `indexes: null` é a
    * opção do axios pra esse formato (documentado em `AxiosURLSearchParams`).
    * Valores escalares (a maioria dos params hoje) não são afetados.
    */
@@ -88,9 +88,7 @@ axiosInstance.interceptors.request.use((config) => {
   }
 
   // Obrigatório em todas as rotas, inclusive login.
-  if (!config.headers[TENANT_HEADER]) {
-    config.headers[TENANT_HEADER] = getTenantHeaderValue();
-  }
+  config.headers[TENANT_HEADER] ??= getTenantHeaderValue();
 
   return config;
 });
@@ -119,7 +117,7 @@ axiosInstance.interceptors.response.use(
   async (error: AxiosError) => {
     // A sessão já está acabando (o navegador vai para o login): as respostas
     // que ainda chegam não viram toast — ver `isSessionEnding`.
-    if (isSessionEnding()) return Promise.reject(error);
+    if (isSessionEnding()) throw error;
 
     const original = error.config;
 
@@ -139,7 +137,7 @@ axiosInstance.interceptors.response.use(
         }
       }
       expireSession();
-      return Promise.reject(error);
+      throw error;
     }
 
     if (error.response?.data instanceof Blob) {
@@ -149,11 +147,11 @@ axiosInstance.interceptors.response.use(
     // Permite que o chamador trate o erro na própria UI, sem toast global.
     // Usado, por ex., na restauração silenciosa de sessão e no login.
     if (original?.skipErrorToast) {
-      return Promise.reject(error);
+      throw error;
     }
 
     notificationCenter.notifyError(error as AxiosError<never>);
-    return Promise.reject(error);
+    throw error;
   },
 );
 

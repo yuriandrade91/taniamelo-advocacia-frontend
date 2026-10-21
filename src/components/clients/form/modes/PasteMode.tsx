@@ -21,7 +21,7 @@ Ela quer dar entrada na aposentadoria por idade.`;
  * enquanto se digita (`extractClientData`, função pura com testes), e nada
  * entra no cadastro sem confirmação.
  */
-export function PasteMode(props: FillModeProps) {
+export function PasteMode(props: Readonly<FillModeProps>) {
   const [text, setText] = useState("");
   const fields = useMemo(() => extractClientData(text), [text]);
 

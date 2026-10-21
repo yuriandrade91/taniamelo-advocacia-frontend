@@ -34,10 +34,10 @@ export function PaymentRowActions({
   payment,
   actions,
   className = "",
-}: {
+}: Readonly<{
   payment: Payment;
   actions: PaymentActions;
   className?: string;
-}) {
+}>) {
   return <RowActions row={payment} actions={paymentActions(actions)} className={className} />;
 }

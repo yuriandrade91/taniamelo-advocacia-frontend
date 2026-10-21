@@ -5,6 +5,7 @@ import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import { notificationCenter } from "@/services/notificationService";
 import type { ExtractedField, SmartFieldKey } from "./smartFill";
 import { applyExtracted, currentValueOf, type FillModeProps } from "./fillModeForms";
+import { plural } from "@/lib/format";
 
 /**
  * O que o texto revelou, antes de virar cadastro: cada dado com o trecho de
@@ -14,10 +15,10 @@ import { applyExtracted, currentValueOf, type FillModeProps } from "./fillModeFo
 export function ExtractionPanel({
   fields,
   forms,
-}: {
+}: Readonly<{
   fields: readonly ExtractedField[];
   forms: FillModeProps;
-}) {
+}>) {
   const [skipped, setSkipped] = useState<Set<SmartFieldKey>>(new Set());
   const chosen = fields.filter((field) => !skipped.has(field.key));
 
@@ -44,9 +45,7 @@ export function ExtractionPanel({
     >
       <header className="flex items-baseline justify-between gap-3 px-6 pt-6 pb-3">
         <h3 className="text-base font-semibold text-primary">
-          {fields.length === 0
-            ? "Nada reconhecido ainda"
-            : `Encontrei ${fields.length} dado${fields.length === 1 ? "" : "s"}`}
+          {fields.length === 0 ? "Nada reconhecido ainda" : `Encontrei ${plural(fields.length, "dado", "dados")}`}
         </h3>
         {fields.length > 0 && (
           <span className="text-xs text-gray-100">
@@ -76,6 +75,7 @@ export function ExtractionPanel({
                 >
                   <input
                     type="checkbox"
+                    aria-label={field.label}
                     checked={isOn}
                     onChange={() => toggle(field.key)}
                     className="mt-1 h-4 w-4 shrink-0 accent-[var(--color-primary)]"

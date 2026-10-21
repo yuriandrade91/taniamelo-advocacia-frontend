@@ -7,6 +7,7 @@ import CharacterCount from "@tiptap/extension-character-count";
 import Placeholder from "@tiptap/extension-placeholder";
 import { Label } from "@heroui/react";
 import { Svg, type IconProps } from "@/components/ui/icons/Svg";
+import { RICH_TEXT_CLASS } from "@/lib/richText";
 
 /**
  * Editor rich text (TipTap) para campos de texto livre longo.
@@ -46,13 +47,13 @@ function ToolbarButton({
   onClick,
   label,
   children,
-}: {
+}: Readonly<{
   isActive: boolean;
   isDisabled?: boolean;
   onClick: () => void;
   label: string;
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <button
       type="button"
@@ -73,7 +74,7 @@ function ToolbarButton({
   );
 }
 
-function Toolbar({ editor }: { editor: Editor }) {
+function Toolbar({ editor }: Readonly<{ editor: Editor }>) {
   return (
     <div className="flex flex-wrap items-center gap-0.5 border-b border-black/10 px-2 py-1.5">
       <ToolbarButton
@@ -157,7 +158,7 @@ export function RichTextField({
   errorMessage,
   isDisabled,
   onBlur,
-}: RichTextFieldProps) {
+}: Readonly<RichTextFieldProps>) {
   const editor = useEditor({
     // Next.js renderiza o editor no servidor por padrão; sem isto o HTML do
     // primeiro paint diverge do client e o React acusa hydration mismatch.
@@ -173,8 +174,7 @@ export function RichTextField({
     onBlur: () => onBlur?.(),
     editorProps: {
       attributes: {
-        class:
-          "min-h-32 px-3 py-2 text-sm text-gray-100 focus:outline-none [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_blockquote]:border-l-2 [&_blockquote]:border-secondary/50 [&_blockquote]:pl-3 [&_blockquote]:text-gray-500",
+        class: `min-h-32 px-3 py-2 text-sm text-gray-100 focus:outline-none ${RICH_TEXT_CLASS}`,
       },
     },
   });
@@ -195,7 +195,7 @@ export function RichTextField({
 
   const characters =
     editor?.storage.characterCount?.characters() ??
-    value.replace(/<[^>]*>/g, "").length;
+    value.replaceAll(/<[^>]*>/g, "").length;
 
   return (
     <div className={className}>

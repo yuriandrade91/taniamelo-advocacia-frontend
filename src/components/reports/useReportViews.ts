@@ -5,7 +5,7 @@ import { useStoredValue } from "@/hooks/useStoredValue";
 
 /**
  * As chaves vêm do estudo visual de onde as visões saíram e ficam assim de
- * propósito: trocá-las mandaria todo mundo de volta à ordem e à aba padrão.
+ * propósito: trocá-las mandaria cada pessoa de volta à ordem e à aba padrão.
  */
 const ORDER_KEY = "relatorios:ordem";
 const CURRENT_KEY = "relatorios:modelo";

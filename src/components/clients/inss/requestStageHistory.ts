@@ -8,6 +8,7 @@ import {
 } from "@/components/clients/stage/requestStages";
 import { officeToday } from "@/lib/officeClock";
 import { daysBetween } from "@/lib/period";
+import { optionalText } from "@/lib/formValues";
 
 /**
  * O andamento no INSS na ficha: onde o requerimento está e por onde passou —
@@ -30,7 +31,7 @@ const STATUS_PHRASE: Record<RequestStageKey, string> = {
   DEFERIMENTO: "Deferido",
 };
 
-const clean = (text?: string | null): string | null => text?.trim() || null;
+const clean = (text?: string | null): string | null => optionalText(text) ?? null;
 
 /** Do mais recente para o mais antigo, sem depender da ordem em que a página veio. */
 export const newestFirst = (history: readonly ClientRequestStageHistory[]): ClientRequestStageHistory[] =>

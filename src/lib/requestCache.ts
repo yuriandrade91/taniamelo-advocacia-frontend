@@ -22,7 +22,7 @@ export function createListCache<V>(maxEntries = 50): ListCache<V> {
   const entries = new Map<string, V>();
   return {
     get(key) {
-      if (!entries.has(key)) return undefined;
+      if (!entries.has(key)) return;
       const value = entries.get(key) as V;
       entries.delete(key);
       entries.set(key, value);

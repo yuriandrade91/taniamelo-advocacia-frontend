@@ -27,7 +27,7 @@ export function RecordDrawer({
   editor,
   dialogs,
   children,
-}: {
+}: Readonly<{
   onClose: () => void;
   /** Sair da edição de volta para o detalhe. */
   onBack: () => void;
@@ -46,7 +46,7 @@ export function RecordDrawer({
   dialogs?: ReactNode;
   /** O detalhe, em leitura. */
   children: ReactNode;
-}) {
+}>) {
   return (
     <Drawer
       isOpen
@@ -64,18 +64,14 @@ export function RecordDrawer({
       isSubmitting={isSubmitting}
       dialogClassName="w-full sm:w-[520px]"
     >
-      {failed ? (
+      {failed && (
         <div className="flex flex-col items-center gap-2 rounded-2xl border border-danger/20 bg-danger/5 px-6 py-10 text-center">
           <p className="text-sm font-medium text-primary">{failedText}</p>
           <p className="text-xs text-gray-100/70">Feche o painel e tente de novo.</p>
         </div>
-      ) : isLoading ? (
-        skeleton
-      ) : isEditing ? (
-        editor
-      ) : (
-        children
       )}
+      {!failed && isLoading && skeleton}
+      {!failed && !isLoading && (isEditing ? editor : children)}
       {dialogs}
     </Drawer>
   );

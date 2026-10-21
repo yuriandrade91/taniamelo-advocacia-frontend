@@ -3,6 +3,7 @@
 import { formatDateBR } from "@/lib/format";
 import { DetailBento } from "./DetailBento";
 import type { Detail } from "./EntryDetailsDrawer";
+import { optionalText } from "@/lib/formValues";
 
 /**
  * Detalhe de um lançamento da Carteira no desenho bento (`DetailBento`).
@@ -15,11 +16,11 @@ export function EntryBentoView({
   detail,
   onEdit,
   onSettle,
-}: {
+}: Readonly<{
   detail: Detail;
   onEdit?: () => void;
   onSettle?: () => void;
-}) {
+}>) {
   const { data } = detail;
   const isIncome = detail.kind === "income";
 
@@ -30,8 +31,8 @@ export function EntryBentoView({
       party={{
         label: isIncome ? "Cliente" : "Fornecedor",
         name: isIncome
-          ? detail.data.clientName || null
-          : detail.data.supplier || null,
+          ? (optionalText(detail.data.clientName) ?? null)
+          : (optionalText(detail.data.supplier) ?? null),
         emptyText: isIncome ? "Sem cliente" : "Não informado",
       }}
       facts={[

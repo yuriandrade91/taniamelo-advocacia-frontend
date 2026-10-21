@@ -74,7 +74,7 @@ export function hasDisabilityInput(draft: DisabilityPeriodDraft): boolean {
 export function hasAnyDisabilityInput(
   drafts: readonly DisabilityPeriodDraft[],
 ): boolean {
-  return drafts.some(hasDisabilityInput);
+  return drafts.some((item) => hasDisabilityInput(item));
 }
 
 /**
@@ -92,33 +92,10 @@ export function validateDisabilityPeriods(
   today: string,
 ): Record<string, DisabilityPeriodErrors> {
   const result: Record<string, DisabilityPeriodErrors> = {};
-  const filled = drafts.filter(hasDisabilityInput);
+  const filled = drafts.filter((item) => hasDisabilityInput(item));
 
   for (const draft of filled) {
-    const errors: DisabilityPeriodErrors = {};
-
-    if (!draft.grade) {
-      errors.grade = "Escolha o grau da deficiência.";
-    }
-    if (!draft.startedOn) {
-      errors.startedOn = "Informe a data de início.";
-    } else if (draft.startedOn > today) {
-      errors.startedOn = "A deficiência não pode começar no futuro.";
-    }
-
-    if (!draft.ongoing) {
-      if (!draft.endedOn) {
-        // Desmarcar "se mantém" é afirmar que cessou; a data passa a ser
-        // obrigatória, senão o intervalo não tem fim nem é em aberto.
-        errors.endedOn = "Informe a data de cessação, ou marque que se mantém.";
-      } else if (draft.startedOn && draft.endedOn < draft.startedOn) {
-        errors.endedOn = "A cessação é anterior ao início.";
-      } else if (draft.endedOn > today) {
-        errors.endedOn =
-          "A cessação não pode ser no futuro. Para uma deficiência em curso, marque que se mantém.";
-      }
-    }
-
+    const errors = fieldErrors(draft, today);
     if (Object.keys(errors).length > 0) result[draft.key] = errors;
   }
 
@@ -127,28 +104,52 @@ export function validateDisabilityPeriods(
   for (let i = 0; i < filled.length; i += 1) {
     const current = filled[i];
     if (!current.startedOn || result[current.key]?.startedOn) continue;
-
-    for (let j = 0; j < i; j += 1) {
-      const previous = filled[j];
-      if (!previous.startedOn) continue;
-
-      const currentEnd = current.ongoing || !current.endedOn ? today : current.endedOn;
-      const previousEnd =
-        previous.ongoing || !previous.endedOn ? today : previous.endedOn;
-
-      const overlaps =
-        current.startedOn <= previousEnd && previous.startedOn <= currentEnd;
-      if (overlaps) {
-        result[current.key] = {
-          ...result[current.key],
-          startedOn: `Este intervalo se sobrepõe ao que começa em ${formatDateBR(previous.startedOn)}.`,
-        };
-        break;
-      }
+    const previous = filled.slice(0, i).find((other) => overlaps(current, other, today));
+    if (previous) {
+      result[current.key] = {
+        ...result[current.key],
+        startedOn: `Este intervalo se sobrepõe ao que começa em ${formatDateBR(previous.startedOn)}.`,
+      };
     }
   }
 
   return result;
+}
+
+/** As regras de um intervalo sozinho: grau, início e cessação. */
+function fieldErrors(draft: DisabilityPeriodDraft, today: string): DisabilityPeriodErrors {
+  const errors: DisabilityPeriodErrors = {};
+  if (!draft.grade) errors.grade = "Escolha o grau da deficiência.";
+  if (!draft.startedOn) {
+    errors.startedOn = "Informe a data de início.";
+  } else if (draft.startedOn > today) {
+    errors.startedOn = "A deficiência não pode começar no futuro.";
+  }
+  const endedOn = draft.ongoing ? undefined : endedOnError(draft, today);
+  if (endedOn) errors.endedOn = endedOn;
+  return errors;
+}
+
+/** A cessação de um intervalo que não se mantém. */
+function endedOnError(draft: DisabilityPeriodDraft, today: string): string | undefined {
+  // Desmarcar "se mantém" é afirmar que cessou; a data passa a ser
+  // obrigatória, senão o intervalo não tem fim nem é em aberto.
+  if (!draft.endedOn) return "Informe a data de cessação, ou marque que se mantém.";
+  if (draft.startedOn && draft.endedOn < draft.startedOn) return "A cessação é anterior ao início.";
+  if (draft.endedOn > today) {
+    return "A cessação não pode ser no futuro. Para uma deficiência em curso, marque que se mantém.";
+  }
+  return undefined;
+}
+
+/** O fim que conta: a cessação, ou hoje para o que se mantém (ou está sem data). */
+const effectiveEnd = (draft: DisabilityPeriodDraft, today: string) =>
+  draft.ongoing || !draft.endedOn ? today : draft.endedOn;
+
+/** Os dois intervalos (ambos com início) dividem algum dia? */
+function overlaps(a: DisabilityPeriodDraft, b: DisabilityPeriodDraft, today: string): boolean {
+  if (!b.startedOn) return false;
+  return a.startedOn <= effectiveEnd(b, today) && b.startedOn <= effectiveEnd(a, today);
 }
 
 /**

@@ -31,7 +31,7 @@ describe("createAddresses", () => {
   it("envia uma requisição só, para /addresses/batch, com a lista embrulhada", async () => {
     vi.mocked(axiosInstance.post).mockResolvedValue({
       data: { success: true, data: [] },
-    } as never);
+    });
 
     await createAddresses("cli-1", [address("Rua A", true), address("Rua B")]);
 
@@ -48,7 +48,7 @@ describe("createAddresses", () => {
   it("não compartilha o array de quem chamou", async () => {
     vi.mocked(axiosInstance.post).mockResolvedValue({
       data: { success: true, data: [] },
-    } as never);
+    });
 
     const sent = [address("Rua A", true)];
     await createAddresses("cli-1", sent);
@@ -63,7 +63,7 @@ describe("createAddresses", () => {
         success: true,
         data: [{ id: "end-1" }, { id: "end-2" }],
       },
-    } as never);
+    });
 
     const envelope = await createAddresses("cli-1", [
       address("Rua A", true),

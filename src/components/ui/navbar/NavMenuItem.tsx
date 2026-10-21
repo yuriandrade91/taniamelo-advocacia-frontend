@@ -22,7 +22,7 @@ export default function NavMenuItem({
   href,
   label,
   isActive,
-}: NavMenuItemProps) {
+}: Readonly<NavMenuItemProps>) {
   const { handlers, showLayer, layer } = useSlideHover(isActive);
 
   return (

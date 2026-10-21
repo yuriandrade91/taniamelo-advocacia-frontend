@@ -73,10 +73,10 @@ const PANEL_KEY = "outros-modos";
 export function FillModeDisclosure({
   value,
   onChange,
-}: {
+}: Readonly<{
   value: FillModeId;
   onChange: (mode: FillModeId) => void;
-}) {
+}>) {
   const [isOpen, setIsOpen] = useState(false);
   const isExpanded = isOpen || value !== "abas";
   const current = FILL_MODES.find((mode) => mode.id === value);
@@ -114,10 +114,10 @@ export function FillModeDisclosure({
 function FillModeSwitcher({
   value,
   onChange,
-}: {
+}: Readonly<{
   value: FillModeId;
   onChange: (mode: FillModeId) => void;
-}) {
+}>) {
   return (
     <div className="flex flex-col gap-3">
       <p className="px-1 text-xs font-semibold tracking-[0.2em] text-secondary uppercase">
@@ -131,18 +131,23 @@ function FillModeSwitcher({
         {FILL_MODES.map((mode) => {
           const isSelected = mode.id === value;
           return (
-            <button
+            <label
               key={mode.id}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              onClick={() => onChange(mode.id)}
-              className={`flex flex-col items-start gap-1 rounded-2xl px-4 py-3 text-left ring-1 transition active:scale-[0.98] motion-reduce:active:scale-100 ${
+              className={`flex cursor-pointer flex-col items-start gap-1 rounded-2xl px-4 py-3 text-left ring-1 transition active:scale-[0.98] has-focus-visible:outline-2 has-focus-visible:outline-offset-2 has-focus-visible:outline-secondary motion-reduce:active:scale-100 ${
                 isSelected
                   ? "bg-primary text-white ring-primary"
                   : "bg-white text-primary ring-light-gray hover:ring-secondary/50"
               }`}
             >
+              <input
+                type="radio"
+                name="fill-mode"
+                aria-label={mode.title}
+                value={mode.id}
+                checked={isSelected}
+                onChange={() => onChange(mode.id)}
+                className="sr-only"
+              />
               <span className="text-sm font-semibold">{mode.title}</span>
               <span
                 className={`text-xs leading-snug ${
@@ -151,7 +156,7 @@ function FillModeSwitcher({
               >
                 {mode.hint}
               </span>
-            </button>
+            </label>
           );
         })}
       </div>

@@ -3,10 +3,7 @@
 import { useState } from "react";
 import { Button } from "@heroui/react";
 
-import {
-  DOCUMENT_TYPE_ENTRIES,
-  type DocumentTypeKey,
-} from "@/enums/documentType/DocumentType";
+import { DOCUMENT_TYPE_ENTRIES } from "@/enums/documentType/DocumentType";
 import { DOCUMENT_CATALOG, totalItems } from "./documentCatalog";
 
 /**
@@ -22,7 +19,7 @@ import { DOCUMENT_CATALOG, totalItems } from "./documentCatalog";
  * ## Por que existe, se o upload já mostra a lista da categoria
  *
  * São dois momentos diferentes. No upload, a pergunta é "o que falta nesta
- * categoria?" e a resposta é curta. Aqui, é "o que existe ao todo?" — a
+ * categoria?" e a resposta é curta. Aqui, é "o que existe, no total?" — a
  * pergunta de quem está montando o pedido, ou orientando o cliente por
  * telefone antes de ter qualquer arquivo em mãos.
  *
@@ -36,14 +33,14 @@ import { DOCUMENT_CATALOG, totalItems } from "./documentCatalog";
 
 /** Ordem do enum, menos `OUTROS`, que não tem lista. */
 const CATEGORIES = DOCUMENT_TYPE_ENTRIES.filter(
-  ([key]) => DOCUMENT_CATALOG[key as DocumentTypeKey] !== undefined,
+  ([key]) => DOCUMENT_CATALOG[key] !== undefined,
 );
 
 export function DocumentCatalogPanel() {
   const [isOpen, setIsOpen] = useState(false);
 
   const total = CATEGORIES.reduce(
-    (sum, [key]) => sum + totalItems(key as DocumentTypeKey),
+    (sum, [key]) => sum + totalItems(key),
     0,
   );
 
@@ -72,7 +69,7 @@ export function DocumentCatalogPanel() {
       {isOpen && (
         <div className="grid grid-cols-1 gap-3 border-t border-black/5 px-4 py-4 md:grid-cols-2">
           {CATEGORIES.map(([key, label], index) => {
-            const section = DOCUMENT_CATALOG[key as DocumentTypeKey];
+            const section = DOCUMENT_CATALOG[key];
             if (!section) return null;
             return (
               <article
@@ -93,7 +90,7 @@ export function DocumentCatalogPanel() {
                 {section.groups.map((group, groupIndex) => (
                   <div
                     key={group.group ?? groupIndex}
-                    className={groupIndex > 0 ? "mt-2" : "mt-2"}
+                    className="mt-2"
                   >
                     {group.group && (
                       <p className="text-xs font-medium text-primary">

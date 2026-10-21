@@ -12,16 +12,16 @@ import type { Report } from "./useReport";
  */
 
 /** O espaço do gráfico enquanto a série carrega. */
-export function LoadingBlock({ className = "h-40" }: { className?: string }) {
+export function LoadingBlock({ className = "h-40" }: Readonly<{ className?: string }>) {
   return (
-    <div role="status" aria-label="Carregando…" className="w-full">
+    <output aria-label="Carregando…" className="block w-full">
       <Skeleton className={`w-full rounded-2xl ${className}`} />
-    </div>
+    </output>
   );
 }
 
 /** Aviso de série vazia: diz que não há o que mostrar, sem desenhar zero. */
-function EmptyNote({ children }: { children: ReactNode }) {
+function EmptyNote({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <div className="flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-light-gray px-6 py-8 text-center text-sm text-gray-100">
       <EmptyChartIcon className="h-6 w-6 opacity-60" />
@@ -40,13 +40,13 @@ export function SeriesGate({
   empty,
   loadingClassName,
   children,
-}: {
+}: Readonly<{
   loading: boolean;
   hasData: boolean;
   empty: string;
   loadingClassName?: string;
   children: () => ReactNode;
-}) {
+}>) {
   if (loading) return <LoadingBlock className={loadingClassName} />;
   if (!hasData) return <EmptyNote>{empty}</EmptyNote>;
   return <>{children()}</>;
@@ -60,7 +60,7 @@ export function SeriesGate({
  * financeiro vem primeiro em todas elas: é a pergunta que traz o
  * administrador a Relatórios.
  */
-export function FinanceSummary({ r, loading }: { r: Report; loading: boolean }) {
+export function FinanceSummary({ r, loading }: Readonly<{ r: Report; loading: boolean }>) {
   const items = [
     { label: `Entradas ${r.monthShort}`, value: formatBRLSigned(r.flow.current.inflow), ok: r.flow.hasData, tone: "text-primary" },
     { label: `Saídas ${r.monthShort}`, value: formatBRLSigned(r.flow.current.outflow), ok: r.flow.hasData, tone: "text-primary" },
@@ -87,13 +87,11 @@ export function FinanceSummary({ r, loading }: { r: Report; loading: boolean }) 
         {items.map((it) => (
           <div key={it.label} className="min-w-0 border-l-2 border-secondary/40 pl-3">
             <p className="truncate text-[11px] text-gray-100">{it.label}</p>
-            {loading ? (
-              <Skeleton className="mt-1.5 h-6 w-28 rounded-lg" />
-            ) : it.ok ? (
+            {loading && <Skeleton className="mt-1.5 h-6 w-28 rounded-lg" />}
+            {!loading && it.ok && (
               <p className={`mt-1 truncate text-xl font-semibold tracking-tight tabular-nums ${it.tone}`}>{it.value}</p>
-            ) : (
-              <p className="mt-1 text-xs text-gray-100/70">Sem dados para mostrar.</p>
             )}
+            {!loading && !it.ok && <p className="mt-1 text-xs text-gray-100/70">Sem dados para mostrar.</p>}
           </div>
         ))}
       </div>

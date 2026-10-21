@@ -39,6 +39,7 @@ import {
 import { openInNewTab } from "@/lib/openInNewTab";
 import { Pill } from "@/components/ui/feedback/Badges";
 import { BanIcon, CalendarIcon, CheckIcon, UserIcon } from "@/components/ui/icons/glyphs";
+import { optionalText } from "@/lib/formValues";
 
 /**
  * O desenho de um compromisso — a linha, o cabeçalho do dia e a cor do tipo.
@@ -100,7 +101,7 @@ const TYPE_ICON: Record<string, ComponentType<{ className?: string }>> = {
 
 export function typeStyle(type: string): TypeStyle {
   const index = TYPE_ORDER.indexOf(type as (typeof TYPE_ORDER)[number]);
-  const known = index >= 0;
+  const known = index !== -1;
   return {
     icon: TYPE_ICON[type] ?? CalendarDotIcon,
     index: known ? index : TYPE_ORDER.length - 1,
@@ -122,7 +123,7 @@ const STATUS_DOT: Record<string, string> = {
 // ── Peças ──
 
 /** Selo de status: texto em `gray-100`, como o resto da linha; a cor fica no ponto. */
-function StatusChip({ status }: { status: string }) {
+function StatusChip({ status }: Readonly<{ status: string }>) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-white px-2.5 py-0.5 text-[11px] font-medium text-gray-100 ring-1 ring-black/10">
       <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status] ?? "bg-sky-400"}`} />
@@ -145,10 +146,10 @@ function LiveDot() {
 function TypeTag({
   type,
   className = "",
-}: {
+}: Readonly<{
   type: string;
   className?: string;
-}) {
+}>) {
   return (
     <span className={`inline-flex min-w-0 items-center gap-2 ${className}`}>
       <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${typeSolid(type)}`} />
@@ -162,12 +163,12 @@ function MetaLine({
   appointment,
   leading,
   className = "",
-}: {
+}: Readonly<{
   appointment: AppointmentResponse;
   /** Entra antes da modalidade. */
   leading?: ReactNode;
   className?: string;
-}) {
+}>) {
   const who = appointment.clientName?.trim();
   const online = appointment.modality === "Online";
   if (!leading && !appointment.modality && !who) return null;
@@ -202,11 +203,11 @@ export function AppointmentRow({
   appointment: a,
   actions,
   now,
-}: {
+}: Readonly<{
   appointment: AppointmentResponse;
   actions: RowAction<AppointmentResponse>[];
   now: number;
-}) {
+}>) {
   const cancelled = isCancelled(a);
   const dim = cancelled ? "opacity-60" : "";
   return (
@@ -252,12 +253,12 @@ export function AppointmentLine({
   appointment: a,
   actions,
   now,
-}: {
+}: Readonly<{
   appointment: AppointmentResponse;
   actions: RowAction<AppointmentResponse>[];
   now: number;
-}) {
-  const source = a.clientName?.trim() || a.title?.trim();
+}>) {
+  const source = optionalText(a.clientName) ?? optionalText(a.title);
   return (
     <li className="flex items-center gap-3 rounded-xl px-1 py-2 hover:bg-light-gray/40">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-light-gray/70 text-[11px] font-medium text-gray-100">
@@ -290,16 +291,16 @@ export function DayHeading({
   day,
   isToday,
   compact = false,
-}: {
+}: Readonly<{
   day: AgendaDay;
   isToday: boolean;
   compact?: boolean;
-}) {
+}>) {
   const [, month, date] = day.date.split("-").map(Number);
   const weekday = formatDayHeader(day.date).split(",")[0];
   const first = day.items[0];
-  const last = day.items[day.items.length - 1];
-  const done = day.items.filter(isDone).length;
+  const last = day.items.at(-1)!;
+  const done = day.items.filter((item) => isDone(item)).length;
 
   return (
     <>

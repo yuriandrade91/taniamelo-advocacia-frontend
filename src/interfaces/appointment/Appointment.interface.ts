@@ -1,10 +1,7 @@
 import type {
   AppointmentModalityInput,
-  AppointmentModalityLabel,
   AppointmentStatusInput,
-  AppointmentStatusLabel,
   AppointmentTypeInput,
-  AppointmentTypeLabel,
 } from "@/enums/appointment/Appointment";
 
 /**
@@ -54,14 +51,17 @@ export interface AppointmentRequest {
 export interface AppointmentResponse {
   id: string;
   title: string;
-  type: AppointmentTypeLabel | string;
+  /** Em geral um `AppointmentTypeLabel`; `string` porque o backend pode trazer um rótulo novo. */
+  type: string;
   startAt: string;
   endAt: string;
-  modality?: AppointmentModalityLabel | string | null;
+  /** Em geral um `AppointmentModalityLabel`. */
+  modality?: string | null;
   location?: string | null;
   meetingUrl?: string | null;
   description?: string | null;
-  status: AppointmentStatusLabel | string;
+  /** Em geral um `AppointmentStatusLabel`. */
+  status: string;
   cancellationReason?: string | null;
   clientId?: string | null;
   clientName?: string | null;

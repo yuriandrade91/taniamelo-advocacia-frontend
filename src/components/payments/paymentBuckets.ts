@@ -1,5 +1,6 @@
 import { PaymentStatusLabelByKey } from "@/enums/payment/Payment";
 import type { BadgeTone } from "@/components/ui/feedback/Badges";
+import { formatDateBR } from "@/lib/format";
 
 /**
  * Classificação de um recebimento nos mesmos baldes que o `summary` usa.
@@ -64,8 +65,19 @@ function previousDay(iso: string): string {
   return date.toISOString().slice(0, 10);
 }
 
-const later = (a?: string, b?: string) => (!a ? b : !b ? a : a > b ? a : b);
-const earlier = (a?: string, b?: string) => (!a ? b : !b ? a : a < b ? a : b);
+/** A data mais tarde das duas (ISO compara como texto); ausente não conta. */
+function later(a?: string, b?: string): string | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return a > b ? a : b;
+}
+
+/** A data mais cedo das duas; ausente não conta. */
+function earlier(a?: string, b?: string): string | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  return a < b ? a : b;
+}
 
 /**
  * Traduz o balde escolhido no filtro para o que `GET /payments` entende.
@@ -115,4 +127,14 @@ export function bucketQuery(
 
   if (dueFrom && dueTo && dueFrom > dueTo) return { empty: true };
   return { empty: false, status, dueFrom, dueTo };
+}
+
+/** "recebida em 12/03/2025" para a paga com data; senão, o vencimento. */
+export function installmentWhen(
+  item: { paidDate?: string | null; dueDate: string },
+  bucket: PaymentBucket | null,
+): string {
+  return bucket === "paid" && item.paidDate
+    ? `recebida em ${formatDateBR(item.paidDate)}`
+    : `vence ${formatDateBR(item.dueDate)}`;
 }

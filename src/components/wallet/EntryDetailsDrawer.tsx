@@ -108,16 +108,23 @@ function editingFrom(detail: Detail, mode: "edit" | "settle"): EntryEditing {
       };
 }
 
+/** O título do painel: dar baixa, editar ou só ver. */
+function drawerTitle(mode: "view" | "edit" | "settle", isEditing: boolean, isIncome: boolean): string {
+  if (mode === "settle") return isIncome ? "Registrar recebimento" : "Registrar pagamento";
+  if (isEditing) return isIncome ? "Editar entrada" : "Editar saída";
+  return "Detalhes do lançamento";
+}
+
 export function EntryDetailsDrawer({
   target,
   onClose,
   onSaved,
-}: {
+}: Readonly<{
   target: EntryDetailsTarget;
   onClose: () => void;
   /** Depois de salvar uma edição: a página recarrega saldo e lista. */
   onSaved?: (kind: EntryKind) => void;
-}) {
+}>) {
   const { detail, failed, reload } = useRecordDetail(
     `${target.kind}:${target.id}`,
     () => fetchDetail(target),
@@ -160,17 +167,7 @@ export function EntryDetailsDrawer({
       onClose={onClose}
       onBack={backToView}
       isEditing={isEditing}
-      title={
-        mode === "settle"
-          ? isIncome
-            ? "Registrar recebimento"
-            : "Registrar pagamento"
-          : isEditing
-            ? isIncome
-              ? "Editar entrada"
-              : "Editar saída"
-            : "Detalhes do lançamento"
-      }
+      title={drawerTitle(mode, isEditing, isIncome)}
       description="O registro é substituído pelo que estiver aqui ao salvar."
       onSave={() => void save()}
       isSubmitting={form.isSubmitting}

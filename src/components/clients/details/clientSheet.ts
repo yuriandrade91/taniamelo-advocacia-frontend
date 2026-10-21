@@ -30,8 +30,8 @@ export type KeptFields = Pick<ClientDetails, "notes" | "responsibleUserId" | "re
 
 /**
  * `PUT /clients/{id}` é **substituição total**: o backend só preserva, quando
- * ausentes, nacionalidade, WhatsApp, deficiência, isenção, tipo e senha. Todo
- * o resto que não vier é gravado como vazio — por isso o corpo sai das mesmas
+ * ausentes, nacionalidade, WhatsApp, deficiência, isenção, tipo e senha. O
+ * resto que não vier é gravado como vazio — por isso o corpo sai das mesmas
  * seções do cadastro (com órgão emissor e emissão do RG) e devolve as notas e
  * o responsável como vieram. A senha só vai quando digitada: vazia = mantém.
  */

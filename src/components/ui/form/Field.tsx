@@ -24,6 +24,7 @@ import {
 } from "@internationalized/date";
 import { notificationCenter } from "@/services/notificationService";
 import { CopyIcon, EyeIcon, EyeOffIcon } from "@/components/ui/icons/glyphs";
+import { optionalText } from "@/lib/formValues";
 
 export type FieldProps = {
   label: string;
@@ -72,7 +73,7 @@ export function Field({
   description,
   inputRef,
   trailing,
-}: FieldProps) {
+}: Readonly<FieldProps>) {
   const input = (
     <Input
       ref={inputRef}
@@ -129,11 +130,11 @@ function FieldMessage({
   isInvalid,
   errorMessage,
   description,
-}: {
+}: Readonly<{
   isInvalid?: boolean;
   errorMessage?: string;
   description?: string;
-}) {
+}>) {
   if (isInvalid && errorMessage) return <FieldError className="mt-1 text-sm text-danger">{errorMessage}</FieldError>;
   if (description) {
     return (
@@ -178,7 +179,7 @@ export function MultiSelectField({
   className,
   isDisabled,
   hideLabel = false,
-}: MultiSelectFieldProps) {
+}: Readonly<MultiSelectFieldProps>) {
   /**
    * Rótulos das opções escolhidas, na ordem em que aparecem na lista (e não
    * na ordem de clique) — assim o texto do gatilho não muda de arranjo a cada
@@ -268,12 +269,12 @@ export function SelectField({
   errorMessage,
   isDisabled,
   labelInside = false,
-}: SelectFieldProps) {
+}: Readonly<SelectFieldProps>) {
   return (
     <div className={className}>
       <Select
         className="w-full"
-        value={selectedKey || null}
+        value={optionalText(selectedKey) ?? null}
         onChange={(key) => onSelectionChange(key == null ? "" : String(key))}
         isRequired={isRequired}
         isInvalid={isInvalid}
@@ -325,7 +326,7 @@ export function SelectField({
                   </span>
                 </span>
               ) : (
-                text
+                <span>{text}</span>
               );
             }}
           </Select.Value>
@@ -374,7 +375,7 @@ export function SwitchField({
   hint,
   className,
   isDisabled,
-}: SwitchFieldProps) {
+}: Readonly<SwitchFieldProps>) {
   return (
     // `switch-field`: âncora de `formFields.css`, que põe o controle dentro
     // da mesma moldura dos outros campos.
@@ -471,7 +472,7 @@ export function PasswordField({
   onBlur,
   isDisabled,
   isReadOnly,
-}: PasswordFieldProps) {
+}: Readonly<PasswordFieldProps>) {
   const [isVisible, setIsVisible] = React.useState(false);
 
   return (
@@ -575,7 +576,7 @@ export function DatePickerField({
   isDisabled,
   onBlur,
   allowFuture = false,
-}: DatePickerFieldProps) {
+}: Readonly<DatePickerFieldProps>) {
   const calendarValue = React.useMemo(() => {
     if (!value) return null;
     try {
@@ -691,7 +692,7 @@ export function DateTimePickerField({
   errorMessage,
   isDisabled,
   onBlur,
-}: DateTimePickerFieldProps) {
+}: Readonly<DateTimePickerFieldProps>) {
   const calendarValue = React.useMemo(() => {
     if (!value) return null;
     try {
@@ -791,7 +792,7 @@ export function TextAreaField({
   onBlur,
   isDisabled,
   maxLength,
-}: TextAreaFieldProps) {
+}: Readonly<TextAreaFieldProps>) {
   return (
     <TextField
       className={className}
@@ -814,7 +815,7 @@ export function TextAreaField({
       {/*
         O contador fica na mesma linha da mensagem: embaixo dela, ele empurra
         o campo seguinte quando aparece um erro. Fica apagado até sobrar pouco
-        — avisar o tempo todo em vermelho é ruído, e quem está escrevendo duas
+        — avisar sempre em vermelho é ruído, e quem está escrevendo duas
         linhas não precisa saber de teto nenhum.
       */}
       <div className="flex items-start justify-between gap-2">

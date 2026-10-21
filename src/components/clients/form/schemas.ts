@@ -231,7 +231,7 @@ export const hasAddressInput = (values: AddressValues) =>
   );
 
 /** O texto do relato: o editor rico manda HTML, e vazio ele vale `<p></p>`. */
-const plainText = (html: string) => html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+const plainText = (html: string) => html.replaceAll(/<[^>]*>/g, "").replaceAll("&nbsp;", " ").trim();
 
 /** `true` quando o usuário mexeu na entrevista e ela deve ser enviada. */
 export const hasInterviewInput = (values: InterviewValues) =>

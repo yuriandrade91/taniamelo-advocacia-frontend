@@ -9,6 +9,9 @@ import {
   validateValues,
 } from "@/components/ui/form/schema";
 
+/** Ordem alfabética explícita: `sort()` sem comparador ordena por código Unicode. */
+const byText = (a: string, b: string) => a.localeCompare(b);
+
 const schema = defineSection({
   name: { kind: "text", label: "Nome", required: true },
   cpf: { kind: "cpf", label: "CPF" },
@@ -74,7 +77,7 @@ describe("ruleOf", () => {
 
 describe("rulesOf e validateValues", () => {
   it("só entram campos com alguma regra", () => {
-    expect(Object.keys(rulesOf(schema)).sort()).toEqual(["confirm", "cpf", "gender", "name"]);
+    expect(Object.keys(rulesOf(schema)).sort(byText)).toEqual(["confirm", "cpf", "gender", "name"]);
   });
 
   it("devolve só os campos com erro; switch é avaliado como texto vazio", () => {

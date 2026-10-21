@@ -73,12 +73,12 @@ export const pendingIntegration = (group: string): boolean =>
  *
  * Não é capricho: as telas leem `response.data.errors[].message` para achar a
  * mensagem (ver `fieldError`/`firstMessage`). Um `Error` cru cairia no
- * texto genérico de cada `catch` e a pessoa não saberia por quê.
+ * texto genérico de cada `catch` e a pessoa não saberia por quê. Por isso é
+ * um `Error` (o que um `reject` deve carregar) com o envelope pendurado.
  */
 function integrationError(route: string) {
-  return {
+  return Object.assign(new Error(`Integração pendente: ${route}`), {
     isPendingIntegration: true,
-    message: `Integração pendente: ${route}`,
     response: {
       status: 501,
       data: {
@@ -94,7 +94,7 @@ function integrationError(route: string) {
         ],
       },
     },
-  };
+  });
 }
 
 /** Leitura que a tela precisa ver falhar para mostrar o aviso que ela já tem. */

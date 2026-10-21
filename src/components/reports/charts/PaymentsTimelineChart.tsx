@@ -10,6 +10,7 @@ import {
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
 import { ChartCard } from "@/components/charts/ChartCard";
+import { useConstant } from "@/hooks/useConstant";
 import {
   BAR_SPEC,
   REPORT_BAR,
@@ -53,7 +54,7 @@ export function PaymentsTimelineChart({
   points,
   isEmpty,
   emptyMessage,
-}: PaymentsTimelineChartProps) {
+}: Readonly<PaymentsTimelineChartProps>) {
   const data = useMemo(
     () => ({
       labels: points.map((point) => formatMonthAxis(point.month)),
@@ -84,10 +85,7 @@ export function PaymentsTimelineChart({
     [points],
   );
 
-  const options = useMemo(
-    () => baseBarOptions({ formatValue: formatBRLCompact, stacked: true }),
-    [],
-  );
+  const options = useConstant(() => baseBarOptions({ formatValue: formatBRLCompact, stacked: true }));
 
   return (
     <ChartCard

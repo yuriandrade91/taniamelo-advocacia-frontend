@@ -23,6 +23,13 @@ type Phase = "idle" | "entering" | "leaving";
 
 const DURATION_MS = 300;
 
+/** A camada entra pela esquerda e sai pela direita; parada, não anima. */
+const PHASE_ANIMATION: Record<Phase, string> = {
+  idle: "",
+  entering: "animate__animated animate__slideInLeft",
+  leaving: "animate__animated animate__slideOutRight",
+};
+
 export function useSlideHover(isActive: boolean) {
   const [phase, setPhase] = useState<Phase>("idle");
 
@@ -37,13 +44,7 @@ export function useSlideHover(isActive: boolean) {
     setPhase((current) => (current === "leaving" ? "idle" : current));
   }, []);
 
-  const animation = isActive
-    ? ""
-    : phase === "entering"
-      ? "animate__animated animate__slideInLeft"
-      : phase === "leaving"
-        ? "animate__animated animate__slideOutRight"
-        : "";
+  const animation = isActive ? "" : PHASE_ANIMATION[phase];
 
   return {
     /** Para o botão/link: hover e foco disparam o mesmo efeito. */

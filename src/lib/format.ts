@@ -39,11 +39,16 @@ export function formatBRLSigned(
   return plus && value > 0 ? `+${body}` : body;
 }
 
+/** Uma casa decimal no máximo, no formato brasileiro: `12.34` → `"12,3"`. */
+const short = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+
+/** Dois dígitos: `7` → `"07"`. */
+const pad = (n: number) => String(n).padStart(2, "0");
+
 /** "R$ 12,3 mil", "−R$ 1,2 mi" — número grande em pouco espaço (indicador, rótulo de gráfico). */
 export function formatBRLShort(value: number): string {
   const abs = Math.abs(value);
   const sign = value < 0 ? "−" : "";
-  const short = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
   if (abs >= 1_000_000) return `${sign}R$ ${short(abs / 1_000_000)} mi`;
   if (abs >= 1_000) return `${sign}R$ ${short(abs / 1_000)} mil`;
   return `${sign}R$ ${Math.round(abs)}`;
@@ -74,7 +79,6 @@ export const formatInstantDateBR = (iso?: string | null, fallback = "—"): stri
   if (!iso) return fallback;
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return fallback;
-  const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(date.getDate())}/${pad(date.getMonth() + 1)}/${date.getFullYear()}`;
 };
 
@@ -105,19 +109,19 @@ export const formatInstallment = (
  * um valor legítimo e confundir os dois esconde o erro.
  */
 export function parseAmountBRL(input: string): number | null {
-  const cleaned = input.replace(/[^\d.,-]/g, "").trim();
+  const cleaned = input.replaceAll(/[^\d.,-]/g, "").trim();
   if (!cleaned) return null;
 
   let normalized: string;
   if (cleaned.includes(",")) {
-    normalized = cleaned.replace(/\./g, "").replace(",", ".");
+    normalized = cleaned.replaceAll(".", "").replace(",", ".");
   } else {
     const dots = cleaned.split(".").length - 1;
     const afterLastDot = cleaned.slice(cleaned.lastIndexOf(".") + 1).length;
     normalized =
       dots === 1 && afterLastDot >= 1 && afterLastDot <= 2
         ? cleaned
-        : cleaned.replace(/\./g, "");
+        : cleaned.replaceAll(".", "");
   }
 
   const value = Number(normalized);
@@ -137,6 +141,6 @@ export function initials(name?: string | null, empty = "?"): string {
     .split(/\s+/)
     .filter((part) => part && !NAME_PARTICLES.has(part.toLowerCase()));
   if (parts.length === 0) return empty;
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
+  const last = parts.length > 1 ? parts.at(-1)![0] : "";
   return `${parts[0][0]}${last}`.toUpperCase();
 }

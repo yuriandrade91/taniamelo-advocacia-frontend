@@ -23,15 +23,15 @@ export function createEnum<const E extends EnumEntries>(entries: E) {
   type Label = E[number][1];
 
   const labelByKey = Object.fromEntries(
-    Array.from(entries).map(([key, label]) => [key, label]),
+    [...entries].map(([key, label]) => [key, label]),
   ) as Record<Key, Label>;
 
   const keyByLabel = Object.fromEntries(
-    Array.from(entries).map(([key, label]) => [label, key]),
+    [...entries].map(([key, label]) => [label, key]),
   ) as Record<string, Key>;
 
   /** `{ value, label }` — formato preferido em código novo. */
-  const options = Array.from(entries).map(([value, label]) => ({
+  const options = [...entries].map(([value, label]) => ({
     value,
     label,
   })) as { value: Key; label: Label }[];
@@ -41,7 +41,7 @@ export function createEnum<const E extends EnumEntries>(entries: E) {
    * compatibilidade com as telas que ainda usam `id` como chave de select.
    * Não é um identificador do backend: prefira `value`.
    */
-  const optionsWithId = Array.from(entries).map(([value, label], index) => ({
+  const optionsWithId = [...entries].map(([value, label], index) => ({
     id: index + 1,
     value,
     label,

@@ -17,6 +17,7 @@ import { initials } from "@/lib/format";
 import type { ClientListItem } from "@/interfaces/client/Client.interface";
 import { Pill } from "@/components/ui/feedback/Badges";
 import { useHoverCard } from "@/hooks/useHoverCard";
+import { optionalText } from "@/lib/formValues";
 
 /**
  * Popover do selo "cliente potencial" na tabela de clientes
@@ -29,12 +30,12 @@ export function PotentialClientPopover({
   client,
   onViewDetails,
   children,
-}: {
+}: Readonly<{
   client: ClientListItem;
   /** "Visualizar" — mesmo ícone e ação da coluna "Ações" da tabela. */
   onViewDetails: () => void;
   children: ReactNode;
-}) {
+}>) {
   const card = useHoverCard();
 
   const lead = toPendingLead(client);
@@ -73,7 +74,7 @@ export function PotentialClientPopover({
           </div>
 
           <p className="mt-3 flex items-center justify-between gap-3 text-xs text-gray-100">
-            <span className="truncate">{lead.benefit || "Benefício a definir"}</span>
+            <span className="truncate">{optionalText(lead.benefit) ?? "Benefício a definir"}</span>
             <Pill size="sm">Potencial</Pill>
           </p>
 

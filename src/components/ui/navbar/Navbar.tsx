@@ -50,13 +50,13 @@ const MENU_ITEMS = [
   { label: "Pagamentos", href: "/pagamentos", adminOnly: true },
   { label: "Agenda", href: "/agenda" },
   { label: "Carteira", href: "/carteira", adminOnly: true },
-  // Para todos: clientes e agenda são de todo mundo; a página esconde sozinha
+  // Para todos: clientes e agenda são de qualquer papel; a página esconde sozinha
   // as seções de dinheiro de quem não é ADMIN.
   { label: "Relatórios", href: "/relatorios" },
 ];
 
 /**
- * TODO(backend): não há endpoint de notificações. Dados de exemplo até existir
+ * Pendente no backend (docs/ROADMAP.md): não há endpoint de notificações. Dados de exemplo até existir
  * — o `NotificationCenter` é controlado por props justamente para que a troca
  * seja só nesta constante.
  */

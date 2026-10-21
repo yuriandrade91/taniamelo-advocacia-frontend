@@ -32,7 +32,7 @@ const DEFAULT_SUCCESS_MESSAGE_BY_METHOD: Record<string, string> = {
 
 /**
  * Extrai a mensagem de negócio de um envelope da API (`errors[0].message`),
- * quando houver. É o único ponto que sabe olhar dentro de `errors` — todo o
+ * quando houver. É o único ponto que sabe olhar dentro de `errors` — o
  * resto do app (interceptor e telas específicas, como o login) usa isto em
  * vez de reimplementar a checagem de array.
  */
@@ -95,7 +95,7 @@ export const notificationCenter = {
     // a flag silencia o SUCESSO, não o erro.
     const silentSuccess = response.config?.skipSuccessToast === true;
 
-    if (body != null && body.success === false) {
+    if (body?.success === false) {
       const errors = body.errors;
       if (Array.isArray(errors) && errors.length > 0) {
         const { title, description } = describeApiErrors(errors);

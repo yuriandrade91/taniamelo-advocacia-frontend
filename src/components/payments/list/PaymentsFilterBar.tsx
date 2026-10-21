@@ -8,7 +8,7 @@ import type { paymentFilters } from "../paymentFilters";
  * A barra de Pagamentos no desenho da Carteira — solta na página, busca
  * grande, selects brancos e chips —, numa linha só a partir do `xl`.
  */
-export function PaymentsFilterBar({ filters }: { filters: FiltersState<typeof paymentFilters> }) {
+export function PaymentsFilterBar({ filters }: Readonly<{ filters: FiltersState<typeof paymentFilters> }>) {
   const field = (name: keyof typeof paymentFilters, className?: string) => (
     <FilterField schema={filters.schema} name={name} values={filters.values} onChange={filters.set} className={className} />
   );

@@ -62,7 +62,7 @@ function createTrail<T>(fetchHistory: HistoryFetcher<T>) {
     }, [clientId, enabled]);
 
     if (!clientId) return noTrail;
-    return loaded && loaded.id === clientId ? loaded.trail : null;
+    return loaded?.id === clientId ? loaded.trail : null;
   }
 
   return { useTrail, invalidate };

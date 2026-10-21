@@ -74,7 +74,8 @@ test("com 429 e Retry-After, a tela diz QUANDO tentar de novo", async ({ page },
 
   // E não pode revelar se a conta existe: mensagem diferente para conta
   // bloqueada e conta inexistente entregaria a lista de quem tem login aqui.
-  const text = (await page.locator("body").innerText()).toLowerCase();
+  // `innerText` é o texto visível (o do Playwright, não o do DOM): é o que a pessoa lê.
+  const text = (await page.locator("body").innerText()).toLowerCase(); // NOSONAR
   expect(text).not.toContain("bloquead");
 
   // 429 não é porta de entrada.

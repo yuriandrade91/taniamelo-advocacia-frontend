@@ -29,7 +29,7 @@ const DEFAULT_TOKEN_SECONDS = 8 * 60 * 60;
 function persistToken(token: string, expiresInSeconds?: number): void {
   if (typeof document === "undefined") return;
   const maxAge = expiresInSeconds && expiresInSeconds > 0 ? expiresInSeconds : DEFAULT_TOKEN_SECONDS;
-  const secure = window.location.protocol === "https:" ? "; Secure" : "";
+  const secure = globalThis.location.protocol === "https:" ? "; Secure" : "";
   document.cookie = `${TOKEN_COOKIE}=${token}; path=/; max-age=${maxAge}; SameSite=Lax${secure}`;
 }
 
@@ -103,12 +103,12 @@ export const isSessionEnding = (): boolean => ending;
  * navegador não devolve a tela que já não tem sessão.
  */
 export function expireSession(): void {
-  if (typeof window === "undefined" || ending) return;
-  if (window.location.pathname.startsWith(publicRoutes.login)) {
+  if (typeof document === "undefined" || ending) return;
+  if (globalThis.location.pathname.startsWith(publicRoutes.login)) {
     clearSession();
     return;
   }
   ending = true;
   clearSession();
-  window.location.replace(expiredLoginUrl(window.location.pathname, window.location.search));
+  globalThis.location.replace(expiredLoginUrl(globalThis.location.pathname, globalThis.location.search));
 }

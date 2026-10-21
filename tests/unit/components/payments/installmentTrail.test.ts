@@ -18,7 +18,7 @@ describe("agreementOf", () => {
   it("casa as parcelas pelo total e pela descrição sem o número", () => {
     const other = { ...installment(2), description: "Outro acordo 2/4", id: "x" };
     const byNumber = agreementOf(installment(1), [installment(1), installment(2), installment(3), other]);
-    expect([...byNumber.keys()].sort()).toEqual([1, 2, 3]);
+    expect([...byNumber.keys()].sort((a, b) => a - b)).toEqual([1, 2, 3]);
     expect(byNumber.get(2)?.id).toBe("p2");
   });
 

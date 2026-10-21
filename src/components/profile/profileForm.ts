@@ -100,21 +100,30 @@ export const EMPTY_PASSWORD_VALUES: PasswordValues = {
   confirmPassword: "",
 };
 
+/** O que a troca de senha diz em cada campo. */
+const MESSAGES = {
+  currentMissing: "Informe a senha atual.",
+  newMissing: "Informe a nova senha.",
+  sameAsCurrent: "A nova senha precisa ser diferente da atual.",
+  confirmMissing: "Repita a nova senha.",
+  mismatch: "As senhas não conferem.",
+} as const;
+
 export function validatePassword(values: PasswordValues): PasswordErrors {
   const errors: PasswordErrors = {};
 
   if (!values.currentPassword) {
-    errors.currentPassword = "Informe a senha atual.";
+    errors.currentPassword = MESSAGES.currentMissing;
   }
 
   if (!values.newPassword) {
-    errors.newPassword = "Informe a nova senha.";
+    errors.newPassword = MESSAGES.newMissing;
   } else if (values.newPassword.length < MIN_PASSWORD_LENGTH) {
     errors.newPassword = `A nova senha precisa ter ao menos ${MIN_PASSWORD_LENGTH} caracteres.`;
   } else if (values.newPassword === values.currentPassword) {
     // O backend também recusa. Recusar aqui evita que a pessoa descubra isso
     // só depois de digitar as três caixas e clicar.
-    errors.newPassword = "A nova senha precisa ser diferente da atual.";
+    errors.newPassword = MESSAGES.sameAsCurrent;
   }
 
   /**
@@ -123,9 +132,9 @@ export function validatePassword(values: PasswordValues): PasswordErrors {
    * vira uma senha que ninguém sabe qual é.
    */
   if (!values.confirmPassword) {
-    errors.confirmPassword = "Repita a nova senha.";
+    errors.confirmPassword = MESSAGES.confirmMissing;
   } else if (values.confirmPassword !== values.newPassword) {
-    errors.confirmPassword = "As senhas não conferem.";
+    errors.confirmPassword = MESSAGES.mismatch;
   }
 
   return errors;

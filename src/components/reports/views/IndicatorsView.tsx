@@ -49,27 +49,27 @@ type Kpi = {
   foot: string;
 };
 
-function KpiCard({ kpi }: { kpi: Kpi }) {
+function KpiCard({ kpi }: Readonly<{ kpi: Kpi }>) {
   return (
     <div className="group flex min-w-0 flex-col justify-between rounded-2xl bg-white p-4 ring-1 ring-black/5 transition hover:-translate-y-0.5 hover:ring-secondary/40 motion-reduce:hover:translate-y-0">
       <div className="flex items-start justify-between gap-2">
         <p className="truncate text-xs text-gray-100">{kpi.label}</p>
         {!kpi.loading && kpi.hasData && <DeltaChip value={kpi.delta} invert={kpi.invert} />}
       </div>
-      {kpi.loading ? (
-        <div className="mt-3 flex flex-col gap-2" role="status" aria-label="Carregando…">
+      {kpi.loading && (
+        <output className="mt-3 flex flex-col gap-2" aria-label="Carregando…">
           <Skeleton className="h-7 w-24 rounded-lg" />
           <Skeleton className="h-8 w-full rounded-lg" />
-        </div>
-      ) : kpi.hasData ? (
+        </output>
+      )}
+      {!kpi.loading && kpi.hasData && (
         <>
           <p className="mt-2 truncate text-2xl font-semibold tracking-tight text-primary tabular-nums">{kpi.value}</p>
           <Sparkline values={kpi.spark} tone={kpi.tone} height={32} className="mt-2" />
           <p className="mt-1 text-[10px] text-gray-100/70">{kpi.foot}</p>
         </>
-      ) : (
-        <p className="mt-3 text-xs text-gray-100/70">Sem dados para mostrar.</p>
       )}
+      {!kpi.loading && !kpi.hasData && <p className="mt-3 text-xs text-gray-100/70">Sem dados para mostrar.</p>}
     </div>
   );
 }
@@ -79,12 +79,12 @@ function Panel({
   basis,
   children,
   className = "",
-}: {
+}: Readonly<{
   title: string;
   basis?: string;
   children: ReactNode;
   className?: string;
-}) {
+}>) {
   return (
     <section className={`flex min-w-0 flex-col gap-4 rounded-3xl bg-white p-5 ring-1 ring-black/5 sm:p-6 ${className}`}>
       <header className="flex flex-wrap items-baseline justify-between gap-2">
@@ -96,7 +96,7 @@ function Panel({
   );
 }
 
-export function IndicatorsView(props: ReportViewProps) {
+export function IndicatorsView(props: Readonly<ReportViewProps>) {
   const { canSeeFinance, isLoading, isFinanceLoading } = props;
   const r = useReport(props);
   const vsPrev = `vs ${r.prevShort}`;
@@ -197,13 +197,14 @@ export function IndicatorsView(props: ReportViewProps) {
         <h3 className="flex items-center gap-2 text-sm font-medium text-primary">
           <SparkleIcon className="h-4 w-4 text-secondary" /> Destaques do período
         </h3>
-        {insightsLoading ? (
-          <div className="mt-4 grid gap-2 md:grid-cols-2" role="status" aria-label="Carregando…">
+        {insightsLoading && (
+          <output className="mt-4 grid gap-2 md:grid-cols-2" aria-label="Carregando…">
             <Skeleton className="h-4 w-3/4 rounded" />
             <Skeleton className="h-4 w-2/3 rounded" />
             <Skeleton className="h-4 w-1/2 rounded" />
-          </div>
-        ) : insights.length ? (
+          </output>
+        )}
+        {!insightsLoading && insights.length > 0 && (
           <ul className="mt-4 grid gap-x-8 gap-y-2.5 md:grid-cols-2">
             {insights.map((text) => (
               <li key={text} className="flex gap-2.5 text-sm text-gray-100">
@@ -212,7 +213,8 @@ export function IndicatorsView(props: ReportViewProps) {
               </li>
             ))}
           </ul>
-        ) : (
+        )}
+        {!insightsLoading && insights.length === 0 && (
           <p className="mt-3 text-sm text-gray-100">Sem dados suficientes para destacar algo neste período.</p>
         )}
       </section>
@@ -329,7 +331,7 @@ export function IndicatorsView(props: ReportViewProps) {
         <Panel title="Clientes por etapa" basis="etapa atual, na ordem da esteira">
           <SeriesGate loading={isLoading} hasData={r.funnel.hasData} empty={r.empty.funnel} loadingClassName="h-52">
             {() => (
-              <HBarList items={r.funnel.stages.map((s) => ({ label: s.label, value: s.count, tone: "primary" as Tone }))} />
+              <HBarList items={r.funnel.stages.map((s) => ({ label: s.label, value: s.count, tone: "primary" }))} />
             )}
           </SeriesGate>
         </Panel>

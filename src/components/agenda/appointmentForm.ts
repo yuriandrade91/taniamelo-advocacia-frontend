@@ -163,58 +163,76 @@ export function validateAppointmentForm(
   values: AppointmentFormValues,
   { isEditing }: { isEditing: boolean },
 ): AppointmentFormErrors {
-  const errors: AppointmentFormErrors = {};
+  const candidates: AppointmentFormErrors = {
+    title: titleError(values.title),
+    type: values.type ? undefined : "Selecione o tipo.",
+    startAt: values.startAt ? undefined : "Informe a data e hora de início.",
+    endAt: endAtError(values),
+    meetingUrl: meetingUrlError(values.meetingUrl),
+    clientName: clientNameError(values),
+    description: descriptionError(values.description),
+    justification:
+      isEditing && !values.justification.trim()
+        ? "A justificativa é obrigatória na edição."
+        : undefined,
+  };
+  // Só os campos com erro: a tela lê "tem a chave" como "tem erro".
+  return Object.fromEntries(Object.entries(candidates).filter(([, message]) => message));
+}
 
-  const title = values.title.trim();
-  if (!title) errors.title = "Informe um título.";
-  else if (title.length < MIN_TITLE_LENGTH) {
-    errors.title = `O título precisa ter pelo menos ${MIN_TITLE_LENGTH} caracteres.`;
+function titleError(raw: string): string | undefined {
+  const title = raw.trim();
+  if (!title) return "Informe um título.";
+  if (title.length < MIN_TITLE_LENGTH) {
+    return `O título precisa ter pelo menos ${MIN_TITLE_LENGTH} caracteres.`;
   }
+  return undefined;
+}
 
-  if (!values.type) errors.type = "Selecione o tipo.";
-  if (!values.startAt) errors.startAt = "Informe a data e hora de início.";
-  if (!values.endAt) errors.endAt = "Informe a data e hora de término.";
-
+function endAtError(values: AppointmentFormValues): string | undefined {
+  if (!values.endAt) return "Informe a data e hora de término.";
   const startAt = toIsoInstant(values.startAt);
   const endAt = toIsoInstant(values.endAt);
-
-  if (startAt && endAt) {
-    const diffMinutes =
-      (new Date(endAt).getTime() - new Date(startAt).getTime()) / 60_000;
-    if (diffMinutes <= 0) {
-      errors.endAt = "O término deve ser posterior ao início.";
-    } else if (diffMinutes < MIN_DURATION_MINUTES) {
-      errors.endAt = `O compromisso precisa durar pelo menos ${MIN_DURATION_MINUTES} minutos.`;
-    }
+  if (!startAt || !endAt) return undefined;
+  const diffMinutes = (new Date(endAt).getTime() - new Date(startAt).getTime()) / 60_000;
+  if (diffMinutes <= 0) return "O término deve ser posterior ao início.";
+  if (diffMinutes < MIN_DURATION_MINUTES) {
+    return `O compromisso precisa durar pelo menos ${MIN_DURATION_MINUTES} minutos.`;
   }
+  return undefined;
+}
 
-  if (values.meetingUrl.trim()) {
-    try {
-      new URL(values.meetingUrl.trim());
-    } catch {
-      errors.meetingUrl = "Informe uma URL válida (com https://).";
-    }
+function meetingUrlError(raw: string): string | undefined {
+  const url = raw.trim();
+  if (!url) return undefined;
+  try {
+    new URL(url);
+    return undefined;
+  } catch {
+    return "Informe uma URL válida (com https://).";
   }
+}
 
-  // Cliente é obrigatório — por `clientId` (selecionado na busca) ou, na
-  // falta de um cadastro correspondente, pelo nome digitado livre.
+/**
+ * Cliente é obrigatório — por `clientId` (selecionado na busca) ou, na
+ * falta de um cadastro correspondente, pelo nome digitado livre.
+ */
+function clientNameError(values: AppointmentFormValues): string | undefined {
+  if (values.clientId) return undefined;
   const clientName = values.clientName.trim();
-  if (!values.clientId && !clientName) {
-    errors.clientName = "Informe o cliente.";
-  } else if (!values.clientId && clientName.length < MIN_CLIENT_NAME_LENGTH) {
-    errors.clientName = `O nome do cliente precisa ter pelo menos ${MIN_CLIENT_NAME_LENGTH} caracteres.`;
+  if (!clientName) return "Informe o cliente.";
+  if (clientName.length < MIN_CLIENT_NAME_LENGTH) {
+    return `O nome do cliente precisa ter pelo menos ${MIN_CLIENT_NAME_LENGTH} caracteres.`;
   }
+  return undefined;
+}
 
-  const description = values.description.trim();
+function descriptionError(raw: string): string | undefined {
+  const description = raw.trim();
   if (description && description.length < MIN_DESCRIPTION_LENGTH) {
-    errors.description = `A descrição precisa ter pelo menos ${MIN_DESCRIPTION_LENGTH} caracteres.`;
+    return `A descrição precisa ter pelo menos ${MIN_DESCRIPTION_LENGTH} caracteres.`;
   }
-
-  if (isEditing && !values.justification.trim()) {
-    errors.justification = "A justificativa é obrigatória na edição.";
-  }
-
-  return errors;
+  return undefined;
 }
 
 /** `true` quando o início já passou — dispara o aviso de ciência. */

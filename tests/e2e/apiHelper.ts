@@ -2,6 +2,12 @@ import { request as playwrightRequest, type APIRequestContext } from "@playwrigh
 import { readFileSync } from "node:fs";
 import { ADMIN_STORAGE_STATE } from "./session";
 
+/** O escritório do pedido: o UUID, se houver; senão o slug; senão nenhum. */
+function tenantHeader(): Record<string, string> {
+  const tenant = [process.env.E2E_TENANT_ID, process.env.NEXT_PUBLIC_TENANT_SLUG].find(Boolean);
+  return tenant ? { "X-Tenant-Id": tenant } : {};
+}
+
 /**
  * Um cliente HTTP autenticado com a MESMA sessão do navegador dos testes.
  *
@@ -33,13 +39,17 @@ export async function apiWithBrowserSession(): Promise<APIRequestContext | null>
     // para `data`, multipart para `multipart`) — fixo, o upload voltava 415.
     extraHTTPHeaders: {
       Authorization: `Bearer ${token}`,
-      ...(process.env.E2E_TENANT_ID
-        ? { "X-Tenant-Id": process.env.E2E_TENANT_ID }
-        : process.env.NEXT_PUBLIC_TENANT_SLUG
-          ? { "X-Tenant-Id": process.env.NEXT_PUBLIC_TENANT_SLUG }
-          : {}),
+      ...tenantHeader(),
     },
   });
+}
+
+/** Dígito verificador do CPF sobre os números anteriores (pesos decrescentes). */
+function digit(nums: number[]): number {
+  const weight = nums.length + 1;
+  const sum = nums.reduce((total, n, i) => total + n * (weight - i), 0);
+  const remainder = (sum * 10) % 11;
+  return remainder === 10 ? 0 : remainder;
 }
 
 /**
@@ -50,12 +60,6 @@ export async function apiWithBrowserSession(): Promise<APIRequestContext | null>
  */
 export function validCpf(): string {
   const base = Array.from({ length: 9 }, () => Math.floor(Math.random() * 10));
-  const digit = (nums: number[]) => {
-    const weight = nums.length + 1;
-    const sum = nums.reduce((total, n, i) => total + n * (weight - i), 0);
-    const remainder = (sum * 10) % 11;
-    return remainder === 10 ? 0 : remainder;
-  };
   const d1 = digit(base);
   const d2 = digit([...base, d1]);
   return [...base, d1, d2].join("");
@@ -71,8 +75,8 @@ export const TAG = "[e2e]";
  * fixo que esquece de religar quando a rota sobe.
  */
 export const integrationPaused = (...names: string[]): boolean => {
-  const paused = (process.env.NEXT_PUBLIC_PENDING_INTEGRATIONS ?? "")
+  const paused = new Set((process.env.NEXT_PUBLIC_PENDING_INTEGRATIONS ?? "")
     .split(",")
-    .map((name) => name.trim().toLowerCase());
-  return names.some((name) => paused.includes(name));
+    .map((name) => name.trim().toLowerCase()));
+  return names.some((name) => paused.has(name));
 };

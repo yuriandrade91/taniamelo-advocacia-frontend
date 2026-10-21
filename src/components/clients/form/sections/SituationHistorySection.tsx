@@ -10,6 +10,7 @@ import {
 import type { ClientSituationHistory } from "@/interfaces/client/Client.interface";
 import { formatInstantDateBR } from "@/lib/format";
 import { Pill } from "@/components/ui/feedback/Badges";
+import { Notice } from "@/components/ui/feedback/Notice";
 import { Timeline, TimelineItem, TimelineMeta } from "@/components/ui/list/Timeline";
 
 /**
@@ -82,7 +83,7 @@ const DOT_COLOR: Record<SituationKey, string> = {
 
 /** A API manda o rótulo ("Benefício concluído"); a cor é pela chave. */
 const dotColor = (value?: string): string => {
-  const key = (value && getSituationKeyByLabel(value)) || (value as SituationKey);
+  const key = (value ? getSituationKeyByLabel(value) : undefined) ?? (value as SituationKey);
   return DOT_COLOR[key] ?? "bg-gray-100/50 ring-gray-100/15";
 };
 
@@ -93,7 +94,7 @@ export function SituationHistorySection({
   isLoading = false,
   hasError = false,
   authors = {},
-}: SituationHistorySectionProps) {
+}: Readonly<SituationHistorySectionProps>) {
   if (isLoading) {
     return (
       <div className="flex flex-col gap-2">
@@ -106,19 +107,19 @@ export function SituationHistorySection({
 
   if (hasError) {
     return (
-      <p className="text-sm text-gray-100">
+      <Notice tone="danger">
         Não foi possível carregar o histórico. As demais informações da ficha
         continuam válidas.
-      </p>
+      </Notice>
     );
   }
 
   if (items.length === 0) {
     return (
-      <p className="text-sm text-gray-100">
+      <Notice>
         Nenhuma mudança registrada — o cliente segue na situação em que foi
         cadastrado.
-      </p>
+      </Notice>
     );
   }
 

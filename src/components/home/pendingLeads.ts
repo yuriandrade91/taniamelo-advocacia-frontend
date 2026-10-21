@@ -23,6 +23,7 @@
 import { daysBetween, todayIso } from "@/lib/period";
 import { OFFICE_NAME } from "@/constants/office";
 import type { ClientListItem } from "@/interfaces/client/Client.interface";
+import { optionalText } from "@/lib/formValues";
 
 export type LeadUrgency = "critical" | "warning" | "recent";
 
@@ -128,8 +129,8 @@ export function toPendingLead(
     name: client.fullName,
     waitingDays,
     urgency: urgencyOf(waitingDays),
-    benefit: client.benefit || undefined,
-    phone: client.mobilePhone || undefined,
+    benefit: optionalText(client.benefit),
+    phone: optionalText(client.mobilePhone),
   };
 }
 
@@ -187,7 +188,7 @@ export function filterLeads(leads: PendingLead[], term: string): PendingLead[] {
     .trim()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+    .replaceAll(/[̀-ͯ]/g, "");
   if (!query) return leads;
 
   // O benefício entra porque é o que a linha mostra ao lado do nome: procurar
@@ -199,7 +200,7 @@ export function filterLeads(leads: PendingLead[], term: string): PendingLead[] {
       .join(" ")
       .toLowerCase()
       .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
+      .replaceAll(/[̀-ͯ]/g, "")
       .includes(query),
   );
 }

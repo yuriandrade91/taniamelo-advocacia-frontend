@@ -44,7 +44,7 @@ export function buildPageList(current: number, total: number): PageEntry[] {
     .filter((page) => page >= 1 && page <= total)
     .sort((a, b) => a - b);
 
-  const unique = Array.from(new Set(window));
+  const unique = [...new Set(window)];
 
   return unique.flatMap((page, index) =>
     index > 0 && page - unique[index - 1] > 1 ? [ELLIPSIS, page] : [page],
@@ -77,4 +77,28 @@ export function slicePage<T>(list: readonly T[], page: number, size: number) {
   const totalPages = Math.max(1, Math.ceil(list.length / size));
   const current = clampPage(page, totalPages);
   return { current, totalPages, slice: list.slice((current - 1) * size, current * size) };
+}
+
+/** O teto de `pageSize` da API (`PageRequests.MAX_PAGE_SIZE`): pedir mais devolve 100. */
+export const MAX_PAGE_SIZE = 100;
+
+/**
+ * Todas as linhas de uma lista paginada do servidor, página a página — para
+ * a tela que mostra (e pagina) a lista inteira por conta própria.
+ *
+ * Sem `pageSize`, a API devolve só os 10 primeiros: a ficha mostrava no
+ * máximo 10 documentos, e o 11º sumia sem aviso. Para quando o servidor diz
+ * que não há próxima página — ou quando uma página vem vazia, para um
+ * envelope sem `pagination` não virar laço sem fim.
+ */
+export async function fetchAllPages<T>(
+  list: (params: { pageNumber: number; pageSize: number }) => Promise<ApiEnvelope<T[]>>,
+): Promise<ApiEnvelope<T[]>> {
+  const items: T[] = [];
+  for (let pageNumber = 1; ; pageNumber++) {
+    const page = await list({ pageNumber, pageSize: MAX_PAGE_SIZE });
+    const rows = page.data ?? [];
+    items.push(...rows);
+    if (!page.pagination?.hasNextPage || rows.length === 0) return { ...page, data: items };
+  }
 }

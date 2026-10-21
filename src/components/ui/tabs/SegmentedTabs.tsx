@@ -27,14 +27,14 @@ export function TabBar({
   actions,
   className = "",
   children,
-}: {
+}: Readonly<{
   /** Nome acessível da lista. */
   label: string;
   /** Ações que não são aba — ficam na barra, fora da lista. */
   actions?: ReactNode;
   className?: string;
   children: ReactNode;
-}) {
+}>) {
   const list = (
     <Tabs.List aria-label={label} className={TAB_LIST_CLASS}>
       {children}
@@ -73,12 +73,12 @@ export function TabItem({
   className = "",
   indicatorClassName = TAB_INDICATOR_CLASS,
   children,
-}: {
+}: Readonly<{
   id: string;
   className?: string;
   indicatorClassName?: string;
   children: ReactNode;
-}) {
+}>) {
   return (
     <Tabs.Tab id={id} className={`${TAB_CLASS} ${className}`}>
       {children}
@@ -107,11 +107,11 @@ export function CountBadge({
   count,
   tip,
   tone = "neutral",
-}: {
+}: Readonly<{
   count: number;
   tip?: string;
   tone?: keyof typeof BADGE_TONE;
-}) {
+}>) {
   if (count <= 0) return null;
   const badge = (
     <span
@@ -141,10 +141,10 @@ export function CountBadge({
 export function TabBarSkeleton({
   count = 3,
   tabClassName = "h-9 w-20",
-}: {
+}: Readonly<{
   count?: number;
   tabClassName?: string;
-}) {
+}>) {
   return (
     <div aria-hidden="true" className={`flex items-center gap-1.5 ${TAB_LIST_CONTAINER_CLASS}`}>
       {Array.from({ length: count }, (_, i) => (
@@ -170,7 +170,7 @@ export function SegmentedTabs({
   hideSingle = false,
   className = "gap-5",
   panelClassName = "p-0",
-}: {
+}: Readonly<{
   tabs: readonly SegmentedTab[];
   selectedKey: string;
   onSelectionChange: (key: string) => void;
@@ -181,7 +181,7 @@ export function SegmentedTabs({
   hideSingle?: boolean;
   className?: string;
   panelClassName?: string;
-}) {
+}>) {
   if (hideSingle && tabs.length === 1) {
     return (
       <div className={`flex flex-col ${className}`}>

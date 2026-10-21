@@ -55,7 +55,7 @@ export function buildFlowTimeline(
   const inflow = new Map(payments.map((p) => [p.month, p.paidAmount]));
   const outflow = new Map(expenses.map((e) => [e.month, e.paidAmount]));
 
-  return [...months].sort().map((month) => ({
+  return [...months].sort((a, b) => a.localeCompare(b)).map((month) => ({
     month,
     inflowAmount: inflow.get(month) ?? 0,
     outflowAmount: outflow.get(month) ?? 0,

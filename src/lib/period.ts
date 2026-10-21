@@ -14,7 +14,6 @@ import { MONTH_LABELS, MONTH_SHORT } from "@/constants/date/months";
 
 export type MonthRef = { year: number; month: number }; // month: 1-12
 /** `yyyy-MM-dd`, ou qualquer ISO que comece por ele. */
-type IsoDateLike = string;
 type DateRange = { from: string; to: string };
 
 
@@ -39,7 +38,7 @@ export function todayIso(now: Date = new Date()): string {
  * Inteiro puro: nem `Date`, nem fuso, nem horário de verão. É o que permite
  * subtrair duas datas sem que meia-noite UTC vire o dia anterior no Brasil.
  */
-export function toDayNumber(iso: IsoDateLike): number {
+export function toDayNumber(iso: string): number {
   const year = Number(iso.slice(0, 4));
   const month = Number(iso.slice(5, 7));
   const day = Number(iso.slice(8, 10));
@@ -64,7 +63,7 @@ export function toDayNumber(iso: IsoDateLike): number {
  * caracteres — a parte da data. Para "há quantos dias isso aconteceu", o
  * horário não muda a resposta e considerá-lo só traria o fuso de volta.
  */
-export const daysBetween = (from: IsoDateLike, to: IsoDateLike): number =>
+export const daysBetween = (from: string, to: string): number =>
   toDayNumber(to) - toDayNumber(from);
 
 export function currentMonth(): MonthRef {

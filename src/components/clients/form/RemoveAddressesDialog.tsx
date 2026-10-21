@@ -48,7 +48,13 @@ const optionClass = (isSelected: boolean) =>
       : "border-light-gray hover:border-secondary/50"
   }`;
 
-function OptionText({ option }: { option: AddressOption }) {
+/** Quem assume como principal: o único que sobrou, ou o escolhido (`null` até escolher). */
+function successorOf(remaining: readonly AddressOption[], chosen: number | null): number | null {
+  if (remaining.length === 1) return remaining[0].index;
+  return remaining.find((option) => option.index === chosen)?.index ?? null;
+}
+
+function OptionText({ option }: Readonly<{ option: AddressOption }>) {
   return (
     <span className="min-w-0">
       <span className="flex items-center gap-2 text-sm font-medium text-primary">
@@ -67,7 +73,7 @@ export default function RemoveAddressesDialog({
   onClose,
   options,
   onConfirm,
-}: RemoveAddressesDialogProps) {
+}: Readonly<RemoveAddressesDialogProps>) {
   const [removed, setRemoved] = useState<number[]>([]);
   const [chosenPrimary, setChosenPrimary] = useState<number | null>(null);
 
@@ -83,11 +89,7 @@ export default function RemoveAddressesDialog({
     (option) => option.isPrimary && removed.includes(option.index),
   );
   /** `undefined`: o principal fica. `null`: falta escolher quem assume. */
-  const successor = !removesPrimary
-    ? undefined
-    : remaining.length === 1
-      ? remaining[0].index
-      : (remaining.find((option) => option.index === chosenPrimary)?.index ?? null);
+  const successor = removesPrimary ? successorOf(remaining, chosenPrimary) : undefined;
 
   const toggle = (index: number) =>
     setRemoved((current) =>
@@ -146,6 +148,7 @@ export default function RemoveAddressesDialog({
               <input
                 type="radio"
                 name="next-primary-address"
+                aria-label={`${option.label}, ${option.hint}`}
                 className="mt-1 accent-[var(--color-secondary)]"
                 value={option.index}
                 checked={successor === option.index}

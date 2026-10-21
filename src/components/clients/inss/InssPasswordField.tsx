@@ -55,13 +55,19 @@ type Props = {
   className?: string;
 };
 
+/** O motivo da recusa, pelo status; o resto cai no texto genérico. */
+const REVEAL_ERROR: Partial<Record<number, string>> = {
+  403: "Só advogado ou admin pode ver a senha.",
+  404: "Cliente não encontrado.",
+};
+
 export function InssPasswordField({
   clientId,
   isEditing,
   newPassword,
   onNewPasswordChange,
   className,
-}: Props) {
+}: Readonly<Props>) {
   const { canSeeInssPassword } = usePermissions();
   const [isRevealed, setIsRevealed] = useState<string | null>(null);
   /** Instante em que a senha se esconde — a contagem lê daqui. */
@@ -100,13 +106,7 @@ export function InssPasswordField({
       timer.current = setTimeout(hide, VISIBLE_SECONDS * 1000);
     } catch (e: unknown) {
       const status = (e as { response?: { status?: number } })?.response?.status;
-      setError(
-        status === 403
-          ? "Só advogado ou admin pode ver a senha."
-          : status === 404
-            ? "Cliente não encontrado."
-            : "Não foi possível consultar a senha.",
-      );
+      setError(REVEAL_ERROR[status ?? 0] ?? "Não foi possível consultar a senha.");
     } finally {
       setIsLoading(false);
     }
@@ -162,13 +162,8 @@ export function InssPasswordField({
                 aria-label={isRevealed ? "Esconder senha" : "Revelar senha"}
                 className={FIELD_ICON_BUTTON_CLASS}
               >
-                {isLoading ? (
-                  <LoadingCircle size={16} label="Consultando a senha" />
-                ) : isRevealed ? (
-                  <EyeOffIcon />
-                ) : (
-                  <EyeIcon />
-                )}
+                {isLoading && <LoadingCircle size={16} label="Consultando a senha" />}
+                {!isLoading && (isRevealed ? <EyeOffIcon /> : <EyeIcon />)}
               </button>
             </>
           ) : undefined
@@ -200,7 +195,7 @@ const secondsUntil = (hideAt: number) =>
  */
 const TICK_MS = 250;
 
-function HidesIn({ hideAt: hideAt }: { hideAt: number }) {
+function HidesIn({ hideAt: hideAt }: Readonly<{ hideAt: number }>) {
   const [segundos, setSegundos] = useState(() => secondsUntil(hideAt));
 
   // Sem acerto inicial aqui: quem monta passa `key={prazo}`, então um prazo

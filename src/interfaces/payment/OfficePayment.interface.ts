@@ -53,7 +53,7 @@ export interface OfficePaymentListRequest {
  * que está na tela daria o total de 10 linhas, não do período. Esse é o tipo
  * de erro que ninguém percebe até alguém conferir com a planilha.
  *
- * **Os três baldes são disjuntos** e cobrem todo pagamento não cancelado:
+ * **Os três baldes são disjuntos** e cobrem qualquer pagamento não cancelado:
  *
  * | balde | regra |
  * |---|---|

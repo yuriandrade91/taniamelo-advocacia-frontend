@@ -353,7 +353,7 @@ textarea {
    (com `description`, ou com o botão da janela de desfazer) o ícone da esquerda
    descola do meio enquanto o texto ao lado está centrado.
 
-   Centramos os dois para que a linha inteira concorde. Vale para todo toast do
+   Centramos os dois para que a linha inteira concorde. Vale para cada toast do
    app, não só os de desfazer — o desalinhamento já existia nos que têm
    descrição. */
 .toast__indicator,

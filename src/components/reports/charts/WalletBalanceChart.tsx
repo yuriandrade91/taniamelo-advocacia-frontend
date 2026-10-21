@@ -12,6 +12,7 @@ import {
 } from "chart.js";
 import { Line } from "react-chartjs-2";
 import { ChartCard } from "@/components/charts/ChartCard";
+import { useConstant } from "@/hooks/useConstant";
 import {
   LINE_SPEC,
   SINGLE_SERIES_COLOR,
@@ -53,7 +54,7 @@ export type WalletBalanceChartProps = {
 export function WalletBalanceChart({
   isLoading = false,
   points,
-}: WalletBalanceChartProps) {
+}: Readonly<WalletBalanceChartProps>) {
   const series = useMemo(() => toCumulativeBalance(points), [points]);
 
   const data = useMemo(
@@ -74,10 +75,7 @@ export function WalletBalanceChart({
     [series],
   );
 
-  const options = useMemo(
-    () => baseLineOptions({ formatValue: formatBRLCompact }),
-    [],
-  );
+  const options = useConstant(() => baseLineOptions({ formatValue: formatBRLCompact }));
 
   return (
     <ChartCard

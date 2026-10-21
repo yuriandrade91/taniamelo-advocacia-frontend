@@ -43,7 +43,7 @@ export function AmountField({
   isInvalid,
   errorMessage,
   isDisabled,
-}: AmountFieldProps) {
+}: Readonly<AmountFieldProps>) {
   const parsed = parseAmountBRL(value);
   // O eco só aparece com valor legível e sem erro em exibição: repetir o
   // número embaixo de uma mensagem vermelha só disputa a atenção com ela.
@@ -82,13 +82,12 @@ export function AmountField({
           variant="primary"
         />
       </div>
-      {isInvalid && errorMessage ? (
-        <p className="mt-1 text-sm text-danger">{errorMessage}</p>
-      ) : showEcho ? (
+      {isInvalid && errorMessage && <p className="mt-1 text-sm text-danger">{errorMessage}</p>}
+      {!(isInvalid && errorMessage) && showEcho && (
         <p className="mt-1 text-sm text-gray-100/70" aria-live="polite">
           {formatBRL(parsed)}
         </p>
-      ) : null}
+      )}
     </TextField>
   );
 }

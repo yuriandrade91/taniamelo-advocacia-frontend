@@ -16,7 +16,7 @@ const installment = (
     overdue: false,
     status: "Pendente",
     ...extra,
-  }) as OfficePaymentResponse;
+  });
 
 describe("toRevenueItems", () => {
   it("usa o mesmo balde da tabela de Pagamentos", () => {

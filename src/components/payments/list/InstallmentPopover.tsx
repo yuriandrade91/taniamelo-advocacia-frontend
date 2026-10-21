@@ -3,9 +3,9 @@
 import type { ReactNode } from "react";
 import { Popover, Skeleton } from "@heroui/react";
 import { PulseHalo } from "@/components/wallet/PulseHalo";
-import { formatBRL, formatDateBR, plural } from "@/lib/format";
+import { formatBRL, plural } from "@/lib/format";
 import { useHoverCard } from "@/hooks/useHoverCard";
-import { BUCKET_BADGE, bucketOf, type PaymentBucket } from "../paymentBuckets";
+import { BUCKET_BADGE, bucketOf, installmentWhen, type PaymentBucket } from "../paymentBuckets";
 import type { Payment } from "../paymentDisplay";
 import { AgreementTotal } from "../AgreementTotal";
 import { agreementOf, useInstallmentTrail } from "../installmentTrail";
@@ -39,8 +39,8 @@ const NODE: Record<PaymentBucket, string> = {
 const NODE_MARK: Record<PaymentBucket, (n: number) => string> = {
   paid: () => "✓",
   overdue: () => "!",
-  upcoming: (n) => String(n),
-  cancelled: (n) => String(n),
+  upcoming: String,
+  cancelled: String,
 };
 
 /** Texto do estado: só atrasado e recebido com cor, como no cartão. */
@@ -55,12 +55,12 @@ export function InstallmentPopover({
   payment,
   actions,
   children,
-}: {
+}: Readonly<{
   payment: Payment;
   actions: PaymentActions;
   /** O gatilho — o bloco da parcela no cartão. */
   children: ReactNode;
-}) {
+}>) {
   const card = useHoverCard();
   const { isOpen } = card;
 
@@ -176,19 +176,15 @@ function InstallmentRow({
   bucket,
   isThis,
   onOpen,
-}: {
+}: Readonly<{
   n: number;
   item?: Payment;
   bucket: PaymentBucket | null;
   isThis: boolean;
   onOpen?: () => void;
-}) {
+}>) {
   const label = bucket ? BUCKET_BADGE[bucket].label : "não lançada";
-  const when = !item
-    ? null
-    : bucket === "paid" && item.paidDate
-      ? `recebida em ${formatDateBR(item.paidDate)}`
-      : `vence ${formatDateBR(item.dueDate)}`;
+  const when = item ? installmentWhen(item, bucket) : null;
   return (
     <button
       type="button"

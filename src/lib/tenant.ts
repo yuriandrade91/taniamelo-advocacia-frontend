@@ -1,4 +1,5 @@
 import { API_BASE_URL } from "@/constants/endpoints/paths";
+import { optionalText } from "@/lib/formValues";
 
 /**
  * Multi-tenancy — resolução do escritório (tenant).
@@ -25,14 +26,14 @@ const LEGACY_KEYS = ["tenantId", "tenantSlug"];
 
 /** Slug padrão do ambiente (usado antes do login). */
 const DEFAULT_TENANT_SLUG =
-  process.env.NEXT_PUBLIC_TENANT_SLUG || "tania";
+  optionalText(process.env.NEXT_PUBLIC_TENANT_SLUG) ?? "tania";
 
-const isBrowser = () => typeof window !== "undefined";
+const isBrowser = () => typeof document !== "undefined";
 
 /** Persiste o tenant retornado pelo login/resolve. */
 export function setTenant(tenantId?: string, tenantSlug?: string): void {
   if (!isBrowser()) return;
-  LEGACY_KEYS.forEach((key) => localStorage.removeItem(key));
+  for (const key of LEGACY_KEYS) localStorage.removeItem(key);
   if (tenantId) localStorage.setItem(TENANT_ID_KEY, tenantId);
   if (tenantSlug) localStorage.setItem(TENANT_SLUG_KEY, tenantSlug);
 }
@@ -40,7 +41,7 @@ export function setTenant(tenantId?: string, tenantSlug?: string): void {
 /** Limpa o tenant persistido (logout). */
 export function clearTenant(): void {
   if (!isBrowser()) return;
-  LEGACY_KEYS.forEach((key) => localStorage.removeItem(key));
+  for (const key of LEGACY_KEYS) localStorage.removeItem(key);
   localStorage.removeItem(TENANT_ID_KEY);
   localStorage.removeItem(TENANT_SLUG_KEY);
 }
@@ -52,7 +53,7 @@ function getTenantId(): string | null {
 
 function getTenantSlug(): string {
   if (!isBrowser()) return DEFAULT_TENANT_SLUG;
-  return localStorage.getItem(TENANT_SLUG_KEY) || DEFAULT_TENANT_SLUG;
+  return optionalText(localStorage.getItem(TENANT_SLUG_KEY)) ?? DEFAULT_TENANT_SLUG;
 }
 
 /**
@@ -60,7 +61,7 @@ function getTenantSlug(): string {
  * Prefere o UUID (mais específico); cai para o slug antes do login.
  */
 export function getTenantHeaderValue(): string {
-  return getTenantId() || getTenantSlug();
+  return optionalText(getTenantId()) ?? getTenantSlug();
 }
 
 

@@ -57,7 +57,7 @@ describe("listUsers", () => {
   it("repassa includeInactive e não mostra toast de erro", async () => {
     vi.mocked(axiosInstance.get).mockResolvedValue({
       data: { success: true, data: users },
-    } as never);
+    });
 
     await listUsers({ includeInactive: true });
 

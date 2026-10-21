@@ -20,10 +20,10 @@ export function useSessionUser(): SessionUser | null {
 }
 
 const subscribe = (onChange: () => void) => {
-  window.addEventListener("storage", onChange);
-  window.addEventListener(STORED_VALUE_EVENT, onChange);
+  globalThis.addEventListener("storage", onChange);
+  globalThis.addEventListener(STORED_VALUE_EVENT, onChange);
   return () => {
-    window.removeEventListener("storage", onChange);
-    window.removeEventListener(STORED_VALUE_EVENT, onChange);
+    globalThis.removeEventListener("storage", onChange);
+    globalThis.removeEventListener(STORED_VALUE_EVENT, onChange);
   };
 };

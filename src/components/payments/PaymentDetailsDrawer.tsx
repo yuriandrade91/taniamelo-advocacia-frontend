@@ -65,19 +65,25 @@ const fetchDetail = (
     getPayment(target.clientId, target.id).then((envelope) => envelope.data ?? null),
   );
 
+/** O título do painel: dar baixa, editar ou só ver. */
+function drawerTitle(isSettling: boolean, isEditing: boolean): string {
+  if (isSettling) return "Registrar recebimento";
+  return isEditing ? "Editar parcela" : "Detalhes da parcela";
+}
+
 export function PaymentDetailsDrawer({
   target,
   onClose,
   onSaved,
   onViewClient,
-}: {
+}: Readonly<{
   target: PaymentDetailsTarget;
   onClose: () => void;
   /** Depois de salvar uma edição: a página recarrega totais e lista. */
   onSaved?: () => void;
   /** Abre a ficha do cliente — a ação que antes era um botão na linha. */
   onViewClient?: () => void;
-}) {
+}>) {
   const { detail, failed, reload } = useRecordDetail(
     `${target.clientId}:${target.id}`,
     () => fetchDetail(target),
@@ -122,13 +128,7 @@ export function PaymentDetailsDrawer({
       onClose={onClose}
       onBack={() => setMode("view")}
       isEditing={isEditing}
-      title={
-        mode === "settle"
-          ? "Registrar recebimento"
-          : isEditing
-            ? "Editar parcela"
-            : "Detalhes da parcela"
-      }
+      title={drawerTitle(mode === "settle", isEditing)}
       description={`${target.clientName} — o que mudar aqui vale só para esta parcela.`}
       onSave={() => void save()}
       isSubmitting={form.isSubmitting}

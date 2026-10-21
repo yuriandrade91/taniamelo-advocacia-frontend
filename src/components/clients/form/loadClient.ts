@@ -11,6 +11,7 @@ import { listInterviews } from "@/services/clientInterviewService";
 import { listDocuments, listSimulations } from "@/services/clientFileService";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
 import { messageOf } from "@/lib/errorMessage";
+import { fetchAllPages } from "@/lib/pagination";
 
 /**
  * Tudo o que a ficha lê de um cliente, num caminho só. A deficiência fica de
@@ -42,6 +43,10 @@ const settled = <T,>(result: PromiseSettledResult<T>): T | undefined =>
 export const newestFirst = <T,>(items: T[] = [], at: (item: T) => string | undefined) =>
   [...items].sort((a, b) => (at(b) ?? "").localeCompare(at(a) ?? ""));
 
+/** Os arquivos inteiros: a ficha mostra todos e pagina na própria tela. */
+const allDocuments = (clientId: string) => fetchAllPages((params) => listDocuments(clientId, params));
+const allSimulations = (clientId: string) => fetchAllPages((params) => listSimulations(clientId, params));
+
 const primaryFirst = (items: ClientAddressResponse[] = []) =>
   [...items].sort((a, b) => Number(Boolean(b.isPrimary)) - Number(Boolean(a.isPrimary)));
 
@@ -52,8 +57,8 @@ export async function loadClient(clientId: string): Promise<LoadedClient> {
       clientSituationHistory(clientId, { pageNumber: 1, pageSize: 50 }),
       listAddresses(clientId),
       listInterviews(clientId),
-      listDocuments(clientId),
-      listSimulations(clientId),
+      allDocuments(clientId),
+      allSimulations(clientId),
     ]);
 
   return {
@@ -74,8 +79,8 @@ export async function loadClient(clientId: string): Promise<LoadedClient> {
 /** Só as duas listas de arquivos — depois de enviar ou excluir. */
 export async function loadClientFiles(clientId: string) {
   const [documents, simulations] = await Promise.allSettled([
-    listDocuments(clientId),
-    listSimulations(clientId),
+    allDocuments(clientId),
+    allSimulations(clientId),
   ]);
   return {
     documents: settled(documents)?.data,

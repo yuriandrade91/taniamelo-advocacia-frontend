@@ -18,6 +18,7 @@ import { settledValue, useSettled } from "@/hooks/useSettled";
 import { formatInstantDateBR, plural } from "@/lib/format";
 import { clientRequestStageHistory } from "@/services/clientService";
 import { requestStageHistoryRows, requestStageStatus } from "./requestStageHistory";
+import { loadView } from "@/lib/loadView";
 
 /**
  * "Andamento no INSS" na ficha: a etapa do requerimento, o botão de mudar e o
@@ -74,7 +75,7 @@ export function ClientInssPanel({
   requestStage,
   authors = {},
   onChanged,
-}: ClientInssPanelProps) {
+}: Readonly<ClientInssPanelProps>) {
   const today = useOfficeToday();
   /** Sobe a cada mudança gravada: relê o histórico sem voltar ao skeleton. */
   const [version, setVersion] = useState(0);
@@ -88,6 +89,7 @@ export function ClientInssPanel({
 
   const status = requestStageStatus(requestStage, history, today);
   const rows = requestStageHistoryRows(history);
+  const view = loadView({ isLoading: loaded === null, failed, isEmpty: rows.length === 0 });
 
   const change = async (stage: RequestStageKey, justification: string) => {
     await changeRequestStage(clientId, clientName, stage, justification);
@@ -138,20 +140,19 @@ export function ClientInssPanel({
         )}
       </div>
 
-      {loaded === null ? (
-        <RowSkeletons count={3} />
-      ) : failed ? (
+      {view === "loading" && <RowSkeletons count={3} />}
+      {view === "failed" && (
         <Notice tone="danger">
           Não foi possível carregar o histórico do INSS. As demais informações da ficha continuam válidas.
         </Notice>
-      ) : rows.length === 0 ? (
-        status && (
-          <Notice>
-            Nenhuma mudança registrada ainda. A partir da próxima troca de etapa, cada uma aparece aqui, com a
-            data, quem mudou e a justificativa.
-          </Notice>
-        )
-      ) : (
+      )}
+      {view === "empty" && status && (
+        <Notice>
+          Nenhuma mudança registrada ainda. A partir da próxima troca de etapa, cada uma aparece aqui, com a
+          data, quem mudou e a justificativa.
+        </Notice>
+      )}
+      {view === "ready" && (
         <Timeline label="Mudanças de etapa no INSS">
           {rows.map((row, index) => {
             const isCurrent = index === 0 && row.label === status?.stage.label;

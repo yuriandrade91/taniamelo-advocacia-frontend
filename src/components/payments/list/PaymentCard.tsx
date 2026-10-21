@@ -17,7 +17,7 @@ import { Pill } from "@/components/ui/feedback/Badges";
  * O cartão de uma parcela: cliente, valor, prazo, onde a parcela está no
  * acordo, vencimento e forma. Sem sombra no hover — o realce é o contorno.
  *
- * - Texto todo em `gray-100`; só o prazo de atrasado (vermelho) e de recebido
+ * - Texto inteiro em `gray-100`; só o prazo de atrasado (vermelho) e de recebido
  *   (verde) tem cor.
  * - Iniciais num quadrado arredondado `bg-primary`, iguais para todos.
  * - Situação (selo com ícone) à esquerda, na linha das ações.
@@ -37,15 +37,21 @@ const DUE_TEXT: Record<PaymentBucket, string> = {
   paid: "text-success",
   cancelled: "text-gray-100",
 };
+/** Cada parcela da régua: paga antes desta, esta (na cor do status) ou por vir. */
+function stepFill(step: number, current: number, currentFill: string): string {
+  if (step < current) return "bg-success";
+  return step === current ? currentFill : "bg-light-gray";
+}
+
 export function PaymentCard({
   payment,
   actions,
   today,
-}: {
+}: Readonly<{
   payment: Payment;
   actions: PaymentActions;
   today: string;
-}) {
+}>) {
   const bucket = bucketOf(payment);
   const installment = installmentOf(payment);
   const cancelled = bucket === "cancelled";
@@ -108,13 +114,7 @@ export function PaymentCard({
                   {Array.from({ length: installment.total }, (_, i) => (
                     <span
                       key={i}
-                      className={`h-1.5 flex-1 rounded-full ${
-                        i + 1 < installment.n
-                          ? "bg-success"
-                          : i + 1 === installment.n
-                            ? STATUS_FILL[bucket]
-                            : "bg-light-gray"
-                      }`}
+                      className={`h-1.5 flex-1 rounded-full ${stepFill(i + 1, installment.n, STATUS_FILL[bucket])}`}
                     />
                   ))}
                 </div>
@@ -183,11 +183,11 @@ function ClientButton({
   payment,
   actions,
   className = "",
-}: {
+}: Readonly<{
   payment: Payment;
   actions: PaymentActions;
   className?: string;
-}) {
+}>) {
   return (
     <button
       type="button"

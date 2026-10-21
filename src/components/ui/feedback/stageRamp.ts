@@ -53,3 +53,38 @@ export const stageTile = (index: number) =>
 
 export const stageOpacity = (index: number) =>
   STAGE_OPACITY[atRamp(STAGE_OPACITY.length, index)];
+
+/**
+ * A mesma rampa em cinza (`gray-100`, o cinza do texto do sistema), para
+ * telas onde o azul em massa pesa: o quadro da esteira na Home tem um avatar,
+ * um ponto e um selo por cartão, e em azul a tela inteira virava a cor da
+ * marca. A ordem do funil fica no tom; o azul fica para o texto.
+ *
+ * O tom mais claro para em 30%: abaixo disso o ponto da coluna some no
+ * `bg-page` e o avatar some no cartão branco. Branco só sobre os dois mais
+ * escuros — no `/70` ele já cai abaixo de 4.5:1; dali em diante as iniciais
+ * vão em tinta escura.
+ */
+export const STAGE_NEUTRAL_BG = [
+  "bg-gray-100",
+  "bg-gray-100/85",
+  "bg-gray-100/70",
+  "bg-gray-100/55",
+  "bg-gray-100/40",
+  "bg-gray-100/30",
+] as const;
+
+export const STAGE_NEUTRAL_TILE = [
+  "bg-gray-100 text-white",
+  "bg-gray-100/85 text-white",
+  "bg-gray-100/70 text-black/80",
+  "bg-gray-100/55 text-black/80",
+  "bg-gray-100/40 text-black/75",
+  "bg-gray-100/30 text-black/75",
+] as const;
+
+export const stageNeutralBg = (index: number) =>
+  STAGE_NEUTRAL_BG[atRamp(STAGE_NEUTRAL_BG.length, index)];
+
+export const stageNeutralTile = (index: number) =>
+  STAGE_NEUTRAL_TILE[atRamp(STAGE_NEUTRAL_TILE.length, index)];

@@ -88,9 +88,9 @@ describe("links de contato", () => {
 
   it("recusa número incompleto em vez de gerar link quebrado", () => {
     expect(toPhoneDigits("9999")).toBeNull();
-    expect(toPhoneDigits(undefined)).toBeNull();
+    expect(toPhoneDigits()).toBeNull();
     expect(whatsappLink("123")).toBeNull();
-    expect(telLink(undefined)).toBeNull();
+    expect(telLink()).toBeNull();
   });
 
   it("gera os links no formato de cada app", () => {

@@ -171,6 +171,16 @@ describe("a revisão do cadastro", () => {
   });
 });
 
+const period = (extra: Partial<DisabilityPeriodDraft>) => ({
+  key: "k",
+  id: null,
+  grade: "" as const,
+  startedOn: "",
+  ongoing: true,
+  endedOn: "",
+  ...extra,
+});
+
 describe("as seções opcionais na revisão", () => {
   it("endereço em branco não cobra nada", () => {
     const address = sectionOf(buildClientReview(blank()), "address");
@@ -228,6 +238,22 @@ describe("as seções opcionais na revisão", () => {
     ).toBe("Trouxe a CTPS.\nFalta o CNIS & laudo.");
   });
 
+  it("o relato leva também o HTML do editor, para a Revisão mostrar a formatação", () => {
+    const content = "<p>Trouxe a <strong>CTPS</strong>.</p><ul><li><p>falta o CNIS</p></li></ul>";
+    const input = blank();
+    input.interview = { values: { occurredAt: "", durationMinutes: "", content }, hasInput: true };
+    const report = itemOf(buildClientReview(input), "interview", "Conteúdo");
+    expect(report.html).toBe(content);
+    // O texto puro continua decidindo se está preenchido.
+    expect(report.value).toBe("Trouxe a CTPS.\nfalta o CNIS");
+
+    // Editor vazio (`<p></p>`) é pendência, não um bloco em branco formatado.
+    input.interview = { values: { occurredAt: "", durationMinutes: "", content: "<p></p>" }, hasInput: true };
+    const empty = itemOf(buildClientReview(input), "interview", "Conteúdo");
+    expect(empty.state).toBe("missing");
+    expect(empty.html).toBeUndefined();
+  });
+
   it("a deficiência só entra quando a seção aparece no formulário", () => {
     expect(
       buildClientReview(blank()).some((s) => s.key === "disability"),
@@ -243,15 +269,6 @@ describe("as seções opcionais na revisão", () => {
   });
 
   it("cada período mostra grau, início e cessação", () => {
-    const period = (extra: Partial<DisabilityPeriodDraft>) => ({
-      key: "k",
-      id: null,
-      grade: "" as const,
-      startedOn: "",
-      ongoing: true,
-      endedOn: "",
-      ...extra,
-    });
     const input = blank();
     input.disability = [
       period({ key: "a", grade: "GRAVE", startedOn: "2010-01-01" }),
@@ -276,11 +293,11 @@ describe("as seções opcionais na revisão", () => {
   it("arquivos listam o nome, e documento sem tipo é pendência", () => {
     const input = blank();
     input.documents = [
-      { file: new File(["x"], "rg.pdf"), documentType: "", notes: "" },
+      { file: new File(["x"], "rg.pdf", { type: "application/pdf" }), documentType: "", notes: "" },
     ];
     input.simulations = [
       {
-        file: new File(["x"], "simulacao.pdf"),
+        file: new File(["x"], "simulacao.pdf", { type: "application/pdf" }),
         simulationDate: "2026-09-30",
         version: "2",
         // Vínculos e descrição são obrigatórios no envio (`simulationErrors`):

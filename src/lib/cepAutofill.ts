@@ -1,5 +1,6 @@
 import type { CepLookupResponse } from "@/services/cepService";
 import { digitsOf } from "@/lib/masks/masks";
+import { optionalText } from "@/lib/formValues";
 
 /** Os campos de endereço que um CEP sabe preencher. */
 export type CepFillable = {
@@ -9,6 +10,10 @@ export type CepFillable = {
   city: string;
   state: string;
 };
+
+/** O valor novo, se veio com conteúdo; senão o que já estava. */
+const keep = (next: string | null | undefined, previous: string) =>
+  optionalText(next) ?? previous;
 
 /**
  * O que um CEP encontrado escreve no formulário.
@@ -27,9 +32,6 @@ export function cepPatch(
   current: CepFillable,
   found: CepLookupResponse,
 ): CepFillable {
-  const keep = (next: string | null | undefined, previous: string) =>
-    next && next.trim() ? next.trim() : previous;
-
   return {
     zipCode: keep(found.zipCode, current.zipCode),
     street: keep(found.street, current.street),

@@ -34,7 +34,10 @@ type StageMoveDialogProps = {
   onConfirm: (justification: string) => void;
 };
 
-export function StageMoveDialog({ kind, isSaving, onClose, ...content }: StageMoveDialogProps) {
+/** "Pular uma etapa?" ou "Pular 3 etapas?". */
+const skipHeading = (count: number) => (count === 1 ? "Pular uma etapa?" : `Pular ${count} etapas?`);
+
+export function StageMoveDialog({ kind, isSaving, onClose, ...content }: Readonly<StageMoveDialogProps>) {
   return (
     <ModalShell
       isOpen={kind !== null}
@@ -69,6 +72,7 @@ function StageMoveContent({
   const error = validateJustification(justification) ?? undefined;
   const isSkip = kind === "skip";
   const count = skipped.length;
+  const verb = isSkip ? "Pular" : "Voltar";
 
   return (
     <>
@@ -77,7 +81,7 @@ function StageMoveContent({
           <WarningIcon className="size-5" />
         </Modal.Icon>
         <Modal.Heading>
-          {!isSkip ? "Voltar etapa?" : count === 1 ? "Pular uma etapa?" : `Pular ${count} etapas?`}
+          {isSkip ? skipHeading(count) : "Voltar etapa?"}
         </Modal.Heading>
       </Modal.Header>
 
@@ -148,7 +152,7 @@ function StageMoveContent({
             disabled={!!error || isSaving}
             onClick={() => onConfirm(justification.trim())}
           >
-            {isSaving ? "Salvando…" : `${isSkip ? "Pular" : "Voltar"} para ${to}`}
+            {isSaving ? "Salvando…" : `${verb} para ${to}`}
           </ActionButton>
         </ActionGroup>
       </Modal.Footer>

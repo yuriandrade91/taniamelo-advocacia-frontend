@@ -34,7 +34,7 @@ describe("lookupCep", () => {
   it("consulta /cep/{digitos}, sem pontuação e sem toast de erro", async () => {
     vi.mocked(axiosInstance.get).mockResolvedValue({
       data: { success: true, data: found },
-    } as never);
+    });
 
     const result = await lookupCep("30.240-000");
 

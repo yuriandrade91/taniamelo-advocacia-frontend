@@ -80,7 +80,7 @@ test("lançar uma entrada", async ({ page }) => {
   const creation = page.waitForResponse(
     (r) =>
       r.request().method() === "POST" &&
-      /\/api\/v1\/revenues$/.test(new URL(r.url()).pathname),
+      new URL(r.url()).pathname.endsWith("/api/v1/revenues"),
   );
   await modal.getByRole("button", { name: "Lançar receita" }).click();
 
@@ -106,7 +106,7 @@ test("lançar uma saída", async ({ page }) => {
   const creation = page.waitForResponse(
     (r) =>
       r.request().method() === "POST" &&
-      /\/api\/v1\/expenses$/.test(new URL(r.url()).pathname),
+      new URL(r.url()).pathname.endsWith("/api/v1/expenses"),
   );
   await modal.getByRole("button", { name: "Lançar saída" }).click();
 

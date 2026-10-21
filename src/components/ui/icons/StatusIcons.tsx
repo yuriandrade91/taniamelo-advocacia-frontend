@@ -5,7 +5,7 @@ import React from "react";
  * de clique. Categoria separada de `actions.tsx`, que é para botões.
  */
 
-export function DollarCircleIcon({ className = "h-4 w-4" }: { className?: string }) {
+export function DollarCircleIcon({ className = "h-4 w-4" }: Readonly<{ className?: string }>) {
   return (
     <svg
       viewBox="0 0 24 24"

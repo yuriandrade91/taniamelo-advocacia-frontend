@@ -73,7 +73,7 @@ export type ClientIntakeChartProps = {
 export function ClientIntakeChart({
   points,
   isLoading = false,
-}: ClientIntakeChartProps) {
+}: Readonly<ClientIntakeChartProps>) {
   const isEmpty =
     !isLoading && points.every((p) => p.verified + p.potential === 0);
 

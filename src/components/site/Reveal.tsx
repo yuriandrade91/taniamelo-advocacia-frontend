@@ -13,12 +13,12 @@ export function Reveal({
   children,
   delay = 0,
   className = "",
-}: {
+}: Readonly<{
   children: ReactNode;
   /** Atraso em ms — para cartões de uma grade entrarem em cascata. */
   delay?: number;
   className?: string;
-}) {
+}>) {
   const ref = useRef<HTMLDivElement>(null);
 
   // O estado vive no próprio elemento (`data-visible`): marcar a entrada não

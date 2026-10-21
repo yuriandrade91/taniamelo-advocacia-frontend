@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 /**
- * A moldura de todo ícone de traço da casa: `currentColor` (quem usa o ícone
+ * A moldura de cada ícone de traço da casa: `currentColor` (quem usa o ícone
  * pinta pela classe de texto), pontas e junções redondas, `aria-hidden` (o
  * nome vai no botão, não no desenho). Server Component — só props para JSX.
  *
