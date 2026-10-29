@@ -28,6 +28,14 @@ const LEGACY_KEYS = ["tenantId", "tenantSlug"];
 const DEFAULT_TENANT_SLUG =
   optionalText(process.env.NEXT_PUBLIC_TENANT_SLUG) ?? "tania";
 
+/**
+ * Liga o campo "Escritório" no login. Só o `env/local.env` liga: no backend
+ * local qualquer slug pode existir, e trocar de escritório não deve exigir
+ * reiniciar o dev server. Nos demais ambientes o escritório é fixo.
+ */
+export const TENANT_PICKER_ENABLED =
+  process.env.NEXT_PUBLIC_TENANT_PICKER === "true";
+
 const isBrowser = () => typeof document !== "undefined";
 
 /** Persiste o tenant retornado pelo login/resolve. */
@@ -51,7 +59,19 @@ function getTenantId(): string | null {
   return localStorage.getItem(TENANT_ID_KEY);
 }
 
-function getTenantSlug(): string {
+/**
+ * Escolhe o escritório antes do login. Descarta o UUID guardado: ele tem
+ * precedência no header e apontaria para o escritório anterior.
+ */
+export function chooseTenantSlug(slug: string): void {
+  if (!isBrowser()) return;
+  localStorage.removeItem(TENANT_ID_KEY);
+  const chosen = optionalText(slug);
+  if (chosen) localStorage.setItem(TENANT_SLUG_KEY, chosen);
+  else localStorage.removeItem(TENANT_SLUG_KEY);
+}
+
+export function getTenantSlug(): string {
   if (!isBrowser()) return DEFAULT_TENANT_SLUG;
   return optionalText(localStorage.getItem(TENANT_SLUG_KEY)) ?? DEFAULT_TENANT_SLUG;
 }
