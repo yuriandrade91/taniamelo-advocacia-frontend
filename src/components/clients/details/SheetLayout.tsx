@@ -332,7 +332,7 @@ export function SidebarTipButton({
         aria-label={label}
         onPress={onPress}
         isDisabled={isDisabled}
-        className="flex h-10 w-10 min-w-10 items-center justify-center rounded-xl bg-white/15 p-0 text-white hover:bg-white/25 disabled:opacity-50"
+        className="flex h-10 w-10 min-w-10 items-center justify-center rounded-full bg-white/15 p-0 text-white hover:bg-white/25 disabled:opacity-50"
       >
         {children}
       </Button>

@@ -68,7 +68,7 @@ export function IconButton({
         aria-label={label}
         onClick={onClick}
         isDisabled={isDisabled}
-        className={`cursor-pointer rounded-full bg-transparent p-1 disabled:cursor-not-allowed disabled:opacity-50 ${TONE_CLASSES[tone]}`}
+        className={`cursor-pointer rounded-md bg-transparent p-1 disabled:cursor-not-allowed disabled:opacity-50 ${TONE_CLASSES[tone]}`}
       >
         {children}
       </Button>
