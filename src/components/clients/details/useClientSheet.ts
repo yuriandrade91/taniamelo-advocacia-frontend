@@ -41,6 +41,7 @@ import {
 } from "../form/schemas";
 import { toUpdateRequest, type KeptFields, type SheetSections } from "./clientSheet";
 import { optionalText } from "@/lib/formValues";
+import { SituationLabelByKey, type SituationKey } from "@/enums/situation/Situation";
 
 /**
  * Estado e regras da ficha do cliente: carga, edição, validação e gravação.
@@ -312,6 +313,35 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
     );
   }, []);
 
+  /**
+   * A situação do benefício mudou fora do "Salvar" (o cartão de etapa grava
+   * na hora). Como `setRequestStage`: a ficha guarda a nova no que reenvia —
+   * no retrato e no campo —, senão o próximo PUT desfaria a mudança. E relê o
+   * histórico, que ganhou uma linha.
+   */
+  const { setField: setServiceField } = service;
+  const setSituation = useCallback(
+    async (situation: SituationKey) => {
+      setServiceField("situation", situation);
+      setRecord(
+        (current) =>
+          current && {
+            ...current,
+            client: current.client && { ...current.client, situation: SituationLabelByKey[situation] },
+            snapshot: { ...current.snapshot, service: { ...current.snapshot.service, situation } },
+          },
+      );
+      if (!clientId) return;
+      const history = await clientSituationHistory(clientId, { pageNumber: 1, pageSize: 50 }).catch(() => null);
+      if (!history) return;
+      setRecord(
+        (current) =>
+          current && { ...current, history: newestFirst(history.data, (item) => item.changedAt), historyFailed: false },
+      );
+    },
+    [clientId, setServiceField],
+  );
+
   return {
     forms: { service, personal, professional, address, interview },
     record: loaded,
@@ -323,5 +353,6 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
     cancel,
     loadFiles,
     setRequestStage,
+    setSituation,
   };
 }

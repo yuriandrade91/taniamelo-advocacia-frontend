@@ -13,7 +13,7 @@ import { formatValue } from "@/components/ui/form/schema";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useOfficeAuthors } from "@/hooks/useOfficeAuthors";
 import { GenderLabelByKey, type GenderKey } from "@/enums/gender/Gender";
-import { deleteClient } from "@/services/clientService";
+import { deleteClient, patchClient } from "@/services/clientService";
 import { deleteFile } from "@/services/clientFileService";
 import { plural } from "@/lib/format";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
@@ -40,6 +40,11 @@ import { ProfessionalDataSection } from "../form/sections/ProfessionalDataSectio
 import { ServiceSection } from "../form/sections/ServiceSection";
 import { SituationHistorySection } from "../form/sections/SituationHistorySection";
 import { DocumentCatalogPanel } from "../form/sections/files/DocumentCatalogPanel";
+import { OtherAddresses } from "./OtherAddresses";
+import { StageChanger } from "../stage/StageChanger";
+import { StageMeter } from "../stage/StageMeter";
+import { situationChangedMessage } from "../stage/stages";
+import { invalidateSituationTrail } from "../stage/stageTrails";
 import { FilesUpload } from "../form/sections/files/upload/FilesUpload";
 import { uploadStagedFiles } from "../form/sections/files/uploadStaged";
 import {
@@ -353,7 +358,13 @@ export default function ClientDetailsModal({
       description: "O endereço principal do cliente.",
       icon: <AddressIcon />,
       ...fill(addressSchema, address.values, ["cepLookup"]),
-      content: <AddressSection form={address} isReadOnly={!isEditing} isLoading={sheet.isLoading} />,
+      content: (
+        <>
+          <AddressSection form={address} isReadOnly={!isEditing} isLoading={sheet.isLoading} />
+          {/* O principal é o de cima, o que a ficha edita; os demais, para ver. */}
+          <OtherAddresses addresses={record?.addresses.slice(1) ?? []} />
+        </>
+      ),
     },
     {
       id: "entrevista",
@@ -419,11 +430,32 @@ export default function ClientDetailsModal({
       content: sheet.isLoading ? (
         <RowSkeletons count={4} />
       ) : (
-        <SituationHistorySection
-          items={record?.history ?? []}
-          hasError={record?.historyFailed ?? false}
-          authors={authors}
-        />
+        <div className="flex flex-col gap-5">
+          {/* Mudar a etapa daqui, como no INSS: o mesmo cartão da lista, gravando na hora. */}
+          <div className="rounded-2xl bg-page p-4">
+            <StageChanger
+              clientId={clientId}
+              clientName={optionalText(record?.client?.fullName) ?? clientName}
+              situation={record?.client?.situation}
+              onConfirm={async (stage) => {
+                // "OUTRA" é o selo de uma situação desconhecida, que não se escolhe.
+                if (stage.key === "OUTRA") return;
+                const name = optionalText(record?.client?.fullName) ?? clientName;
+                await patchClient(clientId, { situation: stage.key }, { successMessage: situationChangedMessage(name, stage.key) });
+                invalidateSituationTrail(clientId);
+                await sheet.setSituation(stage.key);
+                onConfirm?.();
+              }}
+            >
+              <StageMeter situation={record?.client?.situation} />
+            </StageChanger>
+          </div>
+          <SituationHistorySection
+            items={record?.history ?? []}
+            hasError={record?.historyFailed ?? false}
+            authors={authors}
+          />
+        </div>
       ),
     },
     {
