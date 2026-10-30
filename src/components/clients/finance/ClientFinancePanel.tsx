@@ -2,8 +2,8 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Skeleton } from "@heroui/react";
-import { RowSkeletons } from "@/components/ui/feedback/Loading";
-import { Segmented } from "@/components/ui/filters/FilterBar";
+import { LoadingCircle, RowSkeletons } from "@/components/ui/feedback/Loading";
+import { CountBadge, SegmentedTabs } from "@/components/ui/tabs/SegmentedTabs";
 import { bucketOf, type PaymentBucket } from "@/components/payments/paymentBuckets";
 import { BucketChip } from "@/components/wallet/WalletEntryList";
 import type { ApiEnvelope } from "@/interfaces/Envelope.interface";
@@ -169,14 +169,24 @@ export function ClientFinancePanel({ clientId }: Readonly<{ clientId: string }>)
 
   /** Carregando = ainda não chegou a resposta deste cliente. */
   const data = loaded?.clientId === clientId ? loaded : null;
-  const meta = TABS[tab];
 
   return (
-    <div className="flex flex-col gap-4">
-      <TabSwitch value={tab} onChange={setTab} data={data} />
-      <p className="-mt-1 text-xs text-gray-100/70">{meta.hint}</p>
-      <TabBody key={tab} block={data?.[tab] ?? null} meta={meta} />
-    </div>
+    <SegmentedTabs
+      label="Financeiro do cliente"
+      selectedKey={tab}
+      onSelectionChange={(key) => setTab(key as TabId)}
+      className="gap-4"
+      tabs={(Object.keys(TABS) as TabId[]).map((id) => ({
+        id,
+        label: <TabLabel label={TABS[id].label} count={tabCount(data?.[id])} />,
+        content: (
+          <div className="flex flex-col gap-4">
+            <p className="text-xs text-gray-100/70">{TABS[id].hint}</p>
+            <TabBody block={data?.[id] ?? null} meta={TABS[id]} />
+          </div>
+        ),
+      }))}
+    />
   );
 }
 
@@ -214,35 +224,20 @@ function tabCount(block: Loaded[TabId] | undefined): number | null | undefined {
 }
 
 /**
- * As abas: o `Segmented` das listas, com o total de cada lado no selo. Sem
- * selo onde não há número (rota em pausa, erro); carregando, o círculo no
- * lugar dele.
+ * O nome da aba com o total de cada lado — o padrão das abas com painel
+ * (`SegmentedTabs` + `CountBadge`). Sem selo onde não há número (rota em
+ * pausa, erro); carregando, o círculo no lugar dele.
  */
-function TabSwitch({
-  value,
-  onChange,
-  data,
-}: Readonly<{
-  value: TabId;
-  onChange: (tab: TabId) => void;
-  data: Loaded | null;
-}>) {
+function TabLabel({ label, count }: Readonly<{ label: string; count: number | null | undefined }>) {
   return (
-    <Segmented
-      label="Financeiro do cliente"
-      mode="tab"
-      grow
-      onPress={(id) => onChange(id as TabId)}
-      segments={(Object.keys(TABS) as TabId[]).map((id) => {
-        const block = data?.[id];
-        return {
-          id,
-          label: TABS[id].label,
-          active: id === value,
-          count: tabCount(block),
-        };
-      })}
-    />
+    <>
+      {label}
+      {count === null ? (
+        <LoadingCircle size={16} label={`Contando ${label.toLowerCase()}`} />
+      ) : (
+        count !== undefined && <CountBadge tone="accent" count={count} />
+      )}
+    </>
   );
 }
 
