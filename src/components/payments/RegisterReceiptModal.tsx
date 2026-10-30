@@ -93,8 +93,6 @@ export function RegisterReceiptModal({
       isOpen={payment !== null}
       onOpenChange={(open) => !open && onClose()}
       title="Confirmar crédito"
-      // O rodapé em cápsula da Carteira, como as outras modais de lançamento.
-      actions="pill"
       confirmLabel="Confirmar"
       onConfirm={() => void handleConfirm()}
       isSubmitting={isSubmitting}

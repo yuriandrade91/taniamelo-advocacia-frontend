@@ -50,8 +50,6 @@ export function EditPaymentModal({
       title="Editar parcela"
       description={`${payment.clientName} — o que mudar aqui vale só para esta parcela.`}
       size="lg"
-      // O rodapé em cápsula da Carteira, como as outras modais de lançamento.
-      actions="pill"
       confirmLabel="Salvar"
       onConfirm={() => void handleConfirm()}
       isSubmitting={form.isSubmitting}

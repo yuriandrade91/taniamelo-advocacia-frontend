@@ -201,7 +201,6 @@ export default function AppointmentsCard({ className = "" }: Readonly<{ classNam
         onOpenChange={(open) => !open && editor.requestClose()}
         title={editor.title}
         dialogClassName="w-full sm:w-[520px]"
-        actions="pill"
         confirmLabel={editor.confirmLabel}
         onConfirm={editor.submit}
         isConfirmDisabled={!editor.isValid}

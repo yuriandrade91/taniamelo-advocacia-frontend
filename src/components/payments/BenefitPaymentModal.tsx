@@ -111,8 +111,6 @@ export function BenefitPaymentModal({
       title="Lançar valor a receber"
       description="Um valor que o INSS vai pagar ao cliente — atrasados, benefício mensal, parcela de acordo."
       size="lg"
-      // O rodapé em cápsula da Carteira, como as outras modais de lançamento.
-      actions="pill"
       confirmLabel="Lançar"
       onConfirm={() => void handleConfirm()}
       isSubmitting={isSubmitting}

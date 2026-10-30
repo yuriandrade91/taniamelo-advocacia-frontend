@@ -152,9 +152,6 @@ export default function AgendaPage() {
         onConfirm={editor.submit}
         isConfirmDisabled={!editor.isValid}
         size="lg"
-        // O mesmo rodapé da Carteira — as modais de lançamento falam a mesma
-        // língua, seja compromisso, parcela ou despesa.
-        actions="pill"
         isSubmitting={editor.isSubmitting}
       >
         {editor.fields}
