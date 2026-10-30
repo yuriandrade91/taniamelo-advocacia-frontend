@@ -12,6 +12,7 @@ import { listDocuments, listSimulations } from "@/services/clientFileService";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
 import { messageOf } from "@/lib/errorMessage";
 import { fetchAllPages } from "@/lib/pagination";
+import { sheetRead } from "@/lib/clientsCache";
 
 /**
  * Tudo o que a ficha lê de um cliente, num caminho só. A deficiência fica de
@@ -50,15 +51,16 @@ const allSimulations = (clientId: string) => fetchAllPages((params) => listSimul
 const primaryFirst = (items: ClientAddressResponse[] = []) =>
   [...items].sort((a, b) => Number(Boolean(b.isPrimary)) - Number(Boolean(a.isPrimary)));
 
+/** Reabrir a ficha do mesmo cliente lê da memória (`sheetRead`) até a próxima gravação. */
 export async function loadClient(clientId: string): Promise<LoadedClient> {
   const [client, historyResult, addresses, interviews, documents, simulations] =
     await Promise.allSettled([
-      clientById(clientId),
-      clientSituationHistory(clientId, { pageNumber: 1, pageSize: 50 }),
-      listAddresses(clientId),
-      listInterviews(clientId),
-      allDocuments(clientId),
-      allSimulations(clientId),
+      sheetRead(`${clientId}:client`, () => clientById(clientId)),
+      sheetRead(`${clientId}:situation-history`, () => clientSituationHistory(clientId, { pageNumber: 1, pageSize: 50 })),
+      sheetRead(`${clientId}:addresses`, () => listAddresses(clientId)),
+      sheetRead(`${clientId}:interviews`, () => listInterviews(clientId)),
+      sheetRead(`${clientId}:documents`, () => allDocuments(clientId)),
+      sheetRead(`${clientId}:simulations`, () => allSimulations(clientId)),
     ]);
 
   return {

@@ -28,6 +28,7 @@ import {
   updateDisabilityPeriod,
 } from "@/services/clientDisabilityPeriodService";
 import { todayIso } from "@/lib/period";
+import { sheetRead } from "@/lib/clientsCache";
 import { useConstant } from "@/hooks/useConstant";
 
 /** O que a ficha pede ao painel: conferir antes de salvar, e salvar. */
@@ -95,7 +96,7 @@ export function ClientDisabilityPanel({
   const load = useCallback(async () => {
     let list: DisabilityPeriodResponse[] = [];
     try {
-      const envelope = await listDisabilityPeriods(clientId);
+      const envelope = await sheetRead(`${clientId}:disability-periods`, () => listDisabilityPeriods(clientId));
       list = envelope?.data ?? [];
     } catch (error) {
       console.debug("Could not load disability periods:", error);
@@ -112,9 +113,9 @@ export function ClientDisabilityPanel({
       return;
     }
     try {
-      const envelope = await getDisabilityConversion(clientId, undefined, {
-        silent: true,
-      });
+      const envelope = await sheetRead(`${clientId}:disability-conversion`, () =>
+        getDisabilityConversion(clientId, undefined, { silent: true }),
+      );
       const result = conversionFromServer(envelope?.data);
       setConversion(result);
       setConversionFailed(result === null);

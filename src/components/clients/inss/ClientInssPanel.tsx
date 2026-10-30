@@ -19,6 +19,7 @@ import { formatInstantDateBR, plural } from "@/lib/format";
 import { clientRequestStageHistory } from "@/services/clientService";
 import { requestStageHistoryRows, requestStageStatus } from "./requestStageHistory";
 import { loadView } from "@/lib/loadView";
+import { sheetRead } from "@/lib/clientsCache";
 
 /**
  * "Andamento no INSS" na ficha: a etapa do requerimento, o botão de mudar e o
@@ -81,7 +82,12 @@ export function ClientInssPanel({
   const [version, setVersion] = useState(0);
   const loaded = useSettled(
     `request-stage-history:${clientId}`,
-    () => Promise.allSettled([clientRequestStageHistory(clientId, { pageNumber: 1, pageSize: HISTORY_PAGE_SIZE })]),
+    () =>
+      Promise.allSettled([
+        sheetRead(`${clientId}:request-stage-history`, () =>
+          clientRequestStageHistory(clientId, { pageNumber: 1, pageSize: HISTORY_PAGE_SIZE }),
+        ),
+      ]),
     version,
   );
   const history = loaded ? (settledValue(loaded[0], null)?.data ?? []) : [];

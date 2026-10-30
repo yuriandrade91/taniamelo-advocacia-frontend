@@ -14,6 +14,7 @@ import { pendingIntegration } from "@/services/pendingIntegration";
 import { getOfficePaymentSummary, listOfficePayments } from "@/services/officePaymentService";
 import { getOfficeRevenueSummary, listOfficeRevenues } from "@/services/officeRevenueService";
 import { Notice } from "@/components/ui/feedback/Notice";
+import { sheetRead } from "@/lib/clientsCache";
 
 /**
  * O financeiro de um cliente — no painel lateral da lista (`ClientFinanceDrawer`)
@@ -116,8 +117,8 @@ async function loadFinance(clientId: string): Promise<Loaded> {
   const [benefit, fees] = await Promise.all([
     loadBlock(
       "payments",
-      () => listOfficePayments(page),
-      () => getOfficePaymentSummary({ clientId }),
+      () => sheetRead(`${clientId}:payments`, () => listOfficePayments(page)),
+      () => sheetRead(`${clientId}:payments-summary`, () => getOfficePaymentSummary({ clientId })),
       (item) => ({
         id: item.id,
         description: item.description,
@@ -132,8 +133,8 @@ async function loadFinance(clientId: string): Promise<Loaded> {
     ),
     loadBlock(
       "revenues",
-      () => listOfficeRevenues(page),
-      () => getOfficeRevenueSummary({ clientId }),
+      () => sheetRead(`${clientId}:revenues`, () => listOfficeRevenues(page)),
+      () => sheetRead(`${clientId}:revenues-summary`, () => getOfficeRevenueSummary({ clientId })),
       (item) => ({
         id: item.id,
         description: item.description,

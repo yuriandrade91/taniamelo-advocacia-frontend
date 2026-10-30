@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import { clearClientSheets } from "@/lib/clientsCache";
 
 /**
  * A API de mentira dos testes de componente: a instância do axios
@@ -47,7 +48,14 @@ export function httpError(status: number, message = "Falha simulada.", errors: F
   });
 }
 
+/** Como o interceptor do `axiosService`: gravação bem-sucedida esvazia as leituras guardadas da ficha. */
 function dispatch(method: Method, url: string, body?: unknown, config?: Request["config"]) {
+  const response = respond(method, url, body, config);
+  if (method !== "get") void response.then(clearClientSheets, () => undefined);
+  return response;
+}
+
+function respond(method: Method, url: string, body?: unknown, config?: Request["config"]) {
   const route = routes.findLast((candidate) => matches(candidate, method, url));
   // Sem rota: lista vazia num GET de lista; resumo e escrita respondem sem dado.
   if (!route) return Promise.resolve({ status: 200, data: envelope(method === "get" && !url.endsWith("/summary") ? [] : null) });

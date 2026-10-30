@@ -4,6 +4,7 @@ import endpoints, { API_BASE_URL } from "@/constants/endpoints/paths";
 import { notificationCenter } from "@/services/notificationService";
 import { getTenantHeaderValue } from "@/lib/tenant";
 import { applySession, expireSession, isSessionEnding, readToken } from "@/lib/session";
+import { clearClientSheets } from "@/lib/clientsCache";
 import axios, { type AxiosError } from "axios";
 
 /**
@@ -111,6 +112,8 @@ async function envelopeFromBlob(blob: Blob): Promise<unknown> {
 
 axiosInstance.interceptors.response.use(
   (response) => {
+    // Gravou: o que a ficha de um cliente guardou pode ter ficado velho.
+    if (response.config.method !== "get") clearClientSheets();
     notificationCenter.notifyResponse(response);
     return response;
   },
