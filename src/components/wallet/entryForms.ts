@@ -90,6 +90,9 @@ import { amountTextOf, enumKeyOf, optionalText } from "@/lib/formValues";
 /** Entrada ou saída — o que o modal pergunta antes de mostrar os campos. */
 export type EntryKind = "income" | "expense";
 
+/** A aba da lista da Carteira: um dos lados, ou os dois juntos. */
+export type WalletTab = EntryKind | "all";
+
 /**
  * Os rótulos que mudam de lado. "Já foi recebido?" e "Já foi paga?" são a
  * mesma pergunta — o dinheiro já se moveu? — e vêm por parâmetro para que o

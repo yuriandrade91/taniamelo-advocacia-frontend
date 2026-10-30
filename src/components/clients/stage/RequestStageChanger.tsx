@@ -169,7 +169,7 @@ export function RequestStageChanger({
       <Popover.Content {...card.contentProps} placement="bottom" className="w-80">
         <Popover.Arrow />
         <Popover.Dialog aria-label="Mudar situação no INSS">
-          <Pill size="sm">Situação no INSS</Pill>
+          <Pill size="sm">Mudar situação</Pill>
           <p className="mt-2 truncate text-sm font-semibold text-primary">{clientName}</p>
           <p className="mt-0.5 text-xs text-gray-100">
             {current ? `Etapa atual: ${current.label}` : "Ainda não foi ao INSS"}

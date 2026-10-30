@@ -50,7 +50,7 @@ test.describe("Pagamentos", () => {
 test.describe("Carteira", () => {
   test.skip(integrationPaused("expenses", "revenues"), "rotas da Carteira em pausa neste ambiente");
 
-  test("abre pedindo só as saídas; as entradas saem no clique da aba, e voltar não repete", async ({ page }) => {
+  test("abre em Todos, pedindo os dois lados; cada aba pede o seu no clique, e voltar não repete", async ({ page }) => {
     const lists: string[] = [];
     page.on("request", (r) => {
       const url = new URL(r.url());
@@ -58,15 +58,15 @@ test.describe("Carteira", () => {
     });
 
     await page.goto("/carteira");
-    await expect(page.getByRole("tab", { name: /^Saídas/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: /^Todos/ })).toHaveAttribute("aria-selected", "true");
     await expect.poll(() => lists.filter((p) => p.endsWith("/expenses")).length).toBe(1);
-    expect(lists.filter((p) => p.endsWith("/revenues"))).toHaveLength(0);
+    expect(lists.filter((p) => p.endsWith("/revenues"))).toHaveLength(1);
 
     await page.getByRole("tab", { name: /^Entradas/ }).click();
-    await expect.poll(() => lists.filter((p) => p.endsWith("/revenues")).length).toBe(1);
+    await expect.poll(() => lists.filter((p) => p.endsWith("/revenues")).length).toBe(2);
 
-    // De volta às saídas: a página já vista sai do cache, sem nova requisição.
-    await page.getByRole("tab", { name: /^Saídas/ }).click();
+    // De volta a Todos: a página já vista sai do cache, sem nova requisição.
+    await page.getByRole("tab", { name: /^Todos/ }).click();
     await page.waitForTimeout(500);
     expect(lists.filter((p) => p.endsWith("/expenses"))).toHaveLength(1);
   });

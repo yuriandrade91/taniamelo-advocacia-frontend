@@ -4,7 +4,7 @@ import { BUCKET_FILTER_ORDER } from "@/components/payments/paymentBuckets";
 import { ExpenseCategoryOptions } from "@/enums/expenseCategory/ExpenseCategory";
 import { PaymentMethodOptions } from "@/enums/payment/Payment";
 import { bucketLabel } from "./entryKind";
-import type { EntryKind } from "./entryForms";
+import type { WalletTab } from "./entryForms";
 
 /**
  * Os filtros de cada aba da Carteira — cada uma guarda os seus.
@@ -15,12 +15,16 @@ import type { EntryKind } from "./entryForms";
  * "Recebido" na entrada), traduzidos por `bucketQuery`.
  */
 
-const status = (kind: EntryKind) =>
+const status = (tab: WalletTab) =>
   ({
     kind: "select",
     label: "Status",
     placeholder: "Todos",
-    options: BUCKET_FILTER_ORDER.map((bucket) => ({ id: bucket, label: bucketLabel(kind, bucket) })),
+    options: BUCKET_FILTER_ORDER.map((bucket) => ({
+      id: bucket,
+      // Nos dois lados juntos, "pago" é pago numa saída e recebido numa entrada.
+      label: tab === "all" && bucket === "paid" ? "Pago ou recebido" : bucketLabel(tab === "all" ? "expense" : tab, bucket),
+    })),
   }) as const;
 
 const method = {
@@ -47,5 +51,12 @@ export const expenseFilters = defineFilters({
 export const revenueFilters = defineFilters({
   searchTerm: { kind: "search", label: "Pesquisar lançamento", placeholder: "Pesquisar descrição ou cliente…" },
   bucket: status("income"),
+  paymentMethod: method,
+});
+
+/** Os dois lados juntos: o que vale para os dois — busca, status e forma. Categoria é só de saída. */
+export const allFilters = defineFilters({
+  searchTerm: { kind: "search", label: "Pesquisar lançamento", placeholder: "Pesquisar descrição, fornecedor ou cliente…" },
+  bucket: status("all"),
   paymentMethod: method,
 });
