@@ -1,6 +1,7 @@
 "use client";
 
 import { ClientSearchField } from "@/components/ui/form/ClientSearchField";
+import { ExistingEntriesCheck } from "@/components/payments/ExistingEntriesCheck";
 import { FieldGrid } from "@/components/ui/form/FieldGrid";
 import { SchemaField } from "@/components/ui/form/SchemaFields";
 import { Segmented } from "@/components/ui/filters/FilterBar";
@@ -125,6 +126,18 @@ export function EntryFormFields({
               isDisabled={isSubmitting}
               errorMessage={income.errorOf("clientName")}
             />
+            {/* Só em lançamento novo: editar um honorário não é lançá-lo de novo. */}
+            {!isEditing && (
+              <ExistingEntriesCheck
+                kind="fees"
+                clientId={income.values.clientId}
+                clientName={income.values.clientName}
+                onChangeClient={() => {
+                  income.setField("clientId", "");
+                  income.setField("clientName", "");
+                }}
+              />
+            )}
 
             <SharedEntryFields
               form={income}

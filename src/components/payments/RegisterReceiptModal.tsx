@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useFieldErrors } from "@/hooks/useFieldErrors";
 
 import FormModal from "@/components/ui/modals/FormModal";
-import { DatePickerField, TextAreaField } from "@/components/ui/form/Field";
+import { DatePickerField, SelectField, TextAreaField } from "@/components/ui/form/Field";
 import { FieldGrid } from "@/components/ui/form/FieldGrid";
 import { patchPayment } from "@/services/clientPaymentService";
 import { formatBRL, formatDateBR, formatInstallment } from "@/lib/format";
@@ -48,6 +48,8 @@ export function RegisterReceiptModal({
 }: Readonly<RegisterReceiptModalProps>) {
   const [paidDate, setPaidDate] = useState("");
   const [notes, setNotes] = useState("");
+  /** De qual parcela é o crédito — só pergunta quando o acordo tem mais de uma. */
+  const [installment, setInstallment] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fieldErrors = useFieldErrors({ paidDate: validatePaidDate(paidDate, true) ?? undefined });
   const dateError = fieldErrors.errorOf("paidDate");
@@ -65,8 +67,15 @@ export function RegisterReceiptModal({
     setSeededFor(payment?.id ?? null);
     setPaidDate(todayIso());
     setNotes("");
+    setInstallment(String(payment?.installmentNumber ?? 1));
     fieldErrors.reset();
   }
+
+  const installmentTotal = payment?.installmentTotal ?? 1;
+  const installmentOptions = Array.from({ length: installmentTotal }, (_, i) => ({
+    id: String(i + 1),
+    label: `Parcela ${i + 1} de ${installmentTotal}`,
+  }));
 
   const handleConfirm = async () => {
     if (!fieldErrors.revealAll() || !payment) return;
@@ -76,7 +85,14 @@ export function RegisterReceiptModal({
       await patchPayment(
         payment.clientId,
         payment.id,
-        { status: "PAGO", paidDate, notes: notes.trim() || undefined },
+        {
+          status: "PAGO",
+          paidDate,
+          notes: notes.trim() || undefined,
+          // A parcela escolhida vai no corpo; quem decide qual registro ela
+          // atualiza é o backend (a rota ainda vai ser ajustada para isso).
+          ...(installmentTotal > 1 && { installmentNumber: Number(installment) }),
+        },
         { successMessage: "Crédito confirmado." },
       );
       onSaved();
@@ -131,6 +147,16 @@ export function RegisterReceiptModal({
         {/* O resumo acima fica fora da grade: ela é só dos campos, como na
             Carteira. Com dois campos, a modal é de uma coluna (`compact`). */}
         <FieldGrid columns={1}>
+          {installmentTotal > 1 && (
+            <SelectField
+              label="Parcela"
+              options={installmentOptions}
+              selectedKey={installment}
+              onSelectionChange={setInstallment}
+              isRequired
+              isDisabled={isSubmitting}
+            />
+          )}
           <DatePickerField
             label="Data do crédito"
             value={paidDate}

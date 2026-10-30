@@ -28,6 +28,7 @@ async function fill(user: UserEvent) {
   const day = within(dialog).getAllByRole("spinbutton", { name: /dia/ })[0];
   await user.click(day);
   await user.keyboard("10102030");
+  await user.click(within(dialog).getByRole("radio", { name: /Parcelado/ }));
   await user.type(inputByLabel("Parcela"), "1");
   await user.type(inputByLabel("De"), "3");
   return dialog;
@@ -75,6 +76,8 @@ describe("Lançar valor a receber", () => {
     const { user } = openModal();
     await user.click(await screen.findByRole("button", { name: "Lançar" }));
     expect(callsTo("post")).toHaveLength(0);
+    // Com o erro, o foco abre a busca do cliente, que esconde o resto da modal dos papéis.
+    await user.click(screen.getByRole("radio", { name: /Parcelado/, hidden: true }));
     await user.type(inputByLabel("Parcela"), "5");
     await user.type(inputByLabel("De"), "3");
     await user.type(inputByLabel("Observações"), "conferir com o INSS");

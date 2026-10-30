@@ -40,6 +40,8 @@ export type BenefitPaymentValues = {
   amount: string;
   /** Data prevista do crédito — `dueDate` no backend. */
   expectedDate: string;
+  /** Parcelado (`true`) ou parcela única: só o parcelado pede "Parcela" e "De". */
+  isSplit: boolean;
   installmentNumber: string;
   installmentTotal: string;
   /** O cliente já recebeu? Decide se há um PATCH depois do POST. */
@@ -54,6 +56,7 @@ export const emptyBenefitPayment = (): BenefitPaymentValues => ({
   description: "",
   amount: "",
   expectedDate: "",
+  isSplit: false,
   installmentNumber: "",
   installmentTotal: "",
   isReceived: false,
@@ -98,11 +101,13 @@ export function validateBenefitPayment(
     errors.expectedDate = "Data inválida.";
   }
 
-  const installment = validateInstallment(
-    values.installmentNumber,
-    values.installmentTotal,
-  );
-  if (installment) errors.installmentNumber = installment;
+  if (values.isSplit) {
+    const installment =
+      !values.installmentNumber.trim() || !values.installmentTotal.trim()
+        ? "Informe a parcela e o total."
+        : validateInstallment(values.installmentNumber, values.installmentTotal);
+    if (installment) errors.installmentNumber = installment;
+  }
 
   const received = validatePaidDate(values.receivedDate, values.isReceived, today);
   if (received) errors.receivedDate = received;
@@ -128,8 +133,9 @@ export function toBenefitPaymentRequest(
     description: values.description.trim(),
     amount: parseAmountBRL(values.amount) ?? 0,
     dueDate: values.expectedDate,
-    installmentNumber: optionalInteger(values.installmentNumber),
-    installmentTotal: optionalInteger(values.installmentTotal),
+    // Parcela única vai sem parcela: o que ficou digitado antes de trocar não conta.
+    installmentNumber: values.isSplit ? optionalInteger(values.installmentNumber) : undefined,
+    installmentTotal: values.isSplit ? optionalInteger(values.installmentTotal) : undefined,
     notes: optionalText(values.notes),
   };
 }

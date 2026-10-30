@@ -12,6 +12,8 @@ import {
 import { AmountField } from "@/components/ui/form/AmountField";
 import { ClientSearchField } from "@/components/ui/form/ClientSearchField";
 import { FieldGrid } from "@/components/ui/form/FieldGrid";
+import { Segmented } from "@/components/ui/filters/FilterBar";
+import { ExistingEntriesCheck } from "./ExistingEntriesCheck";
 import { useFieldErrors } from "@/hooks/useFieldErrors";
 import { createPayment, patchPayment } from "@/services/clientPaymentService";
 import { notificationCenter } from "@/services/notificationService";
@@ -127,6 +129,15 @@ export function BenefitPaymentModal({
           isDisabled={isSubmitting}
           errorMessage={errorOf("clientName")}
         />
+        <ExistingEntriesCheck
+          kind="benefit"
+          clientId={values.clientId}
+          clientName={values.clientName}
+          onChangeClient={() => {
+            set("clientId", "");
+            set("clientName", "");
+          }}
+        />
 
         <Field
           label="Descrição"
@@ -160,33 +171,47 @@ export function BenefitPaymentModal({
           errorMessage={errorOf("expectedDate")}
         />
 
-        {/* Atrasados costumam vir parcelados pelo próprio INSS. Os dois
-            campos são irmãos na grade — o par divide a linha como valor e
-            vencimento acima —, e a mensagem embaixo vale para os dois. */}
-        <Field
-          label="Parcela"
-          value={values.installmentNumber}
-          onChange={(event) => set("installmentNumber", event.target.value)}
-          placeholder="1"
-          isDisabled={isSubmitting}
-          isInvalid={!!errorOf("installmentNumber")}
-        />
-        <Field
-          label="De"
-          value={values.installmentTotal}
-          onChange={(event) => set("installmentTotal", event.target.value)}
-          placeholder="6"
-          isDisabled={isSubmitting}
-          isInvalid={!!errorOf("installmentNumber")}
-        />
-        {errorOf("installmentNumber") ? (
-          <p className="col-span-full -mt-2 text-sm text-danger">
-            {errorOf("installmentNumber")}
-          </p>
-        ) : (
-          <p className="col-span-full -mt-2 text-xs text-gray-100/60">
-            Opcional. Deixe em branco para pagamento único.
-          </p>
+        {/* Atrasados costumam vir parcelados pelo próprio INSS: a escolha
+            vem antes, e só o parcelado pede "Parcela" e "De". */}
+        <div className="col-span-full">
+          <Segmented
+            label="Forma do pagamento"
+            mode="radio"
+            surface="page"
+            grow
+            segments={[
+              { id: "single", label: "Parcela única", active: !values.isSplit },
+              { id: "split", label: "Parcelado", active: values.isSplit },
+            ]}
+            onPress={(id) => set("isSplit", id === "split")}
+          />
+        </div>
+        {values.isSplit && (
+          <>
+            {/* Os dois campos são irmãos na grade — o par divide a linha como
+                valor e vencimento acima —, e a mensagem embaixo vale para os dois. */}
+            <Field
+              label="Parcela"
+              value={values.installmentNumber}
+              onChange={(event) => set("installmentNumber", event.target.value)}
+              placeholder="1"
+              isRequired
+              isDisabled={isSubmitting}
+              isInvalid={!!errorOf("installmentNumber")}
+            />
+            <Field
+              label="De"
+              value={values.installmentTotal}
+              onChange={(event) => set("installmentTotal", event.target.value)}
+              placeholder="6"
+              isRequired
+              isDisabled={isSubmitting}
+              isInvalid={!!errorOf("installmentNumber")}
+            />
+            {errorOf("installmentNumber") && (
+              <p className="col-span-full -mt-2 text-sm text-danger">{errorOf("installmentNumber")}</p>
+            )}
+          </>
         )}
 
         <SwitchField
