@@ -46,12 +46,31 @@ import {
  * digitado — para tentar de novo.
  */
 
-/** Nó da etapa no cartão, na cor dela; a escolhida em azul-marinho. */
-const NODE: Record<RequestStageTone, string> = {
-  waiting: "bg-secondary text-white",
-  action: "bg-previsto text-white",
-  granted: "bg-success text-white",
-  denied: "bg-danger text-white",
+/**
+ * Os passos no mesmo desenho dos da situação do benefício (`StageChanger`):
+ * por onde o requerimento já passou em verde com ✓, a etapa atual dourada
+ * com halo, o resto em cinza. Deferido é o fim do caminho: atual, fecha em
+ * verde, sem halo.
+ */
+type StepState = "done" | "current" | "upcoming";
+
+const STEP_NODE: Record<StepState | "picked", string> = {
+  picked: "bg-primary text-white ring-4 ring-primary/15",
+  current: "bg-secondary text-white",
+  done: "bg-success text-white",
+  upcoming: "bg-white text-gray-100 ring-1 ring-light-gray",
+};
+
+const STEP_TEXT: Record<StepState, string> = {
+  done: "text-emerald-700",
+  current: "font-medium text-primary",
+  upcoming: "text-gray-100",
+};
+
+const STEP_STATE_LABEL: Record<StepState, string> = {
+  done: "já passou por aqui",
+  current: "etapa atual",
+  upcoming: "ainda não",
 };
 
 /** Selo da linha: pela cor, quem lê já sabe se espera, age ou terminou. */
@@ -62,12 +81,6 @@ const BADGE: Record<RequestStageTone | "none", string> = {
   denied: "bg-danger/10 text-danger",
   none: "bg-page text-gray-100",
 };
-
-/** O nó da etapa: escolhida, atual (na cor do andamento) ou as demais. */
-function nodeTone(isPicked: boolean, isCurrent: boolean, tone: RequestStageTone): string {
-  if (isPicked) return "bg-primary text-white ring-4 ring-primary/15";
-  return isCurrent ? NODE[tone] : "bg-white text-gray-100 ring-1 ring-light-gray";
-}
 
 /** O texto do botão de confirmar. */
 function confirmLabel(isSaving: boolean, target: { short: string } | null): string {
@@ -139,6 +152,12 @@ export function RequestStageChanger({
   const trail = useRequestStageTrail(clientId, card.isOpen);
   const reachedAt = trailReachedAt(trail ?? [], (entry) => requestStageOf(entry.currentStage)?.key);
 
+  /** A esteira do INSS não é funil: "já passou" é ter entrado na etapa, pela trilha. */
+  const stepState = (stage: RequestStage): StepState => {
+    if (stage.key === current?.key) return stage.key === "DEFERIMENTO" ? "done" : "current";
+    return reachedAt.has(stage.key) ? "done" : "upcoming";
+  };
+
   const confirm = async () => {
     if (!picked || !changed) return;
     if (justificationError) {
@@ -175,41 +194,49 @@ export function RequestStageChanger({
             {current ? `Etapa atual: ${current.label}` : "Ainda não foi ao INSS"}
           </p>
 
-          <ol aria-label="Etapas do INSS" className="mt-3 flex flex-col gap-0.5">
-            {REQUEST_STAGES.map((stage) => {
+          {/* A esteira em pé: um nó por etapa, ligados por um fio. */}
+          <ol aria-label="Etapas do INSS" className="mt-3 flex flex-col">
+            {REQUEST_STAGES.map((stage, index) => {
               const isCurrent = stage.key === current?.key;
               const isPicked = picked?.key === stage.key;
-              const tone = REQUEST_STAGE_TONE[stage.key];
+              const state = stepState(stage);
+              const isLast = index === REQUEST_STAGES.length - 1;
               const reached = reachedAt.get(stage.key);
               const date = reached ? formatInstantDateBR(reached) : null;
-              const currentNote = isCurrent ? " (etapa atual)" : "";
               const dateNote = date ? `, em ${date}` : "";
               return (
-                <li key={stage.key}>
+                <li key={stage.key} className="relative" data-state={state}>
+                  {!isLast && (
+                    <span
+                      aria-hidden="true"
+                      className={`absolute top-8 left-5.5 h-[calc(100%-1.25rem)] w-0.5 rounded-full ${
+                        state === "done" ? "bg-success" : "bg-light-gray"
+                      }`}
+                    />
+                  )}
                   <button
                     type="button"
                     onClick={() => setPicked(isCurrent ? null : stage)}
                     aria-pressed={isPicked}
-                    aria-label={`${stage.label}${currentNote}${dateNote}`}
+                    aria-label={`${stage.label} (${isCurrent ? "etapa atual" : STEP_STATE_LABEL[state]}${dateNote})`}
                     disabled={isSaving}
                     className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-1.5 text-left text-sm transition ${
                       isPicked ? "bg-primary/5 ring-1 ring-primary/20" : "hover:bg-primary/5"
                     }`}
                   >
-                    <span
-                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold ${nodeTone(
-                        isPicked,
-                        isCurrent,
-                        tone,
-                      )}`}
-                    >
-                      {stage.step}
+                    <span className="relative grid h-6 w-6 shrink-0 place-items-center">
+                      {state === "current" && (
+                        <span className="absolute inset-0 rounded-full bg-secondary/40 motion-safe:animate-halo" />
+                      )}
+                      <span
+                        className={`relative grid h-6 w-6 place-items-center rounded-full text-[11px] font-semibold ${
+                          STEP_NODE[isPicked ? "picked" : state]
+                        }`}
+                      >
+                        {state === "done" && !isPicked ? "✓" : stage.step}
+                      </span>
                     </span>
-                    <span
-                      className={`flex-1 truncate ${
-                        isPicked || isCurrent ? "font-medium text-primary" : "text-gray-100"
-                      }`}
-                    >
+                    <span className={`flex-1 truncate ${isPicked ? "font-medium text-primary" : STEP_TEXT[state]}`}>
                       {stage.label}
                     </span>
                     {isCurrent && <Pill tone="muted">atual</Pill>}
