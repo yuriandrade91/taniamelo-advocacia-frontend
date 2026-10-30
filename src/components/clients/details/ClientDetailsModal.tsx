@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import { LoadingCircle, RowSkeletons } from "@/components/ui/feedback/Loading";
@@ -201,6 +201,18 @@ export default function ClientDetailsModal({
   );
   const financeSeen = seen.has("pagamentos");
 
+  /**
+   * Arquivos também só carregam quando a seção aparece — rolando até ela ou
+   * pelo índice. Quem abre a ficha para ver um telefone não paga as duas
+   * listas (paginadas até o fim) que talvez nem veja.
+   */
+  const filesSeen = seen.has("arquivos");
+  const { loadFiles } = sheet;
+  const filesPending = Boolean(sheet.record && !sheet.record.files);
+  useEffect(() => {
+    if (filesSeen && filesPending) void loadFiles();
+  }, [filesSeen, filesPending, loadFiles]);
+
   /** Volta ao que está gravado e à leitura: campos, arquivos escolhidos, erros. */
   const leaveEdit = () => {
     sheet.cancel();
@@ -229,7 +241,7 @@ export default function ClientDetailsModal({
           clearSimulations: () => setStagedSimulations([]),
         });
         if (files === "none") return wroteRecords;
-        await sheet.refreshFiles();
+        await sheet.loadFiles();
         if (files === "partial") throw new Error("Nem todos os arquivos foram enviados.");
         return true;
       },
@@ -257,13 +269,13 @@ export default function ClientDetailsModal({
     if (!fileId) return;
     try {
       await deleteFile(clientId, fileId);
-      await sheet.refreshFiles();
+      await sheet.loadFiles();
     } catch {
       setActionError(fallbackMessages.CLIENTS.UPDATE_FAILED);
     }
   };
 
-  const fileCount = (record?.documents.length ?? 0) + (record?.simulations.length ?? 0);
+  const files = record?.files ?? null;
   const interviewCount = record?.interviewCount ?? 0;
 
   const sheetSections: SheetSection[] = [
@@ -348,8 +360,11 @@ export default function ClientDetailsModal({
       title: "Arquivos",
       description: "Documentos e simulações do caso.",
       icon: <FilesIcon />,
-      badge: countBadge(fileCount, "arquivo", "arquivos") ?? "Sem arquivos",
-      content: sheet.isLoading ? (
+      // Sem as listas ainda, nem selo: "Sem arquivos" seria afirmar o que não se sabe.
+      badge: files
+        ? (countBadge(files.documents.length + files.simulations.length, "arquivo", "arquivos") ?? "Sem arquivos")
+        : undefined,
+      content: !files ? (
         <RowSkeletons count={2} />
       ) : (
         // O componente do cadastro: lendo, só abrir e baixar o gravado;
@@ -363,8 +378,8 @@ export default function ClientDetailsModal({
           isReadOnly={!isEditing}
           saved={{
             clientId,
-            documents: record?.documents ?? [],
-            simulations: record?.simulations ?? [],
+            documents: files.documents,
+            simulations: files.simulations,
             // Excluir é de quem exclui (o backend recusa os demais com 403).
             onDelete: isEditing && canDestroy ? setFileRemoval : undefined,
           }}

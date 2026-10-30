@@ -20,6 +20,7 @@ import {
   loadClient,
   loadClientFiles,
   newestFirst,
+  type ClientFiles,
   type LoadedClient,
 } from "../form/loadClient";
 import { toAddressRequest, toInterviewRequest } from "../form/payloads";
@@ -55,7 +56,8 @@ import { optionalText } from "@/lib/formValues";
  *   estado novo — sem reler a ficha inteira; o histórico só é relido se a
  *   situação mudou. As gravações saem caladas e o Salvar avisa uma vez:
  *   "Ficha atualizada." ou, sem mudança, "Nada foi alterado.";
- * - arquivos: enviar ou excluir relê só as duas listas de arquivos.
+ * - arquivos: lidos só quando a seção aparece (`loadFiles`); enviar ou
+ *   excluir relê só as duas listas.
  */
 
 type Snapshot = SheetSections & { address: AddressValues; interview: InterviewValues };
@@ -67,6 +69,8 @@ type SheetRecord = LoadedClient & {
   interviewId: string | null;
   interviewCount: number;
   snapshot: Snapshot;
+  /** `null` até a seção de arquivos aparecer e as listas chegarem. */
+  files: ClientFiles | null;
 };
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -177,6 +181,7 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
         interviewId: loaded.interviews[0]?.id ?? null,
         interviewCount: loaded.interviews.length,
         snapshot,
+        files: null,
       });
     });
     return () => {
@@ -194,14 +199,17 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
     setSaveError("");
   }, [loaded, apply]);
 
-  const refreshFiles = useCallback(async () => {
+  /** Lê as listas de arquivos — ao aparecer a seção, e de novo depois de enviar ou excluir. */
+  const loadFiles = useCallback(async () => {
     if (!clientId) return;
     const files = await loadClientFiles(clientId);
     setRecord((current) =>
       current && {
         ...current,
-        documents: files.documents ?? current.documents,
-        simulations: files.simulations ?? current.simulations,
+        files: {
+          documents: files.documents ?? current.files?.documents ?? [],
+          simulations: files.simulations ?? current.files?.simulations ?? [],
+        },
       },
     );
   }, [clientId]);
@@ -246,15 +254,10 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
     const before = loaded.snapshot;
     const next: SheetRecord = { ...loaded };
     // Os arquivos ficam com o que está no estado, não com o retrato de antes:
-    // o `afterSave` os envia e `refreshFiles` os relê no meio do caminho —
+    // o `afterSave` os envia e `loadFiles` os relê no meio do caminho —
     // gravar `next` inteiro desfazia essa releitura, e o que acabara de subir
     // sumia da ficha até reabri-la.
-    const commit = () =>
-      setRecord((current) => ({
-        ...next,
-        documents: current?.documents ?? next.documents,
-        simulations: current?.simulations ?? next.simulations,
-      }));
+    const commit = () => setRecord((current) => ({ ...next, files: current?.files ?? next.files }));
     let wrote = false;
     try {
       if (
@@ -318,7 +321,7 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
     setError: setSaveError,
     save,
     cancel,
-    refreshFiles,
+    loadFiles,
     setRequestStage,
   };
 }

@@ -15,8 +15,9 @@ import { fetchAllPages } from "@/lib/pagination";
 import { sheetRead } from "@/lib/clientsCache";
 
 /**
- * Tudo o que a ficha lê de um cliente, num caminho só. A deficiência fica de
- * fora: o painel dela lê os próprios períodos.
+ * Tudo o que a ficha lê de um cliente ao abrir, num caminho só. A deficiência
+ * fica de fora (o painel dela lê os próprios períodos), e os arquivos também:
+ * só são lidos quando a seção aparece (`loadClientFiles`).
  *
  * As leituras saem juntas, com `allSettled`: um 404 de arquivos não esconde o
  * cliente. Cada parte que falhou volta vazia, e o que falhou no cliente em si
@@ -33,6 +34,9 @@ export type LoadedClient = {
   interviews: ClientInterviewResponse[];
   history: ClientSituationHistory[];
   historyFailed: boolean;
+};
+
+export type ClientFiles = {
   documents: ClientFileDocumentResponse[];
   simulations: ClientFileSimulationResponse[];
 };
@@ -53,14 +57,12 @@ const primaryFirst = (items: ClientAddressResponse[] = []) =>
 
 /** Reabrir a ficha do mesmo cliente lê da memória (`sheetRead`) até a próxima gravação. */
 export async function loadClient(clientId: string): Promise<LoadedClient> {
-  const [client, historyResult, addresses, interviews, documents, simulations] =
+  const [client, historyResult, addresses, interviews] =
     await Promise.allSettled([
       sheetRead(`${clientId}:client`, () => clientById(clientId)),
       sheetRead(`${clientId}:situation-history`, () => clientSituationHistory(clientId, { pageNumber: 1, pageSize: 50 })),
       sheetRead(`${clientId}:addresses`, () => listAddresses(clientId)),
       sheetRead(`${clientId}:interviews`, () => listInterviews(clientId)),
-      sheetRead(`${clientId}:documents`, () => allDocuments(clientId)),
-      sheetRead(`${clientId}:simulations`, () => allSimulations(clientId)),
     ]);
 
   return {
@@ -73,16 +75,18 @@ export async function loadClient(clientId: string): Promise<LoadedClient> {
     interviews: newestFirst(settled(interviews)?.data, (item) => item.occurredAt),
     history: newestFirst(settled(historyResult)?.data, (item) => item.changedAt),
     historyFailed: historyResult.status === "rejected",
-    documents: settled(documents)?.data ?? [],
-    simulations: settled(simulations)?.data ?? [],
   };
 }
 
-/** Só as duas listas de arquivos — depois de enviar ou excluir. */
+/**
+ * Só as duas listas de arquivos: quando a seção aparece, e depois de enviar
+ * ou excluir. Da memória até a próxima gravação, como o resto da ficha — a
+ * gravação já esvaziou o cache, então reler depois dela vai ao servidor.
+ */
 export async function loadClientFiles(clientId: string) {
   const [documents, simulations] = await Promise.allSettled([
-    allDocuments(clientId),
-    allSimulations(clientId),
+    sheetRead(`${clientId}:documents`, () => allDocuments(clientId)),
+    sheetRead(`${clientId}:simulations`, () => allSimulations(clientId)),
   ]);
   return {
     documents: settled(documents)?.data,

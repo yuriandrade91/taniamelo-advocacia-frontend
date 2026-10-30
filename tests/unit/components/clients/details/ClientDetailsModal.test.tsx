@@ -372,3 +372,36 @@ describe("Ficha do cliente: navegação pelas seções", () => {
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
   });
 });
+
+describe("Ficha do cliente: arquivos sob demanda", () => {
+  const fileReads = () => callsTo("get").filter(([url]) => /\/files\/(documents|simulations)$/.test(String(url)));
+
+  it("os arquivos só são lidos quando a seção aparece — aqui, pelo índice", async () => {
+    // Um observador que nunca anuncia nada: nenhuma seção "aparece" rolando,
+    // e o único jeito de chegar a Arquivos é o clique no índice.
+    class SilentObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords() {
+        return [];
+      }
+    }
+    vi.stubGlobal("IntersectionObserver", SilentObserver);
+    try {
+      signIn();
+      seedOffice();
+      const { user } = openSheet();
+      await waitFor(() => expect(callsTo("get").some(([url]) => String(url).endsWith("/clients/c1"))).toBe(true));
+      await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+      expect(fileReads()).toHaveLength(0);
+      expect(screen.queryByText("laudo.pdf")).toBeNull();
+
+      await user.click(screen.getAllByRole("button").find((b) => b.textContent?.startsWith("Arquivos"))!);
+      await screen.findAllByText("laudo.pdf");
+      expect(fileReads()).toHaveLength(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
