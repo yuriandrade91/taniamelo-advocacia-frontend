@@ -28,14 +28,6 @@ const LEGACY_KEYS = ["tenantId", "tenantSlug"];
 const DEFAULT_TENANT_SLUG =
   optionalText(process.env.NEXT_PUBLIC_TENANT_SLUG) ?? "tania";
 
-/**
- * Liga o campo "Escritório" no login. Só o `env/local.env` liga: no backend
- * local qualquer slug pode existir, e trocar de escritório não deve exigir
- * reiniciar o dev server. Nos demais ambientes o escritório é fixo.
- */
-export const TENANT_PICKER_ENABLED =
-  process.env.NEXT_PUBLIC_TENANT_PICKER === "true";
-
 const isBrowser = () => typeof document !== "undefined";
 
 /** Persiste o tenant retornado pelo login/resolve. */
