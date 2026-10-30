@@ -187,17 +187,24 @@ export default function ClientDetailsModal({
   const sections = { service: service.values, personal: personal.values, professional: professional.values };
   const progress = sheetProgress(sections);
   const benefitLabel = formatValue(serviceSchema.benefit, service.values.benefit);
-  const showDisability = service.values.benefit === DISABILITY_BENEFIT || disabilityCount > 0;
+  const showDisability =
+    service.values.benefit === DISABILITY_BENEFIT || personal.values.hasDisability === true || disabilityCount > 0;
+  /**
+   * A seção entra logo depois de quem a trouxe, como no cadastro: pelo
+   * benefício, depois de Atendimento; pela chave "pessoa com deficiência" (ou
+   * por já ter períodos gravados), depois de Dados pessoais.
+   */
+  const disabilityPlacement = service.values.benefit === DISABILITY_BENEFIT ? "afterService" : "afterPersonal";
   const error = sheet.error || actionError;
   const busy = sheet.isSaving;
 
   // A ancoragem vem antes das seções porque é ela quem diz quais já
   // apareceram — e Pagamentos só carrega depois de aparecer. A chave só muda
-  // quando a lista de seções muda: a carga termina ou a deficiência passa a
-  // valer.
+  // quando a lista de seções muda: a carga termina, a deficiência passa a
+  // valer ou muda de lugar.
   const { scrollerRef, active, seen, goTo } = useSectionAnchors(
     "atendimento",
-    `${sheet.isLoading}|${showDisability}`,
+    `${sheet.isLoading}|${showDisability}|${disabilityPlacement}`,
   );
   const financeSeen = seen.has("pagamentos");
 
@@ -278,6 +285,25 @@ export default function ClientDetailsModal({
   const files = record?.files ?? null;
   const interviewCount = record?.interviewCount ?? 0;
 
+  const disabilitySection: SheetSection = {
+    id: "deficiencia",
+    title: "Deficiência",
+    description: "Grau e tempo em cada grau — mudam o tempo exigido na aposentadoria da pessoa com deficiência.",
+    icon: <DisabilityIcon />,
+    isHidden: !showDisability,
+    badge: countBadge(disabilityCount, "período", "períodos"),
+    content: (
+      <ClientDisabilityPanel
+        ref={isEditing ? disabilityRef : undefined}
+        clientId={clientId}
+        gender={GenderLabelByKey[personal.values.gender as GenderKey] ?? personal.values.gender}
+        isEditing={isEditing}
+        canDeleteSaved={canDestroy}
+        onSavedCountChange={setDisabilityCount}
+      />
+    ),
+  };
+
   const sheetSections: SheetSection[] = [
     {
       id: "atendimento",
@@ -287,6 +313,7 @@ export default function ClientDetailsModal({
       ...fill(serviceSchema, service.values),
       content: <ServiceSection form={service} isReadOnly={!isEditing} isLoading={sheet.isLoading} />,
     },
+    ...(disabilityPlacement === "afterService" ? [disabilitySection] : []),
     {
       id: "dados-pessoais",
       title: "Dados pessoais",
@@ -295,6 +322,7 @@ export default function ClientDetailsModal({
       ...fill(personalSchema, personal.values),
       content: <PersonalDataSection form={personal} isReadOnly={!isEditing} isLoading={sheet.isLoading} />,
     },
+    ...(disabilityPlacement === "afterPersonal" ? [disabilitySection] : []),
     {
       id: "dados-profissionais",
       title: "Dados profissionais",
@@ -316,24 +344,6 @@ export default function ClientDetailsModal({
               onNewPasswordChange={(value) => professional.setField("inssPassword", value)}
             />
           }
-        />
-      ),
-    },
-    {
-      id: "deficiencia",
-      title: "Deficiência",
-      description: "Grau e tempo em cada grau — mudam o tempo exigido na aposentadoria da pessoa com deficiência.",
-      icon: <DisabilityIcon />,
-      isHidden: !showDisability,
-      badge: countBadge(disabilityCount, "período", "períodos"),
-      content: (
-        <ClientDisabilityPanel
-          ref={isEditing ? disabilityRef : undefined}
-          clientId={clientId}
-          gender={GenderLabelByKey[personal.values.gender as GenderKey] ?? personal.values.gender}
-          isEditing={isEditing}
-          canDeleteSaved={canDestroy}
-          onSavedCountChange={setDisabilityCount}
         />
       ),
     },

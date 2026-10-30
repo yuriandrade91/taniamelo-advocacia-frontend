@@ -39,6 +39,7 @@ import {
   shouldAskGender,
 } from "@/components/clients/form/genderPrompt";
 import { DisabilitySection } from "@/components/clients/form/sections/DisabilitySection";
+import { DocumentCatalogPanel } from "@/components/clients/form/sections/files/DocumentCatalogPanel";
 import {
   hasAnyDisabilityInput,
   hasDisabilityInput,
@@ -489,6 +490,14 @@ export function ClientFormPage() {
   const showDisability =
     service.values.benefit === DISABILITY_BENEFIT ||
     personal.values.hasDisability === true;
+  /**
+   * Onde a seção entra: logo depois de quem a trouxe. Pelo benefício (que já
+   * liga a chave de Dados pessoais), depois de Atendimento; só pela chave
+   * "pessoa com deficiência", depois de Dados pessoais — é lá que a pessoa
+   * acabou de dizer que tem a informação.
+   */
+  const disabilityPlacement =
+    service.values.benefit === DISABILITY_BENEFIT ? "afterService" : "afterPersonal";
 
   const progress = useMemo(
     () =>
@@ -1003,6 +1012,52 @@ export function ClientFormPage() {
   const missingIn = (key: ReviewSectionKey) =>
     review.find((section) => section.key === key)?.missing ?? 0;
 
+  /*
+    A seção aparece só quando faz diferença: aposentadoria por deficiência
+    é a hipótese em que o grau e o tempo em cada grau mudam o requerimento.
+    A chave "pessoa com deficiência" de Dados pessoais também a traz, porque
+    quem marcou aquela chave tem a informação em mãos — e perdê-la agora
+    significa pedir de novo depois.
+
+    Em qualquer outro caso seria mais um campo para ignorar no meio de um
+    formulário que já é longo.
+  */
+  const disabilitySection: ClientFormSection | false = showDisability && {
+    id: SECTION_KEYS.disability,
+    title: "Períodos de deficiência",
+    description:
+      "Grau e tempo em cada grau. Na aposentadoria da pessoa com deficiência, mudam o tempo exigido.",
+    icon: <DisabilityIcon />,
+    missing: missingIn("disability"),
+    validate: validateDisability,
+    ...toSectionProps(
+      statusOf(
+        SECTION_KEYS.disability,
+        Object.keys(validateDisabilityPeriods(disabilityPeriods, today))
+          .length === 0,
+      ),
+    ),
+    content: (
+      <div className="flex flex-col gap-4">
+        <DisabilitySection
+          periods={disabilityPeriods}
+          errors={disabilityErrors}
+          gender={personal.values.gender}
+          today={today}
+          onChange={updateDisabilityPeriod}
+          onAdd={addDisabilityPeriod}
+          onRemove={removeDisabilityPeriod}
+          canDeleteSaved={canDestroy}
+        />
+        <SectionActions
+          isVisible={isCreated}
+          onSave={() => void handleSaveDisability()}
+          label="Salvar períodos de deficiência"
+        />
+      </div>
+    ),
+  };
+
   /** As abas, na ordem do formulário. A "Revisão" entra no fim, sozinha. */
   const candidates: (ClientFormSection | false)[] = [
     {
@@ -1028,51 +1083,7 @@ export function ClientFormPage() {
         </div>
       ),
     },
-    /*
-      A seção aparece só quando faz diferença: aposentadoria por deficiência
-      é a hipótese em que o grau e o tempo em cada grau mudam o requerimento.
-      A chave "pessoa com deficiência" de Dados pessoais também a traz, porque
-      quem marcou aquela chave tem a informação em mãos — e perdê-la agora
-      significa pedir de novo depois.
-
-      Em qualquer outro caso seria mais um campo para ignorar no meio de um
-      formulário que já é longo.
-    */
-    showDisability && {
-      id: SECTION_KEYS.disability,
-      title: "Períodos de deficiência",
-      description:
-        "Grau e tempo em cada grau. Na aposentadoria da pessoa com deficiência, mudam o tempo exigido.",
-      icon: <DisabilityIcon />,
-      missing: missingIn("disability"),
-      validate: validateDisability,
-      ...toSectionProps(
-        statusOf(
-          SECTION_KEYS.disability,
-          Object.keys(validateDisabilityPeriods(disabilityPeriods, today))
-            .length === 0,
-        ),
-      ),
-      content: (
-        <div className="flex flex-col gap-4">
-          <DisabilitySection
-            periods={disabilityPeriods}
-            errors={disabilityErrors}
-            gender={personal.values.gender}
-            today={today}
-            onChange={updateDisabilityPeriod}
-            onAdd={addDisabilityPeriod}
-            onRemove={removeDisabilityPeriod}
-            canDeleteSaved={canDestroy}
-          />
-          <SectionActions
-            isVisible={isCreated}
-            onSave={() => void handleSaveDisability()}
-            label="Salvar períodos de deficiência"
-          />
-        </div>
-      ),
-    },
+    disabilityPlacement === "afterService" && disabilitySection,
     {
       id: SECTION_KEYS.personal,
       title: "Dados pessoais",
@@ -1092,6 +1103,7 @@ export function ClientFormPage() {
         </div>
       ),
     },
+    disabilityPlacement === "afterPersonal" && disabilitySection,
     {
       id: SECTION_KEYS.professional,
       title: "Dados profissionais",
@@ -1191,6 +1203,7 @@ export function ClientFormPage() {
           onDocumentsChange={setStagedDocuments}
           onSimulationsChange={setStagedSimulations}
           showErrors={filesRevealed}
+          documentsAside={<DocumentCatalogPanel />}
         />
       ),
     },
