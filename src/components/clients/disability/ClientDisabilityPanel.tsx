@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useImperativeHandle, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { Ref } from "react";
 import {
   DisabilityConversion,
@@ -126,10 +126,18 @@ export function ClientDisabilityPanel({
     }
   }, [clientId]);
 
-  // O sexo entra na dependência: corrigido na ficha, a coluna da lei muda e a
-  // conta precisa ser pedida de novo.
   useEffect(() => {
     void load();
+  }, [load]);
+
+  // O sexo corrigido na ficha muda a coluna da lei, e a conta é pedida de
+  // novo. A chegada do sexo junto com a ficha não é correção: relendo nela, a
+  // ficha pedia os períodos duas vezes a cada abertura.
+  const loadedGender = useRef(gender);
+  useEffect(() => {
+    const previous = loadedGender.current;
+    loadedGender.current = gender;
+    if (previous && previous !== gender) void load();
   }, [load, gender]);
 
   useEffect(() => {

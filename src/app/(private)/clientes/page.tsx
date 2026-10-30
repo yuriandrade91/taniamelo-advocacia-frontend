@@ -73,11 +73,10 @@ function ClientsPageContent() {
   const [deleteTarget, setDeleteTarget] = useState<ClientTarget | null>(null);
   const [financeTarget, setFinanceTarget] = useState<ClientTarget | null>(null);
 
-  const filters = useClientFilters();
-
   /** Cada busca nova da barra superior entra uma vez; depois, o campo é da pessoa. */
   const urlSearch = useSearchParams().get("searchTerm") ?? "";
-  const [appliedUrlSearch, setAppliedUrlSearch] = useState("");
+  const filters = useClientFilters(urlSearch);
+  const [appliedUrlSearch, setAppliedUrlSearch] = useState(urlSearch);
   if (urlSearch !== appliedUrlSearch) {
     setAppliedUrlSearch(urlSearch);
     if (urlSearch) filters.setSearch(urlSearch);

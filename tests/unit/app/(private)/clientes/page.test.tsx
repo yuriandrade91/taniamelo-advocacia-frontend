@@ -148,6 +148,28 @@ describe("Clientes: URL e desfazer", () => {
     expect(screen.getByRole("searchbox", { name: "Pesquisar beneficiário" })).toHaveValue("Pereira");
   });
 
+  it("chegando com a busca na URL, a primeira consulta já sai filtrada — sem pedir a lista inteira antes", async () => {
+    signIn();
+    seedOffice();
+    setLocation("/clientes", "searchTerm=Pereira");
+    renderApp(<ClientsPage />);
+    await waitFor(() => expect(listCalls()).not.toHaveLength(0));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 600)));
+    expect(listCalls().map(([, config]) => (config as { params?: { searchTerm?: string } })?.params?.searchTerm)).toEqual(["Pereira"]);
+  });
+
+  it("abrir a ficha pede os períodos de deficiência uma vez só", async () => {
+    signIn();
+    seedOffice();
+    const { user } = renderApp(<ClientsPage />);
+    await screen.findByRole("button", { name: "Maria Aparecida da Silva" });
+    await user.click(screen.getAllByRole("button", { name: "Visualizar este cliente" })[0]);
+    await screen.findByRole("dialog");
+    await waitFor(() => expect(callsTo("get").some(([url]) => String(url).endsWith("/clients/c1"))).toBe(true));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+    expect(callsTo("get").filter(([url]) => String(url).endsWith("/disability-periods"))).toHaveLength(1);
+  });
+
   it("desfazer dentro da janela cancela a exclusão", async () => {
     signIn();
     seedOffice();
