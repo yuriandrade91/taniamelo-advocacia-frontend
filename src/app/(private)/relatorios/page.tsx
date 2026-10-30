@@ -8,6 +8,7 @@ import { ReportViewSwitcher } from "@/components/reports/ReportViewSwitcher";
 import { useReportViews } from "@/components/reports/useReportViews";
 import { useReportsData } from "@/components/reports/useReportsData";
 import { usePermissions } from "@/hooks/usePermissions";
+import { ClientStagesSection } from "@/components/reports/ClientStagesSection";
 import { currentMonth, type MonthRef } from "@/lib/period";
 
 /**
@@ -15,14 +16,14 @@ import { currentMonth, type MonthRef } from "@/lib/period";
  * (Pagamentos e Carteira) e clientes e agenda (que nasceram de cartões da
  * Home).
  *
- * ## Cinco visões, o financeiro sempre primeiro
+ * ## Cinco visões, as etapas sempre primeiro
  *
  * O usuário escolhe como ler o mesmo dado — Visão geral (o padrão),
  * Indicadores, Jornada do cliente, Mês a mês e Proporções — e também a ordem
  * das abas, da primeira à última. As duas escolhas ficam lembradas no
- * navegador. Em todas, de cima para baixo, o dinheiro do
- * escritório vem antes de clientes e agenda: é a pergunta que traz o
- * administrador até aqui.
+ * navegador. Acima de qualquer visão vêm os clientes por etapa, na esteira e
+ * no INSS (`ClientStagesSection`); dentro de cada visão, o dinheiro do
+ * escritório vem antes de clientes e agenda.
  *
  * ## Quem vê o quê
  *
@@ -90,6 +91,9 @@ export default function ReportsPage() {
         onResetOrder={views.reset}
         isCustomOrder={views.isCustom}
       />
+
+      {/* As etapas vêm primeiro, em qualquer visão: na esteira e no INSS. */}
+      <ClientStagesSection situations={data.situations} requestStages={data.requestStages} isLoading={data.isLoading} />
 
       <View month={month} {...data} />
     </div>

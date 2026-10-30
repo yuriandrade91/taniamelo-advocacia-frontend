@@ -6,7 +6,6 @@ import { PaymentsTimelineChart } from "../charts/PaymentsTimelineChart";
 import { PaymentsTrendChart } from "../charts/PaymentsTrendChart";
 import { WalletFlowChart } from "../charts/WalletFlowChart";
 import { WalletBalanceChart } from "../charts/WalletBalanceChart";
-import { ClientsBySituationChart } from "../charts/ClientsBySituationChart";
 import { ClientIntakeChart } from "../charts/ClientIntakeChart";
 import { AppointmentsByMonthChart } from "../charts/AppointmentsByMonthChart";
 import type { ReportViewProps } from "./types";
@@ -23,7 +22,6 @@ export function OverviewView({
   flow,
   expenses,
   expenseSlices,
-  situations,
   intake,
   agenda,
   month,
@@ -50,10 +48,9 @@ export function OverviewView({
           </Block>
         </>
       )}
-      {/* `lg:` e não `md:`: três gráficos num tablet deixam os rótulos das etapas sem espaço. */}
-      <Block title="Clientes e agenda" note="etapa atual · cadastros por mês · compromissos no ano até o mês">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <ClientsBySituationChart items={situations} isLoading={isLoading} />
+      {/* Clientes por etapa já estão no topo da página (`ClientStagesSection`): aqui, o resto. */}
+      <Block title="Clientes e agenda" note="cadastros por mês · compromissos no ano até o mês">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <ClientIntakeChart points={intake} isLoading={isLoading} />
           <AppointmentsByMonthChart points={agenda} year={month.year} isLoading={isLoading} />
         </div>

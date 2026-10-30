@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { settledValue, useSettled } from "@/hooks/useSettled";
 import { SITUATION_ENTRIES } from "@/enums/situation/Situation";
+import { REQUEST_STAGE_ENTRIES } from "@/enums/requestStage/RequestStage";
 import { createRequestCache } from "@/lib/requestCache";
 import { monthRange, shiftMonth, type MonthRef } from "@/lib/period";
 import { clients as fetchClients } from "@/services/clientService";
@@ -19,6 +20,7 @@ import {
   worstOf,
   lastMonths,
   monthKey,
+  toRequestStageCounts,
   toSituationCounts,
   withMovingAverage,
 } from "./reportSeries";
@@ -30,7 +32,8 @@ import { useConstant } from "@/hooks/useConstant";
  * e uma falha de despesas não esconde o gráfico que respondeu.
  *
  * Sem requisição repetida:
- * - **Clientes por etapa** é a foto de hoje — não depende do mês: sai uma vez.
+ * - **Clientes por etapa** (na esteira e no INSS) é a foto de hoje — não
+ *   depende do mês: sai uma vez.
  * - **Cadastros por mês** são contagens por mês e tipo, guardadas por chave:
  *   andar um mês no seletor pede só o mês novo (os outros 7 já vieram).
  * - **Financeiro** só sai para quem pode vê-lo (D3), quando a permissão é
@@ -77,6 +80,12 @@ export function useReportsData(month: MonthRef, canSeeFinance: boolean) {
   const situationResults = useSettled("situations", () =>
     Promise.allSettled(SITUATION_ENTRIES.map(([key]) => count(`situation:${key}`, { situation: [key] }))),
   );
+  /** Clientes por etapa do INSS: a foto de hoje, como a da esteira. */
+  const requestStageResults = useSettled("request-stages", () =>
+    Promise.allSettled(
+      REQUEST_STAGE_ENTRIES.map(([key]) => count(`requestStage:${key}`, { requestStage: [key] })),
+    ),
+  );
   const intakeResults = useSettled(intakeMonths.map((item) => monthKey(item)).join(), () =>
     Promise.allSettled(
       intakeMonths.flatMap((m) => [
@@ -114,14 +123,17 @@ export function useReportsData(month: MonthRef, canSeeFinance: boolean) {
     expenseSummary,
   ];
 
-  const operation = situationResults && intakeResults && agendaResults
-    ? [...situationResults, ...intakeResults, ...agendaResults]
+  const operation = situationResults && requestStageResults && intakeResults && agendaResults
+    ? [...situationResults, ...requestStageResults, ...intakeResults, ...agendaResults]
     : null;
   const operationState: ReportsLoadState = operation ? stateOf(operation) : "loading";
   const financeState = financeStateOf(canSeeFinance, finance);
 
   const situations = toSituationCounts(
     Object.fromEntries(SITUATION_ENTRIES.map(([key], i) => [key, valueOr(situationResults?.[i], 0)])),
+  );
+  const requestStages = toRequestStageCounts(
+    Object.fromEntries(REQUEST_STAGE_ENTRIES.map(([key], i) => [key, valueOr(requestStageResults?.[i], 0)])),
   );
   const intake = withMovingAverage(
     intakeMonths.map((m, i) => ({
@@ -151,6 +163,7 @@ export function useReportsData(month: MonthRef, canSeeFinance: boolean) {
     expenses,
     expenseSlices: toBalanceSlices(expenses?.byCategory ?? []),
     situations,
+    requestStages,
     intake,
     agenda: valueOr(agendaResults?.[0], null)?.data ?? [],
   };
