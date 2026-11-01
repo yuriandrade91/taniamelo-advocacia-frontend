@@ -239,11 +239,12 @@ function endAtError(values: AppointmentFormValues): string | undefined {
 function meetingUrlError(raw: string): string | undefined {
   const url = raw.trim();
   if (!url) return undefined;
+  const invalid = "Informe uma URL válida (com https://).";
   try {
-    new URL(url);
-    return undefined;
+    // `new URL` também aceita `javascript:`; o link vai ser aberto.
+    return ["http:", "https:"].includes(new URL(url).protocol) ? undefined : invalid;
   } catch {
-    return "Informe uma URL válida (com https://).";
+    return invalid;
   }
 }
 

@@ -112,6 +112,11 @@ describe("validateAppointmentForm — regras do frontend", () => {
 
   it("rejeita URL de reunião malformada", () => {
     expect(
+      validateAppointmentForm(validForm({ meetingUrl: "javascript:alert(1)" }), {
+        isEditing: false,
+      }).meetingUrl,
+    ).toBeDefined();
+    expect(
       validateAppointmentForm(validForm({ meetingUrl: "meet.google" }), {
         isEditing: false,
       }).meetingUrl,
