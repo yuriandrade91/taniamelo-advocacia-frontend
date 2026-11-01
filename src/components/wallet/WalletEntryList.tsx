@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table/RowActions";
 import { ArrowDownIcon, ArrowUpIcon } from "@/components/ui/icons/glyphs";
 import { bucketOf, type PaymentBucket } from "@/components/payments/paymentBuckets";
-import type { EntryKind } from "@/components/wallet/entryForms";
+import type { EntryKind, WalletTab } from "@/components/wallet/entryForms";
 import { BUCKET_DOT, KIND_META, bucketLabel } from "./entryKind";
 import type { OfficeExpenseResponse } from "@/interfaces/finance/OfficeExpense.interface";
 import type { OfficeRevenueResponse } from "@/interfaces/finance/OfficeRevenue.interface";
@@ -111,6 +111,11 @@ export type WalletEntryActions = {
   revenue: Handlers<OfficeRevenueResponse>;
 };
 
+/** Um lançamento de "Todos": de que lado ele veio, e o registro como a API o devolveu. */
+export type MixedEntry =
+  | { kind: "income"; item: OfficeRevenueResponse }
+  | { kind: "expense"; item: OfficeExpenseResponse };
+
 export type WalletEntryListProps = {
   isLoading: boolean;
   /** Texto pronto do estado vazio (sem resultado, filtro ou falha). */
@@ -119,6 +124,7 @@ export type WalletEntryListProps = {
 } & (
   | { kind: "expense"; items: OfficeExpenseResponse[] }
   | { kind: "income"; items: OfficeRevenueResponse[] }
+  | { kind: "all"; items: MixedEntry[] }
 );
 
 /** Ver primeiro (olhar antes de mexer), excluir por último. */
@@ -137,10 +143,14 @@ function entryActions(kind: EntryKind, actions: WalletEntryActions): RowAction<W
  * Colunas no `xl` (receita não tem categoria: uma coluna a menos). As classes
  * do grid são literais — ver `DataList`.
  */
-const GRID: Record<EntryKind, string> = {
+const GRID: Record<WalletTab, string> = {
   expense: "xl:grid-cols-[minmax(14rem,1.6fr)_minmax(8rem,1fr)_minmax(8rem,1fr)_6.5rem_6.5rem_8.5rem_7.5rem_7rem]",
   income: "xl:grid-cols-[minmax(14rem,1.8fr)_minmax(10rem,1.2fr)_6.5rem_6.5rem_8.5rem_7.5rem_7rem]",
+  all: "xl:grid-cols-[minmax(14rem,1.6fr)_minmax(8rem,1fr)_minmax(8rem,1fr)_6.5rem_6.5rem_8.5rem_7.5rem_7rem]",
 };
+
+/** Os nomes das colunas de "Todos", que valem para os dois lados. */
+const ALL_META = { partyLabel: "Fornecedor ou cliente", paidDateLabel: "Pagamento" };
 
 const text = (value?: string) => (
   <span className="block truncate" title={value}>
@@ -148,10 +158,11 @@ const text = (value?: string) => (
   </span>
 );
 
-function columnsOf(kind: EntryKind, actions: WalletEntryActions): ListColumn<WalletEntry>[] {
-  const meta = KIND_META[kind];
-  const rowActions = entryActions(kind, actions);
-  const up = kind === "income";
+function columnsOf(tab: WalletTab, actions: WalletEntryActions): ListColumn<WalletEntry>[] {
+  const meta = tab === "all" ? ALL_META : KIND_META[tab];
+  // Em "Todos", cada linha leva as ações (e os nomes acessíveis) do seu lado.
+  const rowActions = { income: entryActions("income", actions), expense: entryActions("expense", actions) };
+  const isUp = (entry: WalletEntry) => entry.kind === "income";
   return [
     {
       id: "description",
@@ -163,10 +174,10 @@ function columnsOf(kind: EntryKind, actions: WalletEntryActions): ListColumn<Wal
           <span
             aria-hidden="true"
             className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${
-              up ? "bg-success/15 text-emerald-700" : "bg-rose-500/10 text-rose-500"
+              isUp(entry) ? "bg-success/15 text-emerald-700" : "bg-rose-500/10 text-rose-500"
             }`}
           >
-            {up ? <ArrowUpIcon className="h-4 w-4" /> : <ArrowDownIcon className="h-4 w-4" />}
+            {isUp(entry) ? <ArrowUpIcon className="h-4 w-4" /> : <ArrowDownIcon className="h-4 w-4" />}
           </span>
           {/* Cancelado: só a descrição riscada. */}
           <p
@@ -179,9 +190,9 @@ function columnsOf(kind: EntryKind, actions: WalletEntryActions): ListColumn<Wal
       ),
     },
     { id: "party", header: meta.partyLabel, cell: (entry) => text(entry.party) },
-    ...(kind === "expense"
-      ? [{ id: "category", header: "Categoria", cell: (entry: WalletEntry) => text(entry.category) }]
-      : []),
+    ...(tab === "income"
+      ? []
+      : [{ id: "category", header: "Categoria", cell: (entry: WalletEntry) => text(entry.category) }]),
     { id: "dueDate", header: "Vencimento", cell: (entry) => formatDateBR(entry.dueDate) },
     { id: "paidDate", header: meta.paidDateLabel, cell: (entry) => formatDateBR(entry.paidDate) },
     {
@@ -190,8 +201,8 @@ function columnsOf(kind: EntryKind, actions: WalletEntryActions): ListColumn<Wal
       align: "center",
       className: "xl:text-center",
       cell: (entry) => (
-        <span className={`font-semibold whitespace-nowrap ${up ? "text-emerald-700" : "text-rose-500"}`}>
-          {up ? "+" : "−"}
+        <span className={`font-semibold whitespace-nowrap ${isUp(entry) ? "text-emerald-700" : "text-rose-500"}`}>
+          {isUp(entry) ? "+" : "−"}
           {formatBRL(entry.amount)}
         </span>
       ),
@@ -207,7 +218,7 @@ function columnsOf(kind: EntryKind, actions: WalletEntryActions): ListColumn<Wal
       id: "actions",
       header: "Ações",
       align: "center",
-      cell: (entry) => <RowActions row={entry} actions={rowActions} className="xl:justify-center" />,
+      cell: (entry) => <RowActions row={entry} actions={rowActions[entry.kind]} className="xl:justify-center" />,
     },
   ];
 }
@@ -219,16 +230,23 @@ function columnsOf(kind: EntryKind, actions: WalletEntryActions): ListColumn<Wal
 const CANCELLED_ROW =
   "[&>*:not(:nth-last-child(-n+2))]:opacity-60 [&>*:not(:nth-last-child(-n+2))]:grayscale";
 
+function entriesOf(props: WalletEntryListProps): WalletEntry[] {
+  if (props.kind === "expense") return props.items.map((item) => fromExpense(item));
+  if (props.kind === "income") return props.items.map((item) => fromRevenue(item));
+  return props.items.map((entry) => (entry.kind === "income" ? fromRevenue(entry.item) : fromExpense(entry.item)));
+}
+
 export function WalletEntryList(props: WalletEntryListProps) {
   const { kind, isLoading, emptyMessage, actions } = props;
-  const entries = props.kind === "expense" ? props.items.map((item) => fromExpense(item)) : props.items.map((item) => fromRevenue(item));
+  const entries = entriesOf(props);
   return (
     <DataList
-      ariaLabel={KIND_META[kind].label}
+      ariaLabel={kind === "all" ? "Lançamentos" : KIND_META[kind].label}
       items={entries}
       columns={columnsOf(kind, actions)}
       grid={GRID[kind]}
-      rowKey={(entry) => entry.id}
+      // Em "Todos" os dois lados se misturam: o lado entra na chave.
+      rowKey={(entry) => `${entry.kind}:${entry.id}`}
       rowClassName={(entry) => (entry.bucket === "cancelled" ? CANCELLED_ROW : "")}
       isLoading={isLoading}
       empty={<ListEmpty>{emptyMessage}</ListEmpty>}

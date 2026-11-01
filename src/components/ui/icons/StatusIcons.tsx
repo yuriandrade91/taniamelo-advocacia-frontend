@@ -1,5 +1,3 @@
-import React from "react";
-
 /**
  * Ícones de selo/status — indicadores só de leitura (com tooltip), sem ação
  * de clique. Categoria separada de `actions.tsx`, que é para botões.

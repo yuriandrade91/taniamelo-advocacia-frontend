@@ -1,12 +1,13 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import * as blobFile from "@/lib/blobFile";
 import ClientDetailsModal from "@/components/clients/details/ClientDetailsModal";
 import { callsTo, envelope, failApi, onApi, page } from "../../../support/fakeApi";
 import { seedOffice } from "../../../support/office";
 import { renderApp } from "../../../support/render";
 import { signIn } from "../../../support/session";
 import * as fx from "../../../support/fixtures";
-import { cardOf, chooseOption } from "../../../support/ui";
+import { cardOf, chooseOption, inputByLabel } from "../../../support/ui";
 
 const periods = [
   { id: "dp1", grade: "Grave", startedOn: "2010-01-01", endedOn: "2015-12-31", ongoing: false, days: 2190 },
@@ -40,6 +41,50 @@ const button = (name: RegExp | string) =>
   screen.getAllByRole("button").find((b) => (typeof name === "string" ? b.textContent?.trim() === name || b.getAttribute("aria-label") === name : name.test(`${b.getAttribute("aria-label") ?? ""} ${b.textContent ?? ""}`)));
 
 describe("Ficha do cliente", () => {
+  it("baixa a ficha completa em PDF pelo endpoint record", async () => {
+    signIn();
+    seedOffice();
+    onApi("get", "/clients/c1/record", new Blob(["%PDF"], { type: "application/pdf" }));
+    const save = vi.spyOn(blobFile, "saveBlob").mockImplementation(async (load) => {
+      await load();
+    });
+
+    try {
+      const { user } = openSheet();
+      await user.click(await screen.findByRole("button", { name: "Baixar ficha em PDF" }));
+
+      await waitFor(() =>
+        expect(callsTo("get").some(([url]) => String(url).endsWith("/clients/c1/record"))).toBe(true),
+      );
+      expect(save).toHaveBeenCalledWith(expect.any(Function), "Ficha - Maria Aparecida da Silva.pdf");
+      await user.click(await screen.findByRole("button", { name: "Editar cadastro" }));
+      expect(screen.queryByRole("button", { name: "Baixar ficha em PDF" })).not.toBeInTheDocument();
+    } finally {
+      save.mockRestore();
+    }
+  });
+
+  it("imprime a mesma ficha, e a falha aparece no painel", async () => {
+    signIn();
+    seedOffice();
+    onApi("get", "/clients/c1/record", new Blob(["%PDF"], { type: "application/pdf" }));
+    const print = vi.spyOn(blobFile, "printBlob").mockImplementation(async (load) => {
+      await load();
+    });
+
+    try {
+      const { user } = openSheet();
+      await user.click(await screen.findByRole("button", { name: "Imprimir ficha" }));
+      await waitFor(() => expect(print).toHaveBeenCalledWith(expect.any(Function), "Ficha - Maria Aparecida da Silva.pdf"));
+
+      print.mockRejectedValueOnce({});
+      await user.click(screen.getByRole("button", { name: "Imprimir ficha" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("Não foi possível abrir a ficha do cliente para impressão.");
+    } finally {
+      print.mockRestore();
+    }
+  });
+
   it("lê a ficha: seções, senha do INSS, arquivos e histórico", async () => {
     signIn();
     seedOffice();
@@ -86,6 +131,28 @@ describe("Ficha do cliente", () => {
     expect(body).toMatchObject({ profession: "Bordadeira", fullName: "Maria Aparecida da Silva" });
     await waitFor(() => expect(callsTo("put").some(([url]) => String(url).endsWith("/addresses/a1"))).toBe(true));
     await waitFor(() => expect(onConfirm).toHaveBeenCalled());
+  });
+
+  it("edita: adiciona outro endereço e o salvar o cria; lendo, não há o que adicionar", async () => {
+    signIn();
+    seedOffice();
+    onApi("post", /\/addresses$/, envelope(fx.address({ id: "a2", street: "Rua Nova", isPrimary: false })));
+    const { user } = openSheet();
+    await screen.findAllByText("laudo.pdf");
+    expect(screen.queryByRole("button", { name: "Adicionar endereço" })).not.toBeInTheDocument();
+
+    await user.click(await screen.findByRole("button", { name: "Editar cadastro" }));
+    await user.click(await screen.findByRole("button", { name: "Adicionar endereço" }));
+    // A aba nova abre em branco e já selecionada.
+    expect(screen.getByRole("tab", { name: /Endereço 2/ })).toHaveAttribute("aria-selected", "true");
+    await user.type(inputByLabel("Logradouro"), "Rua Nova");
+    await user.type(inputByLabel("Cidade"), "Contagem");
+    await user.type(inputByLabel("UF"), "MG");
+
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(callsTo("post").some(([url]) => String(url).endsWith("/addresses"))).toBe(true));
+    const [, body] = callsTo("post").find(([url]) => String(url).endsWith("/addresses"))!;
+    expect(body).toMatchObject({ street: "Rua Nova", city: "Contagem", isPrimary: false });
   });
 
   it("salvar sem mudança não grava e cancelar volta ao gravado", async () => {
@@ -340,7 +407,8 @@ describe("Ficha do cliente: casos de borda", () => {
     const dialogs = await screen.findAllByRole("dialog");
     const confirm = dialogs.flatMap((d) => within(d).queryAllByRole("button")).findLast((b) => (b.textContent ?? "").startsWith("Excluir"));
     if (confirm) await user.click(confirm);
-    expect(await screen.findAllByText("Erro ao atualizar cliente")).not.toHaveLength(0);
+    // A mensagem do servidor, não a genérica: ela diz por que não saiu.
+    expect(await screen.findAllByText("Falha simulada.")).not.toHaveLength(0);
   });
 
   it("várias entrevistas e quem não vê financeiro", async () => {
@@ -370,5 +438,38 @@ describe("Ficha do cliente: navegação pelas seções", () => {
     const nav = screen.getAllByRole("button").find((b) => b.textContent?.startsWith("Entrevista"))!;
     await user.click(nav);
     expect(Element.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+});
+
+describe("Ficha do cliente: arquivos sob demanda", () => {
+  const fileReads = () => callsTo("get").filter(([url]) => /\/files\/(documents|simulations)$/.test(String(url)));
+
+  it("os arquivos só são lidos quando a seção aparece — aqui, pelo índice", async () => {
+    // Um observador que nunca anuncia nada: nenhuma seção "aparece" rolando,
+    // e o único jeito de chegar a Arquivos é o clique no índice.
+    class SilentObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+      takeRecords() {
+        return [];
+      }
+    }
+    vi.stubGlobal("IntersectionObserver", SilentObserver);
+    try {
+      signIn();
+      seedOffice();
+      const { user } = openSheet();
+      await waitFor(() => expect(callsTo("get").some(([url]) => String(url).endsWith("/clients/c1"))).toBe(true));
+      await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+      expect(fileReads()).toHaveLength(0);
+      expect(screen.queryByText("laudo.pdf")).toBeNull();
+
+      await user.click(screen.getAllByRole("button").find((b) => b.textContent?.startsWith("Arquivos"))!);
+      await screen.findAllByText("laudo.pdf");
+      expect(fileReads()).toHaveLength(2);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

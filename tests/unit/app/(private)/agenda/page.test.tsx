@@ -31,9 +31,12 @@ describe("Agenda", () => {
     const day = screen.getAllByRole("button").find((b) => /compromisso ·/.test(b.textContent ?? ""));
     await user.click(day!);
     await user.type(screen.getByRole("searchbox", { name: "Pesquisar compromisso" }), "perícia");
-    await user.click(screen.getByRole("button", { name: "Concluído" }));
-    await user.click(screen.getByRole("button", { name: "Cancelado" }));
-    await user.click(screen.getByRole("button", { name: "Todas" }));
+    await user.click(screen.getByRole("radio", { name: "Concluído" }));
+    await user.click(screen.getByRole("radio", { name: "Cancelado" }));
+    await user.click(screen.getByRole("radio", { name: "Todas" }));
+    // Um segmento por vez: o último escolhido é o único marcado.
+    expect(screen.getByRole("radio", { name: "Todas" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Cancelado" })).not.toBeChecked();
   });
 
   it("cria um compromisso", async () => {
@@ -163,6 +166,106 @@ describe("Agenda", () => {
   });
 });
 
+const holidayCalls = () =>
+  callsTo("get").filter(([url]) => String(url).endsWith("/appointments/holiday"));
+
+/** O backend diz "feriado" para 10/10/2030 e "dia comum" para o resto. */
+function seedHoliday() {
+  onApi("get", "/appointments/holiday", ({ config }) => {
+    const isHoliday = config?.params?.date === "2030-10-10";
+    return envelope({
+      date: config?.params?.date,
+      holiday: isHoliday,
+      name: isHoliday ? "Finados" : null,
+      verified: true,
+      message: isHoliday ? "10/10/2030 é feriado (Finados). Confirme antes de agendar nesta data." : "Nenhum feriado nacional.",
+    });
+  });
+}
+
+/** Abre o formulário de novo compromisso e digita só o início. */
+async function startNewAppointment(user: UserEvent) {
+  await user.click(screen.getByRole("button", { name: "Novo compromisso" }));
+  const dialog = await screen.findByRole("dialog");
+  await within(dialog).findByText("Título");
+  await typeDateTime(user, dialog, "10102030" + "1000", 0);
+  return dialog;
+}
+
+describe("Agenda: feriado", () => {
+  it("escolher um feriado pergunta; manter a data segue e não pergunta de novo", async () => {
+    signIn();
+    seedOffice();
+    seedHoliday();
+    onApi("post", /\/appointments$/, envelope(fx.appointment({ id: "ap9" })));
+    const user = await openAgenda();
+    const dialog = await startNewAppointment(user);
+
+    expect(await screen.findByText(/10\/10\/2030 é feriado \(Finados\)/)).toBeInTheDocument();
+    expect(holidayCalls()[0][1]).toMatchObject({ params: { date: "2030-10-10" } });
+
+    await user.click(screen.getByRole("button", { name: "Manter esta data", hidden: true }));
+    await waitFor(() => expect(screen.queryByText(/é feriado \(Finados\)/)).not.toBeInTheDocument());
+
+    // Mexer só na hora é o mesmo dia, já decidido.
+    await typeDateTime(user, dialog, "10102030" + "1100", 0);
+    await act(() => new Promise((resolve) => setTimeout(resolve, 600)));
+    expect(screen.queryByRole("button", { name: "Manter esta data", hidden: true })).not.toBeInTheDocument();
+    expect(holidayCalls()).toHaveLength(1);
+  });
+
+  it("escolher outra data limpa início e término", async () => {
+    signIn();
+    seedOffice();
+    seedHoliday();
+    const user = await openAgenda();
+    const dialog = await startNewAppointment(user);
+    const day = within(dialog).getAllByRole("spinbutton", { name: /dia/ })[0];
+    expect(day).toHaveAttribute("aria-valuenow", "10");
+
+    await user.click(await screen.findByRole("button", { name: "Escolher outra data", hidden: true }));
+
+    await waitFor(() => expect(within(dialog).getAllByRole("spinbutton", { name: /dia/ })[0]).not.toHaveAttribute("aria-valuenow"));
+    expect(within(dialog).getAllByRole("spinbutton", { name: /dia/ })[1]).not.toHaveAttribute("aria-valuenow");
+  });
+
+  it("dia comum não pergunta nada", async () => {
+    signIn();
+    seedOffice();
+    const user = await openAgenda();
+    await startNewAppointment(user);
+
+    await waitFor(() => expect(holidayCalls()).toHaveLength(1));
+    expect(screen.queryByRole("button", { name: "Manter esta data", hidden: true })).not.toBeInTheDocument();
+  });
+
+  it("a consulta falhar não pergunta nem avisa: segue o agendamento", async () => {
+    signIn();
+    seedOffice();
+    failApi("get", "/appointments/holiday", 500);
+    const user = await openAgenda();
+    await startNewAppointment(user);
+
+    await waitFor(() => expect(holidayCalls()).toHaveLength(1));
+    await act(async () => {});
+    expect(screen.queryByRole("button", { name: "Manter esta data", hidden: true })).not.toBeInTheDocument();
+  });
+
+  it("editar um compromisso que já está num feriado não pergunta", async () => {
+    signIn();
+    seedOffice();
+    onApi("get", "/appointments/holiday", envelope({ date: "x", holiday: true, name: "Finados", verified: true, message: "É feriado." }));
+    const user = await openAgenda();
+
+    await user.click(screen.getAllByRole("button", { name: "Editar" })[0]);
+    await screen.findByRole("dialog");
+    await act(() => new Promise((resolve) => setTimeout(resolve, 600)));
+
+    expect(holidayCalls()).toHaveLength(0);
+    expect(screen.queryByRole("button", { name: "Manter esta data", hidden: true })).not.toBeInTheDocument();
+  });
+});
+
 describe("Agenda: conflito e descarte", () => {
   it("agendar após o conflito move o horário; fechar com edição pede confirmação", async () => {
     signIn();
@@ -214,5 +317,61 @@ describe("Agenda: conflito e descarte", () => {
       await user.click(screen.getByRole("button", { name: "Agendar", hidden: true }));
       await waitFor(() => expect(callsTo("post").some(([url]) => String(url).endsWith("/appointments"))).toBe(true));
     }
+  });
+
+  /** Os `params` da última leitura da lista (`GET /appointments`, fora conflitos e resumo). */
+  const lastListParams = () =>
+    callsTo("get")
+      .filter(([url]) => String(url).endsWith("/appointments"))
+      .at(-1)?.[1] as { params: Record<string, unknown> } | undefined;
+
+  it("agendar para outro mês leva a tela ao mês do compromisso, com a lista relida", async () => {
+    signIn();
+    seedOffice();
+    // Daqui a 60 dias: sempre em outro mês que o de hoje.
+    const farAway = fx.appointment({ id: "ap9", title: "Perícia de novembro", startAt: fx.isoInstant(60, 13), endAt: fx.isoInstant(60, 14) });
+    const far = new Date(farAway.startAt);
+    onApi("post", /\/appointments$/, envelope(farAway));
+    const user = await openAgenda();
+    const before = callsTo("get").filter(([url]) => String(url).endsWith("/appointments")).length;
+
+    await user.click(screen.getByRole("button", { name: "Novo compromisso" }));
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("Título");
+    await user.type(inputByLabel("Título"), "Perícia de novembro");
+    chooseOption("Tipo", "PERICIA", dialog);
+    await typeDateTime(user, dialog, "10102030" + "1000", 0);
+    await typeDateTime(user, dialog, "10102030" + "1100", 1);
+    const client = within(dialog).getAllByRole("combobox").find((el) => el.tagName === "INPUT");
+    if (client) await user.type(client, "Maria Aparecida");
+    await user.click(screen.getByRole("button", { name: "Agendar", hidden: true }));
+
+    await waitFor(() => expect(lastListParams()?.params).toMatchObject({ year: far.getFullYear(), month: far.getMonth() + 1 }));
+    expect(callsTo("get").filter(([url]) => String(url).endsWith("/appointments")).length).toBeGreaterThan(before);
+  });
+
+  it("lê o mês inteiro, página a página, e não só as primeiras 100 linhas", async () => {
+    signIn();
+    seedOffice();
+    const first = Array.from({ length: 100 }, (_, i) => fx.appointment({ id: `m${i}`, title: `Compromisso ${i}` }));
+    onApi("get", /\/appointments$/, ({ config }: { config?: { params?: Record<string, unknown> } }) =>
+      config?.params?.pageNumber === 2
+        ? envelope([fx.appointment({ id: "m100", title: "Compromisso 100" })], { pageNumber: 2, pageSize: 100, totalRecords: 101, totalPages: 2, hasNextPage: 0 })
+        : envelope(first, { pageNumber: 1, pageSize: 100, totalRecords: 101, totalPages: 2, hasNextPage: 1 }),
+    );
+    await openAgenda();
+    const pages = callsTo("get")
+      .filter(([url]) => String(url).endsWith("/appointments"))
+      .map(([, config]) => (config as { params: Record<string, unknown> }).params.pageNumber);
+    expect(pages).toEqual([1, 2]);
+  });
+
+  it("falha ao carregar avisa, em vez de mostrar o mês como vazio", async () => {
+    signIn();
+    seedOffice();
+    failApi("get", /\/appointments$/, 500, "Agenda fora do ar.");
+    renderApp(<AgendaPage />);
+    expect(await screen.findByText(/Agenda fora do ar\.|Não foi possível carregar a agenda/)).toBeInTheDocument();
+    expect(screen.queryByText("Nenhum compromisso neste mês com os filtros escolhidos.")).not.toBeInTheDocument();
   });
 });

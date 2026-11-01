@@ -77,7 +77,8 @@ export function Field({
   const input = (
     <Input
       ref={inputRef}
-      className={`form-border-style${trailing ? " w-full pr-16" : ""}`}
+      // Sempre na largura da célula: na largura natural, sobrava um vão até o próximo campo.
+      className={`form-border-style w-full${trailing ? " pr-16" : ""}`}
       placeholder={placeholder}
       value={value}
       onChange={onChange}
@@ -199,13 +200,14 @@ export function MultiSelectField({
         deprecated e tipa só para modo único (`Key | null`).
       */}
       <Select
+        className="w-full"
         selectionMode="multiple"
         aria-label={label}
         value={selectedKeys}
         onChange={(keys) => onSelectionChange(keys.map(String))}
         isDisabled={isDisabled}
       >
-        <Select.Trigger className="form-border-style h-auto py-1.5 text-gray-100">
+        <Select.Trigger className="form-border-style h-auto w-full py-1.5 text-gray-100">
           {/*
             Mostra os RÓTULOS escolhidos, não uma contagem: "por idade,
             por invalidez…" diz o que está filtrado; "(2)" obriga a abrir o
@@ -681,6 +683,11 @@ export type DateTimePickerFieldProps = {
  * Data + hora (heroui.com/.../date-picker) — mesma composição de
  * `AppointmentFormFields`, com `CalendarDateTime` (`granularity="minute"`)
  * em vez do `CalendarDate` só-dia do `DatePickerField`.
+ *
+ * Escolher o dia no calendário leva o foco para a **hora** do próprio campo:
+ * falta só ela, e a pessoa já digita. O foco espera um tick (`setTimeout`),
+ * porque o calendário fecha na mesma escolha e, enquanto ele está aberto, o
+ * foco fica preso dentro dele.
  */
 export function DateTimePickerField({
   label,
@@ -701,9 +708,11 @@ export function DateTimePickerField({
       return null;
     }
   }, [value]);
+  const root = React.useRef<HTMLDivElement>(null);
+  const focusHour = () => root.current?.querySelector<HTMLElement>('[data-type="hour"]')?.focus();
 
   return (
-    <div className={className}>
+    <div ref={root} className={className}>
       <I18nProvider locale="pt-BR">
         {/* `w-full` pelo mesmo motivo do DatePickerField — ver lá. */}
         <DatePicker
@@ -731,7 +740,7 @@ export function DateTimePickerField({
             </DateField.Suffix>
           </DateField.Group>
           <DatePicker.Popover>
-            <Calendar aria-label={label} className="text-gray-100">
+            <Calendar aria-label={label} className="text-gray-100" onChange={() => setTimeout(focusHour)}>
               <Calendar.Header>
                 <Calendar.Heading />
                 <Calendar.NavButton
@@ -804,7 +813,7 @@ export function TextAreaField({
         {label}
       </Label>
       <TextArea
-        className="form-border-style"
+        className="form-border-style w-full"
         placeholder={placeholder}
         rows={rows}
         maxLength={maxLength}

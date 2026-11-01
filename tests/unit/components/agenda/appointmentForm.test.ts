@@ -4,12 +4,14 @@ import {
 } from "@internationalized/date";
 import { describe, expect, it } from "vitest";
 import {
+  dayOf,
   EMPTY_APPOINTMENT_FORM,
   type AppointmentFormValues,
   fromResponse,
   isStartInPast,
   toIsoInstant,
   shiftAfter,
+  withStart,
   toRequest,
   validateAppointmentForm,
 } from "@/components/agenda/appointmentForm";
@@ -109,6 +111,11 @@ describe("validateAppointmentForm — regras do frontend", () => {
   });
 
   it("rejeita URL de reunião malformada", () => {
+    expect(
+      validateAppointmentForm(validForm({ meetingUrl: "javascript:alert(1)" }), {
+        isEditing: false,
+      }).meetingUrl,
+    ).toBeDefined();
     expect(
       validateAppointmentForm(validForm({ meetingUrl: "meet.google" }), {
         isEditing: false,
@@ -307,5 +314,60 @@ describe("bordas da validação e da conversão", () => {
       clientName: null,
     });
     expect(values).toMatchObject({ title: "", type: "", modality: "", location: "", description: "", clientId: "", clientName: "" });
+  });
+});
+
+describe("withStart — o término acompanha o início", () => {
+  const nextYear = new Date().getFullYear() + 1;
+
+  it("sem término, ele nasce 1h depois do início", () => {
+    const form = { ...EMPTY_APPOINTMENT_FORM };
+    const next = withStart(form, at(nextYear, 8, 20, 10, 0));
+    expect(next.startAt?.toString()).toBe(at(nextYear, 8, 20, 10, 0).toString());
+    expect(next.endAt?.toString()).toBe(at(nextYear, 8, 20, 11, 0).toString());
+  });
+
+  it("o dia sem hora (calendário, 00:00) ainda não preenche o término", () => {
+    const next = withStart({ ...EMPTY_APPOINTMENT_FORM }, at(nextYear, 8, 20, 0, 0));
+    expect(next.startAt?.toString()).toBe(at(nextYear, 8, 20, 0, 0).toString());
+    expect(next.endAt).toBeNull();
+    // Quando a hora é escolhida em cima desse dia, o término nasce 1h depois.
+    const timed = withStart(next, at(nextYear, 8, 20, 10, 0));
+    expect(timed.endAt?.toString()).toBe(at(nextYear, 8, 20, 11, 0).toString());
+  });
+
+  it("a hora cheia passa da meia-noite para o dia seguinte", () => {
+    const next = withStart({ ...EMPTY_APPOINTMENT_FORM }, at(nextYear, 8, 20, 23, 30));
+    expect(next.endAt?.toString()).toBe(at(nextYear, 8, 21, 0, 30).toString());
+  });
+
+  it("com término, mantém a duração ao mover o início", () => {
+    const form = validForm({ startAt: at(nextYear, 8, 20, 14, 0), endAt: at(nextYear, 8, 20, 16, 0) });
+    const next = withStart(form, at(nextYear, 8, 21, 9, 0));
+    expect(next.endAt?.toString()).toBe(at(nextYear, 8, 21, 11, 0).toString());
+  });
+
+  it("término que não era posterior ao início volta a 1h", () => {
+    const form = validForm({ startAt: at(nextYear, 8, 20, 14, 0), endAt: at(nextYear, 8, 20, 13, 0) });
+    const next = withStart(form, at(nextYear, 8, 20, 15, 0));
+    expect(next.endAt?.toString()).toBe(at(nextYear, 8, 20, 16, 0).toString());
+  });
+
+  it("limpar o início não mexe no término", () => {
+    const form = validForm();
+    const next = withStart(form, null);
+    expect(next.startAt).toBeNull();
+    expect(next.endAt).toBe(form.endAt);
+  });
+});
+
+describe("dayOf — o dia do início", () => {
+  it("é a data sem a hora, com zeros à esquerda", () => {
+    expect(dayOf(at(2026, 11, 2, 15, 30))).toBe("2026-11-02");
+    expect(dayOf(at(2026, 11, 2, 0, 0))).toBe("2026-11-02");
+  });
+
+  it("sem início, vazio", () => {
+    expect(dayOf(null)).toBe("");
   });
 });

@@ -10,19 +10,22 @@ import { integrationPaused } from "./apiHelper";
  */
 
 test.describe("Agenda", () => {
-  test("nasce em Agendado, sem 'Limpar'; mexer mostra 'Limpar', que volta ao padrão", async ({ page }) => {
+  test("Situação é uma por vez e fora do 'Limpar'; a busca mostra 'Limpar', que só a limpa", async ({ page }) => {
     await page.goto("/agenda");
-    const situation = page.getByRole("group", { name: "Situação" });
-    await expect(situation.getByRole("button", { name: "Agendado" })).toHaveAttribute("aria-pressed", "true");
+    const situation = page.getByRole("radiogroup", { name: "Situação" });
+    await expect(situation.getByRole("radio", { name: "Agendado" })).toHaveAttribute("aria-checked", "true");
     await expect(page.getByRole("button", { name: "Limpar filtros" })).toHaveCount(0);
 
     const query = page.waitForRequest((r) => r.url().includes("/appointments") && r.url().includes("CONCLUIDO"));
-    await situation.getByRole("button", { name: "Concluído" }).click();
+    await situation.getByRole("radio", { name: "Concluído" }).click();
     await query;
+    await expect(situation.getByRole("radio", { name: "Agendado" })).toHaveAttribute("aria-checked", "false");
+    await expect(page.getByRole("button", { name: "Limpar filtros" })).toHaveCount(0);
 
+    await page.getByRole("searchbox", { name: "Pesquisar compromisso" }).fill("perícia");
     await page.getByRole("button", { name: "Limpar filtros" }).click();
-    await expect(situation.getByRole("button", { name: "Agendado" })).toHaveAttribute("aria-pressed", "true");
-    await expect(situation.getByRole("button", { name: "Concluído" })).toHaveAttribute("aria-pressed", "false");
+    await expect(page.getByRole("searchbox", { name: "Pesquisar compromisso" })).toHaveValue("");
+    await expect(situation.getByRole("radio", { name: "Concluído" })).toHaveAttribute("aria-checked", "true");
     await expect(page.getByRole("button", { name: "Limpar filtros" })).toHaveCount(0);
   });
 });
@@ -50,7 +53,7 @@ test.describe("Pagamentos", () => {
 test.describe("Carteira", () => {
   test.skip(integrationPaused("expenses", "revenues"), "rotas da Carteira em pausa neste ambiente");
 
-  test("abre pedindo só as saídas; as entradas saem no clique da aba, e voltar não repete", async ({ page }) => {
+  test("abre em Todos, pedindo os dois lados; cada aba pede o seu no clique, e voltar não repete", async ({ page }) => {
     const lists: string[] = [];
     page.on("request", (r) => {
       const url = new URL(r.url());
@@ -58,15 +61,15 @@ test.describe("Carteira", () => {
     });
 
     await page.goto("/carteira");
-    await expect(page.getByRole("tab", { name: /^Saídas/ })).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("tab", { name: /^Todos/ })).toHaveAttribute("aria-selected", "true");
     await expect.poll(() => lists.filter((p) => p.endsWith("/expenses")).length).toBe(1);
-    expect(lists.filter((p) => p.endsWith("/revenues"))).toHaveLength(0);
+    expect(lists.filter((p) => p.endsWith("/revenues"))).toHaveLength(1);
 
     await page.getByRole("tab", { name: /^Entradas/ }).click();
-    await expect.poll(() => lists.filter((p) => p.endsWith("/revenues")).length).toBe(1);
+    await expect.poll(() => lists.filter((p) => p.endsWith("/revenues")).length).toBe(2);
 
-    // De volta às saídas: a página já vista sai do cache, sem nova requisição.
-    await page.getByRole("tab", { name: /^Saídas/ }).click();
+    // De volta a Todos: a página já vista sai do cache, sem nova requisição.
+    await page.getByRole("tab", { name: /^Todos/ }).click();
     await page.waitForTimeout(500);
     expect(lists.filter((p) => p.endsWith("/expenses"))).toHaveLength(1);
   });

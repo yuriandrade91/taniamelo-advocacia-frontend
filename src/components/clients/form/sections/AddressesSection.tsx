@@ -45,25 +45,30 @@ export function AddressesSection({
   onRemoveAddresses,
   onRequestPrimary,
   renderActions,
+  isReadOnly,
+  isLoading,
 }: Readonly<{
   slots: AddressSlot[];
   selectedKey: string;
   onSelectionChange: (key: string) => void;
   canAddMore: boolean;
-  onAddAddress: () => void;
-  /** Abre a exclusão — um ou vários de uma vez; a página confirma. */
-  onRemoveAddresses: () => void;
+  /** Sem ele (a ficha), não há "Adicionar". */
+  onAddAddress?: () => void;
+  /** Abre a exclusão — um ou vários de uma vez; a página confirma. Sem ele (a ficha), não há "Excluir". */
+  onRemoveAddresses?: () => void;
   /** Pedido de troca do principal — a página confirma e coordena. */
   onRequestPrimary: (slot: AddressSlot) => void;
-  /** Rodapé de cada aba (botão de salvar) — quem sabe salvar é a página. */
-  renderActions: (slot: AddressSlot) => ReactNode;
+  /** Rodapé de cada aba (botão de salvar) — quem sabe salvar é a página. A ficha grava tudo no "Salvar". */
+  renderActions?: (slot: AddressSlot) => ReactNode;
+  isReadOnly?: boolean;
+  isLoading?: boolean;
 }>) {
   // Com um endereço só não há barra: uma aba "Endereço atual" sozinha não
   // tem de quem se distinguir. As abas aparecem a partir do segundo, e com
   // elas o "Excluir" — o último endereço não se exclui.
   const actions = (
     <>
-      {slots.length > 1 && (
+      {onRemoveAddresses && slots.length > 1 && (
         <ChipButton
           tone="danger"
           icon={<TrashIcon className="h-3.5 w-3.5" />}
@@ -72,7 +77,7 @@ export function AddressesSection({
           Excluir endereços
         </ChipButton>
       )}
-      {canAddMore && (
+      {onAddAddress && canAddMore && (
         <AddItemButton onClick={onAddAddress}>Adicionar endereço</AddItemButton>
       )}
     </>
@@ -98,8 +103,10 @@ export function AddressesSection({
             <AddressSection
               form={slot.form}
               onRequestPrimary={() => onRequestPrimary(slot)}
+              isReadOnly={isReadOnly}
+              isLoading={isLoading}
             />
-            {renderActions(slot)}
+            {renderActions?.(slot)}
           </div>
         ),
       }))}

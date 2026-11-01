@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@heroui/react";
 
-import { WalletEntryList, type WalletEntryActions } from "@/components/wallet/WalletEntryList";
+import { WalletEntryList, type MixedEntry, type WalletEntryActions } from "@/components/wallet/WalletEntryList";
 import { WalletFilterBar } from "@/components/wallet/WalletFilterBar";
 import { WalletMonthSummary } from "@/components/wallet/summary/WalletMonthSummary";
 import dynamic from "next/dynamic";
@@ -14,9 +14,14 @@ import {
   expenseFormFrom,
   incomeFormFrom,
   type EntryKind,
+  type WalletTab,
 } from "@/components/wallet/entryForms";
 import type { EntryEditing } from "@/components/wallet/useEntryForm";
-import { expenseFilters as EXPENSE_FILTERS, revenueFilters as REVENUE_FILTERS } from "@/components/wallet/walletFilters";
+import {
+  allFilters as ALL_FILTERS,
+  expenseFilters as EXPENSE_FILTERS,
+  revenueFilters as REVENUE_FILTERS,
+} from "@/components/wallet/walletFilters";
 import { useWalletMonth } from "@/components/wallet/useWalletMonth";
 import { bucketQuery, type PaymentBucket } from "@/components/payments/paymentBuckets";
 import { editWarning } from "@/components/payments/editWarning";
@@ -28,7 +33,7 @@ import { NoFinanceAccess } from "@/components/ui/feedback/NoFinanceAccess";
 import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
 import { useFilters } from "@/hooks/useFilters";
 import { usePagedList } from "@/hooks/usePagedList";
-import { pageFromEnvelope } from "@/lib/pagination";
+import { pageFromEnvelope, type ListPage } from "@/lib/pagination";
 import { usePermissions } from "@/hooks/usePermissions";
 import { currentMonth, monthRange, todayIso, type MonthRef } from "@/lib/period";
 import type { PaymentMethodInput } from "@/enums/payment/Payment";
@@ -106,6 +111,29 @@ function listParams(
 
 type Params = NonNullable<ReturnType<typeof listParams>>;
 
+/**
+ * "Todos": a mesma página das duas rotas, juntas e por vencimento — o backend
+ * não tem uma rota que traga os dois lados. Cada página traz até
+ * `PAGE_SIZE` de cada lado; o total é a soma, e as páginas, as do lado mais
+ * longo.
+ */
+async function fetchAllPage(params: Params, page: number): Promise<ListPage<MixedEntry>> {
+  const query = { ...params, pageNumber: page, pageSize: PAGE_SIZE };
+  const [revenues, expenses] = await Promise.all([
+    listOfficeRevenues(query).then(pageFromEnvelope),
+    listOfficeExpenses(query).then(pageFromEnvelope),
+  ]);
+  const items: MixedEntry[] = [
+    ...revenues.items.map((item) => ({ kind: "income" as const, item })),
+    ...expenses.items.map((item) => ({ kind: "expense" as const, item })),
+  ].sort((a, b) => a.item.dueDate.localeCompare(b.item.dueDate));
+  return {
+    items,
+    total: revenues.total + expenses.total,
+    totalPages: Math.max(revenues.totalPages, expenses.totalPages),
+  };
+}
+
 type Target = { kind: EntryKind; id: string; description: string };
 
 /** O que dizer quando a lista vem vazia: falhou, o filtro não achou ou o mês está limpo. */
@@ -125,8 +153,8 @@ export default function WalletPage() {
   const { canSeeFinance } = usePermissions();
   const [month, setMonth] = useState<MonthRef>(() => currentMonth());
   const range = useMemo(() => monthRange(month), [month]);
-  /** Aba da lista. Despesa primeiro: é a que pede ação (pagar). */
-  const [tab, setTab] = useState<EntryKind>("expense");
+  /** Aba da lista: os dois lados juntos, por padrão. */
+  const [tab, setTab] = useState<WalletTab>("all");
   const [isEntryFormOpen, setIsEntryFormOpen] = useState(false);
   const [editing, setEditing] = useState<(EntryEditing & { description: string }) | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Target | null>(null);
@@ -140,6 +168,7 @@ export default function WalletPage() {
   /** Cada aba com os seus filtros: categoria só existe em despesa. */
   const expenseFilters = useFilters(EXPENSE_FILTERS);
   const revenueFilters = useFilters(REVENUE_FILTERS);
+  const allFilters = useFilters(ALL_FILTERS);
   const { bucket: expenseBucket, paymentMethod: expenseMethod, category } = expenseFilters.values;
   const { bucket: revenueBucket, paymentMethod: revenueMethod } = revenueFilters.values;
   const expenseParams = useMemo(
@@ -150,11 +179,17 @@ export default function WalletPage() {
     () => listParams({ bucket: revenueBucket, paymentMethod: revenueMethod }, revenueFilters.search, range),
     [revenueBucket, revenueMethod, revenueFilters.search, range],
   );
+  const { bucket: allBucket, paymentMethod: allMethod } = allFilters.values;
+  const allParams = useMemo(
+    () => listParams({ bucket: allBucket, paymentMethod: allMethod }, allFilters.search, range),
+    [allBucket, allMethod, allFilters.search, range],
+  );
 
   /*
    * As listas usam VENCIMENTO ("o que há no mês", inclusive o não pago) e cada
-   * uma só vai ao servidor com a aba dela aberta: a Carteira abre pedindo as
-   * despesas, e as entradas só no clique. A contagem das abas vem do resumo.
+   * uma só vai ao servidor com a aba dela aberta: a Carteira abre em "Todos"
+   * (as duas rotas juntas), e cada lado sozinho só no clique. A contagem das
+   * abas vem do resumo.
    */
   const expenses = usePagedList({
     enabled: canSeeFinance && tab === "expense",
@@ -166,11 +201,17 @@ export default function WalletPage() {
     params: revenueParams,
     fetchPage: (params: Params, page) => listOfficeRevenues({ ...params, pageNumber: page, pageSize: PAGE_SIZE }).then(pageFromEnvelope),
   });
+  const everything = usePagedList({
+    enabled: canSeeFinance && tab === "all",
+    params: allParams,
+    fetchPage: fetchAllPage,
+  });
 
-  /** Gravou ou excluiu: muda o saldo e a lista daquele lado — só dele. */
+  /** Gravou ou excluiu: muda o saldo e a lista daquele lado, e a de "Todos". */
   const reloadAfterChange = (kind: EntryKind) => {
     monthData.reload(kind);
     (kind === "income" ? revenues : expenses).invalidate();
+    everything.invalidate();
   };
 
   /**
@@ -212,9 +253,9 @@ export default function WalletPage() {
 
   if (!canSeeFinance) return <NoFinanceAccess title="Carteira" />;
 
-  const list = tab === "expense" ? expenses : revenues;
-  const filters = tab === "expense" ? expenseFilters : revenueFilters;
-  const noun = KIND_META[tab].noun;
+  const list = { all: everything, expense: expenses, income: revenues }[tab];
+  const filters = { all: allFilters, expense: expenseFilters, income: revenueFilters }[tab];
+  const noun = tab === "all" ? "lançamento" : KIND_META[tab].noun;
   const emptyMessage = emptyMessageOf(noun, list.failed, filters.hasActive);
 
   return (
@@ -250,9 +291,13 @@ export default function WalletPage() {
       {/* Filtro → lista → paginação, da aba aberta: cada aba guarda os seus filtros. */}
       <section className="flex flex-col gap-4">
         <WalletFilterBar tab={tab} onTabChange={setTab} counts={monthData.counts} filters={filters} />
-        {tab === "expense" ? (
+        {tab === "all" && (
+          <WalletEntryList kind="all" items={everything.items} isLoading={everything.isLoading} emptyMessage={emptyMessage} actions={entryActions} />
+        )}
+        {tab === "expense" && (
           <WalletEntryList kind="expense" items={expenses.items} isLoading={expenses.isLoading} emptyMessage={emptyMessage} actions={entryActions} />
-        ) : (
+        )}
+        {tab === "income" && (
           <WalletEntryList kind="income" items={revenues.items} isLoading={revenues.isLoading} emptyMessage={emptyMessage} actions={entryActions} />
         )}
         <TablePagination
@@ -280,7 +325,8 @@ export default function WalletPage() {
         onOpenChange={setIsEntryFormOpen}
         // Abre a aba do que acabou de ser gravado, para a pessoa ver o resultado.
         onSaved={(kind) => {
-          setTab(kind);
+          // Em "Todos" o lançamento novo já aparece; num dos lados, vai para o dele.
+          if (tab !== "all") setTab(kind);
           reloadAfterChange(kind);
         }}
       />

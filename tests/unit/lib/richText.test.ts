@@ -38,6 +38,16 @@ describe("safeRichText", () => {
     expect(safeRichText("<scr<script>ipt>alert(1)</script>")).not.toMatch(/<script/i);
   });
 
+  it("tirar uma marca não remonta outra com o `<` que sobrou antes dela", () => {
+    expect(safeRichText("<<img>img src=x onerror=alert(1)>")).toBe("&lt;img src=x onerror=alert(1)>");
+    expect(safeRichText("<<b>img src=x onerror=alert(1)>")).toBe("&lt;<b>img src=x onerror=alert(1)>");
+  });
+
+  it("marca sem fim vira texto", () => {
+    expect(safeRichText("<p>a</p><img src=x onerror=alert(1)")).toBe("<p>a</p>&lt;img src=x onerror=alert(1)");
+    expect(safeRichText("idade < 60 anos")).toBe("idade &lt; 60 anos");
+  });
+
   it("maiúsculas viram a marca permitida em minúsculas", () => {
     expect(safeRichText("<P><STRONG>a</STRONG></P>")).toBe("<p><strong>a</strong></p>");
   });

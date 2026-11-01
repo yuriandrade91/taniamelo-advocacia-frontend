@@ -25,11 +25,20 @@ const ALLOWED_TAGS = new Set([
   "blockquote",
 ]);
 
-/** Toda marca, de abertura ou fechamento, com o que vier dentro dela até o `>`. */
-const TAG = /<(\/?)([a-z][a-z0-9]*)\b[^>]*>/gi;
+/**
+ * Toda marca, de abertura ou fechamento, com o que vier dentro dela até o `>`;
+ * ou um `<` que não abre marca nenhuma.
+ */
+const TAG_OR_STRAY = /<(\/?)([a-z][a-z0-9]*)\b[^>]*>|</gi;
 
+/**
+ * Todo `<` da saída é de uma marca da lista: o solto vira texto. Sem isso,
+ * tirar a marca de `<<img>img onerror=…>` deixaria o primeiro `<` colado no
+ * resto, e o resultado seria um `<img>` inteiro.
+ */
 export function safeRichText(html: string): string {
-  return html.replaceAll(TAG, (_tag, closing: string, name: string) => {
+  return html.replaceAll(TAG_OR_STRAY, (_match, closing: string | undefined, name: string | undefined) => {
+    if (name === undefined) return "&lt;";
     const tag = name.toLowerCase();
     return ALLOWED_TAGS.has(tag) ? `<${closing}${tag}>` : "";
   });

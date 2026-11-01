@@ -45,6 +45,15 @@ export const DownloadIcon = (p: IconProps) => (
   </Svg>
 );
 
+/** Impressora — imprimir a ficha. */
+export const PrinterIcon = (p: IconProps) => (
+  <Svg {...p} viewBox="0 0 20 20" strokeWidth={1.5}>
+    <path d="M6 7V3h8v4" />
+    <path d="M6 14H4.5A1.5 1.5 0 0 1 3 12.5v-4A1.5 1.5 0 0 1 4.5 7h11A1.5 1.5 0 0 1 17 8.5v4a1.5 1.5 0 0 1-1.5 1.5H14" />
+    <path d="M6 11.5h8V17H6z" />
+  </Svg>
+);
+
 /** Folha de documento — usada na lista de arquivos e no cabeçalho dos grupos. */
 export const FileIcon = (p: IconProps) => (
   <Svg {...p} viewBox="0 0 20 20" strokeWidth={1.5}>

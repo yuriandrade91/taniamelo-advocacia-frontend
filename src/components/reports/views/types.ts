@@ -2,6 +2,7 @@ import type { MonthRef } from "@/lib/period";
 import type { BalanceSlice } from "@/components/reports/financeSeries";
 import type {
   IntakeTrendPoint,
+  RequestStageCount,
   SituationCount,
 } from "@/components/reports/reportSeries";
 import type { AppointmentTimelinePoint } from "@/interfaces/appointment/Appointment.interface";
@@ -56,6 +57,8 @@ export type ReportViewProps = {
   // ── Clientes e agenda ──
   /** Clientes por etapa da esteira, na ordem do funil (não por tamanho). */
   situations: SituationCount[];
+  /** Clientes por etapa do INSS, na ordem de leitura (deferimento por último). */
+  requestStages: RequestStageCount[];
   /** Cadastros por mês (verificado, potencial) + média móvel de 3 meses. */
   intake: IntakeTrendPoint[];
   /** Compromissos por mês no ano até `month`, por status. */

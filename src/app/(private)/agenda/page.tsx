@@ -1,25 +1,35 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@heroui/react";
 
 import FormModal from "@/components/ui/modals/FormModal";
 import { MonthPicker } from "@/components/ui/filters/MonthPicker";
 import { PageHeader } from "@/components/ui/layout/PageHeader";
-import { groupByDay } from "@/components/agenda/agendaGrouping";
+import { Notice } from "@/components/ui/feedback/Notice";
+import { groupByDay, localDayOf } from "@/components/agenda/agendaGrouping";
 import { AgendaAccordion } from "@/components/agenda/AgendaAccordion";
 import { AGENDA_DEFAULTS, AgendaFilters, agendaFilters } from "@/components/agenda/AgendaFilters";
 import { useAppointmentActions } from "@/components/agenda/useAppointmentActions";
 import { useAppointmentEditor } from "@/components/agenda/useAppointmentEditor";
 import { useFilters } from "@/hooks/useFilters";
+import { usePagedList } from "@/hooks/usePagedList";
 import { usePermissions } from "@/hooks/usePermissions";
+import { appointmentsListCache } from "@/lib/appointmentsCache";
+import { messageOf } from "@/lib/errorMessage";
+import { fetchAllPages } from "@/lib/pagination";
 import { currentMonth, type MonthRef } from "@/lib/period";
 import { applyPendingOverlay } from "@/lib/pendingActions";
 import { listAppointments } from "@/services/appointmentService";
-import type { AppointmentResponse } from "@/interfaces/appointment/Appointment.interface";
+import type {
+  AppointmentListRequest,
+  AppointmentResponse,
+} from "@/interfaces/appointment/Appointment.interface";
 import {
   AppointmentStatusLabelByKey,
+  AppointmentTypeOptions,
   type AppointmentStatusInput,
+  type AppointmentStatusKey,
   type AppointmentTypeInput,
 } from "@/enums/appointment/Appointment";
 
@@ -45,7 +55,16 @@ import {
  * decisão. Desfazer só é possível antes de enviar.
  */
 
-const PAGE_SIZE = 100;
+/**
+ * O mês inteiro, página a página: a tela agrupa por dia e pagina por conta
+ * própria, então uma página só de 100 cortaria, sem aviso, o mês que passasse
+ * disso.
+ */
+const fetchMonth = (params: AppointmentListRequest) =>
+  fetchAllPages((page) => listAppointments({ ...params, ...page })).then((envelope) => {
+    const items = envelope.data ?? [];
+    return { items, total: items.length, totalPages: 1 };
+  });
 
 const PENDING_STATUS_LABELS = {
   complete: AppointmentStatusLabelByKey.CONCLUIDO,
@@ -67,47 +86,50 @@ export default function AgendaPage() {
     () => ({
       year: month.year,
       month: month.month,
-      pageSize: PAGE_SIZE,
       searchTerm: filters.search || undefined,
       status: status.length ? (status as AppointmentStatusInput[]) : undefined,
       type: types.length ? (types as AppointmentTypeInput[]) : undefined,
     }),
     [month, filters.search, status, types],
   );
-  const queryKey = JSON.stringify(query);
 
   /**
-   * A lista marcada com a consulta que a trouxe: "carregando" é derivado
-   * (consulta nova sem resposta), e resposta atrasada de uma consulta antiga
-   * não entra. Recarregar depois de uma ação (`version`) mantém a lista na
-   * tela até a nova chegar.
+   * A lista do mês: `usePagedList` com o cache de sessão — voltar a um mês e
+   * a um filtro já vistos não relê, e a mesma consulta pedida duas vezes vira
+   * uma só. O cache some a cada gravação em `/appointments`; `invalidate()`
+   * relê agora, com a lista atual na tela até a nova chegar.
    */
-  const [version, setVersion] = useState(0);
-  const reload = () => setVersion((v) => v + 1);
-  const [loaded, setLoaded] = useState<{ key: string; items: AppointmentResponse[] } | null>(null);
-  useEffect(() => {
-    let active = true;
-    listAppointments(query)
-      // O toast de erro já vem do interceptor do axiosService.
-      .then((envelope) => envelope.data ?? [], () => [])
-      .then((items) => {
-        if (active) setLoaded({ key: queryKey, items });
-      });
-    return () => {
-      active = false;
-    };
-    // `query` entra pela `queryKey`; `version` força a releitura.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryKey, version]);
-  const isLoading = loaded?.key !== queryKey;
+  const list = usePagedList({ params: query, cache: appointmentsListCache, fetchPage: fetchMonth });
+  const { invalidate: reload } = list;
 
-  const editor = useAppointmentEditor({ onSaved: reload });
+  /**
+   * Mostra o compromisso recém-gravado: vai ao mês dele e tira o filtro que o
+   * esconderia (a Situação, o Tipo ou a busca) — sem isso, agendar para o mês
+   * seguinte ou com outro filtro ligado parece não ter gravado.
+   */
+  const reveal = (saved?: AppointmentResponse) => {
+    const day = saved ? localDayOf(saved.startAt) : "";
+    if (saved && day) {
+      setMonth({ year: Number(day.slice(0, 4)), month: Number(day.slice(5, 7)) });
+      const hidesStatus =
+        status.length > 0 && !status.some((key) => AppointmentStatusLabelByKey[key as AppointmentStatusKey] === saved.status);
+      const hidesType =
+        types.length > 0 &&
+        !types.some((key) => AppointmentTypeOptions.find((option) => option.value === key)?.label === saved.type);
+      if (hidesStatus) filters.set("status", []);
+      if (hidesType) filters.set("types", []);
+      if (filters.values.search) filters.set("search", "");
+    }
+    reload();
+  };
+
+  const editor = useAppointmentEditor({ onSaved: reveal });
   const actions = useAppointmentActions({ onSettled: reload });
 
   /** A lista já mostra o efeito das ações na janela de desfazer, como a Home. */
   const days = useMemo(
-    () => groupByDay(applyPendingOverlay(loaded?.items ?? [], actions.pending, PENDING_STATUS_LABELS)),
-    [loaded, actions.pending],
+    () => groupByDay(applyPendingOverlay(list.items, actions.pending, PENDING_STATUS_LABELS)),
+    [list.items, actions.pending],
   );
 
   return (
@@ -129,20 +151,24 @@ export default function AgendaPage() {
       <AgendaFilters filters={filters} />
 
       {/* `key` por mês: dia aberto e páginas voltam ao padrão (só hoje aberto). */}
-      <AgendaAccordion
-        key={`${month.year}-${month.month}`}
-        days={days}
-        isLoading={isLoading}
-        actions={{
-          onViewDetails: actions.requestDetails,
-          onEdit: editor.openEdit,
-          onComplete: actions.requestComplete,
-          onCancel: actions.requestCancel,
-          onReschedule: editor.openReschedule,
-          onDelete: canDestroy ? actions.requestDelete : undefined,
-          onCreate: editor.openCreate,
-        }}
-      />
+      {list.failed ? (
+        <Notice tone="danger">{messageOf(list.failureReason, "Não foi possível carregar a agenda.")}</Notice>
+      ) : (
+        <AgendaAccordion
+          key={`${month.year}-${month.month}`}
+          days={days}
+          isLoading={list.isLoading}
+          actions={{
+            onViewDetails: actions.requestDetails,
+            onEdit: editor.openEdit,
+            onComplete: actions.requestComplete,
+            onCancel: actions.requestCancel,
+            onReschedule: editor.openReschedule,
+            onDelete: canDestroy ? actions.requestDelete : undefined,
+            onCreate: editor.openCreate,
+          }}
+        />
+      )}
 
       <FormModal
         isOpen={editor.isOpen}
@@ -152,9 +178,6 @@ export default function AgendaPage() {
         onConfirm={editor.submit}
         isConfirmDisabled={!editor.isValid}
         size="lg"
-        // O mesmo rodapé da Carteira — as modais de lançamento falam a mesma
-        // língua, seja compromisso, parcela ou despesa.
-        actions="pill"
         isSubmitting={editor.isSubmitting}
       >
         {editor.fields}

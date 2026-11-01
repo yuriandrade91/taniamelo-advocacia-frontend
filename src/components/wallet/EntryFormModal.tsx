@@ -118,9 +118,6 @@ export function EntryFormModal({
       title={copy.title}
       description={copy.description}
       size="lg"
-      // O modelo de botões do painel de detalhes, que a Carteira já usa na
-      // lista — a modal fala a mesma língua da tela que a abre.
-      actions="pill"
       confirmLabel={copy.confirm}
       onConfirm={() => void handleConfirm()}
       isSubmitting={isSubmitting}

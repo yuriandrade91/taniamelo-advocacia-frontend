@@ -37,9 +37,12 @@ export type BenefitPaymentValues = {
   clientId: string;
   clientName: string;
   description: string;
+  /** No parcelado, o valor **total** do acordo; a parcela é a divisão igual (`installmentAmount`). */
   amount: string;
   /** Data prevista do crédito — `dueDate` no backend. */
   expectedDate: string;
+  /** Parcelado (`true`) ou parcela única: só o parcelado pede "Parcela" e "De". */
+  isSplit: boolean;
   installmentNumber: string;
   installmentTotal: string;
   /** O cliente já recebeu? Decide se há um PATCH depois do POST. */
@@ -54,6 +57,7 @@ export const emptyBenefitPayment = (): BenefitPaymentValues => ({
   description: "",
   amount: "",
   expectedDate: "",
+  isSplit: false,
   installmentNumber: "",
   installmentTotal: "",
   isReceived: false,
@@ -66,6 +70,19 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 type BenefitPaymentErrors = Partial<
   Record<keyof BenefitPaymentValues, string>
 >;
+
+function amountError(amount: string): string | null {
+  if (!amount.trim()) return "Informe o valor.";
+  const parsed = parseAmountBRL(amount);
+  if (parsed === null) return "Valor inválido.";
+  // `@DecimalMin("0.01")` no backend — melhor dizer aqui do que colher um 400.
+  return parsed > 0 ? null : "O valor deve ser maior que zero.";
+}
+
+function expectedDateError(date: string): string | null {
+  if (!date.trim()) return "Informe a data prevista.";
+  return ISO_DATE.test(date) ? null : "Data inválida.";
+}
 
 export function validateBenefitPayment(
   values: BenefitPaymentValues,
@@ -83,31 +100,50 @@ export function validateBenefitPayment(
 
   if (!values.description.trim()) errors.description = "Informe a descrição.";
 
-  if (values.amount.trim()) {
-    const parsed = parseAmountBRL(values.amount);
-    if (parsed === null) errors.amount = "Valor inválido.";
-    // `@DecimalMin("0.01")` no backend — melhor dizer aqui do que colher um 400.
-    else if (parsed <= 0) errors.amount = "O valor deve ser maior que zero.";
-  } else {
-    errors.amount = "Informe o valor.";
-  }
+  const amount = amountError(values.amount);
+  if (amount) errors.amount = amount;
 
-  if (!values.expectedDate.trim()) {
-    errors.expectedDate = "Informe a data prevista.";
-  } else if (!ISO_DATE.test(values.expectedDate)) {
-    errors.expectedDate = "Data inválida.";
-  }
+  const expectedDate = expectedDateError(values.expectedDate);
+  if (expectedDate) errors.expectedDate = expectedDate;
 
-  const installment = validateInstallment(
-    values.installmentNumber,
-    values.installmentTotal,
-  );
-  if (installment) errors.installmentNumber = installment;
+  if (values.isSplit) {
+    const installment =
+      !values.installmentNumber.trim() || !values.installmentTotal.trim()
+        ? "Informe a parcela e o total."
+        : validateInstallment(values.installmentNumber, values.installmentTotal);
+    if (installment) errors.installmentNumber = installment;
+  }
 
   const received = validatePaidDate(values.receivedDate, values.isReceived, today);
   if (received) errors.receivedDate = received;
 
   return errors;
+}
+
+/**
+ * O valor da parcela `number` de um total dividido igualmente em `count`.
+ *
+ * A divisão é em centavos, e o que não divide fica na última: R$ 1.000,00 em
+ * 3 são 333,33 + 333,33 + 333,34 — a soma das parcelas fecha com o total,
+ * que é o que se confere contra o acordo.
+ */
+export function installmentAmount(total: number, count: number, number: number): number {
+  const cents = Math.round(total * 100);
+  const base = Math.floor(cents / count);
+  return (number === count ? cents - base * (count - 1) : base) / 100;
+}
+
+/**
+ * O valor desta parcela, quando dá para calcular: parcelado, com valor e o
+ * par parcela/total válidos. `null` enquanto falta algo.
+ */
+export function splitAmountOf(values: BenefitPaymentValues): number | null {
+  const total = parseAmountBRL(values.amount);
+  const number = optionalInteger(values.installmentNumber);
+  const count = optionalInteger(values.installmentTotal);
+  if (!values.isSplit || total === null || total <= 0 || !number || !count) return null;
+  if (validateInstallment(values.installmentNumber, values.installmentTotal)) return null;
+  return installmentAmount(total, count, number);
 }
 
 export const hasErrors = (errors: object): boolean =>
@@ -126,10 +162,12 @@ export function toBenefitPaymentRequest(
 ): ClientPaymentRequest {
   return {
     description: values.description.trim(),
-    amount: parseAmountBRL(values.amount) ?? 0,
+    // Cada lançamento é uma parcela: no parcelado vai a parte dela no total.
+    amount: (values.isSplit ? splitAmountOf(values) : parseAmountBRL(values.amount)) ?? 0,
     dueDate: values.expectedDate,
-    installmentNumber: optionalInteger(values.installmentNumber),
-    installmentTotal: optionalInteger(values.installmentTotal),
+    // Parcela única vai sem parcela: o que ficou digitado antes de trocar não conta.
+    installmentNumber: values.isSplit ? optionalInteger(values.installmentNumber) : undefined,
+    installmentTotal: values.isSplit ? optionalInteger(values.installmentTotal) : undefined,
     notes: optionalText(values.notes),
   };
 }

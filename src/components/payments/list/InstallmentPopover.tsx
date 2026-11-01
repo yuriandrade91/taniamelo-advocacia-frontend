@@ -85,9 +85,17 @@ export function InstallmentPopover({
         {children}
       </Popover.Trigger>
 
-      <Popover.Content {...card.contentProps} placement="bottom" className="w-80">
+      {/* Sempre para baixo: virar para cima cobria o topo da tela e o próprio
+          cartão. Sem espaço embaixo, o diálogo rola (teto herdado, abaixo). */}
+      <Popover.Content {...card.contentProps} placement="bottom" shouldFlip={false} className="w-80">
         <Popover.Arrow />
-        <Popover.Dialog aria-label="Parcelas do acordo">
+        {/*
+          O posicionamento limita a altura do popover ao espaço da tela, mas o
+          HeroUI não o faz rolar: com seis parcelas e o resumo, o fim vazava
+          por cima do cartão, fora do fundo branco. A rolagem fica no diálogo,
+          com o teto herdado — no conteúdo, ela cortaria a seta.
+        */}
+        <Popover.Dialog aria-label="Parcelas do acordo" className="max-h-[inherit] overflow-y-auto">
           <Pill size="sm">Parcelas do acordo</Pill>
           <p className="mt-2 truncate text-sm font-semibold text-gray-100">{payment.clientName}</p>
           <p className="mt-0.5 truncate text-xs text-gray-100">

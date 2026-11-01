@@ -1,5 +1,3 @@
-import React from "react";
-
 /**
  * Ícones de contato — telefone, WhatsApp, e-mail.
  *

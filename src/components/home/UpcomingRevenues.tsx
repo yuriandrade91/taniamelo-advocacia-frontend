@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import type { PaymentStatusKey } from "@/enums/payment/Payment";
 import { Card, SectionTitle } from "@/components/ui/layout/Card";
 import { SeeAllLink } from "./CardControls";

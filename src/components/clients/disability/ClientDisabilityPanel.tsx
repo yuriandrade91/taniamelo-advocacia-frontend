@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useImperativeHandle, useState } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { Ref } from "react";
 import {
   DisabilityConversion,
@@ -28,6 +28,7 @@ import {
   updateDisabilityPeriod,
 } from "@/services/clientDisabilityPeriodService";
 import { todayIso } from "@/lib/period";
+import { sheetRead } from "@/lib/clientsCache";
 import { useConstant } from "@/hooks/useConstant";
 
 /** O que a ficha pede ao painel: conferir antes de salvar, e salvar. */
@@ -95,10 +96,10 @@ export function ClientDisabilityPanel({
   const load = useCallback(async () => {
     let list: DisabilityPeriodResponse[] = [];
     try {
-      const envelope = await listDisabilityPeriods(clientId);
+      const envelope = await sheetRead(`${clientId}:disability-periods`, () => listDisabilityPeriods(clientId));
       list = envelope?.data ?? [];
-    } catch (error) {
-      console.debug("Could not load disability periods:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
     setSaved(list);
     setDrafts(draftsFrom(list));
@@ -112,24 +113,31 @@ export function ClientDisabilityPanel({
       return;
     }
     try {
-      const envelope = await getDisabilityConversion(clientId, undefined, {
-        silent: true,
-      });
+      const envelope = await sheetRead(`${clientId}:disability-conversion`, () =>
+        getDisabilityConversion(clientId, undefined, { silent: true }),
+      );
       const result = conversionFromServer(envelope?.data);
       setConversion(result);
       setConversionFailed(result === null);
-    } catch (error) {
+    } catch {
       // 400 quando o sexo não tem coluna na lei; o aviso abaixo explica.
-      console.debug("Could not load disability conversion:", error);
       setConversion(null);
       setConversionFailed(true);
     }
   }, [clientId]);
 
-  // O sexo entra na dependência: corrigido na ficha, a coluna da lei muda e a
-  // conta precisa ser pedida de novo.
   useEffect(() => {
     void load();
+  }, [load]);
+
+  // O sexo corrigido na ficha muda a coluna da lei, e a conta é pedida de
+  // novo. A chegada do sexo junto com a ficha não é correção: relendo nela, a
+  // ficha pedia os períodos duas vezes a cada abertura.
+  const loadedGender = useRef(gender);
+  useEffect(() => {
+    const previous = loadedGender.current;
+    loadedGender.current = gender;
+    if (previous && previous !== gender) void load();
   }, [load, gender]);
 
   useEffect(() => {
@@ -212,9 +220,8 @@ export function ClientDisabilityPanel({
       // Recarrega tudo, e não só tira a linha: o total muda, e é o servidor
       // que diz quanto ficou.
       await load();
-    } catch (error) {
+    } catch {
       // O toast do interceptor já diz por quê; o intervalo fica na tela.
-      console.error("Erro ao excluir período de deficiência:", error);
     }
   };
 

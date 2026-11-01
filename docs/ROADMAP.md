@@ -96,15 +96,12 @@ Em ordem de retorno.
 6. **Acessibilidade automatizada:** `@axe-core/playwright` nas páginas
    principais. A suíte já localiza tudo por papel e nome; falta afirmar
    contraste, rótulos e foco.
-7. **Lint com tipos** (`typescript-eslint` *type-aware*):
-   `no-floating-promises` e `no-misused-promises` pegam a promessa esquecida
-   que hoje só o olho pega.
 
 ### Robustez
 
-8. **Fronteira de erro:** não há `error.tsx`/`global-error.tsx` — um erro de
-   renderização derruba a página inteira sem explicação. E o 404 é o padrão do
-   Next, sem a marca (`not-found.tsx`).
+8. **Fronteira de erro do layout raiz:** `error.tsx` e `not-found.tsx` já
+   existem; falta `global-error.tsx` para um erro no próprio `app/layout.tsx`,
+   que hoje cai na tela padrão do Next.
 9. **Registro de erro do navegador** (Sentry ou equivalente): falha no
    computador do escritório hoje só aparece se alguém contar.
 

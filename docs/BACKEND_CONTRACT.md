@@ -124,6 +124,7 @@ como funcionar (ver o roadmap).
 | PATCH | `/clients/{id}/files/simulations/{fileId}/principal` | | — (trocar a simulação principal depois do envio) |
 | GET | `/clients/{id}/files/{fileId}/download` | | Ficha ("Visualizar" e "Baixar", pelo `downloadClientFile`, com o token — o `downloadUrl` da listagem não serve de link: é caminho da API e a rota exige o token) |
 | DELETE | `/clients/{id}/files/{fileId}` | SUPPORT/ADMIN | Ficha |
+| GET | `/clients/{id}/record` | | Ficha (PDF completo do cliente; download registrado na auditoria) |
 
 Limites do upload: 10 MB por arquivo, 60 MB por requisição.
 
@@ -140,6 +141,7 @@ Limites do upload: 10 MB por arquivo, 60 MB por requisição.
 | GET | `/appointments/summary?year=` | | Home (abas por mês) |
 | GET | `/appointments/timeline` | | Relatórios |
 | GET | `/appointments/conflicts` | | formulário de compromisso (aviso enquanto se digita) |
+| GET | `/appointments/holiday` | | formulário de compromisso (pergunta ao escolher o dia do início) |
 | GET | `/appointments/{id}` | | — |
 | GET | `/appointments/{id}/history` | | — (trilha do compromisso) |
 | GET | `/appointments/deleted` | SUPPORT/ADMIN | — (lixeira) |

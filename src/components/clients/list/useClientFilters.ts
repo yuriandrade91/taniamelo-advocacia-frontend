@@ -42,8 +42,13 @@ export type UseClientFiltersResult = ClientFiltersState & {
   clear: () => void;
 };
 
-export function useClientFilters(): UseClientFiltersResult {
-  const [state, setState] = useState<ClientFiltersState>(EMPTY_CLIENT_FILTERS);
+/**
+ * `initialSearch`: a busca com que a lista já chega (`?searchTerm=`). Entra no
+ * estado inicial, e não por `setSearch` depois: assim a primeira consulta já
+ * sai filtrada, sem uma lista inteira pedida antes e o debounce no meio.
+ */
+export function useClientFilters(initialSearch = ""): UseClientFiltersResult {
+  const [state, setState] = useState<ClientFiltersState>(() => ({ ...EMPTY_CLIENT_FILTERS, search: initialSearch }));
 
   /*
    * Debounce só do texto: os demais filtros são cliques, e esperar depois de

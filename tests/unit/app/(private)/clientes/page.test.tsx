@@ -8,6 +8,7 @@ import { seedOffice } from "../../../support/office";
 import { signIn } from "../../../support/session";
 import * as fx from "../../../support/fixtures";
 import { renderApp } from "../../../support/render";
+import { patchClient } from "@/services/clientService";
 
 async function renderClients() {
   const user = userEvent.setup();
@@ -146,6 +147,68 @@ describe("Clientes: URL e desfazer", () => {
       expect(callsTo("get").some(([, config]) => (config as { params?: { searchTerm?: string } })?.params?.searchTerm === "Pereira")).toBe(true),
     );
     expect(screen.getByRole("searchbox", { name: "Pesquisar beneficiário" })).toHaveValue("Pereira");
+  });
+
+  it("chegando com a busca na URL, a primeira consulta já sai filtrada — sem pedir a lista inteira antes", async () => {
+    signIn();
+    seedOffice();
+    setLocation("/clientes", "searchTerm=Pereira");
+    renderApp(<ClientsPage />);
+    await waitFor(() => expect(listCalls()).not.toHaveLength(0));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 600)));
+    expect(listCalls().map(([, config]) => (config as { params?: { searchTerm?: string } })?.params?.searchTerm)).toEqual(["Pereira"]);
+  });
+
+  it("abrir a ficha pede os períodos de deficiência uma vez só", async () => {
+    signIn();
+    seedOffice();
+    const { user } = renderApp(<ClientsPage />);
+    await screen.findByRole("button", { name: "Maria Aparecida da Silva" });
+    await user.click(screen.getAllByRole("button", { name: "Visualizar este cliente" })[0]);
+    await screen.findByRole("dialog");
+    await waitFor(() => expect(callsTo("get").some(([url]) => String(url).endsWith("/clients/c1"))).toBe(true));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+    expect(callsTo("get").filter(([url]) => String(url).endsWith("/disability-periods"))).toHaveLength(1);
+  });
+});
+
+describe("Clientes: a ficha reaberta", () => {
+  const sheetReads = () => callsTo("get").filter(([url]) => /\/clients\/c1(\/|$)|\/(payments|revenues)/.test(String(url)));
+
+  async function openAndCloseSheet(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(screen.getAllByRole("button", { name: "Visualizar este cliente" })[0]);
+    await screen.findByRole("dialog");
+    await waitFor(() => expect(callsTo("get").some(([url]) => String(url).endsWith("/clients/c1"))).toBe(true));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  }
+
+  it("reabrir a ficha do mesmo cliente não relê nada", async () => {
+    signIn();
+    seedOffice();
+    const { user } = renderApp(<ClientsPage />);
+    await screen.findByRole("button", { name: "Maria Aparecida da Silva" });
+    await openAndCloseSheet(user);
+    const before = sheetReads().length;
+
+    await user.click(screen.getAllByRole("button", { name: "Visualizar este cliente" })[0]);
+    await screen.findByRole("dialog");
+    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+    expect(sheetReads()).toHaveLength(before);
+  });
+
+  it("depois de uma gravação (ex.: PATCH da situação), a ficha relê", async () => {
+    signIn();
+    seedOffice();
+    const { user } = renderApp(<ClientsPage />);
+    await screen.findByRole("button", { name: "Maria Aparecida da Silva" });
+    await openAndCloseSheet(user);
+    const before = callsTo("get").filter(([url]) => String(url).endsWith("/clients/c1")).length;
+
+    await act(() => patchClient("c1", { situation: "ANALISE_DOCUMENTAL" }, { silent: true }));
+    await user.click(screen.getAllByRole("button", { name: "Visualizar este cliente" })[0]);
+    await waitFor(() => expect(callsTo("get").filter(([url]) => String(url).endsWith("/clients/c1"))).toHaveLength(before + 1));
   });
 
   it("desfazer dentro da janela cancela a exclusão", async () => {

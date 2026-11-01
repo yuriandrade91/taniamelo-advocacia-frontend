@@ -5,6 +5,7 @@ import {
   SITUATION_ENTRIES,
   type SituationKey,
 } from "@/enums/situation/Situation";
+import { REQUEST_STAGE_ENTRIES, type RequestStageKey } from "@/enums/requestStage/RequestStage";
 import { monthRange, shiftMonth, type MonthRef } from "@/lib/period";
 
 /**
@@ -44,6 +45,13 @@ export type SituationCount = {
   count: number;
 };
 
+/** Clientes numa etapa do INSS — o par de `SituationCount` na outra esteira. */
+export type RequestStageCount = {
+  key: RequestStageKey;
+  label: string;
+  count: number;
+};
+
 /**
  * Contagens na ordem do enum — que é a ordem da esteira. Situação é etapa,
  * não categoria solta: reordenar por tamanho apagaria o funil.
@@ -52,6 +60,17 @@ export function toSituationCounts(
   counts: Partial<Record<SituationKey, number>>,
 ): SituationCount[] {
   return SITUATION_ENTRIES.map(([key, label]) => ({
+    key,
+    label,
+    count: counts[key] ?? 0,
+  }));
+}
+
+/** Contagens na ordem de leitura das etapas do INSS (deferimento por último). */
+export function toRequestStageCounts(
+  counts: Partial<Record<RequestStageKey, number>>,
+): RequestStageCount[] {
+  return REQUEST_STAGE_ENTRIES.map(([key, label]) => ({
     key,
     label,
     count: counts[key] ?? 0,

@@ -32,6 +32,10 @@ export function seedOffice() {
   onApi("get", "/appointments/summary", envelope([{ year: Number(fx.isoDay(0).slice(0, 4)), month: Number(fx.isoDay(0).slice(5, 7)), count: 2 }]));
   onApi("get", "/appointments/timeline", envelope([{ month: fx.isoDay(0).slice(0, 7), totalCount: 4, scheduledCount: 2, completedCount: 1, cancelledCount: 1 }]));
   onApi("get", "/appointments/conflicts", envelope([]));
+  // Mais específica que `/appointments` (que casaria): por padrão o dia é comum.
+  onApi("get", "/appointments/holiday", ({ config }) =>
+    envelope({ date: config?.params?.date, holiday: false, name: null, verified: true, message: "Nenhum feriado nacional." }),
+  );
 
   // ── financeiro ──
   onApi("get", "/payments", page([fx.officePayment(), fx.officePayment({ id: "p3", status: "Pendente", dueDate: fx.isoDay(-3), overdue: true, installmentNumber: 2 })], 2));

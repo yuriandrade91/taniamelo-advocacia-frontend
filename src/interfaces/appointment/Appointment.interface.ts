@@ -102,6 +102,19 @@ export interface AppointmentTimelinePoint {
   cancelledCount: number;
 }
 
+/** GET /appointments/holiday?date= — só feriado nacional. */
+export interface HolidayCheck {
+  /** O dia consultado, `YYYY-MM-DD`. */
+  date: string;
+  holiday: boolean;
+  /** Nome do feriado; `null` quando o dia não é feriado. */
+  name: string | null;
+  /** `false` quando o backend não conseguiu conferir o dia. */
+  verified: boolean;
+  /** Texto pronto para a tela, em português. */
+  message: string;
+}
+
 /** PATCH /appointments/{id}/cancel — justificativa obrigatória (`@NotBlank`). */
 export interface AppointmentCancelRequest {
   justification: string;

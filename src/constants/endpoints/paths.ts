@@ -266,6 +266,12 @@ const endpoints = {
      * conflito.
      */
     CONFLICTS: appointments.byId("conflicts"),
+    /**
+     * GET ?date=YYYY-MM-DD — se o dia é feriado **nacional**. Estadual e
+     * municipal não são verificados (`verified`/`message` dizem isso). Avisa,
+     * não bloqueia: o POST e o PUT não recusam por feriado.
+     */
+    HOLIDAY: appointments.byId("holiday"),
     /** PUT — substituição completa; exige `justification`. */
     UPDATE: appointments.byId,
     /** PATCH — exige `justification`. */
@@ -282,6 +288,11 @@ const endpoints = {
       `${appointments.byId(appointmentId)}/complete`,
     /** DELETE — soft delete (204 sem corpo). */
     DELETE: appointments.byId,
+  },
+
+  CLIENT_RECORD: {
+    /** GET — ficha completa do cliente em PDF. */
+    DOWNLOAD: (clientId: string) => `${clients.byId(clientId)}/record`,
   },
 
   /** /api/v1/clients/{clientId}/files — documentos e simulações (multipart) */

@@ -219,8 +219,10 @@ describe("Carteira: entradas", () => {
   it("filtros com forma e categoria", async () => {
     signIn();
     seedOffice();
-    renderApp(<WalletPage />);
+    const { user } = renderApp(<WalletPage />);
     await screen.findAllByText("Aluguel da sala");
+    // Categoria é só de saída: a Carteira abre em "Todos".
+    await user.click(screen.getByRole("tab", { name: /Saídas/ }));
     chooseOption("Categoria", ["ALUGUEL"]);
     chooseOption("Forma", ["PIX"]);
     await waitFor(() => expect(callsTo("get").some(([, c]) => JSON.stringify(c ?? {}).includes("ALUGUEL"))).toBe(true));

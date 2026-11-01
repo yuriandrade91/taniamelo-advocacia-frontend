@@ -8,6 +8,7 @@ import type {
   AppointmentResponse,
   AppointmentSummary,
   AppointmentTimelinePoint,
+  HolidayCheck,
 } from "@/interfaces/appointment/Appointment.interface";
 import { feedback, type RequestFeedback } from "@/services/requestFeedback";
 
@@ -75,6 +76,23 @@ export const getAppointmentConflicts = async (params: {
   const { data } = await axiosInstance.get<ApiEnvelope<AppointmentResponse[]>>(
     endpoints.APPOINTMENTS.CONFLICTS,
     { params, skipErrorToast: true },
+  );
+  return data;
+};
+
+/**
+ * GET /appointments/holiday?date= — o dia escolhido é feriado nacional?
+ *
+ * `skipErrorToast` pelo mesmo motivo dos conflitos: roda enquanto a pessoa
+ * preenche o formulário, e uma falha aqui não impede de agendar — sem a
+ * resposta, simplesmente não há pergunta.
+ */
+export const getHolidayCheck = async (
+  date: string,
+): Promise<ApiEnvelope<HolidayCheck>> => {
+  const { data } = await axiosInstance.get<ApiEnvelope<HolidayCheck>>(
+    endpoints.APPOINTMENTS.HOLIDAY,
+    { params: { date }, skipErrorToast: true },
   );
   return data;
 };

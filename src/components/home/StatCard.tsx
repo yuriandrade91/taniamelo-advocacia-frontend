@@ -1,4 +1,3 @@
-import React from "react";
 import { Skeleton } from "@heroui/react";
 import { DeltaBadge, MonthLabel } from "@/components/ui/feedback/Badges";
 

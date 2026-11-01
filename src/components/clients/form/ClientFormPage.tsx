@@ -39,6 +39,7 @@ import {
   shouldAskGender,
 } from "@/components/clients/form/genderPrompt";
 import { DisabilitySection } from "@/components/clients/form/sections/DisabilitySection";
+import { DocumentCatalogPanel } from "@/components/clients/form/sections/files/DocumentCatalogPanel";
 import {
   hasAnyDisabilityInput,
   hasDisabilityInput,
@@ -285,8 +286,7 @@ export function ClientFormPage() {
         try {
           // Calado: o aviso é um só, no fim, contando as abas removidas.
           await deleteAddress(clientId, savedId, { silent: true });
-        } catch (error) {
-          console.error("Erro ao excluir endereço:", error);
+        } catch {
           break;
         }
       }
@@ -424,8 +424,8 @@ export function ClientFormPage() {
     try {
       await deleteDisabilityPeriod(clientId, period.id);
       dropDisabilityPeriod(period.key);
-    } catch (error) {
-      console.error("Erro ao excluir período de deficiência:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
   };
 
@@ -489,6 +489,14 @@ export function ClientFormPage() {
   const showDisability =
     service.values.benefit === DISABILITY_BENEFIT ||
     personal.values.hasDisability === true;
+  /**
+   * Onde a seção entra: logo depois de quem a trouxe. Pelo benefício (que já
+   * liga a chave de Dados pessoais), depois de Atendimento; só pela chave
+   * "pessoa com deficiência", depois de Dados pessoais — é lá que a pessoa
+   * acabou de dizer que tem a informação.
+   */
+  const disabilityPlacement =
+    service.values.benefit === DISABILITY_BENEFIT ? "afterService" : "afterPersonal";
 
   const progress = useMemo(
     () =>
@@ -582,9 +590,8 @@ export function ClientFormPage() {
 
       notificationCenter.success("Cliente cadastrado.");
       router.push("/clientes");
-    } catch (error) {
+    } catch {
       // O toast de erro já vem do interceptor do axiosService.
-      console.error("Erro ao criar cliente:", error);
     } finally {
       setIsCreating(false);
     }
@@ -681,8 +688,7 @@ export function ClientFormPage() {
       );
       markSaved(SECTION_KEYS.address);
       return [];
-    } catch (error) {
-      console.error("Erro ao salvar endereços:", error);
+    } catch {
       return [filledAddresses.length > 1 ? "endereços" : "endereço"];
     }
   };
@@ -714,8 +720,8 @@ export function ClientFormPage() {
           // precisa virar PUT, senão duplica o intervalo.
           updateDisabilityPeriod(period.key, { id: savedId });
         }
-      } catch (error) {
-        console.error("Erro ao salvar período de deficiência:", error);
+      } catch {
+        // O interceptor do axiosService já mostrou o erro.
       }
     }
     if (savedCount === toSave.length) {
@@ -736,8 +742,7 @@ export function ClientFormPage() {
       setInterviewId(saved?.data?.id ?? null);
       markSaved(SECTION_KEYS.interview);
       return [];
-    } catch (error) {
-      console.error("Erro ao salvar entrevista:", error);
+    } catch {
       return ["entrevista"];
     }
   };
@@ -767,8 +772,8 @@ export function ClientFormPage() {
         successMessage: "Atendimento atualizado.",
       });
       markSaved(SECTION_KEYS.service);
-    } catch (error) {
-      console.error("Erro ao atualizar atendimento:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
   };
 
@@ -780,8 +785,8 @@ export function ClientFormPage() {
         toPersonalDataRequest(personal.values),
       );
       markSaved(SECTION_KEYS.personal);
-    } catch (error) {
-      console.error("Erro ao salvar dados pessoais:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
   };
 
@@ -793,8 +798,8 @@ export function ClientFormPage() {
         toProfessionalDataRequest(professional.values),
       );
       markSaved(SECTION_KEYS.professional);
-    } catch (error) {
-      console.error("Erro ao salvar dados profissionais:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
   };
 
@@ -823,8 +828,8 @@ export function ClientFormPage() {
         }
       }
       markSaved(SECTION_KEYS.address);
-    } catch (error) {
-      console.error("Erro ao salvar endereço:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
   };
 
@@ -864,8 +869,7 @@ export function ClientFormPage() {
         if (savedId && !period.id) {
           updateDisabilityPeriod(period.key, { id: savedId });
         }
-      } catch (error) {
-        console.error("Erro ao salvar período de deficiência:", error);
+      } catch {
         failures += 1;
       }
     }
@@ -899,8 +903,8 @@ export function ClientFormPage() {
         setInterviewId(saved?.data?.id ?? null);
       }
       markSaved(SECTION_KEYS.interview);
-    } catch (error) {
-      console.error("Erro ao salvar entrevista:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
   };
 
@@ -1003,6 +1007,52 @@ export function ClientFormPage() {
   const missingIn = (key: ReviewSectionKey) =>
     review.find((section) => section.key === key)?.missing ?? 0;
 
+  /*
+    A seção aparece só quando faz diferença: aposentadoria por deficiência
+    é a hipótese em que o grau e o tempo em cada grau mudam o requerimento.
+    A chave "pessoa com deficiência" de Dados pessoais também a traz, porque
+    quem marcou aquela chave tem a informação em mãos — e perdê-la agora
+    significa pedir de novo depois.
+
+    Em qualquer outro caso seria mais um campo para ignorar no meio de um
+    formulário que já é longo.
+  */
+  const disabilitySection: ClientFormSection | false = showDisability && {
+    id: SECTION_KEYS.disability,
+    title: "Períodos de deficiência",
+    description:
+      "Grau e tempo em cada grau. Na aposentadoria da pessoa com deficiência, mudam o tempo exigido.",
+    icon: <DisabilityIcon />,
+    missing: missingIn("disability"),
+    validate: validateDisability,
+    ...toSectionProps(
+      statusOf(
+        SECTION_KEYS.disability,
+        Object.keys(validateDisabilityPeriods(disabilityPeriods, today))
+          .length === 0,
+      ),
+    ),
+    content: (
+      <div className="flex flex-col gap-4">
+        <DisabilitySection
+          periods={disabilityPeriods}
+          errors={disabilityErrors}
+          gender={personal.values.gender}
+          today={today}
+          onChange={updateDisabilityPeriod}
+          onAdd={addDisabilityPeriod}
+          onRemove={removeDisabilityPeriod}
+          canDeleteSaved={canDestroy}
+        />
+        <SectionActions
+          isVisible={isCreated}
+          onSave={() => void handleSaveDisability()}
+          label="Salvar períodos de deficiência"
+        />
+      </div>
+    ),
+  };
+
   /** As abas, na ordem do formulário. A "Revisão" entra no fim, sozinha. */
   const candidates: (ClientFormSection | false)[] = [
     {
@@ -1028,51 +1078,7 @@ export function ClientFormPage() {
         </div>
       ),
     },
-    /*
-      A seção aparece só quando faz diferença: aposentadoria por deficiência
-      é a hipótese em que o grau e o tempo em cada grau mudam o requerimento.
-      A chave "pessoa com deficiência" de Dados pessoais também a traz, porque
-      quem marcou aquela chave tem a informação em mãos — e perdê-la agora
-      significa pedir de novo depois.
-
-      Em qualquer outro caso seria mais um campo para ignorar no meio de um
-      formulário que já é longo.
-    */
-    showDisability && {
-      id: SECTION_KEYS.disability,
-      title: "Períodos de deficiência",
-      description:
-        "Grau e tempo em cada grau. Na aposentadoria da pessoa com deficiência, mudam o tempo exigido.",
-      icon: <DisabilityIcon />,
-      missing: missingIn("disability"),
-      validate: validateDisability,
-      ...toSectionProps(
-        statusOf(
-          SECTION_KEYS.disability,
-          Object.keys(validateDisabilityPeriods(disabilityPeriods, today))
-            .length === 0,
-        ),
-      ),
-      content: (
-        <div className="flex flex-col gap-4">
-          <DisabilitySection
-            periods={disabilityPeriods}
-            errors={disabilityErrors}
-            gender={personal.values.gender}
-            today={today}
-            onChange={updateDisabilityPeriod}
-            onAdd={addDisabilityPeriod}
-            onRemove={removeDisabilityPeriod}
-            canDeleteSaved={canDestroy}
-          />
-          <SectionActions
-            isVisible={isCreated}
-            onSave={() => void handleSaveDisability()}
-            label="Salvar períodos de deficiência"
-          />
-        </div>
-      ),
-    },
+    disabilityPlacement === "afterService" && disabilitySection,
     {
       id: SECTION_KEYS.personal,
       title: "Dados pessoais",
@@ -1092,6 +1098,7 @@ export function ClientFormPage() {
         </div>
       ),
     },
+    disabilityPlacement === "afterPersonal" && disabilitySection,
     {
       id: SECTION_KEYS.professional,
       title: "Dados profissionais",
@@ -1191,6 +1198,7 @@ export function ClientFormPage() {
           onDocumentsChange={setStagedDocuments}
           onSimulationsChange={setStagedSimulations}
           showErrors={filesRevealed}
+          documentsAside={<DocumentCatalogPanel />}
         />
       ),
     },

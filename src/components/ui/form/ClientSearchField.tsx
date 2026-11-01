@@ -63,7 +63,7 @@ export function ClientSearchField({
           {label}
         </Label>
         <ComboBox.InputGroup>
-          <Input placeholder="Nome da pessoa" className="form-border-style" />
+          <Input placeholder="Nome da pessoa" className="form-border-style w-full" />
         </ComboBox.InputGroup>
         <ComboBox.Popover>
           <ListBox

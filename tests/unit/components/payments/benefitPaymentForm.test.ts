@@ -43,8 +43,8 @@ describe("validateBenefitPayment", () => {
 
 describe("payloads", () => {
   it("o POST leva o valor em número e a previsão como vencimento, sem status", () => {
-    const body = toBenefitPaymentRequest({ ...valid, installmentNumber: "2", installmentTotal: "10" });
-    expect(body).toMatchObject({ description: "Atrasados", amount: 4200, dueDate: "2026-10-20", installmentNumber: 2, installmentTotal: 10 });
+    const body = toBenefitPaymentRequest({ ...valid, isSplit: true, installmentNumber: "2", installmentTotal: "10" });
+    expect(body).toMatchObject({ description: "Atrasados", amount: 420, dueDate: "2026-10-20", installmentNumber: 2, installmentTotal: 10 });
     expect(body).not.toHaveProperty("status");
   });
 

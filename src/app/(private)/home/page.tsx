@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import MonthlyBalance from "@/components/home/MonthlyBalance";
@@ -42,8 +42,9 @@ const ClientDetailsModal = dynamic(
 );
 
 /**
- * Indicadores do topo ainda ilustrativos (não há endpoint de métricas).
- * "Formulários preenchidos" saiu daqui: é contado de verdade (`filledFormsStat`).
+ * Indicador do topo ainda ilustrativo (não há endpoint de métricas).
+ * "Formulários preenchidos" e "Clientes em exigência" saíram daqui: são
+ * contados de verdade (`filledFormsStat`, `inRequirementStat`).
  */
 const PENDING_STATS: StatCardProps[] = [
   {
@@ -53,14 +54,17 @@ const PENDING_STATS: StatCardProps[] = [
     period: "Novembro",
     delta: -10,
   },
-  {
-    title: "Clientes em exigência",
-    value: 10,
-    total: 20,
-    period: "Novembro",
-    delta: -10,
-  },
 ];
+
+/**
+ * Clientes em exigência agora — a etapa do INSS que pede ação do escritório
+ * (prazo correndo). É retrato de hoje, não do mês: sem mês e sem variação.
+ * `null` = contando; `undefined` = falhou.
+ */
+const inRequirementStat = (count: number | null | undefined): StatCardProps => ({
+  title: "Clientes em exigência",
+  value: count === null ? null : (count ?? "—"),
+});
 
 /**
  * Formulários preenchidos no mês: cada formulário vira um cliente, então são
@@ -143,6 +147,10 @@ export default function Home() {
       fetchClients({ ...createdRange(shiftMonth(thisMonth, -1)), pageNumber: 1, pageSize: 1 }),
     ]),
   );
+  /** Em exigência no INSS: só o total interessa (`pageSize: 1`). */
+  const inRequirement = useSettled("in-requirement", () =>
+    Promise.allSettled([fetchClients({ requestStage: ["EXIGENCIA"], pageNumber: 1, pageSize: 1 })]),
+  );
   /**
    * Aniversariantes: os cinco próximos, hoje incluso, de
    * `GET /clients/upcoming-birthdays`. Quando o dia vira, quem já passou sai
@@ -165,8 +173,11 @@ export default function Home() {
       filledForms && settledValue(filledForms[index], null)?.pagination?.totalRecords;
     // `filledForms` nulo = contando; falha de uma das leituras = `undefined`.
     const count = (index: number) => (filledForms === null ? null : total(index));
-    return [filledFormsStat(thisMonth, count(0), count(1)), ...PENDING_STATS];
-  }, [filledForms, thisMonth]);
+    const requirementCount =
+      inRequirement === null ? null : settledValue(inRequirement[0], null)?.pagination?.totalRecords;
+    const [contemplated] = PENDING_STATS;
+    return [filledFormsStat(thisMonth, count(0), count(1)), contemplated, inRequirementStat(requirementCount)];
+  }, [filledForms, inRequirement, thisMonth]);
 
   /** Arrastar um card = PATCH /api/v1/clients/{id} { situation }. */
   const handleMove = useCallback(
@@ -183,7 +194,7 @@ export default function Home() {
     <div className="flex flex-col gap-4 pb-12">
       {/* ── Formulários pendentes + Próximas receitas ── */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
-        {/* Pendente no backend (docs/ROADMAP.md): os dois últimos indicadores abaixo continuam ilustrativos —
+        {/* Pendente no backend (docs/ROADMAP.md): o indicador "Clientes contemplados" continua ilustrativo —
             não há endpoint de métricas. O contador do topo, não: vem de
             `GET /clients?situation=FORMULARIO_PREENCHIDO`. */}
         <PendingForms

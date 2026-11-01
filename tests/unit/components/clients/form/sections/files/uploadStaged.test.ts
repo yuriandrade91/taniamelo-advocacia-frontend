@@ -45,7 +45,6 @@ const created = (...ids: string[]) => ({ data: ids.map((id) => ({ id, originalFi
 
 beforeEach(() => {
   vi.clearAllMocks();
-  vi.spyOn(console, "error").mockImplementation(() => {});
   vi.mocked(uploadDocuments).mockResolvedValue({ data: [] });
   vi.mocked(markPrincipalSimulation).mockResolvedValue({});
 });

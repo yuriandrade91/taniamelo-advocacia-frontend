@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import ConfirmDialog from "@/components/ui/modals/ConfirmDialog";
 import {
+  dayOf,
   EMPTY_APPOINTMENT_FORM,
   fromResponse,
   isStartInPast,
@@ -11,11 +12,13 @@ import {
   toIsoInstant,
   toRequest,
   validateAppointmentForm,
+  withStart,
   type AppointmentFormErrors,
   type AppointmentFormValues,
 } from "./appointmentForm";
 import { useAppointmentConflicts } from "@/hooks/useAppointmentConflicts";
 import { useFieldErrors } from "@/hooks/useFieldErrors";
+import { useHolidayCheck } from "@/hooks/useHolidayCheck";
 import { plural } from "@/lib/format";
 import type { AppointmentResponse } from "@/interfaces/appointment/Appointment.interface";
 import {
@@ -43,6 +46,9 @@ const ConflictDecisionModal = dynamic(
  * - Erros aparecem por campo assim que ele é mexido, e todos de uma vez no
  *   "Salvar". O botão fica travado enquanto há erro ou data retroativa sem
  *   ciência (o backend recusa com 422).
+ * - Escolher o dia do início num feriado nacional pergunta antes de seguir
+ *   (`useHolidayCheck`): manter a data segue; escolher outra limpa início e
+ *   término. O dia com que o compromisso abriu (edição) já está decidido.
  * - Conflito de horário é aviso, não bloqueio: no "Salvar", a pessoa decide
  *   se mantém os dois ou cancela os que batem (`ConflictDecisionModal`).
  * - Os cancelamentos vêm **antes** da gravação: se um falhar, nada foi criado.
@@ -54,7 +60,8 @@ export function useAppointmentEditor({
   onSaved,
   compact = false,
 }: {
-  onSaved: () => void;
+  /** Recebe o compromisso gravado, para a tela mostrá-lo (a Agenda vai ao mês dele). */
+  onSaved: (saved?: AppointmentResponse) => void;
   /** Uma coluna — para o painel lateral, onde campos lado a lado ficariam espremidos. */
   compact?: boolean;
 }) {
@@ -65,6 +72,10 @@ export function useAppointmentEditor({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeciding, setIsDeciding] = useState(false);
   const [isConfirmingDiscard, setIsConfirmingDiscard] = useState(false);
+  /** O dia que a pessoa já decidiu manter — não se pergunta de novo por ele. */
+  const [keptDay, setKeptDay] = useState("");
+  /** O `ConfirmDialog` chama `onClose` logo depois de `onConfirm`; isto diz que aquele fechar foi um "manter". */
+  const justKept = useRef(false);
 
   const isEditing = editing !== null;
   const errors = validateAppointmentForm(values, { isEditing });
@@ -90,10 +101,17 @@ export function useAppointmentEditor({
     enabled: isOpen && !isSubmitting,
   });
 
+  const startDay = dayOf(values.startAt);
+  const { holiday } = useHolidayCheck({
+    day: startDay === keptDay ? "" : startDay,
+    enabled: isOpen && !isSubmitting,
+  });
+
   const open = (next: AppointmentFormValues, target: AppointmentResponse | null) => {
     setEditing(target);
     setValues(next);
     setBaseline(next);
+    setKeptDay(dayOf(next.startAt));
     check.reset();
     setIsOpen(true);
   };
@@ -109,8 +127,26 @@ export function useAppointmentEditor({
     else close();
   };
 
+  const keepHoliday = () => {
+    justKept.current = true;
+    setKeptDay(startDay);
+  };
+
+  /** Fechar a pergunta sem manter (botão ou Esc) é escolher outra data: o dia sai do formulário. */
+  const dismissHoliday = () => {
+    if (justKept.current) {
+      justKept.current = false;
+      return;
+    }
+    setValues((current) => ({ ...current, startAt: null, endAt: null }));
+  };
+
   const setField = <K extends keyof AppointmentFormValues>(field: K, value: AppointmentFormValues[K]) => {
-    setValues((current) => ({ ...current, [field]: value }));
+    setValues((current) =>
+      field === "startAt"
+        ? withStart(current, value as AppointmentFormValues["startAt"])
+        : { ...current, [field]: value },
+    );
     check.touch(field);
   };
 
@@ -125,11 +161,12 @@ export function useAppointmentEditor({
         ? ` ${plural(idsToCancel.length, "compromisso substituído foi cancelado", "compromissos substituídos foram cancelados")}.`
         : "";
       const body = toRequest(values, { isEditing });
-      if (editing) await updateAppointment(editing.id, body, { successMessage: `Compromisso atualizado.${replaced}` });
-      else await createAppointment(body, { successMessage: `Compromisso agendado.${replaced}` });
+      const saved = editing
+        ? await updateAppointment(editing.id, body, { successMessage: `Compromisso atualizado.${replaced}` })
+        : await createAppointment(body, { successMessage: `Compromisso agendado.${replaced}` });
       setIsDeciding(false);
       setIsOpen(false);
-      onSaved();
+      onSaved(saved.data);
     } catch {
       // O toast do erro já saiu pelo interceptor; o formulário fica aberto
       // para corrigir sem perder o que foi preenchido.
@@ -197,6 +234,15 @@ export function useAppointmentEditor({
           onClose={() => setIsDeciding(false)}
           onConfirm={(ids) => void persist(ids)}
           isSubmitting={isSubmitting}
+        />
+        <ConfirmDialog
+          isOpen={holiday?.holiday === true}
+          onClose={dismissHoliday}
+          onConfirm={keepHoliday}
+          heading="Data em feriado"
+          description={holiday?.message}
+          confirmLabel="Manter esta data"
+          cancelLabel="Escolher outra data"
         />
         <ConfirmDialog
           isOpen={isConfirmingDiscard}

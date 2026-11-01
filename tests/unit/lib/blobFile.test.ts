@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { openBlob, saveBlob } from "@/lib/blobFile";
+import { openBlob, printBlob, saveBlob } from "@/lib/blobFile";
 
 /**
  * Entregar ao navegador o arquivo que veio da API. Sem DOM aqui: `window`,
@@ -83,5 +83,61 @@ describe("openBlob", () => {
     tab = null;
     await openBlob(async () => pdf, "laudo.pdf");
     expect(open).toHaveBeenLastCalledWith("blob:app/1", "_blank", "noopener,noreferrer");
+  });
+});
+
+describe("printBlob", () => {
+  type Frame = {
+    style: { cssText: string };
+    src: string;
+    onload: (() => void) | null;
+    remove: ReturnType<typeof vi.fn>;
+    setAttribute: ReturnType<typeof vi.fn>;
+    contentWindow: { print: ReturnType<typeof vi.fn> };
+  };
+  const newFrame = (): Frame => ({
+    style: { cssText: "" },
+    src: "",
+    onload: null,
+    remove: vi.fn(),
+    setAttribute: vi.fn(),
+    contentWindow: { print: vi.fn() },
+  });
+  let appended: Frame[];
+
+  beforeEach(() => {
+    appended = [];
+    vi.stubGlobal("document", {
+      createElement: vi.fn((tag: string) => (tag === "iframe" ? newFrame() : link)),
+      body: { appendChild: (frame: Frame) => appended.push(frame) },
+    });
+  });
+
+  it("imprime só depois de o arquivo carregar no iframe", async () => {
+    await printBlob(async () => pdf, "ficha.pdf");
+    const [frame] = appended;
+    expect(frame.src).toBe("blob:app/1");
+    expect(frame.contentWindow.print).not.toHaveBeenCalled();
+    frame.onload?.();
+    expect(frame.contentWindow.print).toHaveBeenCalledOnce();
+  });
+
+  it("a impressão seguinte tira o iframe e o endereço da anterior; a atual fica", async () => {
+    await printBlob(async () => pdf, "ficha.pdf");
+    const [first] = appended;
+    vi.mocked(URL.revokeObjectURL).mockClear();
+    expect(first.remove).not.toHaveBeenCalled();
+
+    await printBlob(async () => pdf, "ficha.pdf");
+    expect(first.remove).toHaveBeenCalledOnce();
+    expect(URL.revokeObjectURL).toHaveBeenCalledOnce();
+    expect(appended[1].remove).not.toHaveBeenCalled();
+  });
+
+  it("o que não é PDF nem imagem é salvo, sem iframe: não roda com o acesso do app", async () => {
+    await printBlob(async () => new Blob(["<script>"], { type: "text/html" }), "pagina.html");
+    expect(appended).toHaveLength(0);
+    expect(link).toMatchObject({ download: "pagina.html" });
+    expect(link.click).toHaveBeenCalledOnce();
   });
 });

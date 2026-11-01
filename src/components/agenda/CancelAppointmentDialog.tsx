@@ -2,7 +2,8 @@
 
 import { useResetOnOpen } from "@/hooks/useResetOnOpen";
 import { useState } from "react";
-import { Button, Modal, WarningIcon } from "@heroui/react";
+import { Modal, WarningIcon } from "@heroui/react";
+import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import ModalShell from "@/components/ui/modals/ModalShell";
 import { TextAreaField } from "@/components/ui/form/Field";
 import { validateJustification } from "@/lib/validators";
@@ -76,22 +77,23 @@ export default function CancelAppointmentDialog({
       </Modal.Body>
 
       <Modal.Footer>
-        <Button
-          className="w-full"
-          type="button"
-          variant="danger"
-          isDisabled={!!error}
-          onClick={() => {
-            if (error) return;
-            onConfirm(trimmed);
-            onClose();
-          }}
-        >
-          Cancelar compromisso
-        </Button>
-        <Button type="button" variant="secondary" onClick={onClose}>
-          Manter
-        </Button>
+        <ActionGroup shape="pill" className="w-full">
+          <ActionButton tone="neutral" onClick={onClose}>
+            Manter
+          </ActionButton>
+          <ActionButton
+            tone="danger"
+            grow
+            disabled={!!error}
+            onClick={() => {
+              if (error) return;
+              onConfirm(trimmed);
+              onClose();
+            }}
+          >
+            Cancelar compromisso
+          </ActionButton>
+        </ActionGroup>
       </Modal.Footer>
     </ModalShell>
   );

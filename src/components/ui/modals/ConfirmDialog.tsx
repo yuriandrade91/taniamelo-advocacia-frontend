@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Button, Modal, WarningIcon } from "@heroui/react";
+import { Modal, WarningIcon } from "@heroui/react";
+import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import ModalShell from "./ModalShell";
 
 /**
@@ -76,21 +77,23 @@ export default function ConfirmDialog({
       )}
 
       <Modal.Footer>
-        <Button
-          className="w-full"
-          type="button"
-          variant={tone}
-          isDisabled={isConfirmDisabled}
-          onClick={() => {
-            onConfirm();
-            onClose();
-          }}
-        >
-          {confirmLabel}
-        </Button>
-        <Button type="button" variant="secondary" onClick={onClose}>
-          {cancelLabel}
-        </Button>
+        {/* O rodapé das modais (`FormModal`): sair à esquerda, a decisão ocupando o resto. */}
+        <ActionGroup shape="pill" className="w-full">
+          <ActionButton tone="neutral" onClick={onClose}>
+            {cancelLabel}
+          </ActionButton>
+          <ActionButton
+            tone={tone}
+            grow
+            disabled={isConfirmDisabled}
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+          >
+            {confirmLabel}
+          </ActionButton>
+        </ActionGroup>
       </Modal.Footer>
     </ModalShell>
   );

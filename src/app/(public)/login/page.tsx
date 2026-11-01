@@ -23,7 +23,6 @@ import svgPaths from "@/constants/svg/paths";
 import { privateRoutes } from "@/constants/paths/routes";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
 import {
-  TENANT_PICKER_ENABLED,
   chooseTenantSlug,
   getTenantSlug,
 } from "@/lib/tenant";
@@ -117,13 +116,13 @@ function LoginForm() {
   }, [router, redirectTo]);
 
   useEffect(() => {
-    if (TENANT_PICKER_ENABLED) setTenantSlug(getTenantSlug());
+    setTenantSlug(getTenantSlug());
   }, []);
 
   const handleLogin = async () => {
     if (isButtonDisabled || loading) return;
     setLoading(true);
-    if (TENANT_PICKER_ENABLED) chooseTenantSlug(tenantSlug);
+    chooseTenantSlug(tenantSlug);
     setFormErrors({});
     try {
       // O authService grava o cookie do access token (com validade) e persiste
@@ -223,26 +222,24 @@ function LoginForm() {
               Sua sessão expirou. Entre de novo para continuar de onde parou.
             </output>
           )}
-          {TENANT_PICKER_ENABLED && (
-            <TextField
-              className="w-full"
-              name="tenant"
-              type="text"
-              value={tenantSlug}
-              onChange={(value) => {
-                clearServerError();
-                setTenantSlug(value);
-              }}
-            >
-              <Label className="sr-only">Escritório</Label>
-              <Input
-                placeholder="Escritório"
-                variant="secondary"
-                className="w-full text-gray-100 p-3 form-border-style"
-                autoComplete="off"
-              />
-            </TextField>
-          )}
+          <TextField
+            className="w-full"
+            name="tenant"
+            type="text"
+            value={tenantSlug}
+            onChange={(value) => {
+              clearServerError();
+              setTenantSlug(value);
+            }}
+          >
+            <Label className="sr-only">Escritório</Label>
+            <Input
+              placeholder="Escritório"
+              variant="secondary"
+              className="w-full text-gray-100 p-3 form-border-style"
+              autoComplete="off"
+            />
+          </TextField>
           <TextField
             className="w-full"
             name="login"

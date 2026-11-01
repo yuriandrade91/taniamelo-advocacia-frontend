@@ -10,14 +10,19 @@ import { createEnum } from "@/lib/enumFactory";
  * mesmo ponto, recurso só vem depois de um indeferimento, e voltar de recurso
  * para exigência é caminho real. No cliente o campo é anulável: nulo é
  * "ainda não foi ao INSS".
+ *
+ * A ordem desta lista é a de **leitura** (escolha, filtro, select), não a do
+ * backend: o deferimento, que é o fim do caminho — inclusive depois de um
+ * recurso —, vem por último. A API só conhece as chaves; a ordem do trilho
+ * continua a do backend (`requestStages.ts`).
  */
 const REQUEST_STAGE_ENTRIES = [
   ["REQUERIMENTO", "Requerimento"],
   ["EXIGENCIA", "Exigência"],
   ["CUMPRIMENTO_DE_EXIGENCIA", "Cumprimento de exigência"],
-  ["DEFERIMENTO", "Deferimento"],
   ["INDEFERIMENTO", "Indeferimento"],
   ["RECURSO", "Recurso"],
+  ["DEFERIMENTO", "Deferimento"],
 ] as const;
 
 const requestStage = createEnum(REQUEST_STAGE_ENTRIES);

@@ -25,7 +25,7 @@ describe("Drawer", () => {
   });
 
   it("pílula: confirma; salvando, o botão espera", async () => {
-    const { user, onConfirm } = open({ actions: "pill" });
+    const { user, onConfirm } = open();
     await user.click(screen.getByRole("button", { name: "Gravar" }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
@@ -38,7 +38,7 @@ describe("Drawer", () => {
   });
 
   it("desabilitado ou salvando não confirma; sem rodapé não há botões", () => {
-    const { onConfirm } = open({ isSubmitting: true, actions: "pill" });
+    const { onConfirm } = open({ isSubmitting: true });
     expect(screen.getAllByText("Salvando...")[0]).toBeInTheDocument();
     expect(onConfirm).not.toHaveBeenCalled();
   });

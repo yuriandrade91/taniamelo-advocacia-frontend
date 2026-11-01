@@ -86,6 +86,7 @@ export function StageChanger({
   situation,
   onConfirm,
   children,
+  triggerClassName = "block w-full cursor-pointer rounded-xl text-left transition outline-none hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-secondary/60",
 }: Readonly<{
   /** Para buscar a trilha (etapas puladas). Sem id, o cartão só não as marca. */
   clientId?: string;
@@ -94,6 +95,8 @@ export function StageChanger({
   onConfirm: (stage: Stage) => Promise<void>;
   /** O gatilho — o selo + trilho da linha. */
   children: ReactNode;
+  /** Troca o desenho do gatilho (ex.: um botão "Mudar etapa" ao lado do trilho). */
+  triggerClassName?: string;
 }>) {
   const current = stageOf(situation);
   const [picked, setPicked] = useState<Stage | null>(null);
@@ -172,7 +175,7 @@ export function StageChanger({
         <Popover.Trigger
           {...card.triggerProps}
           aria-label={`Mudar a situação de ${clientName}`}
-          className="block w-full cursor-pointer rounded-xl text-left transition outline-none hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-secondary/60"
+          className={triggerClassName}
         >
           {children}
         </Popover.Trigger>

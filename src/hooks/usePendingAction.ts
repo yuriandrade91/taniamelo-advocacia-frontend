@@ -81,11 +81,8 @@ export function usePendingAction() {
       if (!entry) return;
       entry
         .commit()
-        .catch((error) =>
-          // O toast de erro já vem do interceptor do axiosService; aqui é só
-          // rastro para depuração.
-          console.error(`Falha ao efetivar ação "${entry.kind}":`, error),
-        )
+        // O toast de erro já vem do interceptor do axiosService.
+        .catch(() => undefined)
         .finally(() => entry.onSettled?.());
     },
     [detach, sync],

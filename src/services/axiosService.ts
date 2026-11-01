@@ -4,6 +4,8 @@ import endpoints, { API_BASE_URL } from "@/constants/endpoints/paths";
 import { notificationCenter } from "@/services/notificationService";
 import { getTenantHeaderValue } from "@/lib/tenant";
 import { applySession, expireSession, isSessionEnding, readToken } from "@/lib/session";
+import { clearAppointmentsCache } from "@/lib/appointmentsCache";
+import { clearClientSheets } from "@/lib/clientsCache";
 import axios, { type AxiosError } from "axios";
 
 /**
@@ -111,6 +113,12 @@ async function envelopeFromBlob(blob: Blob): Promise<unknown> {
 
 axiosInstance.interceptors.response.use(
   (response) => {
+    // Gravou: o que a ficha de um cliente guardou pode ter ficado velho.
+    if (response.config.method !== "get") {
+      clearClientSheets();
+      // O mês da Agenda também: um compromisso novo ou mudado altera a lista.
+      if (response.config.url?.includes("/appointments")) clearAppointmentsCache();
+    }
     notificationCenter.notifyResponse(response);
     return response;
   },

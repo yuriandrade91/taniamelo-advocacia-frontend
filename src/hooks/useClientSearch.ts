@@ -48,7 +48,7 @@ export function useClientSearch({
   useEffect(() => {
     if (!active) return;
     let alive = true;
-    fetchClients({ searchTerm: term, pageNumber: 1, pageSize: MAX_SUGGESTIONS })
+    void fetchClients({ searchTerm: term, pageNumber: 1, pageSize: MAX_SUGGESTIONS })
       // O axiosService já notificou o erro; aqui a lista só fica vazia.
       .then((envelope) => envelope?.data ?? [], () => [])
       .then((suggestions) => {
