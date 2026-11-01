@@ -64,6 +64,27 @@ describe("Ficha do cliente", () => {
     }
   });
 
+  it("imprime a mesma ficha, e a falha aparece no painel", async () => {
+    signIn();
+    seedOffice();
+    onApi("get", "/clients/c1/record", new Blob(["%PDF"], { type: "application/pdf" }));
+    const print = vi.spyOn(blobFile, "printBlob").mockImplementation(async (load) => {
+      await load();
+    });
+
+    try {
+      const { user } = openSheet();
+      await user.click(await screen.findByRole("button", { name: "Imprimir ficha" }));
+      await waitFor(() => expect(print).toHaveBeenCalledWith(expect.any(Function), "Ficha - Maria Aparecida da Silva.pdf"));
+
+      print.mockRejectedValueOnce({});
+      await user.click(screen.getByRole("button", { name: "Imprimir ficha" }));
+      expect(await screen.findByRole("alert")).toHaveTextContent("Não foi possível abrir a ficha do cliente para impressão.");
+    } finally {
+      print.mockRestore();
+    }
+  });
+
   it("lê a ficha: seções, senha do INSS, arquivos e histórico", async () => {
     signIn();
     seedOffice();
@@ -386,7 +407,8 @@ describe("Ficha do cliente: casos de borda", () => {
     const dialogs = await screen.findAllByRole("dialog");
     const confirm = dialogs.flatMap((d) => within(d).queryAllByRole("button")).findLast((b) => (b.textContent ?? "").startsWith("Excluir"));
     if (confirm) await user.click(confirm);
-    expect(await screen.findAllByText("Erro ao atualizar cliente")).not.toHaveLength(0);
+    // A mensagem do servidor, não a genérica: ela diz por que não saiu.
+    expect(await screen.findAllByText("Falha simulada.")).not.toHaveLength(0);
   });
 
   it("várias entrevistas e quem não vê financeiro", async () => {

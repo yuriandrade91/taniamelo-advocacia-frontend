@@ -29,6 +29,7 @@ const fallbackMessages = {
     DELETE_FAILED: "Erro ao deletar cliente",
     UPDATE_FAILED: "Erro ao atualizar cliente",
     DOWNLOAD_FAILED: "Não foi possível baixar a ficha do cliente.",
+    PRINT_FAILED: "Não foi possível abrir a ficha do cliente para impressão.",
   },
 } as const;
 

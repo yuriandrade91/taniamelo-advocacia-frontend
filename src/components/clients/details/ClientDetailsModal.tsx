@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import { LoadingCircle, RowSkeletons } from "@/components/ui/feedback/Loading";
-import { DownloadIcon, PencilIcon, TrashIcon } from "@/components/ui/icons/actions";
+import { DownloadIcon, PencilIcon, PrinterIcon, TrashIcon } from "@/components/ui/icons/actions";
 import { CheckIcon, ClockIcon, WalletIcon } from "@/components/ui/icons/glyphs";
 import { GavelIcon } from "@/components/agenda/agendaIcons";
 import ModalShell from "@/components/ui/modals/ModalShell";
@@ -15,11 +15,11 @@ import { useOfficeAuthors } from "@/hooks/useOfficeAuthors";
 import { GenderLabelByKey, type GenderKey } from "@/enums/gender/Gender";
 import { deleteClient, patchClient } from "@/services/clientService";
 import { deleteFile } from "@/services/clientFileService";
-import { downloadClientRecord } from "@/services/clientRecordService";
-import { saveBlob } from "@/lib/blobFile";
 import { plural } from "@/lib/format";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
 import { InssPasswordField } from "../inss/InssPasswordField";
+import type { ClientFiles } from "../form/loadClient";
+import { useRecordDelivery } from "./useRecordDelivery";
 import { ClientInssPanel } from "../inss/ClientInssPanel";
 import {
   ClientDisabilityPanel,
@@ -182,7 +182,6 @@ export default function ClientDetailsModal({
   const [isEditing, setIsEditing] = useState(editOnOpen);
   const [showDelete, setShowDelete] = useState(false);
   const [actionError, setActionError] = useState("");
-  const [isDownloadingRecord, setIsDownloadingRecord] = useState(false);
   /** Arquivos escolhidos na edição — sobem no "Salvar". */
   const [stagedDocuments, setStagedDocuments] = useState<StagedDocument[]>([]);
   const [stagedSimulations, setStagedSimulations] = useState<StagedSimulation[]>([]);
@@ -209,6 +208,8 @@ export default function ClientDetailsModal({
    */
   const disabilityPlacement = service.values.benefit === DISABILITY_BENEFIT ? "afterService" : "afterPersonal";
   const error = sheet.error || actionError;
+  const currentName = optionalText(record?.client?.fullName) ?? clientName;
+  const recordFile = useRecordDelivery(clientId, personal.values.fullName || clientName, setActionError);
   const busy = sheet.isSaving;
 
   // A ancoragem vem antes das seções porque é ela quem diz quais já
@@ -283,19 +284,6 @@ export default function ClientDetailsModal({
     }
   };
 
-  const downloadRecord = async () => {
-    setIsDownloadingRecord(true);
-    setActionError("");
-    try {
-      const name = personal.values.fullName || clientName;
-      await saveBlob(() => downloadClientRecord(clientId), `Ficha - ${name}.pdf`);
-    } catch (reason) {
-      setActionError(messageOf(reason, fallbackMessages.CLIENTS.DOWNLOAD_FAILED));
-    } finally {
-      setIsDownloadingRecord(false);
-    }
-  };
-
   const confirmFileRemoval = async () => {
     const fileId = fileRemoval;
     setFileRemoval(null);
@@ -303,8 +291,8 @@ export default function ClientDetailsModal({
     try {
       await deleteFile(clientId, fileId);
       await sheet.loadFiles();
-    } catch {
-      setActionError(fallbackMessages.CLIENTS.UPDATE_FAILED);
+    } catch (reason) {
+      setActionError(messageOf(reason, fallbackMessages.CLIENTS.UPDATE_FAILED));
     }
   };
 
@@ -413,46 +401,24 @@ export default function ClientDetailsModal({
       title: "Arquivos",
       description: "Documentos e simulações do caso.",
       icon: <FilesIcon />,
-      // Sem as listas ainda, nem selo: "Sem arquivos" seria afirmar o que não se sabe.
-      badge: files
-        ? (countBadge(files.documents.length + files.simulations.length, "arquivo", "arquivos") ?? "Sem arquivos")
-        : undefined,
-      content: !files ? (
-        <RowSkeletons count={2} />
-      ) : (
-        // O componente do cadastro: lendo, só abrir e baixar o gravado;
-        // editando, excluí-lo e escolher novos, que sobem no "Salvar".
-        <FilesUpload
+      badge: filesBadge(files),
+      content: (
+        <SheetFiles
+          clientId={clientId}
+          files={files}
           documents={stagedDocuments}
           simulations={stagedSimulations}
           onDocumentsChange={setStagedDocuments}
           onSimulationsChange={setStagedSimulations}
           showErrors={filesRevealed}
-          isReadOnly={!isEditing}
-          saved={{
-            clientId,
-            documents: files.documents,
-            simulations: files.simulations,
-            // Excluir é de quem exclui (o backend recusa os demais com 403).
-            onDelete: isEditing && canDestroy ? setFileRemoval : undefined,
-          }}
-          documentsAside={<DocumentCatalogPanel />}
+          isEditing={isEditing}
+          canDelete={canDestroy}
+          onDelete={setFileRemoval}
         />
       ),
     },
     // Dinheiro é de quem vê o financeiro (D3): para os demais a seção nem existe.
-    ...(canSeeFinance
-      ? [
-          {
-            id: "pagamentos",
-            title: "Pagamentos",
-            description: "Benefício que o INSS paga ao cliente e honorários do escritório.",
-            icon: <WalletIcon className="h-5 w-5" />,
-            badge: "Só leitura",
-            content: financeSeen ? <ClientFinancePanel clientId={clientId} /> : <RowSkeletons count={3} />,
-          } satisfies SheetSection,
-        ]
-      : []),
+    ...(canSeeFinance ? [financeSection(clientId, financeSeen)] : []),
     {
       id: "andamento",
       title: "Andamento do benefício",
@@ -462,36 +428,14 @@ export default function ClientDetailsModal({
       content: sheet.isLoading ? (
         <RowSkeletons count={4} />
       ) : (
-        <div className="flex flex-col gap-5">
-          {/* Mudar a etapa daqui, como no INSS: o mesmo cartão da lista, gravando na hora. */}
-          <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl bg-page p-4">
-            <div className="min-w-0 flex-1">
-              <StageMeter situation={record?.client?.situation} />
-            </div>
-            <StageChanger
-              clientId={clientId}
-              triggerClassName="shrink-0 cursor-pointer rounded-full bg-white px-3.5 py-1.5 text-xs font-medium text-primary ring-1 ring-black/10 transition outline-none hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-secondary/60"
-              clientName={optionalText(record?.client?.fullName) ?? clientName}
-              situation={record?.client?.situation}
-              onConfirm={async (stage) => {
-                // "OUTRA" é o selo de uma situação desconhecida, que não se escolhe.
-                if (stage.key === "OUTRA") return;
-                const name = optionalText(record?.client?.fullName) ?? clientName;
-                await patchClient(clientId, { situation: stage.key }, { successMessage: situationChangedMessage(name, stage.key) });
-                invalidateSituationTrail(clientId);
-                await sheet.setSituation(stage.key);
-                onConfirm?.();
-              }}
-            >
-              Mudar etapa
-            </StageChanger>
-          </div>
-          <SituationHistorySection
-            items={record?.history ?? []}
-            hasError={record?.historyFailed ?? false}
-            authors={authors}
-          />
-        </div>
+        <BenefitProgress
+          clientId={clientId}
+          clientName={currentName}
+          record={record}
+          authors={authors}
+          onSituationChange={sheet.setSituation}
+          onChanged={onConfirm}
+        />
       ),
     },
     {
@@ -505,7 +449,7 @@ export default function ClientDetailsModal({
       ) : (
         <ClientInssPanel
           clientId={clientId}
-          clientName={optionalText(record?.client?.fullName) ?? clientName}
+          clientName={currentName}
           requestStage={record?.client?.requestStage}
           authors={authors}
           onChanged={(requestStage) => {
@@ -559,9 +503,11 @@ export default function ClientDetailsModal({
               isEditing={isEditing}
               isSaving={busy}
               isLoading={sheet.isLoading}
-              isDownloading={isDownloadingRecord}
+              isDownloading={recordFile.isDownloading}
+              isPrinting={recordFile.isPrinting}
               canDelete={canDestroy}
-              onDownload={() => void downloadRecord()}
+              onDownload={() => void recordFile.download()}
+              onPrint={() => void recordFile.print()}
               onEdit={() => setIsEditing(true)}
               onCancel={leaveEdit}
               onSave={() => void save()}
@@ -625,6 +571,118 @@ export default function ClientDetailsModal({
   );
 }
 
+/** Sem as listas ainda, nem selo: "Sem arquivos" seria afirmar o que não se sabe. */
+const filesBadge = (files: ClientFiles | null) =>
+  files
+    ? (countBadge(files.documents.length + files.simulations.length, "arquivo", "arquivos") ?? "Sem arquivos")
+    : undefined;
+
+const financeSection = (clientId: string, hasAppeared: boolean): SheetSection => ({
+  id: "pagamentos",
+  title: "Pagamentos",
+  description: "Benefício que o INSS paga ao cliente e honorários do escritório.",
+  icon: <WalletIcon className="h-5 w-5" />,
+  badge: "Só leitura",
+  content: hasAppeared ? <ClientFinancePanel clientId={clientId} /> : <RowSkeletons count={3} />,
+});
+
+/**
+ * O componente do cadastro: lendo, só abrir e baixar o gravado; editando,
+ * excluí-lo e escolher novos, que sobem no "Salvar".
+ */
+function SheetFiles({
+  clientId,
+  files,
+  documents,
+  simulations,
+  onDocumentsChange,
+  onSimulationsChange,
+  showErrors,
+  isEditing,
+  canDelete,
+  onDelete,
+}: Readonly<{
+  clientId: string;
+  files: ClientFiles | null;
+  documents: StagedDocument[];
+  simulations: StagedSimulation[];
+  onDocumentsChange: (documents: StagedDocument[]) => void;
+  onSimulationsChange: (simulations: StagedSimulation[]) => void;
+  showErrors: boolean;
+  isEditing: boolean;
+  canDelete: boolean;
+  onDelete: (fileId: string) => void;
+}>) {
+  if (!files) return <RowSkeletons count={2} />;
+  return (
+    <FilesUpload
+      documents={documents}
+      simulations={simulations}
+      onDocumentsChange={onDocumentsChange}
+      onSimulationsChange={onSimulationsChange}
+      showErrors={showErrors}
+      isReadOnly={!isEditing}
+      saved={{
+        clientId,
+        documents: files.documents,
+        simulations: files.simulations,
+        // Excluir é de quem exclui (o backend recusa os demais com 403).
+        onDelete: isEditing && canDelete ? onDelete : undefined,
+      }}
+      documentsAside={<DocumentCatalogPanel />}
+    />
+  );
+}
+
+/** A etapa do benefício, que muda daqui mesmo, e a história das mudanças. */
+function BenefitProgress({
+  clientId,
+  clientName,
+  record,
+  authors,
+  onSituationChange,
+  onChanged,
+}: Readonly<{
+  clientId: string;
+  clientName: string;
+  record: ReturnType<typeof useClientSheet>["record"];
+  authors: ReturnType<typeof useOfficeAuthors>;
+  onSituationChange: ReturnType<typeof useClientSheet>["setSituation"];
+  onChanged?: () => void;
+}>) {
+  return (
+    <div className="flex flex-col gap-5">
+      {/* Mudar a etapa daqui, como no INSS: o mesmo cartão da lista, gravando na hora. */}
+      <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl bg-page p-4">
+        <div className="min-w-0 flex-1">
+          <StageMeter situation={record?.client?.situation} />
+        </div>
+        <StageChanger
+          clientId={clientId}
+          triggerClassName="shrink-0 cursor-pointer rounded-full bg-white px-3.5 py-1.5 text-xs font-medium text-primary ring-1 ring-black/10 transition outline-none hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-secondary/60"
+          clientName={clientName}
+          situation={record?.client?.situation}
+          onConfirm={async (stage) => {
+            // "OUTRA" é o selo de uma situação desconhecida, que não se escolhe.
+            if (stage.key === "OUTRA") return;
+            await patchClient(clientId, { situation: stage.key }, { successMessage: situationChangedMessage(clientName, stage.key) });
+            invalidateSituationTrail(clientId);
+            await onSituationChange(stage.key);
+            onChanged?.();
+          }}
+        >
+          Mudar etapa
+        </StageChanger>
+      </div>
+      <SituationHistorySection
+        items={record?.history ?? []}
+        hasError={record?.historyFailed ?? false}
+        authors={authors}
+      />
+    </div>
+  );
+}
+
 /**
  * As ações no pé do painel: "Editar cadastro" na leitura; "Cancelar" e
  * "Salvar" na edição. Excluir é só ícone, com dica — o nome dele não disputa
@@ -635,8 +693,10 @@ function SheetActions({
   isSaving,
   isLoading,
   isDownloading,
+  isPrinting,
   canDelete,
   onDownload,
+  onPrint,
   onEdit,
   onCancel,
   onSave,
@@ -647,59 +707,84 @@ function SheetActions({
   /** Sem os dados ainda, não há o que editar nem salvar. */
   isLoading: boolean;
   isDownloading: boolean;
+  isPrinting: boolean;
   canDelete: boolean;
   onDownload: () => void;
+  onPrint: () => void;
   onEdit: () => void;
   onCancel: () => void;
   onSave: () => void;
   onDelete: () => void;
 }>) {
+  // Excluir é de advogado/admin: o backend recusa os demais com 403.
+  const remove = canDelete && (
+    <SidebarTipButton label="Excluir cliente" onPress={onDelete} isDisabled={isSaving}>
+      <TrashIcon className="h-4 w-4" />
+    </SidebarTipButton>
+  );
+
+  if (isEditing) {
+    return (
+      <ActionGroup shape="pill" surface="dark">
+        <ActionButton tone="onDark" onClick={onCancel} disabled={isSaving}>
+          Cancelar
+        </ActionButton>
+        <ActionButton
+          tone="onDark"
+          grow
+          className="font-semibold"
+          onClick={onSave}
+          disabled={isSaving || isLoading}
+          aria-busy={isSaving || undefined}
+          icon={isSaving ? <LoadingCircle size={16} /> : <CheckIcon className="h-4 w-4" />}
+        >
+          {isSaving ? "Salvando…" : "Salvar"}
+        </ActionButton>
+        {remove}
+      </ActionGroup>
+    );
+  }
+
+  // Na leitura, a ficha em papel (imprimir, baixar) fica numa faixa acima das
+  // ações do cadastro (editar, excluir): são dois assuntos, e juntos os quatro
+  // botões espremiam a ação principal.
   return (
-    <ActionGroup shape="pill" surface="dark">
-      {isEditing ? (
-        <>
-          <ActionButton tone="onDark" onClick={onCancel} disabled={isSaving}>
-            Cancelar
-          </ActionButton>
-          <ActionButton
-            tone="onDark"
-            grow
-            className="font-semibold"
-            onClick={onSave}
-            disabled={isSaving || isLoading}
-            aria-busy={isSaving || undefined}
-            icon={isSaving ? <LoadingCircle size={16} /> : <CheckIcon className="h-4 w-4" />}
-          >
-            {isSaving ? "Salvando…" : "Salvar"}
-          </ActionButton>
-        </>
-      ) : (
-        <>
-          <SidebarTipButton
-            label="Baixar ficha em PDF"
-            onPress={onDownload}
-            isDisabled={isLoading || isDownloading}
-          >
-            {isDownloading ? <LoadingCircle size={16} /> : <DownloadIcon className="h-4 w-4" />}
-          </SidebarTipButton>
-          <ActionButton
-            tone="onDark"
-            grow
-            className="font-semibold"
-            onClick={onEdit}
-            disabled={isLoading || isDownloading}
-            icon={<PencilIcon className="h-4 w-4" />}
-          >
-            Editar cadastro
-          </ActionButton>
-        </>
-      )}
-      {/* Excluir é de advogado/admin: o backend recusa os demais com 403. */}
-      {canDelete && (
-        <SidebarTipButton label="Excluir cliente" onPress={onDelete} isDisabled={isSaving}>
-          <TrashIcon className="h-4 w-4" />
-        </SidebarTipButton>
-      )}
-    </ActionGroup>
+    <>
+      <ActionGroup shape="pill" surface="dark">
+        <ActionButton
+          tone="onDark"
+          grow
+          aria-label="Imprimir ficha"
+          onClick={onPrint}
+          disabled={isLoading || isPrinting}
+          icon={isPrinting ? <LoadingCircle size={16} /> : <PrinterIcon className="h-4 w-4" />}
+        >
+          Imprimir
+        </ActionButton>
+        <ActionButton
+          tone="onDark"
+          grow
+          aria-label="Baixar ficha em PDF"
+          onClick={onDownload}
+          disabled={isLoading || isDownloading}
+          icon={isDownloading ? <LoadingCircle size={16} /> : <DownloadIcon className="h-4 w-4" />}
+        >
+          Baixar PDF
+        </ActionButton>
+      </ActionGroup>
+      <ActionGroup shape="pill" surface="dark">
+        <ActionButton
+          tone="onDark"
+          grow
+          className="font-semibold"
+          onClick={onEdit}
+          disabled={isLoading || isDownloading || isPrinting}
+          icon={<PencilIcon className="h-4 w-4" />}
+        >
+          Editar cadastro
+        </ActionButton>
+        {remove}
+      </ActionGroup>
+    </>
   );
 }

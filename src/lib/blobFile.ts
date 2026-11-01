@@ -52,3 +52,36 @@ export async function openBlob(load: () => Promise<Blob>, filename: string): Pro
     throw error;
   }
 }
+
+/** O iframe da última impressão e o endereço dele: um por vez, trocado a cada pedido. */
+let printing: { frame: HTMLIFrameElement; url: string } | null = null;
+
+/**
+ * Abre o diálogo de impressão do navegador com o arquivo, sem sair da tela.
+ *
+ * O PDF carrega num iframe fora de vista, e a impressão é pedida a ele quando
+ * termina de carregar. O iframe (e o endereço) ficam até a próxima impressão:
+ * tirá-los logo depois do `print()` cancelaria o diálogo, que no Chrome não
+ * espera. Fora de PDF e imagem, salva — a mesma regra de `openBlob`.
+ */
+export async function printBlob(load: () => Promise<Blob>, filename: string): Promise<void> {
+  const blob = await load();
+  if (!VIEWABLE_TYPES.has(blob.type)) {
+    await saveBlob(() => Promise.resolve(blob), filename);
+    return;
+  }
+  if (printing) {
+    printing.frame.remove();
+    URL.revokeObjectURL(printing.url);
+  }
+  const url = URL.createObjectURL(blob);
+  const frame = document.createElement("iframe");
+  frame.title = filename;
+  frame.tabIndex = -1;
+  frame.setAttribute("aria-hidden", "true");
+  frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+  frame.onload = () => frame.contentWindow?.print();
+  frame.src = url;
+  document.body.appendChild(frame);
+  printing = { frame, url };
+}
