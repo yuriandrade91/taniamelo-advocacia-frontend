@@ -11,13 +11,13 @@ import { getOfficeExpense } from "@/services/officeExpenseService";
 import { getOfficeRevenue } from "@/services/officeRevenueService";
 import type { OfficeExpenseResponse } from "@/interfaces/finance/OfficeExpense.interface";
 import type { OfficeRevenueResponse } from "@/interfaces/finance/OfficeRevenue.interface";
-import type { EntryKind } from "./entryForms";
 import { EntryBentoView } from "./EntryBentoView";
 import { EntryFormFields } from "./EntryFormFields";
 import { useEntryForm, type EntryEditing } from "./useEntryForm";
 import {
   expenseFormFrom,
   incomeFormFrom,
+  type EntryKind,
   type SharedValues,
 } from "./entryForms";
 import { editWarning } from "@/components/payments/editWarning";

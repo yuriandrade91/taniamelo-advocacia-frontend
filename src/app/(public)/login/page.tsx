@@ -22,6 +22,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import svgPaths from "@/constants/svg/paths";
 import { privateRoutes } from "@/constants/paths/routes";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
+import {
+  TENANT_PICKER_ENABLED,
+  chooseTenantSlug,
+  getTenantSlug,
+} from "@/lib/tenant";
 import { tooManyAttemptsMessage } from "@/lib/retryAfter";
 import { EyeIcon, EyeOffIcon } from "@/components/ui/icons/glyphs";
 
@@ -32,6 +37,9 @@ const validatePassword = (value: string) => value !== "";
 function LoginForm() {
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
+  // Vazio até montar: o slug guardado mora no localStorage, que o export
+  // estático não tem ao renderizar.
+  const [tenantSlug, setTenantSlug] = useState("");
   const [isVisible, setIsVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   // Erros do backend (ex.: credenciais inválidas) — repassados ao `Form` via
@@ -108,9 +116,14 @@ function LoginForm() {
     };
   }, [router, redirectTo]);
 
+  useEffect(() => {
+    if (TENANT_PICKER_ENABLED) setTenantSlug(getTenantSlug());
+  }, []);
+
   const handleLogin = async () => {
     if (isButtonDisabled || loading) return;
     setLoading(true);
+    if (TENANT_PICKER_ENABLED) chooseTenantSlug(tenantSlug);
     setFormErrors({});
     try {
       // O authService grava o cookie do access token (com validade) e persiste
@@ -209,6 +222,26 @@ function LoginForm() {
             <output className="block w-full rounded-2xl bg-light-secondary px-4 py-3 text-sm text-primary">
               Sua sessão expirou. Entre de novo para continuar de onde parou.
             </output>
+          )}
+          {TENANT_PICKER_ENABLED && (
+            <TextField
+              className="w-full"
+              name="tenant"
+              type="text"
+              value={tenantSlug}
+              onChange={(value) => {
+                clearServerError();
+                setTenantSlug(value);
+              }}
+            >
+              <Label className="sr-only">Escritório</Label>
+              <Input
+                placeholder="Escritório"
+                variant="secondary"
+                className="w-full text-gray-100 p-3 form-border-style"
+                autoComplete="off"
+              />
+            </TextField>
           )}
           <TextField
             className="w-full"

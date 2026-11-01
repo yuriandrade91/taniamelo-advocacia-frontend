@@ -21,12 +21,14 @@ import {
   getSituationKeyByLabel,
   type SituationKey,
 } from "@/enums/situation/Situation";
+import { useConstant } from "@/hooks/useConstant";
 import { usePermissions } from "@/hooks/usePermissions";
 import { listOfficePayments } from "@/services/officePaymentService";
 import { getOfficeExpenseSummary } from "@/services/officeExpenseService";
 import { toRevenueItems } from "@/components/home/revenueItems";
 import { toBalanceSlices } from "@/components/reports/financeSeries";
-import { currentMonth, monthRange, type MonthRef } from "@/lib/period";
+import { currentMonth, monthName, monthRange, shiftMonth, type MonthRef } from "@/lib/period";
+import { createdRange } from "@/components/reports/reportSeries";
 import type { StatCardProps } from "@/components/home/StatCard";
 
 /** Modais: fora do pacote da página, como as outras (ver CLAUDE.md). */
@@ -39,16 +41,11 @@ const ClientDetailsModal = dynamic(
   { ssr: false },
 );
 
-/** Indicadores do topo — ainda ilustrativos (não há endpoint de métricas). */
+/**
+ * Indicadores do topo ainda ilustrativos (não há endpoint de métricas).
+ * "Formulários preenchidos" saiu daqui: é contado de verdade (`filledFormsStat`).
+ */
 const PENDING_STATS: StatCardProps[] = [
-  {
-    title: "Formulários preenchidos",
-    value: 20,
-    total: 30,
-    period: "Novembro",
-    delta: 10,
-    highlighted: true,
-  },
   {
     title: "Clientes contemplados",
     value: 10,
@@ -64,6 +61,19 @@ const PENDING_STATS: StatCardProps[] = [
     delta: -10,
   },
 ];
+
+/**
+ * Formulários preenchidos no mês: cada formulário vira um cliente, então são
+ * os cadastros criados no mês (`createdFrom/To`) — não há endpoint de métricas.
+ * O selo compara com o mês anterior. `null` = contando; `undefined` = falhou.
+ */
+const filledFormsStat = (month: MonthRef, current: number | null | undefined, previous: number | null | undefined): StatCardProps => ({
+  title: "Formulários preenchidos",
+  value: current === null ? null : (current ?? "—"),
+  period: monthName(month),
+  delta: typeof current === "number" && typeof previous === "number" ? current - previous : undefined,
+  highlighted: true,
+});
 
 /** A esteira: clientes reais agrupados por situação (a API devolve o rótulo da situação). */
 const toPipelineCards = (clients: ClientListItem[]): PipelineCard[] =>
@@ -124,6 +134,15 @@ export default function Home() {
   const pending = useSettled("pending", () =>
     Promise.allSettled([fetchClients({ situation: ["FORMULARIO_PREENCHIDO"], pageNumber: 1, pageSize: 1 })]),
   );
+  // Dois meses: o atual e o anterior (para o selo de variação). Chave com o
+  // mês, como o balanço: virar o mês é outra leitura.
+  const thisMonth = useConstant(() => currentMonth());
+  const filledForms = useSettled("filled-forms", () =>
+    Promise.allSettled([
+      fetchClients({ ...createdRange(thisMonth), pageNumber: 1, pageSize: 1 }),
+      fetchClients({ ...createdRange(shiftMonth(thisMonth, -1)), pageNumber: 1, pageSize: 1 }),
+    ]),
+  );
   /**
    * Aniversariantes: os cinco próximos, hoje incluso, de
    * `GET /clients/upcoming-birthdays`. Quando o dia vira, quem já passou sai
@@ -141,6 +160,14 @@ export default function Home() {
   // `null` contando; `undefined` falhou (o interceptor já avisou).
   const pendingCount = pending && settledValue(pending[0], null)?.pagination?.totalRecords;
 
+  const stats = useMemo(() => {
+    const total = (index: number) =>
+      filledForms && settledValue(filledForms[index], null)?.pagination?.totalRecords;
+    // `filledForms` nulo = contando; falha de uma das leituras = `undefined`.
+    const count = (index: number) => (filledForms === null ? null : total(index));
+    return [filledFormsStat(thisMonth, count(0), count(1)), ...PENDING_STATS];
+  }, [filledForms, thisMonth]);
+
   /** Arrastar um card = PATCH /api/v1/clients/{id} { situation }. */
   const handleMove = useCallback(
     (cardId: string, situation: SituationKey) => {
@@ -156,14 +183,14 @@ export default function Home() {
     <div className="flex flex-col gap-4 pb-12">
       {/* ── Formulários pendentes + Próximas receitas ── */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-[2fr_1fr]">
-        {/* Pendente no backend (docs/ROADMAP.md): os três indicadores abaixo continuam ilustrativos —
+        {/* Pendente no backend (docs/ROADMAP.md): os dois últimos indicadores abaixo continuam ilustrativos —
             não há endpoint de métricas. O contador do topo, não: vem de
             `GET /clients?situation=FORMULARIO_PREENCHIDO`. */}
         <PendingForms
           count={pendingCount}
           period="Novembro"
           onContact={() => setIsLeadsOpen(true)}
-          stats={PENDING_STATS}
+          stats={stats}
         />
 
         {/*

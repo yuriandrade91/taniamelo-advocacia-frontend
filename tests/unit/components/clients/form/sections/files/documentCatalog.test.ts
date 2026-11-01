@@ -18,7 +18,7 @@ describe("catálogo de documentos", () => {
   it("não tem categoria vazia — uma lista sem itens não ajudaria ninguém", () => {
     for (const key of Object.keys(DOCUMENT_CATALOG) as DocumentTypeKey[]) {
       expect(totalItems(key)).toBeDefined();
-      expect(itemsOfCategory(key).length > 0).toBe(true);
+      expect(itemsOfCategory(key).length).toBeGreaterThan(0);
     }
   });
 

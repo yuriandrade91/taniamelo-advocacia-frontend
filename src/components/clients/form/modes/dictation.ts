@@ -243,7 +243,7 @@ export function normalizeDictation(text: string) {
   // "20 de maio de 1965" → "20/05/1965"
   out = out.replaceAll(
     new RegExp(
-      `\\b(\\d{1,2})\\s+de\\s+(${MONTHS.join("|")})\\s+de\\s+(\\d{4})\\b`,
+      String.raw`\b(\d{1,2})\s+de\s+(${MONTHS.join("|")})\s+de\s+(\d{4})\b`,
       "gi",
     ),
     (_, day: string, month: string, year: string) =>
@@ -252,14 +252,14 @@ export function normalizeDictation(text: string) {
   out = out
     .replaceAll(/(\d)\s+barra\s+(\d)/gi, "$1/$2")
     .replaceAll(/(\d)\s+(?:traço|hífen|hifen)\s+(\d)/gi, "$1-$2")
-    .replaceAll(/\s+(?:underline|underscore)\s+/gi, "_")
-    .replaceAll(/\s+arroba\s+/gi, "@")
-    .replaceAll(/\s+ponto\s+com\b/gi, ".com")
-    .replaceAll(/\s+ponto\s+br\b/gi, ".br")
+    .replaceAll(/(?<!\s)\s+(?:underline|underscore)\s+/gi, "_")
+    .replaceAll(/(?<!\s)\s+arroba\s+/gi, "@")
+    .replaceAll(/(?<!\s)\s+ponto\s+com\b/gi, ".com")
+    .replaceAll(/(?<!\s)\s+ponto\s+br\b/gi, ".br")
     // "maria ponto silva@…": o ponto antes do @ também é do e-mail.
-    .replaceAll(/\s+ponto\s+(?=\S*@)/gi, ".")
+    .replaceAll(/(?<!\s)\s+ponto\s+(?=\S*@)/gi, ".")
     // "número 123" no endereço.
-    .replaceAll(/\s+n[úu]mero\s+(\d)/gi, ", nº $1");
+    .replaceAll(/(?<!\s)\s+n[úu]mero\s+(\d)/gi, ", nº $1");
   // Fala não tem pontuação: quebra a linha antes de cada rótulo falado, para
   // o valor de um ("mãe Ana Rosa") não engolir o próximo ("celular …").
   out = out
@@ -267,7 +267,8 @@ export function normalizeDictation(text: string) {
       SPOKEN_LABEL_BREAK,
       "\n",
     )
-    .replaceAll(/(^|\n)\s*nome(?: completo)?\s+(?![:\-–])/gi, "$1Nome: ");
+    // Só o recuo da própria linha sai: linha em branco antes do rótulo fica.
+    .replaceAll(/(^|\n)[^\S\n]*nome(?: completo\s+|\s+)(?![:\-–])/gi, "$1Nome: ");
   // Blocos de dígitos ditados separados por espaço viram um número só
   // ("31 98888 7777", "390 533 447 05").
   out = out.replaceAll(/(\d)\s+(?=\d)/g, "$1");

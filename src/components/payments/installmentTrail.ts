@@ -73,9 +73,13 @@ export function useInstallmentTrail(
 /**
  * "Parcela 3/12", "(3 de 12)", "- 3/12": o número da parcela que às vezes vai
  * na descrição. Sem ele, as parcelas de um acordo têm a mesma descrição.
+ *
+ * As duas guardas (não começar no meio de espaços nem no meio de um número)
+ * não mudam o que casa — só impedem a busca de recomeçar em cada caractere de
+ * uma sequência longa, que deixava a expressão de tempo cúbico.
  */
 const INSTALLMENT_IN_TEXT =
-  /\s*[-–(]?\s*(parcela\s*)?\d+\s*(\/|de)\s*\d+\s*\)?/gi;
+  /(?!(?<=\s)\s)\s*(?:[-–(]\s*)?(?:parcela\s*)?(?<!\d)\d+\s*(?:\/|de)\s*\d+\s*\)?/gi;
 
 const normalize = (description: string) =>
   description.replaceAll(INSTALLMENT_IN_TEXT, "").trim().toLowerCase();

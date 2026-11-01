@@ -147,7 +147,7 @@ describe("instantToLocalInput", () => {
     const local = instantToLocalInput("2026-03-12T18:00:00Z");
     expect(local).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
     expect(local).not.toContain("Z");
-    expect(local.length).toBe(16);
+    expect(local).toHaveLength(16);
   });
 
   it("devolve vazio para ausente ou inválido", () => {

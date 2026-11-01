@@ -1,10 +1,12 @@
 import React from "react";
+import { Skeleton } from "@heroui/react";
 import { DeltaBadge, MonthLabel } from "@/components/ui/feedback/Badges";
 
 export type StatCardProps = {
   /** Rótulo do indicador (ex.: "Formulários preenchidos"). */
   title: string;
-  value: number | string;
+  /** `null` enquanto carrega: o número vira skeleton, nunca um `0` que ainda não é. */
+  value: number | string | null;
   /** Denominador opcional — renderiza "20 / 30". */
   total?: number;
   /** Período exibido ao lado do título. */
@@ -46,14 +48,19 @@ export default function StatCard({
       </header>
 
       <div className="flex items-end justify-between gap-2">
-        <p className="flex items-baseline gap-1">
-          <span className="text-3xl font-semibold leading-none text-primary">
-            {value}
-          </span>
+        {/* `div`, não `p`: o skeleton é um `div`, e `div` dentro de `p` quebra a hidratação. */}
+        <div className="flex items-baseline gap-1">
+          {value === null ? (
+            <Skeleton className="h-8 w-10 rounded-md" aria-label={`Carregando ${title}`} />
+          ) : (
+            <span className="text-3xl font-semibold leading-none text-primary">
+              {value}
+            </span>
+          )}
           {total !== undefined && (
             <span className="text-base text-gray-100/40">/{total}</span>
           )}
-        </p>
+        </div>
         {delta !== undefined && <DeltaBadge value={delta} />}
       </div>
     </div>
