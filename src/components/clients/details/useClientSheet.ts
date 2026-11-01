@@ -82,6 +82,15 @@ type SheetRecord = LoadedClient & {
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
+/**
+ * Uma aba por endereço, o principal primeiro (`loadClient`). Sem nenhum
+ * marcado, o primeiro vira o principal — o backend não aceita cliente sem.
+ */
+function withPrimaryAddress(addresses: AddressValues[]): AddressValues[] {
+  if (addresses.length === 0) return [{ ...addressInitial, isPrimary: true }];
+  return findPrimaryIndex(addresses) === -1 ? withPrimaryAt(addresses, 0) : addresses;
+}
+
 function snapshotOf(loaded: LoadedClient): Snapshot {
   const source = loaded.client ?? {};
   const [latest] = loaded.interviews;
@@ -90,11 +99,7 @@ function snapshotOf(loaded: LoadedClient): Snapshot {
     service: toServiceValues(source),
     personal: toPersonalValues(source),
     professional: toProfessionalValues(source),
-    // Uma aba por endereço, o principal primeiro (`loadClient`). Sem nenhum
-    // marcado, o primeiro vira o principal — o backend não aceita cliente sem.
-    addresses: addresses.length
-      ? findPrimaryIndex(addresses) === -1 ? withPrimaryAt(addresses, 0) : addresses
-      : [{ ...addressInitial, isPrimary: true }],
+    addresses: withPrimaryAddress(addresses),
     interview: latest ? toInterviewValues(latest) : interviewInitial,
   };
 }

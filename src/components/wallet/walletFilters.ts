@@ -15,16 +15,18 @@ import type { WalletTab } from "./entryForms";
  * "Recebido" na entrada), traduzidos por `bucketQuery`.
  */
 
+/** Nos dois lados juntos, "pago" é pago numa saída e recebido numa entrada. */
+const statusLabel = (tab: WalletTab, bucket: (typeof BUCKET_FILTER_ORDER)[number]) => {
+  if (tab !== "all") return bucketLabel(tab, bucket);
+  return bucket === "paid" ? "Pago ou recebido" : bucketLabel("expense", bucket);
+};
+
 const status = (tab: WalletTab) =>
   ({
     kind: "select",
     label: "Status",
     placeholder: "Todos",
-    options: BUCKET_FILTER_ORDER.map((bucket) => ({
-      id: bucket,
-      // Nos dois lados juntos, "pago" é pago numa saída e recebido numa entrada.
-      label: tab === "all" && bucket === "paid" ? "Pago ou recebido" : bucketLabel(tab === "all" ? "expense" : tab, bucket),
-    })),
+    options: BUCKET_FILTER_ORDER.map((bucket) => ({ id: bucket, label: statusLabel(tab, bucket) })),
   }) as const;
 
 const method = {

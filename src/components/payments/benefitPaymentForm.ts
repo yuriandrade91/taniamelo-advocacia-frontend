@@ -71,6 +71,19 @@ type BenefitPaymentErrors = Partial<
   Record<keyof BenefitPaymentValues, string>
 >;
 
+function amountError(amount: string): string | null {
+  if (!amount.trim()) return "Informe o valor.";
+  const parsed = parseAmountBRL(amount);
+  if (parsed === null) return "Valor inválido.";
+  // `@DecimalMin("0.01")` no backend — melhor dizer aqui do que colher um 400.
+  return parsed > 0 ? null : "O valor deve ser maior que zero.";
+}
+
+function expectedDateError(date: string): string | null {
+  if (!date.trim()) return "Informe a data prevista.";
+  return ISO_DATE.test(date) ? null : "Data inválida.";
+}
+
 export function validateBenefitPayment(
   values: BenefitPaymentValues,
   today: string = todayIso(),
@@ -87,20 +100,11 @@ export function validateBenefitPayment(
 
   if (!values.description.trim()) errors.description = "Informe a descrição.";
 
-  if (values.amount.trim()) {
-    const parsed = parseAmountBRL(values.amount);
-    if (parsed === null) errors.amount = "Valor inválido.";
-    // `@DecimalMin("0.01")` no backend — melhor dizer aqui do que colher um 400.
-    else if (parsed <= 0) errors.amount = "O valor deve ser maior que zero.";
-  } else {
-    errors.amount = "Informe o valor.";
-  }
+  const amount = amountError(values.amount);
+  if (amount) errors.amount = amount;
 
-  if (!values.expectedDate.trim()) {
-    errors.expectedDate = "Informe a data prevista.";
-  } else if (!ISO_DATE.test(values.expectedDate)) {
-    errors.expectedDate = "Data inválida.";
-  }
+  const expectedDate = expectedDateError(values.expectedDate);
+  if (expectedDate) errors.expectedDate = expectedDate;
 
   if (values.isSplit) {
     const installment =
