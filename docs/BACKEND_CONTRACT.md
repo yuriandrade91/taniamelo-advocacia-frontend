@@ -124,6 +124,7 @@ como funcionar (ver o roadmap).
 | PATCH | `/clients/{id}/files/simulations/{fileId}/principal` | | — (trocar a simulação principal depois do envio) |
 | GET | `/clients/{id}/files/{fileId}/download` | | Ficha ("Visualizar" e "Baixar", pelo `downloadClientFile`, com o token — o `downloadUrl` da listagem não serve de link: é caminho da API e a rota exige o token) |
 | DELETE | `/clients/{id}/files/{fileId}` | SUPPORT/ADMIN | Ficha |
+| GET | `/clients/{id}/record` | | Ficha (PDF completo do cliente; download registrado na auditoria) |
 
 Limites do upload: 10 MB por arquivo, 60 MB por requisição.
 

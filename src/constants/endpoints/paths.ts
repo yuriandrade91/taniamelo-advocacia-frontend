@@ -284,6 +284,11 @@ const endpoints = {
     DELETE: appointments.byId,
   },
 
+  CLIENT_RECORD: {
+    /** GET — ficha completa do cliente em PDF. */
+    DOWNLOAD: (clientId: string) => `${clients.byId(clientId)}/record`,
+  },
+
   /** /api/v1/clients/{clientId}/files — documentos e simulações (multipart) */
   CLIENT_FILES: {
     UPLOAD_DOCUMENTS: documents.base,

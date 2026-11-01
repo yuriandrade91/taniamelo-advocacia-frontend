@@ -1,12 +1,13 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import * as blobFile from "@/lib/blobFile";
 import ClientDetailsModal from "@/components/clients/details/ClientDetailsModal";
 import { callsTo, envelope, failApi, onApi, page } from "../../../support/fakeApi";
 import { seedOffice } from "../../../support/office";
 import { renderApp } from "../../../support/render";
 import { signIn } from "../../../support/session";
 import * as fx from "../../../support/fixtures";
-import { cardOf, chooseOption } from "../../../support/ui";
+import { cardOf, chooseOption, inputByLabel } from "../../../support/ui";
 
 const periods = [
   { id: "dp1", grade: "Grave", startedOn: "2010-01-01", endedOn: "2015-12-31", ongoing: false, days: 2190 },
@@ -40,6 +41,29 @@ const button = (name: RegExp | string) =>
   screen.getAllByRole("button").find((b) => (typeof name === "string" ? b.textContent?.trim() === name || b.getAttribute("aria-label") === name : name.test(`${b.getAttribute("aria-label") ?? ""} ${b.textContent ?? ""}`)));
 
 describe("Ficha do cliente", () => {
+  it("baixa a ficha completa em PDF pelo endpoint record", async () => {
+    signIn();
+    seedOffice();
+    onApi("get", "/clients/c1/record", new Blob(["%PDF"], { type: "application/pdf" }));
+    const save = vi.spyOn(blobFile, "saveBlob").mockImplementation(async (load) => {
+      await load();
+    });
+
+    try {
+      const { user } = openSheet();
+      await user.click(await screen.findByRole("button", { name: "Baixar ficha em PDF" }));
+
+      await waitFor(() =>
+        expect(callsTo("get").some(([url]) => String(url).endsWith("/clients/c1/record"))).toBe(true),
+      );
+      expect(save).toHaveBeenCalledWith(expect.any(Function), "Ficha - Maria Aparecida da Silva.pdf");
+      await user.click(await screen.findByRole("button", { name: "Editar cadastro" }));
+      expect(screen.queryByRole("button", { name: "Baixar ficha em PDF" })).not.toBeInTheDocument();
+    } finally {
+      save.mockRestore();
+    }
+  });
+
   it("lê a ficha: seções, senha do INSS, arquivos e histórico", async () => {
     signIn();
     seedOffice();
@@ -86,6 +110,28 @@ describe("Ficha do cliente", () => {
     expect(body).toMatchObject({ profession: "Bordadeira", fullName: "Maria Aparecida da Silva" });
     await waitFor(() => expect(callsTo("put").some(([url]) => String(url).endsWith("/addresses/a1"))).toBe(true));
     await waitFor(() => expect(onConfirm).toHaveBeenCalled());
+  });
+
+  it("edita: adiciona outro endereço e o salvar o cria; lendo, não há o que adicionar", async () => {
+    signIn();
+    seedOffice();
+    onApi("post", /\/addresses$/, envelope(fx.address({ id: "a2", street: "Rua Nova", isPrimary: false })));
+    const { user } = openSheet();
+    await screen.findAllByText("laudo.pdf");
+    expect(screen.queryByRole("button", { name: "Adicionar endereço" })).not.toBeInTheDocument();
+
+    await user.click(await screen.findByRole("button", { name: "Editar cadastro" }));
+    await user.click(await screen.findByRole("button", { name: "Adicionar endereço" }));
+    // A aba nova abre em branco e já selecionada.
+    expect(screen.getByRole("tab", { name: /Endereço 2/ })).toHaveAttribute("aria-selected", "true");
+    await user.type(inputByLabel("Logradouro"), "Rua Nova");
+    await user.type(inputByLabel("Cidade"), "Contagem");
+    await user.type(inputByLabel("UF"), "MG");
+
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(callsTo("post").some(([url]) => String(url).endsWith("/addresses"))).toBe(true));
+    const [, body] = callsTo("post").find(([url]) => String(url).endsWith("/addresses"))!;
+    expect(body).toMatchObject({ street: "Rua Nova", city: "Contagem", isPrimary: false });
   });
 
   it("salvar sem mudança não grava e cancelar volta ao gravado", async () => {

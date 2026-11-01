@@ -42,6 +42,7 @@ import {
 import { toUpdateRequest, type KeptFields, type SheetSections } from "./clientSheet";
 import { optionalText } from "@/lib/formValues";
 import { SituationLabelByKey, type SituationKey } from "@/enums/situation/Situation";
+import { findPrimaryIndex, withPrimaryAt } from "../form/primaryAddress";
 
 /**
  * Estado e regras da ficha do cliente: carga, edição, validação e gravação.
@@ -61,12 +62,17 @@ import { SituationLabelByKey, type SituationKey } from "@/enums/situation/Situat
  *   excluir relê só as duas listas.
  */
 
-type Snapshot = SheetSections & { address: AddressValues; interview: InterviewValues };
+type Snapshot = SheetSections & { addresses: AddressValues[]; interview: InterviewValues };
+
+/** Quantos endereços a ficha mostra e edita — o mesmo limite do cadastro. */
+const ADDRESS_LIMIT = 3;
+const SECONDARY_ADDRESS: AddressValues = { ...addressInitial, isPrimary: false };
 
 type SheetRecord = LoadedClient & {
   clientId: string;
   kept: KeptFields;
-  addressId: string | null;
+  /** `id` do backend por aba de endereço; `null` na aba ainda sem endereço gravado. */
+  addressIds: (string | null)[];
   interviewId: string | null;
   interviewCount: number;
   snapshot: Snapshot;
@@ -78,14 +84,17 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 
 function snapshotOf(loaded: LoadedClient): Snapshot {
   const source = loaded.client ?? {};
-  const [primary] = loaded.addresses;
   const [latest] = loaded.interviews;
+  const addresses = loaded.addresses.slice(0, ADDRESS_LIMIT).map(toAddressValues);
   return {
     service: toServiceValues(source),
     personal: toPersonalValues(source),
     professional: toProfessionalValues(source),
-    // A ficha edita um endereço: o principal (ou o primeiro). Salvar o mantém principal.
-    address: primary ? { ...toAddressValues(primary), isPrimary: true } : { ...addressInitial, isPrimary: true },
+    // Uma aba por endereço, o principal primeiro (`loadClient`). Sem nenhum
+    // marcado, o primeiro vira o principal — o backend não aceita cliente sem.
+    addresses: addresses.length
+      ? findPrimaryIndex(addresses) === -1 ? withPrimaryAt(addresses, 0) : addresses
+      : [{ ...addressInitial, isPrimary: true }],
     interview: latest ? toInterviewValues(latest) : interviewInitial,
   };
 }
@@ -94,20 +103,34 @@ function snapshotOf(loaded: LoadedClient): Snapshot {
 const invalidLabels = (forms: [{ errors: object }, SectionSchema][]) =>
   forms.flatMap(([form, schema]) => Object.keys(form.errors).map((key) => schema[key]?.label ?? key));
 
-/** Grava o endereço principal, se mudou; diz se gravou. */
-async function saveAddress(
+/**
+ * Grava os endereços que mudaram; diz se gravou algum.
+ *
+ * O principal vai primeiro: o backend desmarca o anterior quando outro chega
+ * marcado, então, trocado o principal, o antigo já está desmarcado quando a
+ * vez dele chega.
+ */
+async function saveAddresses(
   clientId: string,
   next: SheetRecord,
-  values: AddressValues,
-  before: AddressValues,
+  values: readonly AddressValues[],
+  before: readonly AddressValues[],
 ): Promise<boolean> {
-  if (same(values, before)) return false;
-  const body = toAddressRequest({ ...values, isPrimary: true });
-  const saved = next.addressId
-    ? await updateAddress(clientId, next.addressId, body, { silent: true })
-    : await createAddress(clientId, body, { silent: true });
-  next.addressId = saved?.data?.id ?? next.addressId;
-  return true;
+  const order = values.map((_, index) => index).sort((a, b) => Number(values[b].isPrimary) - Number(values[a].isPrimary));
+  const ids = [...next.addressIds];
+  let wrote = false;
+  for (const index of order) {
+    if (!hasAddressInput(values[index]) || same(values[index], before[index])) continue;
+    const body = toAddressRequest(values[index]);
+    const id = ids[index];
+    const saved = id
+      ? await updateAddress(clientId, id, body, { silent: true })
+      : await createAddress(clientId, body, { silent: true });
+    ids[index] = saved?.data?.id ?? id;
+    next.addressIds = [...ids];
+    wrote = true;
+  }
+  return wrote;
 }
 
 /** Grava a entrevista, se tem conteúdo e mudou; diz se gravou. */
@@ -139,9 +162,14 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
   const service = useSectionForm({ schema: serviceSchema });
   const personal = useSectionForm({ schema: personalSchema });
   const professional = useSectionForm({ initial: professionalInitial, rules: professionalEditRules });
-  const address = useSectionForm({ schema: addressSchema });
+  // Três formulários fixos, como no cadastro: hook não nasce em loop.
+  const address1 = useSectionForm({ schema: addressSchema });
+  const address2 = useSectionForm({ schema: addressSchema, initial: SECONDARY_ADDRESS });
+  const address3 = useSectionForm({ schema: addressSchema, initial: SECONDARY_ADDRESS });
   const interview = useSectionForm({ schema: interviewSchema });
 
+  /** Abas de endereço abertas na edição, além das gravadas — somem ao cancelar e ao salvar. */
+  const [addedAddresses, setAddedAddresses] = useState(0);
   const [record, setRecord] = useState<SheetRecord | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
@@ -149,17 +177,22 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
   const { reset: resetService } = service;
   const { reset: resetPersonal } = personal;
   const { reset: resetProfessional } = professional;
-  const { reset: resetAddress } = address;
+  const { reset: resetAddress1 } = address1;
+  const { reset: resetAddress2 } = address2;
+  const { reset: resetAddress3 } = address3;
   const { reset: resetInterview } = interview;
   const apply = useCallback(
     (snapshot: Snapshot) => {
       resetService(snapshot.service);
       resetPersonal(snapshot.personal);
       resetProfessional(snapshot.professional);
-      resetAddress(snapshot.address);
+      resetAddress1(snapshot.addresses[0]);
+      resetAddress2(snapshot.addresses[1] ?? SECONDARY_ADDRESS);
+      resetAddress3(snapshot.addresses[2] ?? SECONDARY_ADDRESS);
       resetInterview(snapshot.interview);
+      setAddedAddresses(0);
     },
-    [resetService, resetPersonal, resetProfessional, resetAddress, resetInterview],
+    [resetService, resetPersonal, resetProfessional, resetAddress1, resetAddress2, resetAddress3, resetInterview],
   );
 
   useEffect(() => {
@@ -178,7 +211,7 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
           responsibleUserId: loaded.client?.responsibleUserId,
           requestStage: loaded.client?.requestStage,
         },
-        addressId: loaded.addresses[0]?.id ?? null,
+        addressIds: loaded.addresses.slice(0, ADDRESS_LIMIT).map((item) => item.id),
         interviewId: loaded.interviews[0]?.id ?? null,
         interviewCount: loaded.interviews.length,
         snapshot,
@@ -193,6 +226,24 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
   /** A ficha carregada é a deste cliente — antes disso, carregando. */
   const loaded = record && record.clientId === clientId ? record : null;
   const isLoading = Boolean(isOpen && clientId && !loaded);
+  /** As abas de endereço: uma por endereço gravado (ao menos uma), mais as que a edição abriu. */
+  const addressTabs = Math.min(ADDRESS_LIMIT, (loaded?.snapshot.addresses.length ?? 1) + addedAddresses);
+  const addresses = [address1, address2, address3].slice(0, addressTabs);
+  const canAddAddress = addressTabs < ADDRESS_LIMIT;
+
+  /** Abre uma aba em branco para outro endereço (até o limite). */
+  const addAddress = () => {
+    if (canAddAddress) setAddedAddresses((count) => count + 1);
+  };
+
+  /** "Tornar principal" numa aba: exatamente um principal entre elas. */
+  const setPrimaryAddress = (index: number) => {
+    const next = withPrimaryAt(
+      addresses.map((form) => form.values),
+      index,
+    );
+    for (const [i, form] of addresses.entries()) form.setField("isPrimary", next[i].isPrimary);
+  };
 
   /** Desfaz o que foi digitado: volta ao que está gravado. */
   const cancel = useCallback(() => {
@@ -224,13 +275,13 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
    */
   const save = async (hooks: { validateExtra?: () => boolean; afterSave?: () => Promise<boolean> } = {}) => {
     if (!clientId || !loaded) return false;
-    const addressFilled = hasAddressInput(address.values);
+    const filledAddresses = addresses.filter((form) => hasAddressInput(form.values));
     const checks = [
       service.revealErrors(),
       personal.revealErrors(),
       professional.revealErrors(),
       interview.revealErrors(),
-      !addressFilled || address.revealErrors(),
+      ...filledAddresses.map((form) => form.revealErrors()),
       hooks.validateExtra?.() ?? true,
     ];
     if (!checks.every(Boolean)) {
@@ -239,7 +290,7 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
         [personal, personalSchema],
         [professional, professionalSchema],
         [interview, interviewSchema],
-        [addressFilled ? address : { errors: {} }, addressSchema],
+        ...filledAddresses.map((form): [{ errors: object }, SectionSchema] => [form, addressSchema]),
       ]);
       setSaveError(reviseMessage(labels));
       return false;
@@ -268,7 +319,8 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
         next.client = envelope?.data ?? next.client;
         wrote = true;
       }
-      if (addressFilled && (await saveAddress(clientId, next, address.values, before.address))) wrote = true;
+      const addressValues = addresses.map((form) => form.values);
+      if (await saveAddresses(clientId, next, addressValues, before.addresses)) wrote = true;
       if (await saveInterview(clientId, next, interview.values, before.interview)) wrote = true;
       if (await hooks.afterSave?.()) wrote = true;
       if (sections.service.situation !== before.service.situation) {
@@ -279,7 +331,8 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
       next.snapshot = {
         ...sections,
         professional: { ...sections.professional, inssPassword: "" },
-        address: address.values,
+        // Uma aba aberta e deixada em branco não é endereço: não fica na ficha.
+        addresses: addressValues.slice(0, Math.max(1, addressValues.findLastIndex(hasAddressInput) + 1)),
         interview: interview.values,
       };
       commit();
@@ -343,7 +396,7 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
   );
 
   return {
-    forms: { service, personal, professional, address, interview },
+    forms: { service, personal, professional, addresses, interview },
     record: loaded,
     isLoading,
     isSaving,
@@ -354,5 +407,8 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
     loadFiles,
     setRequestStage,
     setSituation,
+    setPrimaryAddress,
+    addAddress,
+    canAddAddress,
   };
 }

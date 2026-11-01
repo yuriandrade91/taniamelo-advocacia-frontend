@@ -210,6 +210,18 @@
       opacity: 0;
     }
   }
+
+  /* Trilho da situação: um brilho corre pelo segmento da etapa atual,
+     para dizer que o benefício está em andamento. */
+  --animate-stage-run: stage-run 1.8s ease-in-out infinite;
+  @keyframes stage-run {
+    0% {
+      transform: translateX(-100%);
+    }
+    100% {
+      transform: translateX(250%);
+    }
+  }
 }
 
 /* ── Tema do HeroUI v3 mapeado para a marca ───────────────────

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import { LoadingCircle, RowSkeletons } from "@/components/ui/feedback/Loading";
-import { PencilIcon, TrashIcon } from "@/components/ui/icons/actions";
+import { DownloadIcon, PencilIcon, TrashIcon } from "@/components/ui/icons/actions";
 import { CheckIcon, ClockIcon, WalletIcon } from "@/components/ui/icons/glyphs";
 import { GavelIcon } from "@/components/agenda/agendaIcons";
 import ModalShell from "@/components/ui/modals/ModalShell";
@@ -15,6 +15,8 @@ import { useOfficeAuthors } from "@/hooks/useOfficeAuthors";
 import { GenderLabelByKey, type GenderKey } from "@/enums/gender/Gender";
 import { deleteClient, patchClient } from "@/services/clientService";
 import { deleteFile } from "@/services/clientFileService";
+import { downloadClientRecord } from "@/services/clientRecordService";
+import { saveBlob } from "@/lib/blobFile";
 import { plural } from "@/lib/format";
 import fallbackMessages from "@/constants/messages/fallbackMessages";
 import { InssPasswordField } from "../inss/InssPasswordField";
@@ -33,14 +35,13 @@ import {
   ServiceIcon,
   WorkIcon,
 } from "../form/tabs/sectionIcons";
-import { AddressSection } from "../form/sections/AddressSection";
+import { AddressesSection } from "../form/sections/AddressesSection";
 import { InterviewSection } from "../form/sections/InterviewSection";
 import { PersonalDataSection } from "../form/sections/PersonalDataSection";
 import { ProfessionalDataSection } from "../form/sections/ProfessionalDataSection";
 import { ServiceSection } from "../form/sections/ServiceSection";
 import { SituationHistorySection } from "../form/sections/SituationHistorySection";
 import { DocumentCatalogPanel } from "../form/sections/files/DocumentCatalogPanel";
-import { OtherAddresses } from "./OtherAddresses";
 import { StageChanger } from "../stage/StageChanger";
 import { StageMeter } from "../stage/StageMeter";
 import { situationChangedMessage } from "../stage/stages";
@@ -175,18 +176,25 @@ export default function ClientDetailsModal({
   const { canDestroy, canSeeFinance } = usePermissions();
   const authors = useOfficeAuthors();
   const sheet = useClientSheet(clientId, isOpen);
-  const { service, personal, professional, address, interview } = sheet.forms;
+  const { service, personal, professional, addresses, interview } = sheet.forms;
   const record = sheet.record;
 
   const [isEditing, setIsEditing] = useState(editOnOpen);
   const [showDelete, setShowDelete] = useState(false);
   const [actionError, setActionError] = useState("");
+  const [isDownloadingRecord, setIsDownloadingRecord] = useState(false);
   /** Arquivos escolhidos na edição — sobem no "Salvar". */
   const [stagedDocuments, setStagedDocuments] = useState<StagedDocument[]>([]);
   const [stagedSimulations, setStagedSimulations] = useState<StagedSimulation[]>([]);
   const [filesRevealed, setFilesRevealed] = useState(false);
   /** Arquivo gravado à espera de confirmação para sair do servidor. */
   const [fileRemoval, setFileRemoval] = useState<string | null>(null);
+  const [addressTab, setAddressTab] = useState("address-0");
+  const addressSlots = addresses.map((form, index) => ({
+    key: `address-${index}`,
+    label: index === 0 ? "Endereço atual" : `Endereço ${index + 1}`,
+    form,
+  }));
   const disabilityRef = useRef<ClientDisabilityPanelHandle>(null);
   const [disabilityCount, setDisabilityCount] = useState(0);
   const sections = { service: service.values, personal: personal.values, professional: professional.values };
@@ -275,6 +283,19 @@ export default function ClientDetailsModal({
     }
   };
 
+  const downloadRecord = async () => {
+    setIsDownloadingRecord(true);
+    setActionError("");
+    try {
+      const name = personal.values.fullName || clientName;
+      await saveBlob(() => downloadClientRecord(clientId), `Ficha - ${name}.pdf`);
+    } catch (reason) {
+      setActionError(messageOf(reason, fallbackMessages.CLIENTS.DOWNLOAD_FAILED));
+    } finally {
+      setIsDownloadingRecord(false);
+    }
+  };
+
   const confirmFileRemoval = async () => {
     const fileId = fileRemoval;
     setFileRemoval(null);
@@ -355,15 +376,26 @@ export default function ClientDetailsModal({
     {
       id: "endereco",
       title: "Endereço",
-      description: "O endereço principal do cliente.",
+      description: "Os endereços do cliente, o principal primeiro.",
       icon: <AddressIcon />,
-      ...fill(addressSchema, address.values, ["cepLookup"]),
+      ...fill(addressSchema, addresses[0].values, ["cepLookup"]),
       content: (
-        <>
-          <AddressSection form={address} isReadOnly={!isEditing} isLoading={sheet.isLoading} />
-          {/* O principal é o de cima, o que a ficha edita; os demais, para ver. */}
-          <OtherAddresses addresses={record?.addresses.slice(1) ?? []} />
-        </>
+        // As abas do cadastro, sem excluir: cada uma lê e edita o seu endereço,
+        // e o "Salvar" grava os que mudaram e cria o que foi adicionado.
+        <AddressesSection
+          slots={addressSlots}
+          // A aba de um cliente anterior pode não existir neste: volta à primeira.
+          selectedKey={addressSlots.some((slot) => slot.key === addressTab) ? addressTab : "address-0"}
+          onSelectionChange={setAddressTab}
+          canAddMore={isEditing && sheet.canAddAddress}
+          onAddAddress={() => {
+            setAddressTab(`address-${addressSlots.length}`);
+            sheet.addAddress();
+          }}
+          onRequestPrimary={(slot) => sheet.setPrimaryAddress(Number(slot.key.replace("address-", "")))}
+          isReadOnly={!isEditing}
+          isLoading={sheet.isLoading}
+        />
       ),
     },
     {
@@ -432,9 +464,13 @@ export default function ClientDetailsModal({
       ) : (
         <div className="flex flex-col gap-5">
           {/* Mudar a etapa daqui, como no INSS: o mesmo cartão da lista, gravando na hora. */}
-          <div className="rounded-2xl bg-page p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl bg-page p-4">
+            <div className="min-w-0 flex-1">
+              <StageMeter situation={record?.client?.situation} />
+            </div>
             <StageChanger
               clientId={clientId}
+              triggerClassName="shrink-0 cursor-pointer rounded-full bg-white px-3.5 py-1.5 text-xs font-medium text-primary ring-1 ring-black/10 transition outline-none hover:bg-primary/5 focus-visible:ring-2 focus-visible:ring-secondary/60"
               clientName={optionalText(record?.client?.fullName) ?? clientName}
               situation={record?.client?.situation}
               onConfirm={async (stage) => {
@@ -447,7 +483,7 @@ export default function ClientDetailsModal({
                 onConfirm?.();
               }}
             >
-              <StageMeter situation={record?.client?.situation} />
+              Mudar etapa
             </StageChanger>
           </div>
           <SituationHistorySection
@@ -523,7 +559,9 @@ export default function ClientDetailsModal({
               isEditing={isEditing}
               isSaving={busy}
               isLoading={sheet.isLoading}
+              isDownloading={isDownloadingRecord}
               canDelete={canDestroy}
+              onDownload={() => void downloadRecord()}
               onEdit={() => setIsEditing(true)}
               onCancel={leaveEdit}
               onSave={() => void save()}
@@ -596,7 +634,9 @@ function SheetActions({
   isEditing,
   isSaving,
   isLoading,
+  isDownloading,
   canDelete,
+  onDownload,
   onEdit,
   onCancel,
   onSave,
@@ -606,7 +646,9 @@ function SheetActions({
   isSaving: boolean;
   /** Sem os dados ainda, não há o que editar nem salvar. */
   isLoading: boolean;
+  isDownloading: boolean;
   canDelete: boolean;
+  onDownload: () => void;
   onEdit: () => void;
   onCancel: () => void;
   onSave: () => void;
@@ -632,16 +674,25 @@ function SheetActions({
           </ActionButton>
         </>
       ) : (
-        <ActionButton
-          tone="onDark"
-          grow
-          className="font-semibold"
-          onClick={onEdit}
-          disabled={isLoading}
-          icon={<PencilIcon className="h-4 w-4" />}
-        >
-          Editar cadastro
-        </ActionButton>
+        <>
+          <SidebarTipButton
+            label="Baixar ficha em PDF"
+            onPress={onDownload}
+            isDisabled={isLoading || isDownloading}
+          >
+            {isDownloading ? <LoadingCircle size={16} /> : <DownloadIcon className="h-4 w-4" />}
+          </SidebarTipButton>
+          <ActionButton
+            tone="onDark"
+            grow
+            className="font-semibold"
+            onClick={onEdit}
+            disabled={isLoading || isDownloading}
+            icon={<PencilIcon className="h-4 w-4" />}
+          >
+            Editar cadastro
+          </ActionButton>
+        </>
       )}
       {/* Excluir é de advogado/admin: o backend recusa os demais com 403. */}
       {canDelete && (

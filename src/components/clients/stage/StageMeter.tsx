@@ -48,11 +48,16 @@ export function StageMeter({ situation }: Readonly<{ situation?: string }>) {
         {STAGES.map((s) => (
           <span
             key={s.key}
-            className={`h-1.5 flex-1 rounded-full transition-colors duration-500 ${segmentTone(
+            className={`relative h-1.5 flex-1 overflow-hidden rounded-full transition-colors duration-500 ${segmentTone(
               done || s.step < stage.step,
               s.step === stage.step,
             )}`}
-          />
+          >
+            {/* Em andamento: o brilho corre pelo segmento atual. */}
+            {!done && s.step === stage.step && (
+              <span className="absolute inset-y-0 left-0 w-2/5 rounded-full bg-white/50 motion-safe:animate-stage-run" />
+            )}
+          </span>
         ))}
       </div>
     </div>
