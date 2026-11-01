@@ -26,8 +26,7 @@ export async function uploadStagedFiles(
   if (documents.length > 0) {
     try {
       await uploadDocuments(clientId, buildDocumentsFormData(documents), options);
-    } catch (error) {
-      console.error("Erro ao enviar documentos:", error);
+    } catch {
       sent.documents = false;
     }
   }
@@ -49,8 +48,7 @@ export async function uploadStagedFiles(
         options,
       );
       created = envelope?.data ?? [];
-    } catch (error) {
-      console.error("Erro ao enviar simulações:", error);
+    } catch {
       sent.simulations = false;
     }
 
@@ -61,8 +59,8 @@ export async function uploadStagedFiles(
     if (principal) {
       try {
         await markPrincipalSimulation(clientId, principal, { silent: true });
-      } catch (error) {
-        console.error("Erro ao marcar a simulação principal:", error);
+      } catch {
+        // O interceptor do axiosService já mostrou o erro.
       }
     }
   }

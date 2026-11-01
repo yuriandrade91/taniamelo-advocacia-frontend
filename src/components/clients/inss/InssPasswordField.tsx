@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { LoadingCircle } from "@/components/ui/feedback/Loading";
 import {
   copyPassword,

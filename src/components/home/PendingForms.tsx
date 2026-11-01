@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import StatCard, { type StatCardProps } from "./StatCard";
 import { Card, SectionTitle } from "@/components/ui/layout/Card";
 import { LoadingCircle } from "@/components/ui/feedback/Loading";

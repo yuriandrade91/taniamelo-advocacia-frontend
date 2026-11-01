@@ -98,8 +98,8 @@ export function ClientDisabilityPanel({
     try {
       const envelope = await sheetRead(`${clientId}:disability-periods`, () => listDisabilityPeriods(clientId));
       list = envelope?.data ?? [];
-    } catch (error) {
-      console.debug("Could not load disability periods:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
     setSaved(list);
     setDrafts(draftsFrom(list));
@@ -119,9 +119,8 @@ export function ClientDisabilityPanel({
       const result = conversionFromServer(envelope?.data);
       setConversion(result);
       setConversionFailed(result === null);
-    } catch (error) {
+    } catch {
       // 400 quando o sexo não tem coluna na lei; o aviso abaixo explica.
-      console.debug("Could not load disability conversion:", error);
       setConversion(null);
       setConversionFailed(true);
     }
@@ -221,9 +220,8 @@ export function ClientDisabilityPanel({
       // Recarrega tudo, e não só tira a linha: o total muda, e é o servidor
       // que diz quanto ficou.
       await load();
-    } catch (error) {
+    } catch {
       // O toast do interceptor já diz por quê; o intervalo fica na tela.
-      console.error("Erro ao excluir período de deficiência:", error);
     }
   };
 

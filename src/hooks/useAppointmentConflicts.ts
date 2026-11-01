@@ -60,7 +60,7 @@ export function useAppointmentConflicts({
   useEffect(() => {
     if (!active) return;
     let alive = true;
-    getAppointmentConflicts({ startAt: from, endAt: to, excludeId })
+    void getAppointmentConflicts({ startAt: from, endAt: to, excludeId })
       // Falhar a checagem não atrapalha quem agenda: sem conflito conhecido, não há aviso.
       .then((envelope) => envelope?.data ?? [], () => [])
       .then((conflicts) => {

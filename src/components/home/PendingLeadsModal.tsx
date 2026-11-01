@@ -190,7 +190,7 @@ export function PendingLeadsModal({
   useEffect(() => {
     if (!isOpen) return;
     let active = true;
-    fetchClients({ situation: ["FORMULARIO_PREENCHIDO"], pageNumber: 1, pageSize: PAGE_SIZE })
+    void fetchClients({ situation: ["FORMULARIO_PREENCHIDO"], pageNumber: 1, pageSize: PAGE_SIZE })
       .then(
         (envelope) => ({ leads: (envelope?.data ?? []).map((client) => toPendingLead(client)), failed: false }),
         () => ({ leads: [], failed: true }),

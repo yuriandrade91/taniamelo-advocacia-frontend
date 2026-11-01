@@ -1,6 +1,5 @@
 "use client";
 
-import React from "react";
 import { parseDateTime, type CalendarDateTime } from "@internationalized/date";
 import { Alert, Checkbox } from "@heroui/react";
 import {

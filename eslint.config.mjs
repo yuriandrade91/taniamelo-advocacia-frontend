@@ -11,6 +11,19 @@ import nextTs from "eslint-config-next/typescript";
 export default defineConfig([
   ...nextVitals,
   ...nextTs,
+  // O erro do axios leva o corpo enviado (senha do INSS, CPF): no console, vaza.
+  // Falha de requisição quem conta é o interceptor, com o toast.
+  { rules: { "no-console": "error" } },
+  // Promessa esquecida: a falha some sem ninguém ver. Só em `src`, porque ler
+  // os tipos custa tempo; `void` diz que o esquecimento é de propósito.
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    languageOptions: { parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname } },
+    rules: {
+      "@typescript-eslint/no-floating-promises": "error",
+      "@typescript-eslint/no-misused-promises": ["error", { checksVoidReturn: { attributes: false } }],
+    },
+  },
   globalIgnores([
     ".next/**",
     "out/**",

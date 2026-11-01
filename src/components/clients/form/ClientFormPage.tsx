@@ -286,8 +286,7 @@ export function ClientFormPage() {
         try {
           // Calado: o aviso é um só, no fim, contando as abas removidas.
           await deleteAddress(clientId, savedId, { silent: true });
-        } catch (error) {
-          console.error("Erro ao excluir endereço:", error);
+        } catch {
           break;
         }
       }
@@ -425,8 +424,8 @@ export function ClientFormPage() {
     try {
       await deleteDisabilityPeriod(clientId, period.id);
       dropDisabilityPeriod(period.key);
-    } catch (error) {
-      console.error("Erro ao excluir período de deficiência:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
   };
 
@@ -591,9 +590,8 @@ export function ClientFormPage() {
 
       notificationCenter.success("Cliente cadastrado.");
       router.push("/clientes");
-    } catch (error) {
+    } catch {
       // O toast de erro já vem do interceptor do axiosService.
-      console.error("Erro ao criar cliente:", error);
     } finally {
       setIsCreating(false);
     }
@@ -690,8 +688,7 @@ export function ClientFormPage() {
       );
       markSaved(SECTION_KEYS.address);
       return [];
-    } catch (error) {
-      console.error("Erro ao salvar endereços:", error);
+    } catch {
       return [filledAddresses.length > 1 ? "endereços" : "endereço"];
     }
   };
@@ -723,8 +720,8 @@ export function ClientFormPage() {
           // precisa virar PUT, senão duplica o intervalo.
           updateDisabilityPeriod(period.key, { id: savedId });
         }
-      } catch (error) {
-        console.error("Erro ao salvar período de deficiência:", error);
+      } catch {
+        // O interceptor do axiosService já mostrou o erro.
       }
     }
     if (savedCount === toSave.length) {
@@ -745,8 +742,7 @@ export function ClientFormPage() {
       setInterviewId(saved?.data?.id ?? null);
       markSaved(SECTION_KEYS.interview);
       return [];
-    } catch (error) {
-      console.error("Erro ao salvar entrevista:", error);
+    } catch {
       return ["entrevista"];
     }
   };
@@ -776,8 +772,8 @@ export function ClientFormPage() {
         successMessage: "Atendimento atualizado.",
       });
       markSaved(SECTION_KEYS.service);
-    } catch (error) {
-      console.error("Erro ao atualizar atendimento:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
   };
 
@@ -789,8 +785,8 @@ export function ClientFormPage() {
         toPersonalDataRequest(personal.values),
       );
       markSaved(SECTION_KEYS.personal);
-    } catch (error) {
-      console.error("Erro ao salvar dados pessoais:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
   };
 
@@ -802,8 +798,8 @@ export function ClientFormPage() {
         toProfessionalDataRequest(professional.values),
       );
       markSaved(SECTION_KEYS.professional);
-    } catch (error) {
-      console.error("Erro ao salvar dados profissionais:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
   };
 
@@ -832,8 +828,8 @@ export function ClientFormPage() {
         }
       }
       markSaved(SECTION_KEYS.address);
-    } catch (error) {
-      console.error("Erro ao salvar endereço:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
   };
 
@@ -873,8 +869,7 @@ export function ClientFormPage() {
         if (savedId && !period.id) {
           updateDisabilityPeriod(period.key, { id: savedId });
         }
-      } catch (error) {
-        console.error("Erro ao salvar período de deficiência:", error);
+      } catch {
         failures += 1;
       }
     }
@@ -908,8 +903,8 @@ export function ClientFormPage() {
         setInterviewId(saved?.data?.id ?? null);
       }
       markSaved(SECTION_KEYS.interview);
-    } catch (error) {
-      console.error("Erro ao salvar entrevista:", error);
+    } catch {
+      // O interceptor do axiosService já mostrou o erro.
     }
   };
 

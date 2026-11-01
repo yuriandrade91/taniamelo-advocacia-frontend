@@ -43,7 +43,7 @@ export function useHolidayCheck({ day, enabled = true }: UseHolidayCheckOptions)
   useEffect(() => {
     if (!active) return;
     let alive = true;
-    holidayCache
+    void holidayCache
       .load(settled, () => getHolidayCheck(settled).then((envelope) => envelope?.data ?? null))
       // Falhar a consulta não atrapalha quem agenda: sem feriado conhecido, não há pergunta.
       .then((holiday) => holiday, () => null)

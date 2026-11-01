@@ -159,7 +159,7 @@ export function ClientFinancePanel({ clientId }: Readonly<{ clientId: string }>)
 
   useEffect(() => {
     let active = true;
-    loadFinance(clientId).then((result) => {
+    void loadFinance(clientId).then((result) => {
       if (active) setLoaded(result);
     });
     return () => {
