@@ -4,6 +4,10 @@ version: 0.2
 # escritório `tania` (ver env/development.env). As NEXT_PUBLIC_* são inlinadas
 # no JavaScript pelo build, então o `out/` gerado aqui só serve para dev.
 
+env:
+  variables:
+    APP_STORAGE_TYPE: "s3"   # ou "local"
+
 phases:
   install:
     runtime-versions:
