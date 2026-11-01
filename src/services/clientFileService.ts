@@ -15,7 +15,13 @@ import { feedback, type RequestFeedback } from "@/services/requestFeedback";
  * Limites do backend: 10MB por arquivo, 60MB por requisição.
  */
 
-const MULTIPART = { headers: { "Content-Type": undefined } } as const;
+/**
+ * Arquivo não cabe nos 10 s das demais requisições (`axiosService`): 60 MB
+ * numa internet de escritório levam minutos, e o envio morreria no meio.
+ */
+export const FILE_TRANSFER_TIMEOUT_MS = 5 * 60_000;
+
+const MULTIPART = { headers: { "Content-Type": undefined }, timeout: FILE_TRANSFER_TIMEOUT_MS } as const;
 
 // ── Documentos ──
 
@@ -90,6 +96,7 @@ export const markPrincipalSimulation = async (
 export const downloadClientFile = async (clientId: string, fileId: string): Promise<Blob> => {
   const { data } = await axiosInstance.get<Blob>(endpoints.CLIENT_FILES.DOWNLOAD(clientId, fileId), {
     responseType: "blob",
+    timeout: FILE_TRANSFER_TIMEOUT_MS,
   });
   return data;
 };

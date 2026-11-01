@@ -20,6 +20,7 @@ import axiosInstance from "@/services/axiosService";
 import {
   deleteFile,
   downloadClientFile,
+  FILE_TRANSFER_TIMEOUT_MS,
   listDocuments,
   listSimulations,
   markPrincipalSimulation,
@@ -50,6 +51,14 @@ describe("upload", () => {
       successMessage: "Documentos enviados.",
       skipSuccessToast: false,
     });
+  });
+
+  it("arquivo não fica preso aos 10 s das demais requisições: são até 60 MB por envio", async () => {
+    await uploadDocuments(CLIENT, new FormData());
+    await uploadSimulations(CLIENT, new FormData());
+    await downloadClientFile(CLIENT, FILE);
+    const configs = [...vi.mocked(axiosInstance.post).mock.calls.map((call) => call[2]), vi.mocked(axiosInstance.get).mock.calls[0][1]];
+    for (const config of configs) expect(config).toMatchObject({ timeout: FILE_TRANSFER_TIMEOUT_MS });
   });
 
   it("simulações: a mesma forma, na rota delas; `silent` cala o sucesso", async () => {
@@ -88,7 +97,7 @@ describe("arquivo em si", () => {
     await expect(downloadClientFile(CLIENT, FILE)).resolves.toBe(blob);
     const [url, config] = vi.mocked(axiosInstance.get).mock.calls[0];
     expect(url).toMatch(new RegExp(`${base}/${FILE}/download$`));
-    expect(config).toEqual({ responseType: "blob" });
+    expect(config).toEqual({ responseType: "blob", timeout: FILE_TRANSFER_TIMEOUT_MS });
   });
 
   it("excluir: DELETE no arquivo, com o aviso da central", async () => {

@@ -7,6 +7,7 @@ vi.mock("@/services/axiosService", () => ({
 }));
 
 import axiosInstance from "@/services/axiosService";
+import { FILE_TRANSFER_TIMEOUT_MS } from "@/services/clientFileService";
 import { downloadClientRecord } from "@/services/clientRecordService";
 
 const CLIENT = "11111111-1111-1111-1111-111111111111";
@@ -23,5 +24,5 @@ it("busca a ficha do cliente pelo endpoint record como blob", async () => {
   await expect(downloadClientRecord(CLIENT)).resolves.toBe(blob);
   const [url, config] = vi.mocked(axiosInstance.get).mock.calls[0];
   expect(url).toMatch(new RegExp(`/api/v1/clients/${CLIENT}/record$`));
-  expect(config).toEqual({ responseType: "blob" });
+  expect(config).toEqual({ responseType: "blob", timeout: FILE_TRANSFER_TIMEOUT_MS });
 });
