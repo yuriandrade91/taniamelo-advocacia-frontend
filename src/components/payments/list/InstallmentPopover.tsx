@@ -85,7 +85,9 @@ export function InstallmentPopover({
         {children}
       </Popover.Trigger>
 
-      <Popover.Content {...card.contentProps} placement="bottom" className="w-80">
+      {/* Sempre para baixo: virar para cima cobria o topo da tela e o próprio
+          cartão. Sem espaço embaixo, o diálogo rola (teto herdado, abaixo). */}
+      <Popover.Content {...card.contentProps} placement="bottom" shouldFlip={false} className="w-80">
         <Popover.Arrow />
         {/*
           O posicionamento limita a altura do popover ao espaço da tela, mas o

@@ -17,9 +17,11 @@ import { ExistingEntriesCheck } from "./ExistingEntriesCheck";
 import { useFieldErrors } from "@/hooks/useFieldErrors";
 import { createPayment, patchPayment } from "@/services/clientPaymentService";
 import { notificationCenter } from "@/services/notificationService";
+import { formatBRL, parseAmountBRL } from "@/lib/format";
 import {
   emptyBenefitPayment,
   hasErrors,
+  splitAmountOf,
   toBenefitPaymentRequest,
   toBenefitReceivedPatch,
   validateBenefitPayment,
@@ -60,6 +62,7 @@ export function BenefitPaymentModal({
   const errors = validateBenefitPayment(values);
   const fieldErrors = useFieldErrors(errors);
   const errorOf = (key: keyof BenefitPaymentValues) => fieldErrors.errorOf(key);
+  const splitAmount = splitAmountOf(values);
 
   const set = <K extends keyof BenefitPaymentValues>(key: K, value: BenefitPaymentValues[K]) => {
     setValues((current) => ({ ...current, [key]: value }));
@@ -152,7 +155,7 @@ export function BenefitPaymentModal({
         />
 
         <AmountField
-          label="Valor"
+          label={values.isSplit ? "Valor total" : "Valor"}
           value={values.amount}
           onChange={(next) => set("amount", next)}
           isRequired
@@ -210,6 +213,14 @@ export function BenefitPaymentModal({
             />
             {errorOf("installmentNumber") && (
               <p className="col-span-full -mt-2 text-sm text-danger">{errorOf("installmentNumber")}</p>
+            )}
+            {/* O que se lança é a parcela: o total dividido em partes iguais. */}
+            {splitAmount !== null && (
+              <p aria-live="polite" className="col-span-full -mt-2 text-sm text-gray-100">
+                Valor desta parcela:{" "}
+                <span className="font-medium text-primary tabular-nums">{formatBRL(splitAmount)}</span>
+                {" "}— {formatBRL(parseAmountBRL(values.amount) ?? 0)} em {values.installmentTotal} parcelas iguais.
+              </p>
             )}
           </>
         )}

@@ -42,7 +42,7 @@ describe("Lançar valor a receber", () => {
     await user.click(screen.getByRole("button", { name: "Lançar" }));
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
     const [, body] = callsTo("post").find(([url]) => String(url).endsWith("/clients/c1/payments"))!;
-    expect(body).toMatchObject({ description: "Atrasados do INSS", amount: 1200, installmentNumber: 1, installmentTotal: 3 });
+    expect(body).toMatchObject({ description: "Atrasados do INSS", amount: 400, installmentNumber: 1, installmentTotal: 3 });
   });
 
   it("já recebido: grava e marca como pago", async () => {

@@ -11,6 +11,7 @@ import { formatBRL, formatDateBR, formatInstallment } from "@/lib/format";
 import { todayIso } from "@/lib/period";
 import { validatePaidDate } from "@/lib/validators";
 import type { OfficePaymentResponse } from "@/interfaces/payment/OfficePayment.interface";
+import { AgreementTotal } from "./AgreementTotal";
 
 /**
  * Confirmar que o **cliente** recebeu do INSS.
@@ -72,9 +73,11 @@ export function RegisterReceiptModal({
   }
 
   const installmentTotal = payment?.installmentTotal ?? 1;
+  // As parcelas são iguais: o valor de cada uma é o desta.
+  const installmentValue = payment?.amount === undefined ? "" : ` · ${formatBRL(payment.amount)}`;
   const installmentOptions = Array.from({ length: installmentTotal }, (_, i) => ({
     id: String(i + 1),
-    label: `Parcela ${i + 1} de ${installmentTotal}`,
+    label: `Parcela ${i + 1} de ${installmentTotal}${installmentValue}`,
   }));
 
   const handleConfirm = async () => {
@@ -122,7 +125,7 @@ export function RegisterReceiptModal({
             <p className="mt-0.5 text-gray-100">{payment.description}</p>
             <dl className="mt-2 grid grid-cols-3 gap-2 text-xs">
               <div>
-                <dt className="text-gray-100">Valor</dt>
+                <dt className="text-gray-100">{installmentTotal > 1 ? "Valor da parcela" : "Valor"}</dt>
                 <dd className="font-medium text-primary tabular-nums">
                   {payment.amount === undefined ? "—" : formatBRL(payment.amount)}
                 </dd>
@@ -141,6 +144,11 @@ export function RegisterReceiptModal({
                 </dd>
               </div>
             </dl>
+            {installmentTotal > 1 && (
+              <div className="mt-3 border-t border-black/5 pt-3">
+                <AgreementTotal clientId={payment.clientId} payment={payment} />
+              </div>
+            )}
           </div>
         )}
 
