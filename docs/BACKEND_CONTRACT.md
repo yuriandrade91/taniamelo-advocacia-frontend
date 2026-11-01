@@ -141,6 +141,7 @@ Limites do upload: 10 MB por arquivo, 60 MB por requisição.
 | GET | `/appointments/summary?year=` | | Home (abas por mês) |
 | GET | `/appointments/timeline` | | Relatórios |
 | GET | `/appointments/conflicts` | | formulário de compromisso (aviso enquanto se digita) |
+| GET | `/appointments/holiday` | | formulário de compromisso (pergunta ao escolher o dia do início) |
 | GET | `/appointments/{id}` | | — |
 | GET | `/appointments/{id}/history` | | — (trilha do compromisso) |
 | GET | `/appointments/deleted` | SUPPORT/ADMIN | — (lixeira) |

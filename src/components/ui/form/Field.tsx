@@ -683,6 +683,11 @@ export type DateTimePickerFieldProps = {
  * Data + hora (heroui.com/.../date-picker) — mesma composição de
  * `AppointmentFormFields`, com `CalendarDateTime` (`granularity="minute"`)
  * em vez do `CalendarDate` só-dia do `DatePickerField`.
+ *
+ * Escolher o dia no calendário leva o foco para a **hora** do próprio campo:
+ * falta só ela, e a pessoa já digita. O foco espera um tick (`setTimeout`),
+ * porque o calendário fecha na mesma escolha e, enquanto ele está aberto, o
+ * foco fica preso dentro dele.
  */
 export function DateTimePickerField({
   label,
@@ -703,9 +708,11 @@ export function DateTimePickerField({
       return null;
     }
   }, [value]);
+  const root = React.useRef<HTMLDivElement>(null);
+  const focusHour = () => root.current?.querySelector<HTMLElement>('[data-type="hour"]')?.focus();
 
   return (
-    <div className={className}>
+    <div ref={root} className={className}>
       <I18nProvider locale="pt-BR">
         {/* `w-full` pelo mesmo motivo do DatePickerField — ver lá. */}
         <DatePicker
@@ -733,7 +740,7 @@ export function DateTimePickerField({
             </DateField.Suffix>
           </DateField.Group>
           <DatePicker.Popover>
-            <Calendar aria-label={label} className="text-gray-100">
+            <Calendar aria-label={label} className="text-gray-100" onChange={() => setTimeout(focusHour)}>
               <Calendar.Header>
                 <Calendar.Heading />
                 <Calendar.NavButton

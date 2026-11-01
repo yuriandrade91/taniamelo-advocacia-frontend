@@ -71,6 +71,12 @@ describe("Campos do formulário", () => {
     await user.click(day[0]);
     expect(onChange).toHaveBeenCalledWith(expect.stringMatching(/^\d{4}-\d{2}-15$/));
 
+    // Escolhido o dia no calendário, o foco vai para a hora do próprio campo.
+    const dateTime = screen.getAllByRole("button", { name: /Calendário/ })[1];
+    await user.click(dateTime);
+    await user.click((await screen.findAllByRole("button", { name: /15/ }))[0]);
+    expect(document.activeElement).toHaveAttribute("data-type", "hour");
+
     const hour = screen.getAllByRole("spinbutton", { name: /dia/ }).at(-1)!;
     await user.click(hour);
     await user.keyboard("0101203009");

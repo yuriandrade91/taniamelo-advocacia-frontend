@@ -1,6 +1,7 @@
 import {
   getLocalTimeZone,
   parseAbsoluteToLocal,
+  toCalendarDate,
   toCalendarDateTime,
   type CalendarDateTime,
 } from "@internationalized/date";
@@ -126,6 +127,39 @@ export function shiftAfter(
 
   return { ...values, startAt: nextStart, endAt: nextEnd };
 }
+
+/**
+ * Escolher o início arruma o término: sem término, ele nasce **1h depois**;
+ * com término, acompanha o início e **mantém a duração** — mexer na hora de um
+ * compromisso de duas horas não o encolhe nem o deixa terminando antes de
+ * começar. Se o término que estava lá já não é posterior ao início (duração
+ * inválida), volta a 1h. Limpar o início não mexe no término.
+ *
+ * Só conta quando a **hora** foi escolhida: o calendário, sem hora no campo,
+ * entrega o dia às 00:00. Esse "dia sem hora" (campo vazio e meia-noite) não
+ * preenche o término — ele espera a hora ser digitada.
+ */
+export function withStart(
+  values: AppointmentFormValues,
+  startAt: CalendarDateTime | null,
+): AppointmentFormValues {
+  if (!startAt) return { ...values, startAt };
+  const isDayOnly = !values.startAt && startAt.hour === 0 && startAt.minute === 0;
+  if (isDayOnly) return { ...values, startAt };
+
+  const durationMs =
+    values.startAt && values.endAt
+      ? values.endAt.toDate(getLocalTimeZone()).getTime() -
+        values.startAt.toDate(getLocalTimeZone()).getTime()
+      : 0;
+  const endAt =
+    durationMs > 0 ? startAt.add({ minutes: Math.round(durationMs / 60_000) }) : startAt.add({ hours: 1 });
+  return { ...values, startAt, endAt };
+}
+
+/** O dia do início (`2026-11-02`), ou `""` sem início — a chave da consulta de feriado. */
+export const dayOf = (startAt: CalendarDateTime | null): string =>
+  startAt ? toCalendarDate(startAt).toString() : "";
 
 /** ISO-8601 -> `CalendarDateTime` local, pro `DatePicker`. */
 function fromIsoInstant(

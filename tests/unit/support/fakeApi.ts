@@ -1,5 +1,7 @@
 import { vi } from "vitest";
+import { clearAppointmentsCache } from "@/lib/appointmentsCache";
 import { clearClientSheets } from "@/lib/clientsCache";
+import { clearSessionCaches } from "@/lib/requestCache";
 
 /**
  * A API de mentira dos testes de componente: a instância do axios
@@ -48,10 +50,15 @@ export function httpError(status: number, message = "Falha simulada.", errors: F
   });
 }
 
-/** Como o interceptor do `axiosService`: gravação bem-sucedida esvazia as leituras guardadas da ficha. */
+/** Como o interceptor do `axiosService`: gravação bem-sucedida esvazia as leituras guardadas da ficha e os meses da Agenda. */
 function dispatch(method: Method, url: string, body?: unknown, config?: Request["config"]) {
   const response = respond(method, url, body, config);
-  if (method !== "get") void response.then(clearClientSheets, () => undefined);
+  if (method !== "get") {
+    void response.then(() => {
+      clearClientSheets();
+      if (url.includes("/appointments")) clearAppointmentsCache();
+    }, () => undefined);
+  }
   return response;
 }
 
@@ -95,6 +102,8 @@ export const callsTo = (method: Method) => api[method].mock.calls as unknown[][]
 
 export function resetApi() {
   routes.length = 0;
+  // Os caches de sessão (lista de clientes, meses da Agenda) não passam de um teste para o outro.
+  clearSessionCaches();
   for (const method of ["get", "post", "put", "patch", "delete"] as const) api[method].mockClear();
   api.mockClear();
 }

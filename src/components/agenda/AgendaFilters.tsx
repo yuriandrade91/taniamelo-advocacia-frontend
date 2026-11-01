@@ -11,7 +11,7 @@ import {
 
 /**
  * Os filtros da Agenda. O mês é o seletor do topo; a Situação nasce em
- * "Agendado" (`AGENDA_DEFAULTS`, filtrado no endpoint) — "Limpar" volta a ele.
+ * "Agendado" (`AGENDA_DEFAULTS`, filtrado no endpoint).
  */
 export const agendaFilters = defineFilters({
   search: {
@@ -38,19 +38,19 @@ export const AGENDA_DEFAULTS = { status: ["AGENDADO"] };
 
 /**
  * A barra da Agenda numa linha só (quebra abaixo do `xl`): busca, Tipo, a
- * Situação em segmentos liga/desliga e "Limpar filtros". Sem chips: o que está
- * ativo já aparece no próprio campo.
+ * Situação em segmentos e "Limpar filtros". Sem chips: o que está ativo já
+ * aparece no próprio campo.
+ *
+ * A Situação é uma escolha só (um segmento por vez, "Todas" é nenhum) e fica
+ * fora do "Limpar": ele é da busca e do Tipo, e não mexe no segmento.
  */
 export function AgendaFilters({ filters }: Readonly<{ filters: FiltersState<typeof agendaFilters> }>) {
   const { values, set } = filters;
   const statuses = agendaFilters.status.options;
-  /** Cada segmento liga e desliga o seu; com todos ligados, volta a "Todas" — mesmo resultado. */
-  const toggle = (id: string) => {
-    if (id === "") return set("status", []);
-    const next = values.status.includes(id)
-      ? values.status.filter((s) => s !== id)
-      : [...values.status, id];
-    set("status", next.length === statuses.length ? [] : next);
+  const hasTypedFilter = values.search.trim() !== "" || values.types.length > 0;
+  const clear = () => {
+    set("search", "");
+    set("types", []);
   };
   return (
     <div className="flex flex-wrap items-center gap-2 xl:flex-nowrap">
@@ -58,14 +58,14 @@ export function AgendaFilters({ filters }: Readonly<{ filters: FiltersState<type
       <FilterField schema={agendaFilters} name="types" values={values} onChange={set} className="w-full shrink-0 sm:w-60" />
       <Segmented
         label="Situação"
-        mode="toggle"
+        mode="radio"
         segments={[
           { id: "", label: "Todas", active: values.status.length === 0 },
           ...statuses.map((option) => ({ ...option, active: values.status.includes(option.id) })),
         ]}
-        onPress={toggle}
+        onPress={(id) => set("status", id ? [id] : [])}
       />
-      <ClearFilters isVisible={filters.hasActive} onClear={filters.clear} />
+      <ClearFilters isVisible={hasTypedFilter} onClear={clear} />
     </div>
   );
 }

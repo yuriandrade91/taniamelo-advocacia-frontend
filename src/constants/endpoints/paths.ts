@@ -266,6 +266,12 @@ const endpoints = {
      * conflito.
      */
     CONFLICTS: appointments.byId("conflicts"),
+    /**
+     * GET ?date=YYYY-MM-DD — se o dia é feriado **nacional**. Estadual e
+     * municipal não são verificados (`verified`/`message` dizem isso). Avisa,
+     * não bloqueia: o POST e o PUT não recusam por feriado.
+     */
+    HOLIDAY: appointments.byId("holiday"),
     /** PUT — substituição completa; exige `justification`. */
     UPDATE: appointments.byId,
     /** PATCH — exige `justification`. */

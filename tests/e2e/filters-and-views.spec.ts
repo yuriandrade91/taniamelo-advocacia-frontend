@@ -10,19 +10,22 @@ import { integrationPaused } from "./apiHelper";
  */
 
 test.describe("Agenda", () => {
-  test("nasce em Agendado, sem 'Limpar'; mexer mostra 'Limpar', que volta ao padrão", async ({ page }) => {
+  test("Situação é uma por vez e fora do 'Limpar'; a busca mostra 'Limpar', que só a limpa", async ({ page }) => {
     await page.goto("/agenda");
-    const situation = page.getByRole("group", { name: "Situação" });
-    await expect(situation.getByRole("button", { name: "Agendado" })).toHaveAttribute("aria-pressed", "true");
+    const situation = page.getByRole("radiogroup", { name: "Situação" });
+    await expect(situation.getByRole("radio", { name: "Agendado" })).toHaveAttribute("aria-checked", "true");
     await expect(page.getByRole("button", { name: "Limpar filtros" })).toHaveCount(0);
 
     const query = page.waitForRequest((r) => r.url().includes("/appointments") && r.url().includes("CONCLUIDO"));
-    await situation.getByRole("button", { name: "Concluído" }).click();
+    await situation.getByRole("radio", { name: "Concluído" }).click();
     await query;
+    await expect(situation.getByRole("radio", { name: "Agendado" })).toHaveAttribute("aria-checked", "false");
+    await expect(page.getByRole("button", { name: "Limpar filtros" })).toHaveCount(0);
 
+    await page.getByRole("searchbox", { name: "Pesquisar compromisso" }).fill("perícia");
     await page.getByRole("button", { name: "Limpar filtros" }).click();
-    await expect(situation.getByRole("button", { name: "Agendado" })).toHaveAttribute("aria-pressed", "true");
-    await expect(situation.getByRole("button", { name: "Concluído" })).toHaveAttribute("aria-pressed", "false");
+    await expect(page.getByRole("searchbox", { name: "Pesquisar compromisso" })).toHaveValue("");
+    await expect(situation.getByRole("radio", { name: "Concluído" })).toHaveAttribute("aria-checked", "true");
     await expect(page.getByRole("button", { name: "Limpar filtros" })).toHaveCount(0);
   });
 });
