@@ -769,7 +769,7 @@ function Footer() {
         </p>
         <p className="text-[14px] text-muted-ink">Informações gerais. Cada caso exige análise individual.</p>
         <div className="flex items-center gap-6 text-[15px]">
-          <Link href={publicRoutes.login} className="text-muted-ink transition hover:text-primary">
+          <Link href={publicRoutes.login} className="text-muted-ink transition hover:text-primary underline decoration-1 decoration-secondary underline-offset-2">
             Área da equipe
           </Link>
           <button type="button" onClick={() => openComposer()} className={`group flex items-center gap-2 ${PRESS}`}>
