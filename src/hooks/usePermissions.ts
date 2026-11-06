@@ -2,6 +2,7 @@
 
 import { useMemo, useSyncExternalStore } from "react";
 import {
+  canChangeOfficeLogo,
   canDestroy,
   canListUsers,
   canSeeFinance,
@@ -14,11 +15,13 @@ type Permissions = {
   canListUsers: boolean;
   /** Só ADMIN — advogado também não vê. Ver `canSeeFinance` em permissions. */
   canSeeFinance: boolean;
+  /** Só ADMIN. Ver `canChangeOfficeLogo` em permissions. */
+  canChangeOfficeLogo: boolean;
 };
 
-/** As quatro permissões como texto ("1010"): snapshot estável para comparar por valor. */
+/** As permissões como texto ("10101"): snapshot estável para comparar por valor. */
 const readKey = () =>
-  [canDestroy(), canSeeInssPassword(), canListUsers(), canSeeFinance()]
+  [canDestroy(), canSeeInssPassword(), canListUsers(), canSeeFinance(), canChangeOfficeLogo()]
     .map(Number)
     .join("");
 
@@ -38,14 +41,15 @@ const subscribe = (onChange: () => void) => {
  * vezes.
  */
 export function usePermissions(): Permissions {
-  const key = useSyncExternalStore(subscribe, readKey, () => "0000");
+  const key = useSyncExternalStore(subscribe, readKey, () => "00000");
   return useMemo(() => {
-    const [canDestroy, canSeeInssPassword, canListUsers, canSeeFinance] = [...key].map((c) => c === "1");
+    const [canDestroy, canSeeInssPassword, canListUsers, canSeeFinance, canChangeOfficeLogo] = [...key].map((c) => c === "1");
     return {
       canDestroy,
       canSeeInssPassword,
       canListUsers,
       canSeeFinance,
+      canChangeOfficeLogo,
     };
   }, [key]);
 }

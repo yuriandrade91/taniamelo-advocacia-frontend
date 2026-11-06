@@ -204,7 +204,9 @@ function LoginForm() {
           alt="Logo"
           height={200}
           width={200}
-          className="lg:h-96 lg:w-96"
+          // Altura fixa também no celular: a marca é larga, e com altura automática o
+          // painel encolhia até as faixas decorativas cobrirem o nome.
+          className="h-50 lg:h-96 lg:w-96"
         />
         <div className="absolute h-60 p-3 bg-secondary right-[-10]"></div>
         <div className="absolute w-60 p-3 bg-primary bottom-6 right-[-100]"></div>

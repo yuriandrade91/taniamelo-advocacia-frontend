@@ -76,6 +76,14 @@ describe("Login", () => {
     await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/home"));
   });
 
+  it("a imagem é a padrão do sistema, mesmo no escritório da Tânia e sem perguntar pela logo", async () => {
+    failApi("post", "/auth/refresh", 401);
+    renderApp(<LoginPage />);
+
+    expect((await screen.findByAltText("Logo")).getAttribute("src")).toBe("/svg/gold-logo.svg");
+    expect(callsTo("get").some(([url]) => String(url).endsWith("/tenants/resolve"))).toBe(false);
+  });
+
   it("quem já tem sessão sai do login", async () => {
     signIn();
     failApi("post", "/auth/refresh", 401);

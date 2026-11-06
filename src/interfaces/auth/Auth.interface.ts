@@ -18,4 +18,9 @@ export interface LoginResponse {
   role: string;
   tenantId: string;
   tenantSlug: string;
+  /**
+   * Caminho da logo do escritório na API, já com a versão; `null` enquanto ele
+   * usa a marca padrão. Ausente em backend anterior a ela.
+   */
+  logoUrl?: string | null;
 }

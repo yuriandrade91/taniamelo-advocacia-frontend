@@ -71,3 +71,11 @@ export function canListUsers(): boolean {
 export function canSeeFinance(): boolean {
   return currentRole() === "ADMIN";
 }
+
+/**
+ * Trocar a logo do escritório: só ADMIN, como no backend (`@RequerAdmin`).
+ * Ela aparece em toda tela de todo mundo; mudar a marca é da gestão.
+ */
+export function canChangeOfficeLogo(): boolean {
+  return currentRole() === "ADMIN";
+}

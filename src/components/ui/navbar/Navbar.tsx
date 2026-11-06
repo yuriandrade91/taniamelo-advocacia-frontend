@@ -1,10 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import svgPaths from "@/constants/svg/paths";
+import { OfficeLogo } from "@/components/ui/brand/OfficeLogo";
 import NavMenuItem from "./NavMenuItem";
 import NavSearch from "./NavSearch";
 import NotificationCenter, {
@@ -150,13 +149,14 @@ export default function Navbar() {
         className="flex shrink-0 items-center"
         aria-label="Início"
       >
-        <Image
-          src={svgPaths.LOGOS.BLUE}
+        <OfficeLogo
+          tone="blue"
           alt="Tânia Melo Advocacia Previdenciária"
           height={96}
           width={96}
           priority
-          className="h-20 w-auto"
+          // A logo do escritório pode ser larga; sem teto, ela encostaria no menu.
+          className="h-20 w-auto max-w-60"
         />
       </Link>
 

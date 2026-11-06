@@ -30,6 +30,7 @@ import {
   type ProfileErrors,
   type ProfileValues,
 } from "@/components/profile/profileForm";
+import { OfficeSection } from "@/components/profile/OfficeSection";
 import type { MyProfile } from "@/interfaces/user/User.interface";
 
 /**
@@ -51,6 +52,8 @@ import type { MyProfile } from "@/interfaces/user/User.interface";
  *
  * A rota é aberta a qualquer papel de propósito: é a própria pessoa. Não há
  * como pedir o "me" de outra — o servidor lê o usuário do token, não da URL.
+ * A exceção é a logo, no cartão do escritório (`OfficeSection`): todos a
+ * veem, só ADMIN a troca.
  */
 export default function ProfilePage() {
   const [profile, setProfile] = useState<MyProfile | null>(null);
@@ -155,7 +158,7 @@ export default function ProfilePage() {
     <div className="flex flex-col gap-5 pb-16">
       <PageHeader
         title="Meus dados"
-        description="Seu cadastro no escritório e a senha de acesso."
+        description="Seu cadastro, a senha de acesso e o escritório."
       />
 
       {loadFailed && (
@@ -294,6 +297,8 @@ export default function ProfilePage() {
           </div>
         </Card>
       </div>
+
+      <OfficeSection />
     </div>
   );
 }

@@ -10,6 +10,11 @@ const svgPaths = {
     GOLD: "/svg/gold-logo.svg",
     BLUE: "/svg/blue-logo.svg",
   },
+  /** A marca da Tânia, só dela: os demais escritórios usam `LOGOS`. */
+  TANIA_LOGOS: {
+    GOLD: "/svg/tania/gold-logo.svg",
+    BLUE: "/svg/tania/blue-logo.svg",
+  },
 } as const;
 
 export default svgPaths;

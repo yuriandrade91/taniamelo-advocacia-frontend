@@ -2,7 +2,8 @@ import { publicRoutes } from "@/constants/paths/routes";
 import type { LoginResponse } from "@/interfaces/auth/Auth.interface";
 import { clearSessionCaches } from "./requestCache";
 import { clearSessionUser, saveSessionUser } from "./sessionUser";
-import { clearTenant, setTenant } from "./tenant";
+import { rememberOfficeLogo } from "./officeLogo";
+import { clearTenant, getTenantSlug, setTenant } from "./tenant";
 
 /**
  * A sessão no navegador: gravar, limpar e **encerrar**, num lugar só.
@@ -45,6 +46,8 @@ export function applySession(data: LoginResponse | undefined | null): string | n
   if (!data?.token) return null;
   persistToken(data.token, data.expiresInSeconds);
   if (data.tenantId || data.tenantSlug) setTenant(data.tenantId, data.tenantSlug);
+  // A tela entra com a logo certa, sem perguntar ao `resolve` o que o login já disse.
+  if (data.logoUrl !== undefined) rememberOfficeLogo(getTenantSlug(), data.logoUrl);
   saveSessionUser(data);
   return data.token;
 }

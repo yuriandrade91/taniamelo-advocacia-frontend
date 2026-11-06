@@ -30,6 +30,7 @@ const revenues = resource("revenues");
 const payments = resource("payments");
 const appointments = resource("appointments");
 const cep = resource("cep");
+const tenants = resource("tenants");
 
 /** Sub-recurso de um cliente: `/clients/{clientId}/{name}` e `.../{id}`. */
 const clientResource = (name: string) => {
@@ -60,6 +61,26 @@ const endpoints = {
     REFRESH: auth.byId("refresh"),
     /** POST — revoga o refresh token e limpa o cookie. */
     LOGOUT: auth.byId("logout"),
+  },
+
+  /**
+   * /api/v1/tenants — o escritório (`TenantController`).
+   *
+   * `RESOLVE` é público: o login mostra a logo antes de haver sessão. O
+   * `logoUrl` que ele e o `CURRENT` devolvem é um caminho na API, já com a
+   * versão, e vem nulo enquanto o escritório usa a marca padrão.
+   */
+  TENANTS: {
+    /** GET ?slug= — público. */
+    RESOLVE: tenants.byId("resolve"),
+    /** GET — o escritório da sessão: razão social, CNPJ, contato, plano. */
+    CURRENT: tenants.byId("current"),
+    /**
+     * PUT multipart (`file`: PNG, JPEG ou WebP de até 2 MB) troca a logo;
+     * DELETE volta à marca padrão. Só ADMIN (`@RequerAdmin`): ver
+     * `canChangeOfficeLogo`.
+     */
+    CURRENT_LOGO: `${tenants.byId("current")}/logo`,
   },
 
   /**

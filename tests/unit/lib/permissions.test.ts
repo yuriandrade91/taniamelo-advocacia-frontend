@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  canChangeOfficeLogo,
   canDestroy,
   canListUsers,
   canSeeFinance,
@@ -85,5 +86,18 @@ describe("o financeiro tem corte próprio, mais estrito", () => {
     expect(canSeeFinance()).toBe(false);
     withRole("SUPERADMIN");
     expect(canSeeFinance()).toBe(false);
+  });
+});
+
+describe("a logo do escritório é da gestão", () => {
+  it("só ADMIN troca — advogado e atendente veem, mas não mexem", () => {
+    // Mesmo corte do backend (@RequerAdmin no PUT/DELETE da logo): a marca
+    // aparece em toda tela de todo mundo.
+    withRole("ADMIN");
+    expect(canChangeOfficeLogo()).toBe(true);
+    for (const role of ["LAWYER", "SUPPORT", "STAFF", "", null]) {
+      withRole(role);
+      expect(canChangeOfficeLogo(), String(role)).toBe(false);
+    }
   });
 });

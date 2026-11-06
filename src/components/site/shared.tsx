@@ -36,7 +36,7 @@ export function shortBenefit(title: string) {
 export function Logo({ tone = "gold", className = "h-11 w-auto", decorative = false }: Readonly<{ tone?: "gold" | "blue"; className?: string; decorative?: boolean }>) {
   return (
     <Image
-      src={tone === "gold" ? svgPaths.LOGOS.GOLD : svgPaths.LOGOS.BLUE}
+      src={tone === "gold" ? svgPaths.TANIA_LOGOS.GOLD : svgPaths.TANIA_LOGOS.BLUE}
       alt={decorative ? "" : SITE_NAME}
       width={112}
       height={60}
