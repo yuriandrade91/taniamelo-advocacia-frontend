@@ -422,6 +422,68 @@ describe("Ficha do cliente: casos de borda", () => {
   });
 });
 
+describe("Ficha do cliente: edição por bloco", () => {
+  const putTo = (path: string) => callsTo("put").filter(([url]) => String(url).endsWith(path));
+
+  it("o lápis solta só o bloco, e o salvar grava só ele, com aviso próprio", async () => {
+    signIn();
+    seedOffice();
+    onApi("put", "/clients/c1", envelope(fx.client({ profession: "Bordadeira" })));
+    const { user, onConfirm } = openSheet();
+    await screen.findAllByText("laudo.pdf");
+
+    await user.click(screen.getByRole("button", { name: "Editar dados profissionais" }));
+    // Os outros blocos seguem em leitura.
+    expect(screen.getByDisplayValue("Rua das Flores")).toHaveAttribute("readonly");
+    const profession = screen.getByDisplayValue("Costureira");
+    await user.clear(profession);
+    await user.type(profession, "Bordadeira");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+
+    expect(await screen.findByText("Dados profissionais de Maria Aparecida da Silva atualizados.")).toBeInTheDocument();
+    const [[, body]] = putTo("/clients/c1");
+    expect(body).toMatchObject({ profession: "Bordadeira", fullName: "Maria Aparecida da Silva" });
+    expect(callsTo("put")).toHaveLength(1);
+    expect(onConfirm).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Editar dados profissionais" })).toBeInTheDocument();
+  });
+
+  it("o endereço grava só o endereço; o que foi digitado em outro bloco não vai junto", async () => {
+    signIn();
+    seedOffice();
+    onApi("put", /\/addresses\/a1$/, envelope(fx.address({ street: "Rua das Acácias" })));
+    const { user } = openSheet();
+    await screen.findAllByText("laudo.pdf");
+
+    await user.click(screen.getByRole("button", { name: "Editar endereço" }));
+    const street = screen.getByDisplayValue("Rua das Flores");
+    await user.clear(street);
+    await user.type(street, "Rua das Acácias");
+    await user.click(screen.getByRole("button", { name: "Salvar" }));
+
+    expect(await screen.findByText("Endereço de Maria Aparecida da Silva atualizado.")).toBeInTheDocument();
+    expect(putTo("/addresses/a1")[0][1]).toMatchObject({ street: "Rua das Acácias" });
+    expect(putTo("/clients/c1")).toHaveLength(0);
+  });
+
+  it("com um bloco aberto, os outros lápis e o editar cadastro esperam; cancelar volta ao gravado", async () => {
+    signIn();
+    seedOffice();
+    const { user } = openSheet();
+    await screen.findAllByText("laudo.pdf");
+
+    await user.click(screen.getByRole("button", { name: "Editar dados profissionais" }));
+    expect(screen.getByRole("button", { name: "Editar endereço" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Editar cadastro" })).toBeDisabled();
+
+    await user.type(screen.getByDisplayValue("Costureira"), " e bordadeira");
+    await user.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(await screen.findByDisplayValue("Costureira")).toHaveAttribute("readonly");
+    expect(screen.getByRole("button", { name: "Editar endereço" })).toBeEnabled();
+    expect(callsTo("put")).toHaveLength(0);
+  });
+});
+
 describe("Ficha do cliente: navegação pelas seções", () => {
   it("a seção ativa acompanha a rolagem e o menu leva até cada uma", async () => {
     signIn();

@@ -58,11 +58,20 @@ import { findPrimaryIndex, withPrimaryAt } from "../form/primaryAddress";
  *   estado novo — sem reler a ficha inteira; o histórico só é relido se a
  *   situação mudou. As gravações saem caladas e o Salvar avisa uma vez:
  *   "Ficha atualizada." ou, sem mudança, "Nada foi alterado.";
+ * - salvar um bloco (`scope`): só ele é validado e gravado. O PUT do cliente
+ *   continua substituição total, então as outras seções vão como estão
+ *   gravadas, não como estão na tela;
  * - arquivos: lidos só quando a seção aparece (`loadFiles`); enviar ou
  *   excluir relê só as duas listas.
  */
 
 type Snapshot = SheetSections & { addresses: AddressValues[]; interview: InterviewValues };
+
+/** As seções que a ficha grava; o "Salvar" do cadastro inteiro grava todas. */
+const SHEET_BLOCKS = ["service", "personal", "professional", "addresses", "interview"] as const;
+export type SheetBlock = (typeof SHEET_BLOCKS)[number];
+
+type CheckedForm = [{ errors: object; revealErrors: () => boolean }, SectionSchema];
 
 /** Quantos endereços a ficha mostra e edita — o mesmo limite do cadastro. */
 const ADDRESS_LIMIT = 3;
@@ -104,8 +113,20 @@ function snapshotOf(loaded: LoadedClient): Snapshot {
   };
 }
 
+/** A ficha a gravar: o que está na tela nos blocos de `scope`, o gravado nos outros. */
+function scopedSnapshot(scope: readonly SheetBlock[], screen: Snapshot, saved: Snapshot): Snapshot {
+  const from = (block: SheetBlock) => (scope.includes(block) ? screen : saved);
+  return {
+    service: from("service").service,
+    personal: from("personal").personal,
+    professional: from("professional").professional,
+    addresses: from("addresses").addresses,
+    interview: from("interview").interview,
+  };
+}
+
 /** Rótulos dos campos com erro — para a mensagem do Salvar. */
-const invalidLabels = (forms: [{ errors: object }, SectionSchema][]) =>
+const invalidLabels = (forms: CheckedForm[]) =>
   forms.flatMap(([form, schema]) => Object.keys(form.errors).map((key) => schema[key]?.label ?? key));
 
 /**
@@ -277,38 +298,57 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
    * deficiência, andamento no INSS); `afterSave` grava depois do cliente — os períodos dependem
    * do sexo que este PUT pode ter acabado de corrigir — calado, como o resto,
    * e diz se gravou alguma coisa.
+   *
+   * `scope` restringe a um bloco (ou a nenhum, quando quem grava é só o
+   * `afterSave`); `successMessage` troca o "Ficha atualizada." do aviso.
    */
-  const save = async (hooks: { validateExtra?: () => boolean; afterSave?: () => Promise<boolean> } = {}) => {
+  const save = async (
+    hooks: {
+      scope?: readonly SheetBlock[];
+      successMessage?: string;
+      validateExtra?: () => boolean;
+      afterSave?: () => Promise<boolean>;
+    } = {},
+  ) => {
     if (!clientId || !loaded) return false;
-    const filledAddresses = addresses.filter((form) => hasAddressInput(form.values));
-    const checks = [
-      service.revealErrors(),
-      personal.revealErrors(),
-      professional.revealErrors(),
-      interview.revealErrors(),
-      ...filledAddresses.map((form) => form.revealErrors()),
-      hooks.validateExtra?.() ?? true,
+    const { scope = SHEET_BLOCKS, successMessage = "Ficha atualizada." } = hooks;
+    const has = (block: SheetBlock) => scope.includes(block);
+    const before = loaded.snapshot;
+    const filledAddresses = has("addresses") ? addresses.filter((form) => hasAddressInput(form.values)) : [];
+    const sectionForms: [SheetBlock, CheckedForm][] = [
+      ["service", [service, serviceSchema]],
+      ["personal", [personal, personalSchema]],
+      ["professional", [professional, professionalSchema]],
+      ["interview", [interview, interviewSchema]],
     ];
+    const checked = [
+      ...sectionForms.filter(([block]) => has(block)).map(([, form]) => form),
+      ...filledAddresses.map((form): CheckedForm => [form, addressSchema]),
+    ];
+    const checks = [...checked.map(([form]) => form.revealErrors()), hooks.validateExtra?.() ?? true];
     if (!checks.every(Boolean)) {
-      const labels = invalidLabels([
-        [service, serviceSchema],
-        [personal, personalSchema],
-        [professional, professionalSchema],
-        [interview, interviewSchema],
-        ...filledAddresses.map((form): [{ errors: object }, SectionSchema] => [form, addressSchema]),
-      ]);
-      setSaveError(reviseMessage(labels));
+      setSaveError(reviseMessage(invalidLabels(checked)));
       return false;
     }
 
     setIsSaving(true);
     setSaveError("");
+    const values = scopedSnapshot(
+      scope,
+      {
+        service: service.values,
+        personal: personal.values,
+        professional: professional.values,
+        addresses: addresses.map((form) => form.values),
+        interview: interview.values,
+      },
+      before,
+    );
     const sections: SheetSections = {
-      service: service.values,
-      personal: personal.values,
-      professional: professional.values,
+      service: values.service,
+      personal: values.personal,
+      professional: values.professional,
     };
-    const before = loaded.snapshot;
     const next: SheetRecord = { ...loaded };
     // Os arquivos ficam com o que está no estado, não com o retrato de antes:
     // o `afterSave` os envia e `loadFiles` os relê no meio do caminho —
@@ -324,9 +364,9 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
         next.client = envelope?.data ?? next.client;
         wrote = true;
       }
-      const addressValues = addresses.map((form) => form.values);
-      if (await saveAddresses(clientId, next, addressValues, before.addresses)) wrote = true;
-      if (await saveInterview(clientId, next, interview.values, before.interview)) wrote = true;
+      // Fora do `scope` os valores são os gravados: nada muda, nada sai.
+      if (await saveAddresses(clientId, next, values.addresses, before.addresses)) wrote = true;
+      if (await saveInterview(clientId, next, values.interview, before.interview)) wrote = true;
       if (await hooks.afterSave?.()) wrote = true;
       if (sections.service.situation !== before.service.situation) {
         const history = await clientSituationHistory(clientId, { pageNumber: 1, pageSize: 50 }).catch(() => null);
@@ -337,12 +377,12 @@ export function useClientSheet(clientId: string | undefined, isOpen: boolean) {
         ...sections,
         professional: { ...sections.professional, inssPassword: "" },
         // Uma aba aberta e deixada em branco não é endereço: não fica na ficha.
-        addresses: addressValues.slice(0, Math.max(1, addressValues.findLastIndex(hasAddressInput) + 1)),
-        interview: interview.values,
+        addresses: values.addresses.slice(0, Math.max(1, values.addresses.findLastIndex(hasAddressInput) + 1)),
+        interview: values.interview,
       };
       commit();
       apply(next.snapshot);
-      if (wrote) notificationCenter.success("Ficha atualizada.");
+      if (wrote) notificationCenter.success(successMessage);
       else notificationCenter.info("Nada foi alterado.");
       return true;
     } catch (reason) {

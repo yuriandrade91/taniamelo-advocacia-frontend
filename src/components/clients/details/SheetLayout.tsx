@@ -142,6 +142,9 @@ export function SheetSidebar({
  * que separa as seções lá, agora separando estas.
  *
  * `data-spy` é o que a ancoragem observa (`useSectionAnchors`).
+ *
+ * `data-readonly` vai por cartão, não na ficha inteira: editando um bloco, só
+ * ele sai da leitura (`ui/form/formFields.css`).
  */
 export function SheetSectionCard({
   id,
@@ -149,6 +152,9 @@ export function SheetSectionCard({
   blurb,
   icon,
   badge,
+  isReadOnly = false,
+  action,
+  footer,
   children,
 }: Readonly<{
   id: string;
@@ -157,11 +163,17 @@ export function SheetSectionCard({
   icon?: ReactNode;
   /** "5/7", "3 arquivos" — nada nas seções que não contam campos. */
   badge?: string;
+  isReadOnly?: boolean;
+  /** No canto do cabeçalho: o lápis que edita só este bloco. */
+  action?: ReactNode;
+  /** Embaixo do conteúdo: o "Cancelar"/"Salvar" do bloco em edição. */
+  footer?: ReactNode;
   children: ReactNode;
 }>) {
   return (
     <section
       data-spy={id}
+      data-readonly={isReadOnly ? "" : undefined}
       aria-label={label}
       className="scroll-mt-2 overflow-hidden rounded-2xl bg-white ring-1 ring-black/5"
     >
@@ -180,8 +192,10 @@ export function SheetSectionCard({
             {badge}
           </span>
         )}
+        {action}
       </header>
       <div className="px-5 py-5 sm:px-6 sm:py-6">{children}</div>
+      {footer && <div className="flex justify-end px-5 pb-5 sm:px-6 sm:pb-6">{footer}</div>}
     </section>
   );
 }

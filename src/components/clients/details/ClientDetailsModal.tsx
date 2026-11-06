@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
+import { IconButton } from "@/components/ui/actions/IconButton";
 import { LoadingCircle, RowSkeletons } from "@/components/ui/feedback/Loading";
 import { DownloadIcon, PencilIcon, PrinterIcon, TrashIcon } from "@/components/ui/icons/actions";
 import { CheckIcon, ClockIcon, WalletIcon } from "@/components/ui/icons/glyphs";
@@ -70,7 +71,7 @@ import {
   type SheetNavItem,
 } from "./SheetLayout";
 import { sectionFill, sheetProgress } from "./clientSheet";
-import { useClientSheet } from "./useClientSheet";
+import { useClientSheet, type SheetBlock } from "./useClientSheet";
 import { optionalText } from "@/lib/formValues";
 import { messageOf } from "@/lib/errorMessage";
 
@@ -94,9 +95,27 @@ const DeleteClientModal = dynamic(() => import("../DeleteClientModal"), { ssr: f
  * adicionar nem excluir — só abrir e baixar. "Editar cadastro" (ou o editar da
  * lista, que já abre assim) solta os campos onde eles estão; "Salvar" grava
  * tudo de uma vez, arquivos novos inclusive, e "Cancelar" volta ao gravado.
+ * O lápis no cartão de um bloco faz o mesmo só com ele: solta os campos dele,
+ * e o "Salvar" no pé do cartão grava só aquele bloco, com aviso próprio.
  *
  * Estado, validação e gravação ficam em `useClientSheet`.
  */
+
+/**
+ * Os blocos que se editam sozinhos, pelo lápis do cartão: o que cada um grava
+ * e o aviso dele. Deficiência e Arquivos não têm seção na ficha — gravam pelo
+ * `afterSave`, e só quando estão em edição (o painel só entrega o `ref`, e só
+ * há arquivo escolhido, editando).
+ */
+const EDITABLE_BLOCKS: Record<string, { scope: SheetBlock[]; saved: (name: string) => string }> = {
+  atendimento: { scope: ["service"], saved: (name) => `Atendimento de ${name} atualizado.` },
+  deficiencia: { scope: [], saved: (name) => `Períodos de deficiência de ${name} atualizados.` },
+  "dados-pessoais": { scope: ["personal"], saved: (name) => `Dados pessoais de ${name} atualizados.` },
+  "dados-profissionais": { scope: ["professional"], saved: (name) => `Dados profissionais de ${name} atualizados.` },
+  endereco: { scope: ["addresses"], saved: (name) => `Endereço de ${name} atualizado.` },
+  entrevista: { scope: ["interview"], saved: (name) => `Entrevista de ${name} atualizada.` },
+  arquivos: { scope: [], saved: (name) => `Arquivos de ${name} enviados.` },
+};
 
 /** Altura útil: o `Modal.Dialog` corta o que passa, então quem rola é a coluna. */
 const SHEET_HEIGHT = "max-h-[calc(100dvh-7rem)] sm:max-h-[calc(100dvh-9.5rem)]";
@@ -180,6 +199,9 @@ export default function ClientDetailsModal({
   const record = sheet.record;
 
   const [isEditing, setIsEditing] = useState(editOnOpen);
+  /** O bloco aberto pelo lápis — um de cada vez, e nunca junto da edição inteira. */
+  const [editingBlock, setEditingBlock] = useState<string | null>(null);
+  const editable = (id: string) => isEditing || editingBlock === id;
   const [showDelete, setShowDelete] = useState(false);
   const [actionError, setActionError] = useState("");
   /** Arquivos escolhidos na edição — sobem no "Salvar". */
@@ -242,6 +264,7 @@ export default function ClientDetailsModal({
     setFilesRevealed(false);
     setActionError("");
     setIsEditing(false);
+    setEditingBlock(null);
   };
 
   const close = () => {
@@ -249,9 +272,13 @@ export default function ClientDetailsModal({
     onClose();
   };
 
-  const save = async () => {
+  /** Sem `block`, grava a ficha inteira; com ele, só o bloco do lápis. */
+  const save = async (block?: string) => {
+    const only = block ? EDITABLE_BLOCKS[block] : undefined;
     setFilesRevealed(true);
     const saved = await sheet.save({
+      scope: only?.scope,
+      successMessage: only?.saved(currentName),
       // Todos validam (e revelam os erros) antes de decidir: `&&` pararia no primeiro.
       validateExtra: () =>
         [disabilityRef.current?.validate() ?? true, stagedComplete(stagedDocuments, stagedSimulations)].every(Boolean),
@@ -270,6 +297,7 @@ export default function ClientDetailsModal({
     if (!saved) return;
     setFilesRevealed(false);
     setIsEditing(false);
+    setEditingBlock(null);
     onConfirm?.();
   };
 
@@ -308,10 +336,10 @@ export default function ClientDetailsModal({
     badge: countBadge(disabilityCount, "período", "períodos"),
     content: (
       <ClientDisabilityPanel
-        ref={isEditing ? disabilityRef : undefined}
+        ref={editable("deficiencia") ? disabilityRef : undefined}
         clientId={clientId}
         gender={GenderLabelByKey[personal.values.gender as GenderKey] ?? personal.values.gender}
-        isEditing={isEditing}
+        isEditing={editable("deficiencia")}
         canDeleteSaved={canDestroy}
         onSavedCountChange={setDisabilityCount}
       />
@@ -325,7 +353,7 @@ export default function ClientDetailsModal({
       description: "Benefício pretendido e situação do caso.",
       icon: <ServiceIcon />,
       ...fill(serviceSchema, service.values),
-      content: <ServiceSection form={service} isReadOnly={!isEditing} isLoading={sheet.isLoading} />,
+      content: <ServiceSection form={service} isReadOnly={!editable("atendimento")} isLoading={sheet.isLoading} />,
     },
     ...(disabilityPlacement === "afterService" ? [disabilitySection] : []),
     {
@@ -334,7 +362,9 @@ export default function ClientDetailsModal({
       description: "Quem é o cliente e como falar com ele.",
       icon: <PersonIcon />,
       ...fill(personalSchema, personal.values),
-      content: <PersonalDataSection form={personal} isReadOnly={!isEditing} isLoading={sheet.isLoading} />,
+      content: (
+        <PersonalDataSection form={personal} isReadOnly={!editable("dados-pessoais")} isLoading={sheet.isLoading} />
+      ),
     },
     ...(disabilityPlacement === "afterPersonal" ? [disabilitySection] : []),
     {
@@ -348,12 +378,12 @@ export default function ClientDetailsModal({
       content: (
         <ProfessionalDataSection
           form={professional}
-          isReadOnly={!isEditing}
+          isReadOnly={!editable("dados-profissionais")}
           isLoading={sheet.isLoading}
           inssPassword={
             <InssPasswordField
               clientId={clientId}
-              isEditing={isEditing}
+              isEditing={editable("dados-profissionais")}
               newPassword={professional.values.inssPassword}
               onNewPasswordChange={(value) => professional.setField("inssPassword", value)}
             />
@@ -375,13 +405,13 @@ export default function ClientDetailsModal({
           // A aba de um cliente anterior pode não existir neste: volta à primeira.
           selectedKey={addressSlots.some((slot) => slot.key === addressTab) ? addressTab : "address-0"}
           onSelectionChange={setAddressTab}
-          canAddMore={isEditing && sheet.canAddAddress}
+          canAddMore={editable("endereco") && sheet.canAddAddress}
           onAddAddress={() => {
             setAddressTab(`address-${addressSlots.length}`);
             sheet.addAddress();
           }}
           onRequestPrimary={(slot) => sheet.setPrimaryAddress(Number(slot.key.replace("address-", "")))}
-          isReadOnly={!isEditing}
+          isReadOnly={!editable("endereco")}
           isLoading={sheet.isLoading}
         />
       ),
@@ -394,7 +424,7 @@ export default function ClientDetailsModal({
       ...(interviewCount > 1
         ? { badge: `${interviewCount} registros` }
         : fill(interviewSchema, interview.values)),
-      content: <InterviewSection form={interview} isReadOnly={!isEditing} isLoading={sheet.isLoading} />,
+      content: <InterviewSection form={interview} isReadOnly={!editable("entrevista")} isLoading={sheet.isLoading} />,
     },
     {
       id: "arquivos",
@@ -411,7 +441,7 @@ export default function ClientDetailsModal({
           onDocumentsChange={setStagedDocuments}
           onSimulationsChange={setStagedSimulations}
           showErrors={filesRevealed}
-          isEditing={isEditing}
+          isEditing={editable("arquivos")}
           canDelete={canDestroy}
           onDelete={setFileRemoval}
         />
@@ -480,9 +510,7 @@ export default function ClientDetailsModal({
       size="cover"
       className="min-h-[80vh] max-w-[1440px] bg-page"
     >
-      {/* `data-readonly`: em leitura, o campo travado continua legível
-          (`ui/form/formFields.css`). */}
-      <div data-readonly={isEditing ? undefined : ""} className={`flex ${SHEET_HEIGHT} flex-col gap-4 py-4 md:flex-row`}>
+      <div className={`flex ${SHEET_HEIGHT} flex-col gap-4 py-4 md:flex-row`}>
         <SheetSidebar
           name={personal.values.fullName || clientName}
           benefit={benefitLabel}
@@ -501,6 +529,7 @@ export default function ClientDetailsModal({
           actions={
             <SheetActions
               isEditing={isEditing}
+              isEditingBlock={editingBlock !== null}
               isSaving={busy}
               isLoading={sheet.isLoading}
               isDownloading={recordFile.isDownloading}
@@ -535,6 +564,28 @@ export default function ClientDetailsModal({
                   blurb={section.description}
                   icon={section.icon}
                   badge={section.badge}
+                  // Em leitura, o campo travado continua legível (`ui/form/formFields.css`).
+                  isReadOnly={!editable(section.id)}
+                  action={
+                    section.id in EDITABLE_BLOCKS &&
+                    !isEditing &&
+                    editingBlock !== section.id && (
+                      <IconButton
+                        label={`Editar ${section.title.toLowerCase()}`}
+                        tone="secondary"
+                        // Um bloco de cada vez: o aberto fecha (Salvar ou Cancelar) antes de outro abrir.
+                        isDisabled={sheet.isLoading || editingBlock !== null}
+                        onClick={() => setEditingBlock(section.id)}
+                      >
+                        <PencilIcon className="h-4 w-4" />
+                      </IconButton>
+                    )
+                  }
+                  footer={
+                    editingBlock === section.id && (
+                      <BlockActions isSaving={busy} onCancel={leaveEdit} onSave={() => void save(section.id)} />
+                    )
+                  }
                 >
                   {section.content}
                 </SheetSectionCard>
@@ -683,6 +734,30 @@ function BenefitProgress({
   );
 }
 
+/** O pé do bloco aberto pelo lápis: grava só ele, ou volta ao gravado. */
+function BlockActions({
+  isSaving,
+  onCancel,
+  onSave,
+}: Readonly<{ isSaving: boolean; onCancel: () => void; onSave: () => void }>) {
+  return (
+    <ActionGroup>
+      <ActionButton tone="neutral" onClick={onCancel} disabled={isSaving}>
+        Cancelar
+      </ActionButton>
+      <ActionButton
+        tone="primary"
+        onClick={onSave}
+        disabled={isSaving}
+        aria-busy={isSaving || undefined}
+        icon={isSaving ? <LoadingCircle size={16} /> : <CheckIcon className="h-4 w-4" />}
+      >
+        {isSaving ? "Salvando…" : "Salvar"}
+      </ActionButton>
+    </ActionGroup>
+  );
+}
+
 /**
  * As ações no pé do painel: "Editar cadastro" na leitura; "Cancelar" e
  * "Salvar" na edição. Excluir é só ícone, com dica — o nome dele não disputa
@@ -690,6 +765,7 @@ function BenefitProgress({
  */
 function SheetActions({
   isEditing,
+  isEditingBlock,
   isSaving,
   isLoading,
   isDownloading,
@@ -703,6 +779,8 @@ function SheetActions({
   onDelete,
 }: Readonly<{
   isEditing: boolean;
+  /** Um bloco aberto pelo lápis: a edição inteira espera ele fechar. */
+  isEditingBlock: boolean;
   isSaving: boolean;
   /** Sem os dados ainda, não há o que editar nem salvar. */
   isLoading: boolean;
@@ -778,7 +856,7 @@ function SheetActions({
           grow
           className="font-semibold"
           onClick={onEdit}
-          disabled={isLoading || isDownloading || isPrinting}
+          disabled={isLoading || isEditingBlock || isDownloading || isPrinting}
           icon={<PencilIcon className="h-4 w-4" />}
         >
           Editar cadastro
