@@ -466,6 +466,40 @@ describe("Ficha do cliente: edição por bloco", () => {
     expect(putTo("/clients/c1")).toHaveLength(0);
   });
 
+  it("arquivos em edição: os novos num grupo, os já gravados em outro", async () => {
+    signIn();
+    seedOffice();
+    const { user } = openSheet();
+    await screen.findAllByText("laudo.pdf");
+    // Lendo, só há os gravados: sem títulos de grupo.
+    expect(screen.queryByText("Já na ficha")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Editar arquivos" }));
+    fireEvent.change(input(), { target: { files: [new File(["%PDF"], "rg.pdf", { type: "application/pdf" })] } });
+
+    const fresh = await screen.findByRole("list", { name: "Documentos novos" });
+    expect(within(fresh).getByText("rg.pdf")).toBeInTheDocument();
+    expect(within(fresh).getByText(/· a enviar$/)).toBeInTheDocument();
+    expect(within(fresh).queryByText("laudo.pdf")).not.toBeInTheDocument();
+    expect(within(screen.getByRole("list", { name: "Documentos" })).getByText("laudo.pdf")).toBeInTheDocument();
+    expect(screen.getByText("Para enviar")).toBeInTheDocument();
+    expect(screen.getByText("Já na ficha")).toBeInTheDocument();
+  });
+
+  it("os gravados são paginados de dez em dez", async () => {
+    signIn();
+    seedOffice();
+    const saved = Array.from({ length: 12 }, (_, i) => fx.document({ id: `d${i + 1}`, originalFilename: `doc-${i + 1}.pdf` }));
+    onApi("get", "/files/documents", page(saved, 12, 100));
+    const { user } = openSheet();
+    await screen.findAllByText("doc-1.pdf");
+    const list = () => screen.getByRole("list", { name: "Documentos" });
+    expect(within(list()).getAllByRole("listitem")).toHaveLength(10);
+
+    await user.click(screen.getByRole("button", { name: /Próxima/ }));
+    expect(within(list()).getAllByRole("listitem")).toHaveLength(2);
+  });
+
   it("com um bloco aberto, os outros lápis e o editar cadastro esperam; cancelar volta ao gravado", async () => {
     signIn();
     seedOffice();

@@ -154,7 +154,6 @@ export function SheetSectionCard({
   badge,
   isReadOnly = false,
   action,
-  footer,
   children,
 }: Readonly<{
   id: string;
@@ -164,10 +163,8 @@ export function SheetSectionCard({
   /** "5/7", "3 arquivos" — nada nas seções que não contam campos. */
   badge?: string;
   isReadOnly?: boolean;
-  /** No canto do cabeçalho: o lápis que edita só este bloco. */
+  /** No canto do cabeçalho: o lápis que edita só este bloco, ou o "Cancelar"/"Salvar" dele. */
   action?: ReactNode;
-  /** Embaixo do conteúdo: o "Cancelar"/"Salvar" do bloco em edição. */
-  footer?: ReactNode;
   children: ReactNode;
 }>) {
   return (
@@ -195,7 +192,6 @@ export function SheetSectionCard({
         {action}
       </header>
       <div className="px-5 py-5 sm:px-6 sm:py-6">{children}</div>
-      {footer && <div className="flex justify-end px-5 pb-5 sm:px-6 sm:pb-6">{footer}</div>}
     </section>
   );
 }

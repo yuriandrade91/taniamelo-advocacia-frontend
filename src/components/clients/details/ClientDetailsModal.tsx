@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { ActionButton, ActionGroup } from "@/components/ui/actions/ActionGroup";
 import { IconButton } from "@/components/ui/actions/IconButton";
+import { CloseIcon } from "@/components/ui/navbar/navIcons";
 import { LoadingCircle, RowSkeletons } from "@/components/ui/feedback/Loading";
 import { DownloadIcon, PencilIcon, PrinterIcon, TrashIcon } from "@/components/ui/icons/actions";
 import { CheckIcon, ClockIcon, WalletIcon } from "@/components/ui/icons/glyphs";
@@ -96,7 +97,8 @@ const DeleteClientModal = dynamic(() => import("../DeleteClientModal"), { ssr: f
  * lista, que já abre assim) solta os campos onde eles estão; "Salvar" grava
  * tudo de uma vez, arquivos novos inclusive, e "Cancelar" volta ao gravado.
  * O lápis no cartão de um bloco faz o mesmo só com ele: solta os campos dele,
- * e o "Salvar" no pé do cartão grava só aquele bloco, com aviso próprio.
+ * e o "Salvar" que toma o lugar do lápis grava só aquele bloco, com aviso
+ * próprio.
  *
  * Estado, validação e gravação ficam em `useClientSheet`.
  */
@@ -491,6 +493,29 @@ export default function ClientDetailsModal({
     },
   ];
 
+  /**
+   * O canto do cabeçalho de um bloco editável: o lápis, ou — com o bloco
+   * aberto — o "Cancelar"/"Salvar" no mesmo lugar. Na edição inteira, nada:
+   * quem salva é o painel.
+   */
+  const blockAction = (section: SheetSection) => {
+    if (!(section.id in EDITABLE_BLOCKS) || isEditing) return null;
+    if (editingBlock === section.id) {
+      return <BlockActions isSaving={busy} onCancel={leaveEdit} onSave={() => void save(section.id)} />;
+    }
+    return (
+      <IconButton
+        label={`Editar ${section.title.toLowerCase()}`}
+        tone="secondary"
+        // Um bloco de cada vez: o aberto fecha (Salvar ou Cancelar) antes de outro abrir.
+        isDisabled={sheet.isLoading || editingBlock !== null}
+        onClick={() => setEditingBlock(section.id)}
+      >
+        <PencilIcon className="h-4 w-4" />
+      </IconButton>
+    );
+  };
+
   const visible = sheetSections.filter((section) => !section.isHidden);
   const hidden = sheetSections.filter((section) => section.isHidden);
   const items: SheetNavItem[] = visible.map((section) => ({
@@ -566,26 +591,7 @@ export default function ClientDetailsModal({
                   badge={section.badge}
                   // Em leitura, o campo travado continua legível (`ui/form/formFields.css`).
                   isReadOnly={!editable(section.id)}
-                  action={
-                    section.id in EDITABLE_BLOCKS &&
-                    !isEditing &&
-                    editingBlock !== section.id && (
-                      <IconButton
-                        label={`Editar ${section.title.toLowerCase()}`}
-                        tone="secondary"
-                        // Um bloco de cada vez: o aberto fecha (Salvar ou Cancelar) antes de outro abrir.
-                        isDisabled={sheet.isLoading || editingBlock !== null}
-                        onClick={() => setEditingBlock(section.id)}
-                      >
-                        <PencilIcon className="h-4 w-4" />
-                      </IconButton>
-                    )
-                  }
-                  footer={
-                    editingBlock === section.id && (
-                      <BlockActions isSaving={busy} onCancel={leaveEdit} onSave={() => void save(section.id)} />
-                    )
-                  }
+                  action={blockAction(section)}
                 >
                   {section.content}
                 </SheetSectionCard>
@@ -734,27 +740,22 @@ function BenefitProgress({
   );
 }
 
-/** O pé do bloco aberto pelo lápis: grava só ele, ou volta ao gravado. */
+/** As ações do bloco aberto pelo lápis, no cabeçalho dele: grava só ele, ou volta ao gravado. */
 function BlockActions({
   isSaving,
   onCancel,
   onSave,
 }: Readonly<{ isSaving: boolean; onCancel: () => void; onSave: () => void }>) {
+  // Ícones com dica, no tamanho e no lugar do lápis que eles substituem.
   return (
-    <ActionGroup>
-      <ActionButton tone="neutral" onClick={onCancel} disabled={isSaving}>
-        Cancelar
-      </ActionButton>
-      <ActionButton
-        tone="primary"
-        onClick={onSave}
-        disabled={isSaving}
-        aria-busy={isSaving || undefined}
-        icon={isSaving ? <LoadingCircle size={16} /> : <CheckIcon className="h-4 w-4" />}
-      >
-        {isSaving ? "Salvando…" : "Salvar"}
-      </ActionButton>
-    </ActionGroup>
+    <div className="flex items-center gap-1">
+      <IconButton label="Cancelar" tone="neutral" onClick={onCancel} isDisabled={isSaving}>
+        <CloseIcon className="h-4 w-4" />
+      </IconButton>
+      <IconButton label={isSaving ? "Salvando…" : "Salvar"} tone="success" onClick={onSave} isDisabled={isSaving}>
+        {isSaving ? <LoadingCircle size={16} /> : <CheckIcon className="h-4 w-4" />}
+      </IconButton>
+    </div>
   );
 }
 

@@ -18,7 +18,7 @@ import type {
   ClientFileDocumentResponse,
   ClientFileSimulationResponse,
 } from "@/interfaces/client/ClientSubResources.interface";
-import { formatDateBR } from "@/lib/format";
+import { formatDateBR, plural } from "@/lib/format";
 import { numberTextOf } from "@/lib/formValues";
 import { openBlob, saveBlob } from "@/lib/blobFile";
 import { downloadClientFile } from "@/services/clientFileService";
@@ -50,6 +50,7 @@ import {
   type FileLike,
 } from "./UploadParts";
 import { DetailsIcon, DownloadIcon, TrashIcon, UploadIcon } from "@/components/ui/icons/actions";
+import { CheckIcon } from "@/components/ui/icons/glyphs";
 import { Svg } from "@/components/ui/icons/Svg";
 
 /**
@@ -67,10 +68,12 @@ import { Svg } from "@/components/ui/icons/Svg";
  * do sistema; todos obrigatórios (`documentErrors`/`simulationErrors`), menos
  * a simulação principal. 10 por página, e a paginação só aparece do 11º.
  *
- * Na ficha entram também os arquivos já gravados (`saved`), depois dos
- * escolhidos agora, em cartões iguais com os campos travados: a API não altera
- * o que foi enviado, só exclui. Lendo (`isReadOnly`), sai a zona e ninguém
- * cola nem arrasta; os gravados continuam abrindo e baixando.
+ * Na ficha entram também os arquivos já gravados (`saved`), em cartões iguais
+ * com os campos travados: a API não altera o que foi enviado, só exclui.
+ * Editando, os dois ficam em grupos separados — "Para enviar", que sobem no
+ * Salvar, e "Já na ficha" —, cada um com a sua paginação, e o novo diz "a
+ * enviar" sob o nome. Lendo (`isReadOnly`), sai a zona e ninguém cola nem
+ * arrasta; os gravados continuam abrindo e baixando.
  */
 
 const PAGE_SIZE = 10;
@@ -93,9 +96,28 @@ export type SavedFiles = {
 
 type SavedFile = ClientFileDocumentResponse | ClientFileSimulationResponse;
 
-/** Uma linha da lista: o escolhido agora (editável) ou o gravado (travado). */
-type DocumentRow = { entry: DocEntry } | { saved: ClientFileDocumentResponse };
-type SimulationRow = { entry: SimulationEntry } | { saved: ClientFileSimulationResponse };
+/** A página de cada grupo, por aba: os novos e os já enviados andam sozinhos. */
+type PageKey = `${FileKind}:${"staged" | "saved"}`;
+
+type GroupHeading = { title: string; hint?: string; icon: ReactNode; iconClass: string };
+
+/**
+ * Os títulos dos dois grupos da ficha em edição: o ícone e a cor dizem de
+ * longe qual é qual — dourado o que ainda vai subir, verde o que já subiu.
+ */
+const GROUP_HEADINGS: Record<"staged" | "saved", GroupHeading> = {
+  staged: {
+    title: "Para enviar",
+    hint: "envio ao salvar",
+    icon: <UploadIcon className="h-3.5 w-3.5" />,
+    iconClass: "bg-light-secondary text-secondary",
+  },
+  saved: {
+    title: "Já na ficha",
+    icon: <CheckIcon className="h-3.5 w-3.5" />,
+    iconClass: "bg-light-green text-success",
+  },
+};
 
 const hasFiles = (event: DragEvent) =>
   [...event.dataTransfer?.types ?? []].includes("Files");
@@ -157,10 +179,7 @@ export function FilesUpload({
   const docs = useDocuments(props);
   const sims = useSimulations(props);
   const [kind, setKind] = useState<FileKind>("documents");
-  const [pages, setPages] = useState<Record<FileKind, number>>({
-    documents: 1,
-    simulations: 1,
-  });
+  const [pages, setPages] = useState<Partial<Record<PageKey, number>>>({});
   const [isDragging, setIsDragging] = useState(false);
   const [isOver, setIsOver] = useState(false);
   const [lastPasted, setLastPasted] = useState(0);
@@ -242,29 +261,22 @@ export function FilesUpload({
     () => groupByDocumentType(saved?.documents ?? []).flatMap((group) => group.items),
     [saved?.documents],
   );
-  const documentRows: DocumentRow[] = [
-    ...docs.entries.map((entry) => ({ entry })),
-    ...savedDocuments.map((file) => ({ saved: file })),
-  ];
-  const simulationRows: SimulationRow[] = [
-    ...sims.entries.map((entry) => ({ entry })),
-    ...(saved?.simulations ?? []).map((file) => ({ saved: file })),
-  ];
+  const savedSimulations = saved?.simulations ?? [];
 
   const counts: Record<FileKind, { count: number; pending: number }> = {
-    documents: { count: documentRows.length, pending: pendingDocs },
-    simulations: { count: simulationRows.length, pending: pendingSims },
+    documents: { count: docs.entries.length + savedDocuments.length, pending: pendingDocs },
+    simulations: { count: sims.entries.length + savedSimulations.length, pending: pendingSims },
   };
 
   const words = FILE_KIND_WORDS[kind];
-  const total = counts[kind].count;
-  const isEmpty = total === 0;
+  const isEmpty = counts[kind].count === 0;
   const copy = dropCopy(kind);
-  const setPage = (next: number) => setPages((current) => ({ ...current, [kind]: next }));
-
-  const docPage = slicePage(documentRows, pages.documents, PAGE_SIZE);
-  const simulationPage = slicePage(simulationRows, pages.simulations, PAGE_SIZE);
-  const current = kind === "documents" ? docPage : simulationPage;
+  /** Só a ficha em edição tem os dois grupos ao mesmo tempo; nela, cada um diz o que é. */
+  const isSplit = Boolean(saved) && !isReadOnly;
+  const pageProps = (key: PageKey) => ({
+    page: pages[key] ?? 1,
+    onPageChange: (next: number) => setPages((current) => ({ ...current, [key]: next })),
+  });
 
   const savedActions = (file: SavedFile) =>
     saved && <SavedFileActions clientId={saved.clientId} file={file} onDelete={saved.onDelete} />;
@@ -315,59 +327,70 @@ export function FilesUpload({
     </>
   );
 
-  /** O corpo de uma aba: a zona viva, o aviso do colado, os cartões. */
-  const panel = (tab: FileKind) => (
-    <>
-      {isReadOnly ? isEmpty && <Notice>{EMPTY[tab]}</Notice> : dropZone}
+  /** O corpo de uma aba: a zona viva, o aviso do colado, os novos e os gravados. */
+  const panel = (tab: FileKind) => {
+    const noun: [string, string] = [FILE_KIND_WORDS[tab].one, FILE_KIND_WORDS[tab].many];
+    const heading = isSplit ? GROUP_HEADINGS : { staged: undefined, saved: undefined };
+    return (
+      <>
+        {isReadOnly ? isEmpty && <Notice>{EMPTY[tab]}</Notice> : dropZone}
 
-      {!isEmpty && (
-        <ul aria-label={FILE_KIND_WORDS[tab].label} className="flex flex-col gap-3">
-          {tab === "documents"
-            ? docPage.slice.map((row) =>
-                "entry" in row ? (
-                  <DocumentCard
-                    key={row.entry.id}
-                    entry={row.entry}
-                    showErrors={showErrors}
-                    docs={docs}
-                  />
-                ) : (
-                  <SavedDocumentCard key={row.saved.id} file={row.saved}>
-                    {savedActions(row.saved)}
-                  </SavedDocumentCard>
-                ),
-              )
-            : simulationPage.slice.map((row) =>
-                "entry" in row ? (
-                  <SimulationCard
-                    key={row.entry.id}
-                    entry={row.entry}
-                    showErrors={showErrors}
-                    sims={sims}
-                  />
-                ) : (
-                  <SavedSimulationCard key={row.saved.id} file={row.saved}>
-                    {savedActions(row.saved)}
-                  </SavedSimulationCard>
-                ),
+        {tab === "documents" ? (
+          <>
+            <FileGroup
+              {...pageProps("documents:staged")}
+              heading={heading.staged}
+              label={`${FILE_KIND_WORDS[tab].label} novos`}
+              rows={docs.entries}
+              noun={noun}
+              renderRow={(entry) => (
+                <DocumentCard key={entry.id} entry={entry} showErrors={showErrors} docs={docs} isNew={isSplit} />
               )}
-        </ul>
-      )}
+            />
+            <FileGroup
+              {...pageProps("documents:saved")}
+              heading={heading.saved}
+              label={FILE_KIND_WORDS[tab].label}
+              rows={savedDocuments}
+              noun={noun}
+              renderRow={(file) => (
+                <SavedDocumentCard key={file.id} file={file}>
+                  {savedActions(file)}
+                </SavedDocumentCard>
+              )}
+            />
+          </>
+        ) : (
+          <>
+            <FileGroup
+              {...pageProps("simulations:staged")}
+              heading={heading.staged}
+              label={`${FILE_KIND_WORDS[tab].label} novas`}
+              rows={sims.entries}
+              noun={noun}
+              renderRow={(entry) => (
+                <SimulationCard key={entry.id} entry={entry} showErrors={showErrors} sims={sims} isNew={isSplit} />
+              )}
+            />
+            <FileGroup
+              {...pageProps("simulations:saved")}
+              heading={heading.saved}
+              label={FILE_KIND_WORDS[tab].label}
+              rows={savedSimulations}
+              noun={noun}
+              renderRow={(file) => (
+                <SavedSimulationCard key={file.id} file={file}>
+                  {savedActions(file)}
+                </SavedSimulationCard>
+              )}
+            />
+          </>
+        )}
 
-      {total > PAGE_SIZE && (
-        <TablePagination
-          pageNumber={current.current}
-          pageSize={PAGE_SIZE}
-          total={total}
-          totalPages={current.totalPages}
-          onPageChange={setPage}
-          noun={[words.one, words.many]}
-        />
-      )}
-
-      {tab === "documents" && documentsAside && <div className="mt-4">{documentsAside}</div>}
-    </>
-  );
+        {tab === "documents" && documentsAside && <div className="mt-4">{documentsAside}</div>}
+      </>
+    );
+  };
 
   return (
     <>
@@ -418,6 +441,61 @@ export function FilesUpload({
   );
 }
 
+/**
+ * Um grupo de cartões com a sua paginação — os escolhidos agora ou os já
+ * gravados. Vazio, não aparece; `heading` só na ficha em edição, quando os
+ * dois grupos dividem a aba.
+ */
+function FileGroup<T>({
+  heading,
+  label,
+  rows,
+  noun,
+  page,
+  onPageChange,
+  renderRow,
+}: Readonly<{
+  heading?: GroupHeading;
+  /** O nome da lista para o leitor de tela. */
+  label: string;
+  rows: readonly T[];
+  noun: [string, string];
+  page: number;
+  onPageChange: (page: number) => void;
+  renderRow: (row: T) => ReactNode;
+}>) {
+  if (rows.length === 0) return null;
+  const current = slicePage(rows, page, PAGE_SIZE);
+  return (
+    <div className="flex flex-col gap-3">
+      {heading && (
+        <p className="mt-2 flex flex-wrap items-center gap-x-2 text-sm">
+          <span aria-hidden="true" className={`grid h-6 w-6 place-items-center rounded-full ${heading.iconClass}`}>
+            {heading.icon}
+          </span>
+          <span className="font-semibold text-primary">{heading.title}</span>
+          <span className="text-xs text-gray-100">
+            {[plural(rows.length, ...noun), heading.hint].filter(Boolean).join(" · ")}
+          </span>
+        </p>
+      )}
+      <ul aria-label={label} className="flex flex-col gap-3">
+        {current.slice.map(renderRow)}
+      </ul>
+      {rows.length > PAGE_SIZE && (
+        <TablePagination
+          pageNumber={current.current}
+          pageSize={PAGE_SIZE}
+          total={rows.length}
+          totalPages={current.totalPages}
+          onPageChange={onPageChange}
+          noun={noun}
+        />
+      )}
+    </div>
+  );
+}
+
 /** Cabeçalho do cartão: miniatura, nome, tamanho e as ações do arquivo. */
 function CardHeader({
   file,
@@ -440,6 +518,13 @@ function CardHeader({
 const CARD_CLASS = "flex flex-col gap-4 rounded-3xl bg-white p-4 ring-1 ring-light-gray sm:p-5";
 
 /**
+ * A linha sob o nome do escolhido agora, na ficha: "44 KB · a enviar", o par
+ * do "1.0 MB · enviado em 28/08/2026" dos gravados. Fora da ficha, só o tamanho.
+ */
+const stagedDetail = (file: File, isNew: boolean) =>
+  isNew ? `${formatFileSize(file.size)} · a enviar` : undefined;
+
+/**
  * O arquivo em si não sobe (formato, tamanho). Aparece assim que ele entra,
  * sem esperar o "Salvar": não há campo a preencher que resolva — é remover
  * ou trocar de lado.
@@ -458,15 +543,17 @@ function DocumentCard({
   entry,
   showErrors,
   docs,
+  isNew = false,
 }: Readonly<{
   entry: DocEntry;
   showErrors: boolean;
   docs: ReturnType<typeof useDocuments>;
+  isNew?: boolean;
 }>) {
   const errors = showErrors ? documentErrors(entry.doc) : {};
   return (
     <li className={CARD_CLASS}>
-      <CardHeader file={entry.file}>
+      <CardHeader file={entry.file} detail={stagedDetail(entry.file, isNew)}>
         <WrongSideHint
           kind="documents"
           name={entry.file.name}
@@ -506,16 +593,18 @@ function SimulationCard({
   entry,
   showErrors,
   sims,
+  isNew = false,
 }: Readonly<{
   entry: SimulationEntry;
   showErrors: boolean;
   sims: ReturnType<typeof useSimulations>;
+  isNew?: boolean;
 }>) {
   const errors = showErrors ? simulationErrors(entry.simulation) : {};
   const { simulation, file } = entry;
   return (
     <li className={CARD_CLASS}>
-      <CardHeader file={file}>
+      <CardHeader file={file} detail={stagedDetail(file, isNew)}>
         <WrongSideHint
           kind="simulations"
           name={file.name}
