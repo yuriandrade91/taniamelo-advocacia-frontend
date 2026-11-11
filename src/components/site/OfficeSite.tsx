@@ -12,37 +12,37 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { publicRoutes } from "@/constants/paths/routes";
-import type { BenefitKey } from "@/enums/benefit/Benefits";
 import { Reveal } from "./Reveal";
-import { GRADES, SEXES, useDisabilityRule } from "./disabilityRule";
-import { FAQ, JOURNEY, NAV_LINKS, SERVICES, SITE_CONTACT, whatsappHref } from "./siteContent";
+import { ESSENCE_STATS, FAQ, JOURNEY, NAV_LINKS, SERVICES, SITE_CONTACT, SITE_SOCIALS } from "./siteContent";
 import { ArrowUpRightIcon as ArrowUpRight, ChatIcon, CloseIcon, MenuIcon } from "./siteIcons";
-import { ChannelList, ChoicePills, Logo, shortBenefit, usePrefersReducedMotion } from "./shared";
+import { ChannelList, Eyebrow, Logo, PRESS, usePrefersReducedMotion } from "./shared";
+import type { Topic } from "./WhatsAppComposer";
 
 const SCULPTURE = {
   src: "/photos/justice-sculpture.jpg",
   alt: "Escultura dourada de uma balança da justiça em um ambiente azul profundo",
 };
-const ARCHITECTURE = {
-  src: "/photos/justice-architecture.jpg",
-  alt: "Arquitetura contemporânea aberta para o horizonte, com uma balança da justiça",
+
+const ESSENCE_PHOTO = {
+  src: "/photos/tania-na-mesa.jpg",
+  alt: "Dra. Tânia Melo à mesa, com uma xícara na mão, livros e documentos previdenciários ao lado",
+  width: 1100,
+  height: 1270,
 };
 
 /** A largura de tudo: 1400 px no máximo, com as margens da referência em cada faixa de tela. */
 const CONTAINER = "mx-auto w-[min(1400px,calc(100%-100px))] max-[1100px]:w-[calc(100%-64px)] max-[760px]:w-[calc(100%-40px)]";
-
-/** Clique que afunda um pouco: o retorno de toque de cada botão da página. */
-const PRESS = "transition active:scale-[0.97]";
 
 /**
  * O site do escritório, no desenho feito no Lovable: o nome enorme sobre a
  * cena azul com a balança dourada, as áreas em sanfona, "Nossa essência" sobre
  * a arquitetura, os passos numerados e o fechamento azul com o botão redondo.
  * O conteúdo é o do escritório: os sete benefícios, as seis etapas, o
- * simulador da LC 142, as dúvidas e os canais de contato.
+ * as dúvidas e os canais de contato.
  *
  * Cada "falar com a equipe" abre a mesma janela: a pessoa escolhe a
  * aposentadoria, recebe a mensagem já escrita e ajusta antes de ir para o
@@ -57,10 +57,9 @@ export function OfficeSite() {
       <div className="min-h-screen bg-ivory text-primary">
         <Header />
         <Hero />
-        <Practice />
         <Manifesto />
+        <Practice />
         <Journey />
-        <Simulator />
         <Questions />
         <ClosingCall />
         <Footer />
@@ -80,150 +79,11 @@ export function OfficeSite() {
 
 /* ───────────── a conversa pelo WhatsApp ───────────── */
 
-/** O assunto da mensagem: uma das aposentadorias, "ainda não sei", ou o texto da própria pessoa. */
-type Topic = BenefitKey | "unsure" | "own" | "none";
-
 const ComposerContext = createContext<(topic?: Topic) => void>(() => {});
 const useComposer = () => useContext(ComposerContext);
 
-const TOPICS: readonly { id: Topic; label: string }[] = [
-  ...SERVICES.map((service) => ({ id: service.key, label: shortBenefit(service.title) })),
-  { id: "unsure", label: "Ainda não sei" },
-  { id: "own", label: "Escrever do meu jeito" },
-];
-
-/** O texto pronto de cada assunto. "Escrever do meu jeito" começa em branco. */
-function messageFor(topic: Topic) {
-  if (topic === "own") return "";
-  if (topic === "unsure") {
-    return "Olá! Vim pelo site e gostaria de uma orientação. Ainda não sei qual aposentadoria se encaixa no meu caso.";
-  }
-  const service = SERVICES.find((item) => item.key === topic);
-  if (!service) return "Olá! Vim pelo site e gostaria de conversar sobre a minha aposentadoria.";
-  return `Olá! Vim pelo site e gostaria de conversar sobre ${service.title.toLowerCase()}. Quero entender se tenho direito e quais são os próximos passos.`;
-}
-
-/** "21988275421" → "(21) 98827-5421". */
-const formattedWhatsapp = SITE_CONTACT.whatsapp.replace(/^(\d{2})(\d{4,5})(\d{4})$/, "($1) $2-$3");
-
-/**
- * A janela do "falar com a equipe". `<dialog>` de verdade: Esc fecha, o foco
- * fica dentro e o resto da página não recebe clique.
- */
-function WhatsAppComposer({ initialTopic, onClose }: Readonly<{ initialTopic: Topic; onClose: () => void }>) {
-  const dialogRef = useRef<HTMLDialogElement>(null);
-  const textRef = useRef<HTMLTextAreaElement>(null);
-  const [topic, setTopic] = useState<Topic>(initialTopic);
-  const [message, setMessage] = useState(() => messageFor(initialTopic));
-  const titleId = useId();
-  const textId = useId();
-
-  useEffect(() => {
-    const dialog = dialogRef.current;
-    if (!dialog) return;
-    dialog.showModal();
-    // Clique no fundo (o próprio <dialog>, não o conteúdo) fecha. É atalho do
-    // mouse; no teclado quem fecha é o Esc, que o <dialog> já trata.
-    const closeOnBackdrop = (event: MouseEvent) => {
-      if (event.target === dialog) dialog.close();
-    };
-    dialog.addEventListener("click", closeOnBackdrop);
-    return () => dialog.removeEventListener("click", closeOnBackdrop);
-  }, []);
-
-  const choose = (next: Topic) => {
-    setTopic(next);
-    setMessage(messageFor(next));
-    if (next === "own") requestAnimationFrame(() => textRef.current?.focus());
-  };
-
-  const trimmed = message.trim();
-  const sendClassName = `group inline-flex min-h-[54px] items-center gap-4 bg-secondary px-6 text-base font-medium text-white ${PRESS}`;
-  const sendLabel = (
-    <>
-      Enviar pelo WhatsApp
-      <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-    </>
-  );
-
-  return (
-    <dialog
-      ref={dialogRef}
-      aria-labelledby={titleId}
-      onClose={onClose}
-      className="pr-dialog m-auto w-[min(600px,calc(100%-32px))] max-w-none bg-ivory p-0 text-primary backdrop:bg-midnight/70 backdrop:backdrop-blur-sm"
-    >
-      <div className="max-h-[calc(100svh-48px)] overflow-y-auto p-8 max-[760px]:p-6">
-        <div className="flex items-start justify-between gap-6">
-          <div>
-            <Eyebrow>Falar com a equipe</Eyebrow>
-            <h2 id={titleId} className="mt-4 text-[34px] leading-[1.15] font-light max-[760px]:text-[28px]">
-              Sobre qual aposentadoria
-              <br />
-              <span className="text-secondary">você quer conversar?</span>
-            </h2>
-          </div>
-          <button
-            type="button"
-            onClick={() => dialogRef.current?.close()}
-            aria-label="Fechar"
-            className={`grid h-11 w-11 shrink-0 place-items-center rounded-full border border-hairline hover:rotate-90 hover:border-primary ${PRESS}`}
-          >
-            <CloseIcon className="h-5 w-5" />
-          </button>
-        </div>
-
-        <ChoicePills
-          legend="Escolha o assunto e a mensagem já vem escrita"
-          options={TOPICS}
-          value={topic}
-          onChange={choose}
-          className="mt-7"
-          legendClassName="text-[15px] text-muted-ink"
-          groupClassName="mt-4 flex flex-wrap gap-2"
-          optionClassName={(isActive) =>
-            `${PRESS} rounded-full border px-4 py-2.5 text-[15px] ${
-              isActive ? "border-primary bg-primary text-white" : "border-hairline bg-white hover:border-secondary"
-            }`
-          }
-        />
-
-        <label htmlFor={textId} className="mt-7 block text-[13px] font-medium tracking-[1.5px] text-secondary uppercase">
-          Sua mensagem
-        </label>
-        <textarea
-          id={textId}
-          ref={textRef}
-          value={message}
-          onChange={(event) => setMessage(event.target.value)}
-          rows={5}
-          placeholder="Conte com suas palavras: qual aposentadoria, há quanto tempo contribui, o que aconteceu…"
-          className="mt-3 w-full resize-y border border-hairline bg-white p-4 text-base leading-[1.7] transition outline-none focus:border-secondary"
-        />
-        <p className="mt-2 text-[14px] text-muted-ink">Pode mudar o texto como quiser antes de enviar.</p>
-
-        <div className="mt-7 flex flex-wrap items-center justify-between gap-4">
-          <span className="text-[14px] text-muted-ink">WhatsApp {formattedWhatsapp}</span>
-          {trimmed ? (
-            <a
-              href={whatsappHref(trimmed)}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={() => dialogRef.current?.close()}
-              className={sendClassName}
-            >
-              {sendLabel}
-            </a>
-          ) : (
-            <button type="button" disabled className={`${sendClassName} cursor-not-allowed opacity-45`}>
-              {sendLabel}
-            </button>
-          )}
-        </div>
-      </div>
-    </dialog>
-  );
-}
+/** A janela da conversa só é baixada quando alguém abre. */
+const WhatsAppComposer = dynamic(() => import("./WhatsAppComposer").then((module) => module.WhatsAppComposer));
 
 /* ───────────── movimento ───────────── */
 
@@ -344,7 +204,7 @@ function Header() {
           />
         </a>
         <nav aria-label="Principal" className="flex items-center gap-10 max-[1280px]:gap-7 max-[1100px]:hidden">
-          {NAV_LINKS.filter((link) => link.href !== "#contato").map((link, index) => (
+          {NAV_LINKS.map((link, index) => (
             <a
               key={link.href}
               href={link.href}
@@ -425,7 +285,7 @@ function Hero() {
         aria-hidden="true"
       />
 
-      <div className={`${CONTAINER} relative grid h-full min-h-[inherit] grid-cols-[1fr_190px] pt-[150px] pb-[34px] min-[1600px]:pt-[175px] max-[760px]:block max-[760px]:pt-[125px] max-[760px]:pb-[26px]`}>
+      <div className={`${CONTAINER} relative grid h-full min-h-[inherit] grid-cols-1 pt-[150px] pb-[34px] min-[1600px]:pt-[175px] max-[760px]:block max-[760px]:pt-[125px] max-[760px]:pb-[26px]`}>
         <div>
           <Enter delay={100}>
             <Eyebrow line className="text-gold-light">
@@ -457,15 +317,6 @@ function Hero() {
           </Enter>
         </div>
 
-        <Enter delay={1100} className="flex items-center gap-[18px] self-start justify-self-end pt-[42px] max-[760px]:hidden">
-          <span className="text-[12px] leading-[2.2] tracking-[2px] opacity-75 [writing-mode:vertical-rl]" aria-hidden="true">
-            ESTRATÉGIA JURÍDICA.
-            <br />
-            CUIDADO HUMANO.
-          </span>
-          <span className="pr-grow-y h-[150px] w-px origin-top bg-secondary" aria-hidden="true" />
-        </Enter>
-
         <Enter delay={1200} className="col-span-full mt-[35px] flex items-center justify-between self-end border-t border-white/[0.18] pt-[23px] max-[760px]:mt-[40px]">
           <a href="#atuacao" className="group flex items-center gap-3.5 text-[15px] font-medium">
             <span className="grid h-[44px] w-8 place-items-center rounded-[18px] border border-white/[0.18] transition group-hover:border-secondary">
@@ -476,7 +327,6 @@ function Hero() {
             </span>{" "}
             Explore nossa atuação
           </a>
-          <span className="mr-[50px] text-[15px] opacity-70 max-[760px]:hidden">Cada história é única. Nossa atenção também.</span>
         </Enter>
       </div>
     </section>
@@ -489,11 +339,11 @@ function Practice() {
   const [open, setOpen] = useState<string | null>(SERVICES[0].key);
   const openComposer = useComposer();
   return (
-    <section id="atuacao" className="scroll-mt-20 bg-ivory py-[110px] max-[760px]:py-[60px]">
+    <section id="atuacao" className="scroll-mt-20 bg-white py-[110px] max-[760px]:py-[60px]">
       <div className={CONTAINER}>
         <Reveal>
           <div className="grid grid-cols-[1fr_360px] gap-[26px] max-[1100px]:grid-cols-[1fr_270px] max-[760px]:grid-cols-1 max-[760px]:gap-5">
-            <Eyebrow className="col-span-full text-secondary">01 / Onde podemos ajudar</Eyebrow>
+            <Eyebrow className="col-span-full text-secondary">02 / Onde podemos ajudar</Eyebrow>
             <SectionTitle className="max-[1100px]:text-[38px] max-[760px]:text-[32px]">
               Você vive a sua história.
               <br />
@@ -554,39 +404,95 @@ function Practice() {
   );
 }
 
-/** "Nossa essência": o texto sobre a arquitetura, que corre mais devagar que a página. */
+/** "Nossa essência": quem atende — a foto de um lado, a história e o que o atendimento promete do outro. */
 function Manifesto() {
-  const ref = useRef<HTMLElement>(null);
-  useParallax(ref, 0.1);
   return (
-    <section id="escritorio" ref={ref} className="relative isolate scroll-mt-20 overflow-hidden text-primary">
-      <Image src={ARCHITECTURE.src} alt={ARCHITECTURE.alt} fill sizes="100vw" className="pr-parallax -z-20 object-cover max-[760px]:object-[65%_center]" />
+    <section id="escritorio" className="scroll-mt-20 bg-ivory pt-[110px] text-primary max-[760px]:pt-[60px]">
       <div
-        className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,color-mix(in_oklch,var(--color-ivory)_83%,transparent),transparent_70%)] max-[760px]:bg-[color-mix(in_oklch,var(--color-ivory)_83%,transparent)]"
-        aria-hidden="true"
-      />
-      <div className={`${CONTAINER} py-[110px] max-[760px]:py-[70px]`}>
+        className={`${CONTAINER} grid grid-cols-[minmax(0,5fr)_minmax(0,6fr)] items-center gap-x-[90px] gap-y-10 max-[1100px]:gap-x-[48px] max-[900px]:grid-cols-1`}
+      >
         <Reveal>
-          <Eyebrow>02 / Nossa essência</Eyebrow>
+          <figure className="mx-auto max-w-[520px] max-[900px]:max-w-[420px]">
+            <div className="group relative">
+              <div className="relative z-10 overflow-hidden">
+                <Image
+                  src={ESSENCE_PHOTO.src}
+                  alt={ESSENCE_PHOTO.alt}
+                  width={ESSENCE_PHOTO.width}
+                  height={ESSENCE_PHOTO.height}
+                  sizes="(max-width: 900px) 420px, 520px"
+                  className="aspect-[4/5] w-full object-cover object-[50%_100%] transition-transform duration-[1200ms] ease-out group-hover:scale-[1.04]"
+                />
+              </div>
+              {/* Duas molduras deslocadas, em cantos opostos: saem de trás da foto quando ela entra em cena. */}
+              <div className="pr-frame absolute top-[-20px] right-5 bottom-5 -left-5 border border-primary [--from-x:20px] [--from-y:20px] max-[760px]:top-[-12px] max-[760px]:right-3 max-[760px]:bottom-3 max-[760px]:-left-3" aria-hidden="true" />
+              <div className="pr-frame absolute top-5 -right-5 bottom-[-20px] left-5 border border-secondary [--from-x:-20px] [--from-y:-20px] max-[760px]:top-3 max-[760px]:-right-3 max-[760px]:bottom-[-12px] max-[760px]:left-3" aria-hidden="true" />
+            </div>
+            <figcaption className="mt-[44px] text-[13px] font-medium tracking-[1.5px] text-secondary uppercase">Dra. Tânia Melo</figcaption>
+          </figure>
         </Reveal>
-        <Reveal>
-          <h2 className="mt-[30px] text-[76px] leading-[1.06] font-light max-[760px]:text-[54px]">
-            <ViewLine delay={100}>Não é só</ViewLine>
-            <ViewLine delay={220}>sobre leis.</ViewLine>
-            <ViewLine delay={340} className="text-secondary">
-              É sobre você.
-            </ViewLine>
-          </h2>
-        </Reveal>
-        <Reveal delay={380}>
-          <p className="my-[28px] text-[18px] leading-[1.7]">
-            A orientação jurídica começa com escuta.
-            <br />
-            E se constrói com análise, clareza e cuidado.
-          </p>
-          <MainCta href="#como-funciona">Conheça o caminho do seu caso</MainCta>
-        </Reveal>
+
+        <div>
+          <Reveal>
+            <Eyebrow>01 / Nossa essência</Eyebrow>
+          </Reveal>
+          <Reveal>
+            <h2 className="mt-[26px] text-[52px] leading-[1.1] font-light max-[760px]:text-[38px]">
+              <ViewLine delay={100}>Uma advogada que entende</ViewLine>
+              <ViewLine delay={220} className="text-secondary">
+                o que você está passando
+              </ViewLine>
+            </h2>
+          </Reveal>
+          <Reveal delay={300}>
+            <div className="mt-[28px] flex max-w-[560px] flex-col gap-4 text-[17px] leading-[1.8] text-muted-ink">
+              <p>
+                Há 16 anos sou advogada previdenciária. Deixei uma carreira de 36 anos como gestora na administração
+                pública para <strong className="font-medium text-primary">inovar e expandir meu atendimento digitalmente</strong>.
+              </p>
+              <p>
+                Ajudo você a entender a importância da aposentadoria, a contribuir corretamente e descubro direitos que
+                você tem e o INSS não te conta. Tudo de forma simples e prática.
+              </p>
+            </div>
+            <span className="pr-draw mt-[36px] block h-px max-w-[560px] bg-hairline" aria-hidden="true" />
+            <dl className="mt-6 grid max-w-[560px] grid-cols-3 gap-x-6 max-[760px]:grid-cols-1 max-[760px]:gap-y-4">
+              {[
+                ["Tributário", "Advogada há 26 anos"],
+                ["Processos", "Digitais e automatizados"],
+                ["Atendimento", "Personalizado"],
+              ].map(([label, value], index) => (
+                <Reveal key={label} delay={450 + index * 120}>
+                  <dt className="text-[12px] font-medium tracking-[1.5px] text-secondary uppercase">{label}</dt>
+                  <dd className="mt-1 text-[17px] leading-[1.35]">{value}</dd>
+                </Reveal>
+              ))}
+            </dl>
+            <div className="mt-[36px]">
+              <MainCta href="#como-funciona">Conheça o caminho do seu caso</MainCta>
+            </div>
+          </Reveal>
+        </div>
       </div>
+
+      {/* A faixa de destaques: de ponta a ponta, colada na base da seção; o número em dourado e, embaixo, o que ele conta. */}
+      <div className="mt-[90px] bg-primary text-white max-[900px]:mt-[60px]">
+          <ul className={`${CONTAINER} grid grid-cols-4 max-[900px]:grid-cols-2 max-[480px]:grid-cols-1`}>
+            {ESSENCE_STATS.map((stat, index) => (
+              <li
+                key={stat.value}
+                className="group border-l border-white/15 px-8 py-10 first:border-l-0 first:pl-0 max-[900px]:nth-[odd]:border-l-0 max-[900px]:nth-[odd]:pl-0 max-[900px]:nth-[n+3]:border-t max-[480px]:border-l-0 max-[480px]:px-0 max-[480px]:not-first:border-t max-[480px]:py-7"
+              >
+                <Reveal delay={index * 120} className="flex flex-col gap-3">
+                  <p className="text-[52px] leading-none font-light text-secondary transition-transform duration-300 group-hover:translate-x-2 max-[760px]:text-[44px]">
+                    {stat.value}
+                  </p>
+                  <p className="text-[13px] leading-[1.5] font-semibold tracking-[1.5px] text-white/85 uppercase">{stat.label}</p>
+                </Reveal>
+              </li>
+            ))}
+          </ul>
+        </div>
     </section>
   );
 }
@@ -596,17 +502,12 @@ function Journey() {
     <section id="como-funciona" className="scroll-mt-20 bg-ivory py-[110px] max-[760px]:py-[60px]">
       <div className={CONTAINER}>
         <Reveal>
-          <div className="flex items-end justify-between gap-[35px] max-[760px]:block">
-            <div>
-              <Eyebrow>03 / Um passo de cada vez</Eyebrow>
-              <SectionTitle className="mt-[22px] max-[760px]:text-[32px]">
-                Clareza para decidir.
-                <br />
-                <span>Confiança para seguir.</span>
-              </SectionTitle>
-            </div>
-            <InlineLink href="#duvidas">Informação que aproxima</InlineLink>
-          </div>
+          <Eyebrow>03 / Um passo de cada vez</Eyebrow>
+          <SectionTitle className="mt-[22px] max-[760px]:text-[32px]">
+            Clareza para decidir.
+            <br />
+            <span>Confiança para seguir.</span>
+          </SectionTitle>
         </Reveal>
         <ol className="mt-[55px] grid grid-cols-3 gap-[45px] max-[1100px]:grid-cols-2 max-[760px]:mt-[30px] max-[760px]:grid-cols-1 max-[760px]:gap-[30px]">
           {JOURNEY.map((step, index) => (
@@ -627,64 +528,14 @@ function Journey() {
   );
 }
 
-/** Um botão de escolha do simulador, marcado ou não. */
-const simulatorOption = (isActive: boolean) =>
-  `${PRESS} border px-5 py-3.5 text-[15px] font-medium ${isActive ? "border-primary bg-primary text-white" : "border-hairline bg-white hover:border-primary/40"}`;
-
-/** O simulador da LC 142 no desenho da referência: fios, números finos, botões retos. */
-function Simulator() {
-  const { sex, setSex, grade, setGrade, required, general, saved, minAge } = useDisabilityRule();
-  const legend = "text-[13px] font-medium tracking-[1.7px] text-secondary uppercase";
-  return (
-    <section id="simulador" className="scroll-mt-20 border-t border-hairline bg-white py-[110px] max-[760px]:py-[60px]">
-      <div className={CONTAINER}>
-        <Reveal>
-          <Eyebrow>04 / Simulador PcD · LC 142/2013</Eyebrow>
-        </Reveal>
-        <div className="mt-[22px] grid grid-cols-[1fr_1fr] gap-[70px] max-[1100px]:gap-[45px] max-[760px]:grid-cols-1 max-[760px]:gap-8">
-          <Reveal delay={100}>
-            <SectionTitle className="max-[760px]:text-[32px]">
-              Com deficiência,
-              <br />
-              <span>o tempo exigido é menor.</span>
-            </SectionTitle>
-            <div className="mt-10 flex flex-col gap-6">
-              <ChoicePills legend="Para quem" options={SEXES} value={sex} onChange={setSex} legendClassName={legend} groupClassName="mt-3 flex flex-wrap gap-2" optionClassName={simulatorOption} />
-              <ChoicePills legend="Grau da deficiência" options={GRADES} value={grade} onChange={setGrade} legendClassName={legend} groupClassName="mt-3 flex flex-wrap gap-2" optionClassName={simulatorOption} />
-            </div>
-          </Reveal>
-          <Reveal delay={220}>
-            <div aria-live="polite" className="border-t border-hairline pt-[27px]">
-              <p className="text-[13px] font-medium tracking-[1.7px] text-muted-ink uppercase">Tempo de contribuição exigido</p>
-              <p className="mt-2 text-[120px] leading-none font-light text-secondary max-[760px]:text-[88px]">
-                <span key={required} className="pr-pop inline-block">
-                  {required}
-                </span>
-                <span className="ml-3 text-[30px] text-primary">anos</span>
-              </p>
-              <p className="mt-4 text-[24px] font-light">
-                {saved} anos a menos <span className="text-muted-ink">que os {general} da regra geral.</span>
-              </p>
-              <p className="mt-5 max-w-[520px] text-[17px] leading-[1.75] text-muted-ink">
-                Por idade: {minAge} anos, com 15 de contribuição na condição de pessoa com deficiência. O grau vem da
-                avaliação do INSS, e quem trabalhou em graus diferentes tem o tempo convertido.
-              </p>
-            </div>
-          </Reveal>
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function Questions() {
   const [open, setOpen] = useState<number | null>(null);
   return (
-    <section id="duvidas" className="scroll-mt-20 bg-ivory py-[110px] max-[760px]:py-[60px]">
+    <section id="duvidas" className="scroll-mt-20 bg-white py-[110px] max-[760px]:py-[60px]">
       <div className={CONTAINER}>
         <Reveal>
           <div className="grid grid-cols-[1fr_360px] gap-[26px] max-[1100px]:grid-cols-[1fr_270px] max-[760px]:grid-cols-1 max-[760px]:gap-5">
-            <Eyebrow className="col-span-full text-secondary">05 / Dúvidas frequentes</Eyebrow>
+            <Eyebrow className="col-span-full text-secondary">04 / Dúvidas frequentes</Eyebrow>
             <SectionTitle className="max-[760px]:text-[32px]">
               Perguntas que chegam todo dia.
               <br />
@@ -761,20 +612,72 @@ function ClosingCall() {
 function Footer() {
   const openComposer = useComposer();
   return (
-    <footer className="border-t border-hairline bg-ivory py-[38px]">
-      <div className={`${CONTAINER} flex items-center justify-between gap-5 max-[760px]:flex-col max-[760px]:items-start`}>
-        <p className="text-[16px]">
-          Tânia Melo <span className="text-secondary">/</span> Advocacia previdenciária
-          {SITE_CONTACT.oab && <span className="text-muted-ink"> · {SITE_CONTACT.oab}</span>}
-        </p>
-        <p className="text-[14px] text-muted-ink">Informações gerais. Cada caso exige análise individual.</p>
-        <div className="flex items-center gap-6 text-[15px]">
-          <Link href={publicRoutes.login} className="text-muted-ink transition hover:text-primary underline decoration-1 decoration-secondary underline-offset-2">
-            Área da equipe
-          </Link>
-          <button type="button" onClick={() => openComposer()} className={`group flex items-center gap-2 ${PRESS}`}>
-            Contato <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-          </button>
+    <footer className="border-t border-hairline bg-ivory">
+      <div
+        className={`${CONTAINER} grid grid-cols-[minmax(0,4fr)_minmax(0,7fr)] gap-x-[90px] gap-y-10 py-[90px] max-[900px]:grid-cols-1 max-[760px]:py-[60px]`}
+      >
+        <Reveal>
+          <Eyebrow>Nas redes</Eyebrow>
+          <h2 className="mt-[26px] text-[40px] leading-[1.15] font-light max-[760px]:text-[32px]">
+            <ViewLine delay={100}>Acompanhe o escritório</ViewLine>
+            <ViewLine delay={220} className="text-secondary">
+              de perto
+            </ViewLine>
+          </h2>
+        </Reveal>
+        {/* Um índice, não uma fileira de ícones: cada rede é uma linha com o nome grande; o fio se desenha ao entrar. */}
+        <ul>
+          {SITE_SOCIALS.map((social, index) => (
+            <li key={social.name}>
+              <Reveal delay={index * 120}>
+                <span className="pr-draw block h-px bg-hairline" aria-hidden="true" />
+                <a
+                  href={social.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${social.name}, ${social.handle} (abre em outra aba)`}
+                  className="group grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-x-5 py-7 max-[760px]:grid-cols-[28px_minmax(0,1fr)_auto] max-[760px]:py-5"
+                >
+                  <span className="text-[13px] font-medium tracking-[2px] text-secondary" aria-hidden="true">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block text-[44px] leading-[1.1] font-light transition-transform duration-300 group-hover:translate-x-3 max-[760px]:text-[30px]">
+                      {social.name}
+                    </span>
+                    <span className="mt-1 block truncate text-[15px] text-muted-ink transition-transform duration-300 group-hover:translate-x-3">
+                      {social.handle}
+                    </span>
+                  </span>
+                  <span className="grid h-14 w-14 place-items-center rounded-full border border-secondary text-secondary transition duration-500 group-hover:bg-secondary group-hover:text-white group-active:scale-95 max-[760px]:h-11 max-[760px]:w-11">
+                    <ArrowUpRight className="h-5 w-5 transition duration-300 group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                  </span>
+                </a>
+              </Reveal>
+            </li>
+          ))}
+          <li aria-hidden="true">
+            <Reveal delay={SITE_SOCIALS.length * 120}>
+              <span className="pr-draw block h-px bg-hairline" />
+            </Reveal>
+          </li>
+        </ul>
+      </div>
+      <div className="border-t border-hairline">
+        <div className={`${CONTAINER} flex items-center justify-between gap-5 py-[38px] max-[760px]:flex-col max-[760px]:items-start`}>
+          <p className="text-[16px]">
+            Tânia Melo <span className="text-secondary">/</span> Advocacia previdenciária
+            {SITE_CONTACT.oab && <span className="text-muted-ink"> · {SITE_CONTACT.oab}</span>}
+          </p>
+          <p className="text-[14px] text-muted-ink">Informações gerais. Cada caso exige análise individual.</p>
+          <div className="flex items-center gap-6 text-[15px]">
+            <Link href={publicRoutes.login} className="text-muted-ink transition hover:text-primary underline decoration-1 decoration-secondary underline-offset-2">
+              Área da equipe
+            </Link>
+            <button type="button" onClick={() => openComposer()} className={`group flex items-center gap-2 ${PRESS}`}>
+              Contato <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+            </button>
+          </div>
         </div>
       </div>
     </footer>
@@ -782,16 +685,6 @@ function Footer() {
 }
 
 /* ───────────── peças ───────────── */
-
-/** O sobretítulo; o fio na frente é só o do topo. */
-function Eyebrow({ children, className = "text-secondary", line = false }: Readonly<{ children: ReactNode; className?: string; line?: boolean }>) {
-  return (
-    <p className={`flex items-center gap-3.5 text-[13px] font-medium tracking-[2px] uppercase max-[760px]:text-[12px] max-[760px]:tracking-[1.5px] ${className}`}>
-      {line && <span className="pr-grow-x h-px w-10 origin-left bg-current" aria-hidden="true" />}
-      {children}
-    </p>
-  );
-}
 
 function SectionTitle({ children, className = "" }: Readonly<{ children: ReactNode; className?: string }>) {
   return <h2 className={`text-[46px] leading-[1.2] [&>span]:font-light [&>span]:text-muted-ink ${className}`}>{children}</h2>;

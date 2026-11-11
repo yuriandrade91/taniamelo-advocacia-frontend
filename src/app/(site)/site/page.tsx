@@ -1,11 +1,23 @@
 import type { Metadata } from "next";
 import { OfficeSite } from "@/components/site/OfficeSite";
-import { SITE_NAME } from "@/components/site/siteContent";
+import { FAQ, SITE_NAME } from "@/components/site/siteContent";
 
 export const metadata: Metadata = {
-  title: `${SITE_NAME} — Advocacia previdenciária`,
+  title: `${SITE_NAME} — Advogado previdenciário, direito previdenciário e INSS`,
   description:
-    "Planejamento, pedido e recurso de aposentadorias do INSS: idade, tempo de contribuição, especial, pessoa com deficiência, professor, rural e incapacidade permanente.",
+    "Advogado previdenciário para aposentadoria, benefício do INSS, perícia, limbo previdenciário e auxílio-acidente: planejamento, pedido e recurso de aposentadorias por idade, tempo, especial, deficiência, professor, rural e incapacidade permanente.",
+  keywords: [
+    "direito previdenciário",
+    "advogado previdenciário",
+    "INSS",
+    "benefício previdenciário",
+    "limbo previdenciário",
+    "perícia INSS",
+    "extrato previdenciário",
+    "auxílio-acidente",
+    "aposentadoria especial",
+    "perfil profissiográfico previdenciário",
+  ],
   openGraph: {
     title: `${SITE_NAME} — Advocacia previdenciária`,
     description: "O seu futuro merece presença — direito previdenciário com estratégia, escuta e respeito à sua história.",
@@ -20,8 +32,21 @@ export const metadata: Metadata = {
  * JavaScript.
  */
 export default function SitePage() {
+  // As dúvidas viram dados estruturados: é o que deixa o Google mostrar as
+  // respostas direto no resultado da busca.
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQ.map((item) => ({
+      "@type": "Question",
+      name: item.question,
+      acceptedAnswer: { "@type": "Answer", text: item.answer },
+    })),
+  };
+
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <a
         href="#atuacao"
         className="sr-only z-[60] rounded-full bg-white px-4 py-2 text-primary focus:not-sr-only focus:fixed focus:top-4 focus:left-4"

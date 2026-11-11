@@ -41,9 +41,7 @@
 @keyframes pr-drop { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: none; } }
 .pr-drop { animation: pr-drop 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms) both; }
 @keyframes pr-grow-x { from { transform: scaleX(0); } to { transform: none; } }
-@keyframes pr-grow-y { from { transform: scaleY(0); } to { transform: none; } }
 .pr-grow-x { animation: pr-grow-x 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.4s both; }
-.pr-grow-y { animation: pr-grow-y 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 1.2s both; }
 
 /* Ao entrar na tela (o `Reveal` marca `data-visible`): a linha sobe, o fio se desenha, a seta gira. */
 .pr-vline > span { display: block; transform: translateY(108%); transition: transform 1s cubic-bezier(0.2, 0.7, 0.2, 1) var(--d, 0ms); }
@@ -53,12 +51,9 @@
 .pr-spin-in { transform: rotate(-90deg) scale(0.6); opacity: 0; transition: transform 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) 0.2s, opacity 0.8s 0.2s; }
 .site-reveal[data-visible="true"] .pr-spin-in { transform: none; opacity: 1; }
 
-/* A imagem de "Nossa essência" corre mais devagar que a página. */
-.pr-parallax { transform: translateY(var(--parallax-y, 0px)) scale(1.25); }
-
-/* O número do simulador salta quando a escolha muda. */
-@keyframes pr-pop { 0% { opacity: 0; transform: translateY(18px) scale(0.92); } 100% { opacity: 1; transform: none; } }
-.pr-pop { animation: pr-pop 0.55s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
+/* As molduras da foto de "Nossa essência" saem de trás dela (`--from-x`/`--from-y`) quando o `Reveal` marca `data-visible`. */
+.pr-frame { opacity: 0; transform: translate(var(--from-x, 0px), var(--from-y, 0px)); transition: transform 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) calc(var(--site-delay, 0ms) + 300ms), opacity 0.8s ease calc(var(--site-delay, 0ms) + 300ms); }
+.site-reveal[data-visible="true"] .pr-frame { opacity: 1; transform: none; }
 
 /* Brilho que atravessa o botão dourado no hover. */
 .pr-shine::after {
@@ -107,7 +102,8 @@
   .site-reveal,
   .site .pr-vline > span,
   .site .pr-draw,
-  .site .pr-spin-in {
+  .site .pr-spin-in,
+  .site .pr-frame {
     opacity: 1;
     transform: none;
     filter: none;

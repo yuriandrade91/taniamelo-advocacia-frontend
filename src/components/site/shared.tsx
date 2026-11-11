@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useSyncExternalStore, type ComponentType } from "react";
+import { useId, useSyncExternalStore, type ComponentType, type ReactNode } from "react";
 import Image from "next/image";
 import svgPaths from "@/constants/svg/paths";
 import type { IconProps } from "@/components/ui/icons/Svg";
@@ -8,6 +8,19 @@ import { SITE_CONTACT, SITE_NAME, contactHref } from "./siteContent";
 import { ChatIcon, InstagramIcon, MailIcon, PhoneIcon, PinIcon } from "./siteIcons";
 
 /** As peças pequenas do site: o que não é seção, mas a página usa em mais de um lugar. */
+
+/** Clique que afunda um pouco: o retorno de toque de cada botão da página. */
+export const PRESS = "transition active:scale-[0.97]";
+
+/** O sobretítulo; o fio na frente é só o do topo. */
+export function Eyebrow({ children, className = "text-secondary", line = false }: Readonly<{ children: ReactNode; className?: string; line?: boolean }>) {
+  return (
+    <p className={`flex items-center gap-3.5 text-[13px] font-medium tracking-[2px] uppercase max-[760px]:text-[12px] max-[760px]:tracking-[1.5px] ${className}`}>
+      {line && <span className="pr-grow-x h-px w-10 origin-left bg-current" aria-hidden="true" />}
+      {children}
+    </p>
+  );
+}
 
 /** "Reduzir movimento" ligado no sistema. As animações em JS consultam isto; as de CSS, o `site.css`. */
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
@@ -48,7 +61,7 @@ export function Logo({ tone = "gold", className = "h-11 w-auto", decorative = fa
 
 /**
  * Um grupo de escolhas — rádio de verdade por baixo, para teclado e leitor de
- * tela. O desenho vem de quem usa (o simulador e a janela da conversa).
+ * tela. O desenho vem de quem usa (a janela da conversa).
  */
 export function ChoicePills<T extends string>({
   legend,

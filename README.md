@@ -60,7 +60,7 @@ Credenciais da suíte e2e ficam em `env/e2e.local.env`, fora do git
 
 | Rota | | Quem vê |
 |---|---|---|
-| `/site` | o site público do escritório: atuação, como funciona, simulador da LC 142/2013, dúvidas e contato. Canais de contato em `components/site/siteContent.ts` (vazio não aparece) | público |
+| `/site` | o site público do escritório: atuação, como funciona, dúvidas e contato. Canais de contato em `components/site/siteContent.ts` (vazio não aparece) | público |
 | `/login` | entrada; avisa quando a sessão venceu e quando o login foi freado por tentativas | todos |
 | `/home` | agenda do mês, esteira de clientes (arrastar muda a etapa), aniversariantes, próximas receitas e balanço | todos; o dinheiro só para ADMIN |
 | `/clientes` | lista com filtros, mudança de etapa na linha, ficha (ler e editar no mesmo lugar), exclusão com desfazer | todos; excluir só ADMIN/SUPPORT |

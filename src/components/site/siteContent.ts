@@ -1,5 +1,8 @@
 import { BENEFIT_ENTRIES, type BenefitKey } from "@/enums/benefit/Benefits";
-import { SITUATION_ENTRIES, type SituationKey } from "@/enums/situation/Situation";
+import {
+  SITUATION_ENTRIES,
+  type SituationKey,
+} from "@/enums/situation/Situation";
 
 /**
  * O conteúdo do site do escritório, num lugar só.
@@ -10,6 +13,10 @@ import { SITUATION_ENTRIES, type SituationKey } from "@/enums/situation/Situatio
  * de verdade. Pelo mesmo motivo não há nota de avaliação, contagem de clientes
  * nem "desde 19xx": número de vitrine sem fonte é o que o Provimento 205/2021
  * da OAB pede para não fazer.
+ *
+ * Exceção: `ESSENCE_STATS`, números de vitrine passados pelo próprio
+ * escritório. Quem responde por eles é o escritório — confira com o
+ * Provimento 205/2021 antes de publicar.
  *
  * Os benefícios e as etapas vêm dos enums do sistema: o site fala dos mesmos
  * serviços e do mesmo caminho que o escritório usa no dia a dia.
@@ -26,7 +33,7 @@ type SiteContact = {
 
 export const SITE_CONTACT: Readonly<SiteContact> = {
   /** Só dígitos, com DDD: "31999990000". Liga o botão flutuante e os CTAs. */
-  whatsapp: "21988275421",
+  whatsapp: "21988257421",
   /** Como deve aparecer: "(31) 3333-0000". */
   phone: "",
   email: "",
@@ -38,27 +45,47 @@ export const SITE_CONTACT: Readonly<SiteContact> = {
   instagram: "",
 };
 
-export const SITE_NAME = "Tânia Melo Advocacia";
+/** Os destaques da faixa de "Nossa essência": o número grande e o que ele conta. */
+export const ESSENCE_STATS = [
+  { value: "+1.500", label: "clientes em todo o Brasil e no exterior" },
+  { value: "98%", label: "dos processos ganhos" },
+  { value: "100%", label: "dos clientes satisfeitos" },
+  { value: "IA", label: "auxiliando os processos" },
+] as const;
+
+/** As redes do escritório, na ordem em que aparecem no rodapé. */
+export const SITE_SOCIALS = [
+  { name: "Instagram", handle: "@advogadataniamelo", href: "https://www.instagram.com/advogadataniamelo" },
+  { name: "TikTok", handle: "@advogadataniamelo", href: "https://www.tiktok.com/@advogadataniamelo" },
+  { name: "LinkedIn", handle: "Tânia Melo", href: "https://www.linkedin.com/in/tania-melo-22a1a433/" },
+] as const;
+
+export const SITE_NAME = "Tânia Melo Advocacia Previdenciária";
 
 /** A mensagem que já vai escrita no WhatsApp. */
-const WHATSAPP_GREETING = "Olá! Vim pelo site e gostaria de conversar sobre a minha aposentadoria.";
+const WHATSAPP_GREETING =
+  "Olá! Vim pelo site e gostaria de conversar sobre a minha aposentadoria.";
 
 /** O WhatsApp com a mensagem já escrita — ou a seção de contato, enquanto o número não está preenchido. */
 export const whatsappHref = (message: string) =>
-  SITE_CONTACT.whatsapp ? `https://wa.me/55${SITE_CONTACT.whatsapp}?text=${encodeURIComponent(message)}` : "#contato";
+  SITE_CONTACT.whatsapp
+    ? `https://wa.me/55${SITE_CONTACT.whatsapp}?text=${encodeURIComponent(message)}`
+    : "#contato";
 
 /** O destino do "falar com a equipe": o WhatsApp, quando configurado; senão, a seção de contato. */
 export const contactHref = whatsappHref(WHATSAPP_GREETING);
 
 export const NAV_LINKS = [
+  { href: "#escritorio", label: "Essência" },
   { href: "#atuacao", label: "Atuação" },
   { href: "#como-funciona", label: "Como funciona" },
-  { href: "#simulador", label: "Simulador PcD" },
   { href: "#duvidas", label: "Dúvidas" },
-  { href: "#contato", label: "Contato" },
 ] as const;
 
-const BENEFIT_LABEL = Object.fromEntries(BENEFIT_ENTRIES) as Record<BenefitKey, string>;
+const BENEFIT_LABEL = Object.fromEntries(BENEFIT_ENTRIES) as Record<
+  BenefitKey,
+  string
+>;
 
 export type Service = {
   key: BenefitKey;
@@ -79,42 +106,54 @@ export const SERVICES: readonly Service[] = [
   {
     key: "APOSENTADORIA_ESPECIAL",
     title: BENEFIT_LABEL.APOSENTADORIA_ESPECIAL,
-    question: "Trabalhou exposto a ruído, calor, agentes químicos ou biológicos?",
-    summary: "PPP, laudos técnicos e o histórico de cada empresa conferidos para provar a exposição.",
+    question:
+      "Trabalhou exposto a ruído, calor, agentes químicos ou biológicos?",
+    summary:
+      "PPP, laudos técnicos e o histórico de cada empresa conferidos para provar a exposição.",
   },
   {
     key: "APOSENTADORIA_POR_IDADE",
     title: BENEFIT_LABEL.APOSENTADORIA_POR_IDADE,
     question: "Chegou a idade e não sabe se as contribuições fecham a conta?",
-    summary: "Idade mínima e carência conferidas contra o seu CNIS, com as lacunas corrigidas antes do pedido.",
+    summary:
+      "Idade mínima e carência conferidas contra o seu CNIS, com as lacunas corrigidas antes do pedido.",
   },
   {
     key: "APOSENTADORIA_POR_TEMPO_CONTRIBUICAO",
     title: BENEFIT_LABEL.APOSENTADORIA_POR_TEMPO_CONTRIBUICAO,
     question: "Começou a contribuir antes da Reforma de 2019?",
-    summary: "As regras de transição são comparadas lado a lado para achar a data e o valor mais vantajosos.",
+    summary:
+      "As regras de transição são comparadas lado a lado para achar a data e o valor mais vantajosos.",
   },
   {
     key: "APOSENTADORIA_POR_INCAPACIDADE_PERMANENTE",
     title: BENEFIT_LABEL.APOSENTADORIA_POR_INCAPACIDADE_PERMANENTE,
     question: "Uma doença ou um acidente impedem você de voltar a trabalhar?",
-    summary: "Laudos, exames e o histórico médico organizados para a perícia do INSS.",
+    summary:
+      "Laudos, exames e o histórico médico organizados para a perícia do INSS.",
   },
   {
     key: "APOSENTADORIA_POR_TEMPO_PROFESSOR",
     title: "Aposentadoria do professor",
-    question: "Dá ou deu aula na educação infantil, no ensino fundamental ou no médio?",
-    summary: "O tempo de magistério tem regra própria, com requisitos reduzidos — e precisa ser comprovado período a período.",
+    question:
+      "Dá ou deu aula na educação infantil, no ensino fundamental ou no médio?",
+    summary:
+      "O tempo de magistério tem regra própria, com requisitos reduzidos — e precisa ser comprovado período a período.",
   },
   {
     key: "APOSENTADORIA_RURAL",
     title: BENEFIT_LABEL.APOSENTADORIA_RURAL,
     question: "Trabalhou no campo, sozinho ou com a família?",
-    summary: "A idade exigida é menor, e a prova do trabalho rural é montada com os documentos que existem.",
+    summary:
+      "A idade exigida é menor, e a prova do trabalho rural é montada com os documentos que existem.",
   },
 ];
 
-export type JourneyStep = { key: SituationKey; title: string; description: string };
+export type JourneyStep = {
+  key: SituationKey;
+  title: string;
+  description: string;
+};
 
 const STEP_DESCRIPTIONS: Record<SituationKey, string> = {
   FORMULARIO_PREENCHIDO:
@@ -132,11 +171,13 @@ const STEP_DESCRIPTIONS: Record<SituationKey, string> = {
 };
 
 /** As seis etapas da esteira — as mesmas que o escritório acompanha no sistema. */
-export const JOURNEY: readonly JourneyStep[] = SITUATION_ENTRIES.map(([key, title]) => ({
-  key,
-  title,
-  description: STEP_DESCRIPTIONS[key],
-}));
+export const JOURNEY: readonly JourneyStep[] = SITUATION_ENTRIES.map(
+  ([key, title]) => ({
+    key,
+    title,
+    description: STEP_DESCRIPTIONS[key],
+  }),
+);
 
 export const FAQ = [
   {
@@ -168,5 +209,43 @@ export const FAQ = [
     question: "Quais documentos costumam ser pedidos?",
     answer:
       "Documentos pessoais, carteiras de trabalho, carnês e o CNIS são a base. Conforme o benefício entram PPP e laudos técnicos (atividade especial), laudos médicos (incapacidade e deficiência) ou provas do trabalho rural.",
+  },
+  // As perguntas abaixo respondem ao que as pessoas pesquisam no Google sobre
+  // direito previdenciário (Google Trends, nov/2026): "o que é benefício
+  // previdenciário", "limbo previdenciário", "perícia", "extrato", "PPP", "nexo técnico".
+  {
+    question: "O que é benefício previdenciário?",
+    answer:
+      "É o pagamento que o INSS faz a quem contribuiu e se encaixa numa situação prevista em lei: aposentadoria, auxílio por incapacidade temporária (antigo auxílio-doença), auxílio-acidente, pensão por morte, salário-maternidade, entre outros. Cada um tem requisitos próprios de contribuição, carência e idade.",
+  },
+  {
+    question: "O que é o limbo previdenciário?",
+    answer:
+      "É quando o INSS considera o trabalhador apto e encerra o benefício, mas a empresa não o aceita de volta por entender que ele segue incapaz. Ele fica sem salário e sem benefício. A saída passa por recurso ou ação contra o INSS e, conforme o caso, pela cobrança dos salários da empresa.",
+  },
+  {
+    question: "Como funciona a perícia do INSS?",
+    answer:
+      "Um perito médico avalia se existe incapacidade para o trabalho, olhando exames, laudos e o histórico da doença. Levar laudos atualizados, receitas e exames organizados faz diferença. Se o resultado for negativo, cabe recurso ou ação judicial, com perícia judicial.",
+  },
+  {
+    question: "Para que serve o extrato previdenciário?",
+    answer:
+      "O extrato previdenciário (CNIS) mostra vínculos, salários e contribuições. É com ele que se confere se o tempo e a carência fecham, e se há períodos ou salários faltando para corrigir antes do pedido. Ele é emitido pelo Meu INSS.",
+  },
+  {
+    question: "O que é o PPP (perfil profissiográfico previdenciário)?",
+    answer:
+      "É o documento, emitido pela empresa, que registra a atividade do trabalhador e os agentes nocivos a que esteve exposto, como ruído, calor e agentes químicos. Ele é a principal prova da aposentadoria especial e do tempo de trabalho em condições prejudiciais.",
+  },
+  {
+    question: "O que é o nexo técnico epidemiológico (NTEP)?",
+    answer:
+      "É o vínculo que o INSS reconhece automaticamente entre a doença e a atividade da empresa, a partir de estatísticas por setor. Quando ele se aplica, a incapacidade é tratada como acidentária, o que pode trazer estabilidade no emprego e depósito de FGTS durante o afastamento.",
+  },
+  {
+    question: "Quando cabe o auxílio-acidente?",
+    answer:
+      "Quando, depois de um acidente ou de uma doença, a pessoa se recupera mas fica com uma sequela que reduz a capacidade de trabalhar. O benefício é uma indenização mensal, de 50% do salário de benefício, paga enquanto ela trabalha — e pode ser pedido mesmo depois de voltar ao serviço.",
   },
 ] as const;
