@@ -94,7 +94,11 @@ const WhatsAppComposer = dynamic(() => import("./WhatsAppComposer").then((module
 function useParallax(ref: RefObject<HTMLElement | null>, factor: number) {
   const reduced = usePrefersReducedMotion();
   useEffect(() => {
-    if (reduced) return;
+    // O servidor rende com `reduced = false`: a primeira leitura pode já ter gravado um deslocamento.
+    if (reduced) {
+      ref.current?.style.removeProperty("--parallax-y");
+      return;
+    }
     let frame = 0;
     const update = () => {
       frame = 0;
@@ -285,7 +289,7 @@ function Hero() {
         aria-hidden="true"
       />
 
-      <div className={`${CONTAINER} relative grid h-full min-h-[inherit] grid-cols-1 pt-[150px] pb-[34px] min-[1600px]:pt-[175px] max-[760px]:block max-[760px]:pt-[125px] max-[760px]:pb-[26px]`}>
+      <div className={`${CONTAINER} pr-drift relative [--drift:-2] [--drift-max:400px] grid h-full min-h-[inherit] grid-cols-1 pt-[150px] pb-[34px] min-[1600px]:pt-[175px] max-[760px]:block max-[760px]:pt-[125px] max-[760px]:pb-[26px]`}>
         <div>
           <Enter delay={100}>
             <Eyebrow line className="text-gold-light">
@@ -358,7 +362,8 @@ function Practice() {
         </Reveal>
 
         <div className="mt-[60px] grid grid-cols-[1fr_2fr] gap-[70px] max-[1100px]:gap-[45px] max-[760px]:mt-[35px] max-[760px]:grid-cols-1 max-[760px]:gap-5">
-          <Reveal delay={100} className="max-[760px]:hidden">
+          {/* Acompanha a rolagem enquanto a sanfona é mais alta que ele. */}
+          <Reveal delay={100} className="sticky top-32 self-start max-[760px]:hidden">
             <aside className="border-t border-hairline pt-7">
               <svg viewBox="0 0 24 24" className="pr-spin-in h-[70px] w-[70px] text-secondary" fill="none" stroke="currentColor" strokeWidth="0.8" aria-hidden="true">
                 <path d="M19 5 5 19M9 5h10v10" />
@@ -406,6 +411,9 @@ function Practice() {
 
 /** "Nossa essência": quem atende — a foto de um lado, a história e o que o atendimento promete do outro. */
 function Manifesto() {
+  const photoRef = useRef<HTMLDivElement>(null);
+  useParallax(photoRef, 0.05);
+
   return (
     <section id="escritorio" className="scroll-mt-20 bg-ivory pt-[110px] text-primary max-[760px]:pt-[60px]">
       <div
@@ -414,15 +422,18 @@ function Manifesto() {
         <Reveal>
           <figure className="mx-auto max-w-[520px] max-[900px]:max-w-[420px]">
             <div className="group relative">
-              <div className="relative z-10 overflow-hidden">
-                <Image
-                  src={ESSENCE_PHOTO.src}
-                  alt={ESSENCE_PHOTO.alt}
-                  width={ESSENCE_PHOTO.width}
-                  height={ESSENCE_PHOTO.height}
-                  sizes="(max-width: 900px) 420px, 520px"
-                  className="aspect-[4/5] w-full object-cover object-[50%_100%] transition-transform duration-[1200ms] ease-out group-hover:scale-[1.04]"
-                />
+              {/* A foto anda dentro da moldura com a rolagem; a ampliação cobre o vão que o deslocamento abriria. */}
+              <div ref={photoRef} className="relative z-10 overflow-hidden">
+                <div className="pr-drift scale-[1.12] [--drift-max:26px]">
+                  <Image
+                    src={ESSENCE_PHOTO.src}
+                    alt={ESSENCE_PHOTO.alt}
+                    width={ESSENCE_PHOTO.width}
+                    height={ESSENCE_PHOTO.height}
+                    sizes="(max-width: 900px) 420px, 520px"
+                    className="aspect-[4/5] w-full object-cover object-[50%_100%] transition-transform duration-[1200ms] ease-out group-hover:scale-[1.04]"
+                  />
+                </div>
               </div>
               {/* Duas molduras deslocadas, em cantos opostos: saem de trás da foto quando ela entra em cena. */}
               <div className="pr-frame absolute top-[-20px] right-5 bottom-5 -left-5 border border-primary [--from-x:20px] [--from-y:20px] max-[760px]:top-[-12px] max-[760px]:right-3 max-[760px]:bottom-3 max-[760px]:-left-3" aria-hidden="true" />
@@ -498,6 +509,9 @@ function Manifesto() {
 }
 
 function Journey() {
+  const stepsRef = useRef<HTMLOListElement>(null);
+  useParallax(stepsRef, 0.05);
+
   return (
     <section id="como-funciona" className="scroll-mt-20 bg-ivory py-[110px] max-[760px]:py-[60px]">
       <div className={CONTAINER}>
@@ -509,9 +523,16 @@ function Journey() {
             <span>Confiança para seguir.</span>
           </SectionTitle>
         </Reveal>
-        <ol className="mt-[55px] grid grid-cols-3 gap-[45px] max-[1100px]:grid-cols-2 max-[760px]:mt-[30px] max-[760px]:grid-cols-1 max-[760px]:gap-[30px]">
+        <ol
+          ref={stepsRef}
+          className="mt-[55px] grid grid-cols-3 gap-[45px] max-[1100px]:grid-cols-2 max-[760px]:mt-[30px] max-[760px]:grid-cols-1 max-[760px]:gap-[30px]"
+        >
           {JOURNEY.map((step, index) => (
-            <li key={step.key}>
+            // Colunas em sentidos opostos: a grade se desencontra e se encaixa ao rolar. Numa coluna só, não há com quem se desencontrar.
+            <li
+              key={step.key}
+              className="pr-drift [--drift-max:18px] max-[760px]:[--drift:0] min-[761px]:max-[1100px]:nth-[2n]:[--drift:-1] min-[1101px]:nth-[3n+2]:[--drift:-1]"
+            >
               <Reveal delay={(index % 3) * 120} className="group">
                 <span className="pr-draw block h-px bg-hairline" aria-hidden="true" />
                 <div className="pt-[27px] transition duration-300 group-hover:-translate-y-1">
@@ -564,45 +585,53 @@ function Questions() {
 }
 
 function ClosingCall() {
+  const ref = useRef<HTMLElement>(null);
   const openComposer = useComposer();
+  useParallax(ref, 0.08);
+
   return (
-    <section id="contato" className="scroll-mt-20 overflow-hidden bg-primary py-[90px] text-white max-[760px]:py-[60px]">
+    <section ref={ref} id="contato" className="scroll-mt-20 overflow-hidden bg-primary py-[90px] text-white max-[760px]:py-[60px]">
       <div className={`${CONTAINER} flex items-center justify-between gap-[35px] max-[760px]:block`}>
+        {/* Texto e círculo derivam em sentidos opostos, o círculo mais; empilhados no celular, ficam parados. */}
         <Reveal>
-          <Eyebrow className="text-gold-light">O próximo capítulo começa aqui</Eyebrow>
-          <h2 className="mt-[30px] text-[76px] leading-[1.06] font-light max-[760px]:text-[46px]">
-            Vamos olhar para
-            <br />o seu <span className="text-gold-light">futuro?</span>
-          </h2>
-          <ChannelList
-            className="mt-10 flex flex-wrap gap-x-10 gap-y-4 text-[17px]"
-            itemClassName="flex items-center gap-3 opacity-85 transition hover:opacity-100"
-            iconClassName="h-5 w-5 shrink-0 text-gold-light"
-            labelClassName="sr-only"
-            emptyClassName="mt-8 text-[15px] opacity-70"
-          />
+          <div className="pr-drift [--drift:0.5] max-[760px]:[--drift:0]">
+            <Eyebrow className="text-gold-light">O próximo capítulo começa aqui</Eyebrow>
+            <h2 className="mt-[30px] text-[76px] leading-[1.06] font-light max-[760px]:text-[46px]">
+              Vamos olhar para
+              <br />o seu <span className="text-gold-light">futuro?</span>
+            </h2>
+            <ChannelList
+              className="mt-10 flex flex-wrap gap-x-10 gap-y-4 text-[17px]"
+              itemClassName="flex items-center gap-3 opacity-85 transition hover:opacity-100"
+              iconClassName="h-5 w-5 shrink-0 text-gold-light"
+              labelClassName="sr-only"
+              emptyClassName="mt-8 text-[15px] opacity-70"
+            />
+          </div>
         </Reveal>
         <Reveal delay={200} className="shrink-0">
-          <button
-            type="button"
-            onClick={() => openComposer()}
-            className="pr-orbit group relative flex h-44 w-44 flex-col items-center justify-center gap-4 rounded-full border border-secondary transition duration-500 hover:bg-secondary active:scale-95 max-[760px]:mt-[36px] max-[760px]:h-[140px] max-[760px]:w-[140px]"
-          >
-            <svg
-              viewBox="0 0 24 24"
-              className="h-10 w-10 transition duration-500 group-hover:rotate-45 max-[760px]:h-8 max-[760px]:w-8"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
+          <div className="pr-drift [--drift:-0.8] max-[760px]:[--drift:0]">
+            <button
+              type="button"
+              onClick={() => openComposer()}
+              className="pr-orbit group relative flex h-44 w-44 flex-col items-center justify-center gap-4 rounded-full border border-secondary transition duration-500 hover:bg-secondary active:scale-95 max-[760px]:mt-[36px] max-[760px]:h-[140px] max-[760px]:w-[140px]"
             >
-              <path d="M13 5H19V11" />
-              <path d="M19 5L5 19" />
-            </svg>
-            <span className="text-[15px] font-medium">Vamos conversar</span>
-          </button>
+              <svg
+                viewBox="0 0 24 24"
+                className="h-10 w-10 transition duration-500 group-hover:rotate-45 max-[760px]:h-8 max-[760px]:w-8"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M13 5H19V11" />
+                <path d="M19 5L5 19" />
+              </svg>
+              <span className="text-[15px] font-medium">Vamos conversar</span>
+            </button>
+          </div>
         </Reveal>
       </div>
     </section>

@@ -26,6 +26,17 @@
   filter: none;
 }
 
+/*
+ * Deriva ligada à rolagem. O `useParallax` do elemento de cima grava `--parallax-y`;
+ * cada peça anda uma fração dele (`--drift`; negativo vai ao contrário) e nunca
+ * passa de `--drift-max`, para não abrir vão onde a peça é recortada.
+ */
+.pr-drift {
+  transform: translateY(
+    clamp(calc(var(--drift-max, 120px) * -1), calc(var(--parallax-y, 0px) * var(--drift, 1)), var(--drift-max, 120px))
+  );
+}
+
 /* A cena do topo entra de longe; a seta de "explore" flutua. */
 @keyframes pr-scene-enter { from { opacity: 0.3; transform: translateY(var(--parallax-y, 0px)) scale(1.14); } to { opacity: 1; transform: translateY(var(--parallax-y, 0px)) scale(1.09); } }
 .pr-scene { transform: translateY(var(--parallax-y, 0px)) scale(1.09); animation: pr-scene-enter 1.8s ease-out both; }
