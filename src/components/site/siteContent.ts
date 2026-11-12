@@ -49,7 +49,7 @@ export const SITE_CONTACT: Readonly<SiteContact> = {
 export const ESSENCE_STATS = [
   { value: "+1.500", label: "clientes em todo o Brasil e no exterior" },
   { value: "98%", label: "dos processos ganhos" },
-  { value: "100%", label: "dos clientes satisfeitos" },
+  { value: "98%", label: "dos clientes satisfeitos" },
   { value: "IA", label: "auxiliando os processos" },
 ] as const;
 
