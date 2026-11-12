@@ -13,7 +13,7 @@ export function seedOffice() {
   // ── clientes ──
   onApi("get", "/clients", page([fx.clientRow(), fx.clientRow({ id: "c2", fullName: "José Pereira", clientType: "Potencial", situation: "Formulário preenchido", requestStage: null })], 2));
   onApi("get", /\/clients\/c\d+$/, ({ url }) => envelope(fx.client({ id: url.split("/").pop()! })));
-  onApi("get", "/upcoming-birthdays", envelope([fx.birthday(), fx.birthday({ clientId: "c2", fullName: "José Pereira", daysUntil: 0, nextBirthday: fx.isoDay(0), turningAge: 70, isWhatsapp: false })]));
+  onApi("get", "/upcoming-birthdays", envelope([fx.birthday(), fx.birthday({ clientId: "c2", fullName: "José Pereira", daysUntil: 0, nextBirthday: fx.officeDay(0), turningAge: 70, isWhatsapp: false })]));
   onApi("get", "/addresses", page([fx.address()]));
   onApi("get", "/interviews", page([fx.interview()]));
   onApi("get", "/disability-periods", envelope([]));

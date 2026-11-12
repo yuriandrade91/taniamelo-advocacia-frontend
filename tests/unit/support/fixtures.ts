@@ -10,6 +10,7 @@ import type { AppointmentResponse } from "@/interfaces/appointment/Appointment.i
 import type { OfficePaymentResponse } from "@/interfaces/payment/OfficePayment.interface";
 import type { OfficeExpenseResponse } from "@/interfaces/finance/OfficeExpense.interface";
 import type { OfficeRevenueResponse } from "@/interfaces/finance/OfficeRevenue.interface";
+import { officeToday } from "@/lib/officeClock";
 import { todayIso } from "@/lib/period";
 
 /**
@@ -17,10 +18,24 @@ import { todayIso } from "@/lib/period";
  * Cada fábrica aceita `overrides` — o teste muda só o que importa para ele.
  */
 
-/** `YYYY-MM-DD` a `days` dias de hoje (negativo = passado). */
-export function isoDay(days: number): string {
-  const [y, m, d] = todayIso().split("-").map(Number);
+function shiftDay(base: string, days: number): string {
+  const [y, m, d] = base.split("-").map(Number);
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
+}
+
+/** `YYYY-MM-DD` a `days` dias de hoje (negativo = passado), no fuso da máquina. */
+export function isoDay(days: number): string {
+  return shiftDay(todayIso(), days);
+}
+
+/**
+ * Como `isoDay`, mas no dia do escritório (`America/Sao_Paulo`): é o "hoje" da
+ * API (o `daysUntil` dos aniversariantes, por exemplo) e o que a tela lê por
+ * `useOfficeToday`. Com a máquina em UTC (o CI), entre 21h e meia-noite em
+ * Brasília os dois dias diferem, e o fixture de "hoje" virava "amanhã".
+ */
+export function officeDay(days: number): string {
+  return shiftDay(officeToday(), days);
 }
 
 /** Instante ISO a `days` dias e na hora `hour` (UTC). */
@@ -213,7 +228,7 @@ export const birthday = (overrides: Partial<UpcomingBirthdayResponse> = {}): Upc
   clientId: "c1",
   fullName: "Maria Aparecida da Silva",
   birthDate: "1965-05-20",
-  nextBirthday: isoDay(3),
+  nextBirthday: officeDay(3),
   daysUntil: 3,
   turningAge: 61,
   mobilePhone: "31988887777",
