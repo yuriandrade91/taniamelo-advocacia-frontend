@@ -16,6 +16,7 @@ import dynamic from "next/dynamic";
 import Image from "next/image";
 import Link from "next/link";
 import { publicRoutes } from "@/constants/paths/routes";
+import { CountUp } from "./CountUp";
 import { Reveal } from "./Reveal";
 import { ESSENCE_STATS, FAQ, JOURNEY, NAV_LINKS, SERVICES, SITE_CONTACT, SITE_SOCIALS } from "./siteContent";
 import { ArrowUpRightIcon as ArrowUpRight, ChatIcon, CloseIcon, MenuIcon } from "./siteIcons";
@@ -495,8 +496,8 @@ function Manifesto() {
                 className="group border-l border-white/15 px-8 py-10 first:border-l-0 first:pl-0 max-[900px]:nth-[odd]:border-l-0 max-[900px]:nth-[odd]:pl-0 max-[900px]:nth-[n+3]:border-t max-[480px]:border-l-0 max-[480px]:px-0 max-[480px]:not-first:border-t max-[480px]:py-7"
               >
                 <Reveal delay={index * 120} className="flex flex-col gap-3">
-                  <p className="text-[52px] leading-none font-light text-secondary transition-transform duration-300 group-hover:translate-x-2 max-[760px]:text-[44px]">
-                    {stat.value}
+                  <p className="text-[52px] leading-none font-light text-secondary tabular-nums transition-transform duration-300 group-hover:translate-x-2 max-[760px]:text-[44px]">
+                    <CountUp value={stat.value} delay={index * 120 + 200} />
                   </p>
                   <p className="text-[13px] leading-[1.5] font-semibold tracking-[1.5px] text-white/85 uppercase">{stat.label}</p>
                 </Reveal>
