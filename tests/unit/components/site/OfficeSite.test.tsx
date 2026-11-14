@@ -48,6 +48,7 @@ describe("Site: áreas de atuação", () => {
     const response = await screen.findByRole("status", {
       name: /Resposta completa/,
     });
+    expect(screen.getByText("TM")).toBeInTheDocument();
     expect(response).toHaveTextContent(
       /a profissão, por si só, não garante esse enquadramento/i,
     );

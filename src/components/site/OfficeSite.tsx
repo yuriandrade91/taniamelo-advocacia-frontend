@@ -638,7 +638,9 @@ function Practice() {
                             className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-full border border-secondary/45 text-secondary"
                             aria-hidden="true"
                           >
-                            <span className="text-[13px] font-light">T</span>
+                            <span className="text-[10px] font-semibold tracking-[-0.06em]">
+                              TM
+                            </span>
                           </span>
                           <div className="max-w-[90%] border-l-2 border-secondary bg-ivory/75 px-4 py-3">
                             <TypingSummary summary={selected.summary} />
