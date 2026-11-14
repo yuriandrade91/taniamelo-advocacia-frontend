@@ -33,6 +33,23 @@ describe("Site: rolagem", () => {
 });
 
 describe("Site: áreas de atuação", () => {
+  it("dá boas-vindas com uma mensagem humanizada e digitada", async () => {
+    renderApp(<SitePage />);
+
+    expect(
+      await screen.findByRole("status", { name: /Preparando uma resposta/ }),
+    ).toBeInTheDocument();
+
+    const welcome = await screen.findByRole(
+      "status",
+      { name: "Resposta completa" },
+      { timeout: 3000 },
+    );
+    expect(welcome).toHaveTextContent(
+      /Que bom ter você por aqui.*vamos descobrir juntos/i,
+    );
+  });
+
   it("responde aos temas escolhidos e mantém as opções disponíveis", async () => {
     const { user } = renderApp(<SitePage />);
     const mei = screen.getByRole("button", { name: /MEI/ });
@@ -50,7 +67,7 @@ describe("Site: áreas de atuação", () => {
     });
     expect(screen.getByText("TM")).toBeInTheDocument();
     expect(response).toHaveTextContent(
-      /a profissão, por si só, não garante esse enquadramento/i,
+      /a profissão, por si só, não garante o reconhecimento de tempo especial/i,
     );
     expect(
       screen.queryByRole("status", { name: /pagamentos do DAS/ }),

@@ -24,6 +24,7 @@ import {
   JOURNEY,
   NAV_LINKS,
   PRACTICE_AREAS,
+  PRACTICE_WELCOME,
   SERVICES,
   SITE_CONTACT,
   SITE_SOCIALS,
@@ -619,11 +620,18 @@ function Practice() {
                         <p className="text-[10px] font-semibold tracking-[1.2px] text-secondary uppercase">
                           {selected ? "Sobre esse tema" : "Boas-vindas"}
                         </p>
-                        <p className="mt-1.5 text-[14px] leading-[1.7] text-primary">
-                          {selected
-                            ? selected.question
-                            : "Qual situação se parece mais com a sua? Escolha um tema no menu e eu explico como podemos orientar."}
-                        </p>
+                        {selected ? (
+                          <p className="mt-1.5 text-[14px] leading-[1.7] text-primary">
+                            {selected.question}
+                          </p>
+                        ) : (
+                          <div className="mt-1.5">
+                            <TypingSummary
+                              summary={PRACTICE_WELCOME}
+                              startOnView
+                            />
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -684,13 +692,43 @@ function Practice() {
   );
 }
 
-function TypingSummary({ summary }: Readonly<{ summary: string }>) {
+function TypingSummary({
+  summary,
+  startOnView = false,
+}: Readonly<{ summary: string; startOnView?: boolean }>) {
+  const ref = useRef<HTMLParagraphElement>(null);
   const [visibleWords, setVisibleWords] = useState(0);
+  const [hasEnteredView, setHasEnteredView] = useState(
+    () => !startOnView || typeof IntersectionObserver === "undefined",
+  );
   const reduced = usePrefersReducedMotion();
   const words = summary.split(" ");
 
   useEffect(() => {
-    if (reduced || visibleWords >= summary.split(" ").length) return;
+    if (!startOnView || hasEnteredView || reduced) return;
+
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setHasEnteredView(true);
+        observer.disconnect();
+      },
+      { rootMargin: "0px 0px -10% 0px", threshold: 0.12 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasEnteredView, reduced, startOnView]);
+
+  useEffect(() => {
+    if (
+      reduced ||
+      !hasEnteredView ||
+      visibleWords >= summary.split(" ").length
+    )
+      return;
 
     const previousWord = summary.split(" ")[visibleWords - 1] ?? "";
     const pause = /[.!?]$/.test(previousWord) ? 140 : 18;
@@ -699,7 +737,7 @@ function TypingSummary({ summary }: Readonly<{ summary: string }>) {
       visibleWords === 0 ? 380 : pause,
     );
     return () => window.clearTimeout(timer);
-  }, [reduced, summary, visibleWords]);
+  }, [hasEnteredView, reduced, summary, visibleWords]);
 
   const displayedWords = reduced ? words.length : visibleWords;
   const isThinking = displayedWords === 0 && !reduced;
@@ -708,6 +746,7 @@ function TypingSummary({ summary }: Readonly<{ summary: string }>) {
   if (isThinking) {
     return (
       <p
+        ref={ref}
         role="status"
         aria-label="Preparando uma resposta"
         className="flex items-center gap-2 text-[12px] text-muted-ink"
@@ -725,6 +764,7 @@ function TypingSummary({ summary }: Readonly<{ summary: string }>) {
   return (
     <>
       <p
+        ref={ref}
         aria-hidden="true"
         className="text-[14px] leading-[1.75] text-primary"
       >

@@ -120,7 +120,7 @@ export const SERVICES: readonly Service[] = [
     title: BENEFIT_LABEL.APOSENTADORIA_POR_DEFICIENCIA,
     question: "Tem deficiência e trabalha? O tempo exigido pode ser bem menor.",
     summary:
-      "A Lei Complementar 142/2013 reduz o tempo de contribuição conforme o grau da deficiência — grave, moderada ou leve — e o tempo trabalhado em cada grau é convertido com precisão.",
+      "A Lei Complementar 142/2013 prevê requisitos diferentes para a pessoa com deficiência, que variam conforme o grau e o tempo de contribuição nessa condição. Analisamos o histórico de trabalho, os documentos médicos e a avaliação biopsicossocial para identificar quais regras podem se aplicar. Também comparamos as possibilidades por idade e por tempo de contribuição, sem presumir o enquadramento antes de avaliar o caso.",
   },
   {
     key: "APOSENTADORIA_ESPECIAL",
@@ -128,28 +128,28 @@ export const SERVICES: readonly Service[] = [
     question:
       "Trabalhou exposto a ruído, calor, agentes químicos ou biológicos?",
     summary:
-      "PPP, laudos técnicos e o histórico de cada empresa conferidos para provar a exposição.",
+      "A aposentadoria especial depende da comprovação das condições de trabalho em cada período — não apenas do nome da profissão. Conferimos PPP, laudos técnicos e outros registros para entender a exposição a agentes nocivos, identificar documentos que possam faltar e avaliar quais regras se aplicam às datas trabalhadas.",
   },
   {
     key: "APOSENTADORIA_POR_IDADE",
     title: BENEFIT_LABEL.APOSENTADORIA_POR_IDADE,
     question: "Chegou a idade e não sabe se as contribuições fecham a conta?",
     summary:
-      "Idade mínima e carência conferidas contra o seu CNIS, com as lacunas corrigidas antes do pedido.",
+      "A idade, o tempo de contribuição e a carência precisam ser conferidos conforme a regra aplicável ao seu histórico. Analisamos o CNIS e os demais documentos para localizar vínculos ou contribuições ausentes, salários divergentes e períodos que precisem de comprovação. Com os dados organizados, fica mais claro quando você pode pedir e quais pontos devem ser ajustados antes.",
   },
   {
     key: "APOSENTADORIA_POR_TEMPO_CONTRIBUICAO",
     title: BENEFIT_LABEL.APOSENTADORIA_POR_TEMPO_CONTRIBUICAO,
     question: "Começou a contribuir antes da Reforma de 2019?",
     summary:
-      "As regras de transição são comparadas lado a lado para achar a data e o valor mais vantajosos.",
+      "Para quem já contribuía antes da Reforma da Previdência, podem existir regras de transição diferentes — e os requisitos mudam de acordo com o histórico. Conferimos os períodos e as contribuições e comparamos as possibilidades, considerando datas e estimativas de valor. Assim, você consegue entender o que já cumpriu e o que ainda falta em cada cenário.",
   },
   {
     key: "APOSENTADORIA_POR_INCAPACIDADE_PERMANENTE",
     title: BENEFIT_LABEL.APOSENTADORIA_POR_INCAPACIDADE_PERMANENTE,
     question: "Uma doença ou um acidente impedem você de voltar a trabalhar?",
     summary:
-      "Laudos, exames e o histórico médico organizados para a perícia do INSS.",
+      "A incapacidade permanente exige avaliação do quadro de saúde e dos requisitos previdenciários; o diagnóstico, sozinho, não define o direito. Organizamos laudos, exames, tratamentos e informações sobre a atividade profissional para apresentar o histórico com clareza. Também avaliamos a documentação e o caminho adequado para o pedido ou, se necessário, para contestar uma decisão.",
   },
   {
     key: "APOSENTADORIA_POR_TEMPO_PROFESSOR",
@@ -157,14 +157,14 @@ export const SERVICES: readonly Service[] = [
     question:
       "Dá ou deu aula na educação infantil, no ensino fundamental ou no médio?",
     summary:
-      "O tempo de magistério tem regra própria, com requisitos reduzidos — e precisa ser comprovado período a período.",
+      "O tempo de magistério na educação básica pode seguir regras específicas, mas é importante confirmar quais períodos e funções podem ser considerados. Conferimos registros de trabalho e contribuições para verificar o histórico, comparar os requisitos aplicáveis e identificar documentos que ajudem a comprovar cada etapa da atividade docente.",
   },
   {
     key: "APOSENTADORIA_RURAL",
     title: BENEFIT_LABEL.APOSENTADORIA_RURAL,
     question: "Trabalhou no campo, sozinho ou com a família?",
     summary:
-      "A idade exigida é menor, e a prova do trabalho rural é montada com os documentos que existem.",
+      "O trabalho rural pode ser comprovado por documentos de diferentes épocas, inclusive registros ligados à família e à atividade no campo. Analisamos o histórico e as provas disponíveis para verificar os períodos que podem ser considerados e os requisitos da regra aplicável. A idade e as condições variam conforme a modalidade, por isso cada trajetória precisa ser conferida.",
   },
 ];
 
@@ -174,53 +174,56 @@ export const PRACTICE_AREAS = [
     question:
       "Contribuiu como microempreendedor individual e quer saber como esse período entra na aposentadoria?",
     summary:
-      "Conferimos os pagamentos do DAS e o CNIS para avaliar o aproveitamento dos recolhimentos e se é necessário complementar contribuições para a regra pretendida.",
+      "Conferimos os pagamentos do DAS e se eles aparecem corretamente no CNIS. Como a contribuição do MEI segue regras próprias, analisamos o período e a aposentadoria que você pretende buscar para entender como os recolhimentos podem ser aproveitados e se há alguma providência a considerar, como a complementação. Isso depende do histórico e da regra aplicável.",
   },
   {
     title: "Contribuinte Individual",
     question: "Trabalha por conta própria e contribui para o INSS?",
     summary:
-      "Revisamos a atividade exercida, os comprovantes de recolhimento e o CNIS para identificar períodos que podem ser considerados e eventuais pendências.",
+      "Revisamos sua atividade, os comprovantes de pagamento e as informações do CNIS para conferir se os períodos e valores foram registrados corretamente. Se houver lacunas ou divergências, avaliamos quais documentos podem ajudar a esclarecer o histórico e quais regras previdenciárias fazem sentido para o seu caso.",
   },
   {
     title: "Facultativo",
     question: "Você contribui por opção, sem exercer atividade remunerada?",
     summary:
-      "Conferimos seu histórico, o plano escolhido e os recolhimentos para entender como eles podem ser considerados nas regras aplicáveis ao seu caso.",
+      "Para quem contribui sem exercer atividade remunerada, o plano escolhido e a regularidade dos pagamentos fazem diferença. Conferimos seu histórico, os comprovantes e os registros no CNIS para entender como as contribuições podem ser consideradas nas regras aplicáveis e se existe algum período que precise de revisão.",
   },
   {
     title: "Dona de casa de baixa renda",
     question:
       "Você se dedica ao trabalho doméstico na própria residência e contribui como facultativa de baixa renda?",
     summary:
-      "Analisamos os requisitos do enquadramento, o CadÚnico e as contribuições feitas para verificar a possibilidade de validação e o aproveitamento dos períodos.",
+      "A contribuição como facultativa de baixa renda depende do cumprimento de requisitos específicos. Analisamos a situação familiar, o CadÚnico e os recolhimentos para verificar se os períodos podem ser validados e aproveitados. Se houver alguma pendência cadastral ou de contribuição, explicamos o que precisa ser conferido antes de contar com esse tempo.",
   },
   {
     title: "Médico",
     question: "Trabalhou como médico exposto a agentes nocivos à saúde?",
     summary:
-      "Analisamos documentos como o PPP e os registros dos locais de trabalho para verificar se a exposição permite reconhecer períodos especiais. A profissão, por si só, não garante esse enquadramento.",
+      "Analisamos o PPP, os registros dos locais de trabalho e as atividades exercidas em cada vínculo para verificar se há elementos que comprovem exposição a agentes nocivos. A profissão, por si só, não garante o reconhecimento de tempo especial: as condições concretas e os documentos de cada período precisam ser avaliados.",
   },
   {
     title: "Enfermeira",
     question: "Trabalhou como enfermeira exposta a agentes nocivos à saúde?",
     summary:
-      "Conferimos o PPP e os registros de cada vínculo para avaliar a exposição a agentes biológicos e a possibilidade de reconhecer períodos especiais.",
+      "Conferimos o PPP, os vínculos e os registros das atividades para avaliar a exposição a agentes biológicos em cada período. A análise considera as condições concretas do trabalho e a documentação disponível, que podem variar entre empregadores e funções, para verificar se há fundamento para pedir o reconhecimento de tempo especial.",
   },
   {
     title: "Tempo Especial",
     question: "Trabalhou exposto a agentes prejudiciais à saúde?",
     summary:
-      "Avaliamos os períodos trabalhados e documentos como PPP e laudos técnicos para verificar se os requisitos para o reconhecimento do tempo especial foram atendidos.",
+      "Avaliamos cada período de trabalho e documentos como PPP e laudos técnicos para entender quais agentes estavam presentes e como a atividade era exercida. Com essa análise, verificamos se os requisitos para o reconhecimento do tempo especial podem ser atendidos e se é necessário buscar documentos complementares.",
   },
   {
     title: "Reclamatória Trabalhista",
     question:
       "Uma reclamatória trabalhista reconheceu vínculo ou remunerações que não aparecem no seu CNIS?",
     summary:
-      "Analisamos a decisão e os documentos do processo junto com as provas do vínculo. O resultado trabalhista, sozinho, não garante o reconhecimento automático pelo INSS.",
+      "Analisamos a decisão trabalhista junto com os documentos e as provas do vínculo ou das remunerações, e conferimos o que consta no CNIS. O resultado da reclamatória, sozinho, não garante o reconhecimento automático pelo INSS; é importante avaliar quais elementos podem comprovar o período e orientar os próximos passos para pedir a correção.",
   },
 ] as const;
+
+export const PRACTICE_WELCOME =
+  "Oi! Que bom ter você por aqui. Me conte: qual dessas situações se parece mais com a sua? Escolha um tema e eu explico, com calma, o que vale conferir. Se ainda não souber por onde começar, tudo bem — vamos descobrir juntos.";
 
 export type JourneyStep = {
   key: SituationKey;
