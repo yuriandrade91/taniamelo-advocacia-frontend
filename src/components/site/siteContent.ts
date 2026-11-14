@@ -222,9 +222,6 @@ export const PRACTICE_AREAS = [
   },
 ] as const;
 
-export const PRACTICE_WELCOME =
-  "Oi! Que bom ter você por aqui. Me conte: qual dessas situações se parece mais com a sua? Escolha um tema e eu explico, com calma, o que vale conferir. Se ainda não souber por onde começar, tudo bem — vamos descobrir juntos.";
-
 export type JourneyStep = {
   key: SituationKey;
   title: string;

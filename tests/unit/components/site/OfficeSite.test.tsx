@@ -33,47 +33,28 @@ describe("Site: rolagem", () => {
 });
 
 describe("Site: áreas de atuação", () => {
-  it("dá boas-vindas com uma mensagem humanizada e digitada", async () => {
-    renderApp(<SitePage />);
-
-    expect(
-      await screen.findByRole("status", { name: /Preparando uma resposta/ }),
-    ).toBeInTheDocument();
-
-    const welcome = await screen.findByRole(
-      "status",
-      { name: "Resposta completa" },
-      { timeout: 3000 },
-    );
-    expect(welcome).toHaveTextContent(
-      /Que bom ter você por aqui.*vamos descobrir juntos/i,
-    );
-  });
-
-  it("responde aos temas escolhidos e mantém as opções disponíveis", async () => {
+  it("exibe os temas em blocos editoriais com links para conversar", async () => {
     const { user } = renderApp(<SitePage />);
-    const mei = screen.getByRole("button", { name: /MEI/ });
-
-    await user.click(mei);
 
     expect(
-      await screen.findByRole("status", { name: /Preparando uma resposta/ }),
+      screen.getByRole("heading", { name: "Benefícios previdenciários" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Situações profissionais" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Aposentadoria por deficiência" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Tem deficiência e trabalha\?.*Lei Complementar 142/i),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Médico/ }));
-
-    const response = await screen.findByRole("status", {
-      name: /Resposta completa/,
+    const meiLink = screen.getByRole("button", {
+      name: "Conversar sobre meu caso: MEI",
     });
-    expect(screen.getByText("TM")).toBeInTheDocument();
-    expect(response).toHaveTextContent(
-      /a profissão, por si só, não garante o reconhecimento de tempo especial/i,
-    );
-    expect(
-      screen.queryByRole("status", { name: /pagamentos do DAS/ }),
-    ).not.toBeInTheDocument();
-    expect(screen.getAllByText("MEI")).toHaveLength(1);
-    expect(screen.getAllByText("Médico")).toHaveLength(2);
+    expect(meiLink).toBeInTheDocument();
+    await user.click(meiLink);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
 
     for (const title of [
       "Contribuinte Individual",
@@ -85,7 +66,7 @@ describe("Site: áreas de atuação", () => {
       "Reclamatória Trabalhista",
     ]) {
       expect(
-        screen.getByRole("button", { name: new RegExp(title) }),
+        screen.getByRole("heading", { name: title }),
       ).toBeInTheDocument();
     }
   });

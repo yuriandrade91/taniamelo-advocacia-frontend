@@ -24,7 +24,6 @@ import {
   JOURNEY,
   NAV_LINKS,
   PRACTICE_AREAS,
-  PRACTICE_WELCOME,
   SERVICES,
   SITE_CONTACT,
   SITE_SOCIALS,
@@ -445,8 +444,7 @@ function Hero() {
 
 /* ───────────── seções ───────────── */
 
-type PracticeChatOption = {
-  id: string;
+type PracticeItem = {
   title: string;
   question: string;
   summary: string;
@@ -454,20 +452,26 @@ type PracticeChatOption = {
 };
 
 function Practice() {
-  const [selected, setSelected] = useState<PracticeChatOption | null>(null);
   const openComposer = useComposer();
-  const practiceItems: PracticeChatOption[] = [
-    ...SERVICES.map((service) => ({
-      ...service,
-      id: service.key,
-      topic: service.key,
-    })),
-    ...PRACTICE_AREAS.map((service, index) => ({
-      ...service,
-      id: `practice-area-${index}`,
-      topic: null,
-    })),
-  ];
+  const groups = [
+    {
+      label: "Benefícios previdenciários",
+      offset: 0,
+      items: SERVICES.map((service) => ({
+        ...service,
+        topic: service.key,
+      })),
+    },
+    {
+      label: "Situações profissionais",
+      offset: SERVICES.length,
+      items: PRACTICE_AREAS.map((service) => ({
+        ...service,
+        topic: null,
+      })),
+    },
+  ] satisfies { label: string; offset: number; items: PracticeItem[] }[];
+
   return (
     <section
       id="atuacao"
@@ -492,291 +496,50 @@ function Practice() {
           </div>
         </Reveal>
 
-          <div className="mt-[55px] grid grid-cols-[minmax(245px,0.78fr)_minmax(0,1.8fr)] items-stretch gap-5 max-[900px]:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.5fr)] max-[760px]:mt-[35px] max-[760px]:grid-cols-1">
-            <Reveal delay={100}>
-              <aside className="h-full border border-hairline bg-ivory/55 p-5 max-[760px]:p-4">
-                <div className="flex items-end justify-between border-b border-hairline pb-4">
-                  <div>
-                    <p className="text-[11px] font-semibold tracking-[1.5px] text-secondary uppercase">
-                      Guia de atendimento
-                    </p>
-                    <h3 className="mt-1 text-[21px] font-light text-primary">
-                      Escolha seu tema
-                    </h3>
-                  </div>
-                  <span className="text-[12px] tabular-nums text-muted-ink">
-                    {String(practiceItems.length).padStart(2, "0")} opções
-                  </span>
-                </div>
-
-                <nav
-                  aria-label="Temas de aposentadoria e atuação"
-                  className="mt-4 max-h-[520px] space-y-5 overflow-y-auto pr-1 max-[760px]:max-h-[245px]"
-                >
-                  {[
-                    {
-                      label: "BENEFÍCIOS",
-                      items: practiceItems.slice(0, SERVICES.length),
-                      offset: 0,
-                    },
-                    {
-                      label: "SITUAÇÕES PROFISSIONAIS",
-                      items: practiceItems.slice(SERVICES.length),
-                      offset: SERVICES.length,
-                    },
-                  ].map((group) => (
-                    <div key={group.label}>
-                      <p className="mb-2 text-[10px] font-semibold tracking-[1.3px] text-muted-ink uppercase">
-                        {group.label}
-                      </p>
-                      <ul className="space-y-1">
-                        {group.items.map((item, index) => {
-                          const isSelected = selected?.id === item.id;
-                          return (
-                            <li key={item.id}>
-                              <button
-                                type="button"
-                                aria-pressed={isSelected}
-                                onClick={() => setSelected(item)}
-                                className={`group flex min-h-10 w-full items-center gap-3 border px-3 py-2 text-left text-[13px] leading-[1.35] transition duration-300 ${
-                                  isSelected
-                                    ? "border-primary bg-primary text-white"
-                                    : "border-transparent text-primary hover:border-hairline hover:bg-white"
-                                }`}
-                              >
-                                <span
-                                  className={`w-5 shrink-0 font-mono text-[10px] ${
-                                    isSelected
-                                      ? "text-gold-light"
-                                      : "text-secondary/70"
-                                  }`}
-                                >
-                                  {String(group.offset + index + 1).padStart(
-                                    2,
-                                    "0",
-                                  )}
-                                </span>
-                                <span className="flex-1">{item.title}</span>
-                                <span
-                                  className={`h-1.5 w-1.5 shrink-0 rounded-full transition ${
-                                    isSelected
-                                      ? "bg-gold-light"
-                                      : "bg-transparent group-hover:bg-secondary/50"
-                                  }`}
-                                  aria-hidden="true"
-                                />
-                              </button>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                  ))}
-                </nav>
-                <p className="mt-4 border-t border-hairline pt-3 text-[11px] leading-[1.6] text-muted-ink">
-                  Não sabe qual escolher? A gente ajuda você a descobrir.
-                </p>
-              </aside>
-            </Reveal>
-
-            <Reveal delay={180}>
-              <div className="relative flex min-h-[570px] flex-col overflow-hidden border border-primary/15 bg-white max-[760px]:min-h-[510px]">
-                <div className="relative flex items-center gap-3 overflow-hidden bg-primary px-6 py-4 text-white max-[480px]:px-4">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-secondary/45 text-gold-light">
-                    <ChatIcon className="h-[18px] w-[18px]" />
-                  </span>
-                  <div>
-                    <p className="text-[13px] font-medium tracking-wide">
-                      Tânia Melo Advocacia
-                    </p>
-                    <p className="mt-0.5 text-[10px] tracking-[1.2px] text-white/55 uppercase">
-                      Sua história, com atenção
-                    </p>
-                  </div>
-                  <span className="ml-auto flex items-center gap-2 text-[10px] tracking-wide text-white/65">
-                    <span
-                      className="pr-chat-pulse h-1.5 w-1.5 rounded-full bg-gold-light"
-                      aria-hidden="true"
-                    />
-                    Guia inicial
-                  </span>
-                  <span
-                    className="pr-chat-rule pointer-events-none absolute right-8 bottom-0 h-px w-24 origin-right bg-secondary/80"
-                    aria-hidden="true"
-                  />
-                </div>
-
-                <div className="flex flex-1 flex-col justify-between bg-[radial-gradient(ellipse_at_90%_0%,rgba(180,140,75,0.08),transparent_38%)] p-6 max-[480px]:p-4">
-                  <div
-                    key={selected?.id ?? "welcome"}
-                    aria-live="polite"
-                    className="pr-chat-enter space-y-6"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary text-gold-light">
-                        <ChatIcon className="h-4 w-4" />
+        <div className="mx-auto mt-[55px] max-w-[1040px] space-y-12 max-[760px]:mt-[35px] max-[760px]:space-y-9">
+          {groups.map((group, groupIndex) => (
+            <Reveal key={group.label} delay={groupIndex * 100}>
+              <div>
+                <h3 className="mb-4 text-[11px] font-semibold tracking-[1.5px] text-secondary uppercase">
+                  {group.label}
+                </h3>
+                <ol className="border-t border-hairline">
+                  {group.items.map((item, index) => (
+                    <li
+                      key={item.title}
+                      className="grid grid-cols-[34px_minmax(0,1fr)] gap-3 border-b border-hairline py-8 max-[760px]:grid-cols-[24px_minmax(0,1fr)] max-[760px]:gap-3 max-[760px]:py-6"
+                    >
+                      <span className="pt-1 text-[12px] tabular-nums text-secondary">
+                        {String(group.offset + index + 1).padStart(2, "0")}
                       </span>
-                      <div className="max-w-[90%] border border-hairline bg-white px-4 py-3">
-                        <p className="text-[10px] font-semibold tracking-[1.2px] text-secondary uppercase">
-                          {selected ? "Sobre esse tema" : "Boas-vindas"}
+                      <div>
+                        <h4 className="text-[25px] leading-[1.3] font-light text-primary max-[760px]:text-[21px]">
+                          {item.title}
+                        </h4>
+                        <p className="mt-6 max-w-[790px] text-[17px] leading-[1.8] text-muted-ink max-[760px]:mt-4 max-[760px]:text-[16px]">
+                          {item.question} {item.summary}
                         </p>
-                        {selected ? (
-                          <p className="mt-1.5 text-[14px] leading-[1.7] text-primary">
-                            {selected.question}
-                          </p>
-                        ) : (
-                          <div className="mt-1.5">
-                            <TypingSummary
-                              summary={PRACTICE_WELCOME}
-                              startOnView
-                            />
-                          </div>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            openComposer(item.topic ?? undefined)
+                          }
+                          aria-label={`Conversar sobre meu caso: ${item.title}`}
+                          className={`group mt-5 inline-flex items-center gap-2 text-[14px] font-medium text-secondary transition hover:gap-3 ${PRESS}`}
+                        >
+                          Conversar sobre meu caso
+                          <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                        </button>
                       </div>
-                    </div>
-
-                    {selected ? (
-                      <>
-                        <div className="ml-auto max-w-[78%] border border-primary/10 bg-primary px-4 py-3 text-[13px] text-white max-[480px]:max-w-[90%]">
-                          {selected.title}
-                        </div>
-
-                        <div className="flex items-start gap-3">
-                          <span
-                            className="mt-1 grid h-8 w-8 shrink-0 place-items-center rounded-full border border-secondary/45 text-secondary"
-                            aria-hidden="true"
-                          >
-                            <span className="text-[10px] font-semibold tracking-[-0.06em]">
-                              TM
-                            </span>
-                          </span>
-                          <div className="max-w-[90%] border-l-2 border-secondary bg-ivory/75 px-4 py-3">
-                            <TypingSummary summary={selected.summary} />
-                            <button
-                              type="button"
-                              onClick={() =>
-                                openComposer(selected.topic ?? undefined)
-                              }
-                              className={`group mt-4 inline-flex items-center gap-2 border-b border-secondary/50 pb-1 text-[12px] font-semibold tracking-wide text-primary transition hover:gap-3 ${PRESS}`}
-                            >
-                              Falar sobre meu caso
-                              <ArrowUpRight className="h-3.5 w-3.5 text-secondary" />
-                            </button>
-                          </div>
-                        </div>
-                      </>
-                    ) : (
-                      <div className="flex items-center gap-2 pl-11 text-[11px] text-muted-ink">
-                        <span className="h-px w-6 bg-secondary/60" />
-                        Um primeiro passo, no seu tempo.
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="mt-8 flex items-center justify-between border-t border-hairline pt-4 text-[10px] tracking-[1.1px] text-muted-ink uppercase">
-                    <span>Orientação inicial</span>
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="h-1 w-1 rounded-full bg-secondary"
-                        aria-hidden="true"
-                      />
-                      {selected ? "Tema selecionado" : "15 temas disponíveis"}
-                    </span>
-                  </div>
-                </div>
+                    </li>
+                  ))}
+                </ol>
               </div>
             </Reveal>
-          </div>
+          ))}
         </div>
+      </div>
     </section>
-  );
-}
-
-function TypingSummary({
-  summary,
-  startOnView = false,
-}: Readonly<{ summary: string; startOnView?: boolean }>) {
-  const ref = useRef<HTMLParagraphElement>(null);
-  const [visibleWords, setVisibleWords] = useState(0);
-  const [hasEnteredView, setHasEnteredView] = useState(
-    () => !startOnView || typeof IntersectionObserver === "undefined",
-  );
-  const reduced = usePrefersReducedMotion();
-  const words = summary.split(" ");
-
-  useEffect(() => {
-    if (!startOnView || hasEnteredView || reduced) return;
-
-    const node = ref.current;
-    if (!node) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting) return;
-        setHasEnteredView(true);
-        observer.disconnect();
-      },
-      { rootMargin: "0px 0px -10% 0px", threshold: 0.12 },
-    );
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, [hasEnteredView, reduced, startOnView]);
-
-  useEffect(() => {
-    if (
-      reduced ||
-      !hasEnteredView ||
-      visibleWords >= summary.split(" ").length
-    )
-      return;
-
-    const previousWord = summary.split(" ")[visibleWords - 1] ?? "";
-    const pause = /[.!?]$/.test(previousWord) ? 140 : 18;
-    const timer = window.setTimeout(
-      () => setVisibleWords((count) => count + 1),
-      visibleWords === 0 ? 380 : pause,
-    );
-    return () => window.clearTimeout(timer);
-  }, [hasEnteredView, reduced, summary, visibleWords]);
-
-  const displayedWords = reduced ? words.length : visibleWords;
-  const isThinking = displayedWords === 0 && !reduced;
-  const isTyping = displayedWords < words.length && !reduced;
-
-  if (isThinking) {
-    return (
-      <p
-        ref={ref}
-        role="status"
-        aria-label="Preparando uma resposta"
-        className="flex items-center gap-2 text-[12px] text-muted-ink"
-      >
-        Organizando uma resposta
-        <span className="inline-flex items-center gap-1" aria-hidden="true">
-          <span className="pr-chat-dot h-1 w-1 rounded-full bg-secondary" />
-          <span className="pr-chat-dot h-1 w-1 rounded-full bg-secondary" />
-          <span className="pr-chat-dot h-1 w-1 rounded-full bg-secondary" />
-        </span>
-      </p>
-    );
-  }
-
-  return (
-    <>
-      <p
-        ref={ref}
-        aria-hidden="true"
-        className="text-[14px] leading-[1.75] text-primary"
-      >
-        {words.slice(0, displayedWords).join(" ")}
-        {isTyping && <span className="pr-chat-caret ml-0.5">|</span>}
-      </p>
-      {!isTyping && (
-        <p role="status" aria-label="Resposta completa" className="sr-only">
-          {summary}
-        </p>
-      )}
-    </>
   );
 }
 
