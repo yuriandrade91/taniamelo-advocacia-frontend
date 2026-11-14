@@ -40,15 +40,21 @@ describe("Site: áreas de atuação", () => {
     await user.click(mei);
 
     expect(
-      screen.getByText(/Conferimos os pagamentos do DAS e o CNIS/),
+      await screen.findByRole("status", { name: /Preparando uma resposta/ }),
     ).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Médico" }));
+    await user.click(screen.getByRole("button", { name: /Médico/ }));
 
+    const response = await screen.findByRole("status", {
+      name: /Resposta completa/,
+    });
+    expect(response).toHaveTextContent(
+      /a profissão, por si só, não garante esse enquadramento/i,
+    );
     expect(
-      screen.getByText(/a profissão, por si só, não garante esse enquadramento/i),
-    ).toBeInTheDocument();
-    expect(screen.getAllByText("MEI")).toHaveLength(2);
+      screen.queryByRole("status", { name: /pagamentos do DAS/ }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByText("MEI")).toHaveLength(1);
     expect(screen.getAllByText("Médico")).toHaveLength(2);
 
     for (const title of [
