@@ -33,7 +33,7 @@ type SiteContact = {
 
 export const SITE_CONTACT: Readonly<SiteContact> = {
   /** Só dígitos, com DDD: "31999990000". Liga o botão flutuante e os CTAs. */
-  whatsapp: "21988257421",
+  whatsapp: "21995275421",
   /** Como deve aparecer: "(31) 3333-0000". */
   phone: "",
   email: "",
@@ -47,17 +47,36 @@ export const SITE_CONTACT: Readonly<SiteContact> = {
 
 /** Os destaques da faixa de "Nossa essência": o número grande e o que ele conta. */
 export const ESSENCE_STATS = [
-  { value: "+1.500", label: "clientes em todo o Brasil e no exterior" },
+  { value: "+1.500", label: "clientes no Brasil e no exterior" },
+  { value: "100%", label: "digital e personalizado" },
   { value: "98%", label: "dos processos ganhos" },
-  { value: "98%", label: "dos clientes satisfeitos" },
+  // { value: "98%", label: "dos clientes satisfeitos" },
+  { value: "5", label: "nota máxima no Google" },
   { value: "IA", label: "auxiliando os processos" },
 ] as const;
 
 /** As redes do escritório, na ordem em que aparecem no rodapé. */
 export const SITE_SOCIALS = [
-  { name: "Instagram", handle: "@advogadataniamelo", href: "https://www.instagram.com/advogadataniamelo" },
-  { name: "TikTok", handle: "@advogadataniamelo", href: "https://www.tiktok.com/@advogadataniamelo" },
-  { name: "LinkedIn", handle: "Tânia Melo", href: "https://www.linkedin.com/in/tania-melo-22a1a433/" },
+  {
+    name: "Instagram",
+    handle: "@advogadataniamelo",
+    href: "https://www.instagram.com/advogadataniamelo",
+  },
+  {
+    name: "TikTok",
+    handle: "@advogadataniamelo",
+    href: "https://www.tiktok.com/@advogadataniamelo",
+  },
+  {
+    name: "Google",
+    handle: "Avaliações",
+    href: "https://www.google.com/searchviewer/10?svid=CCYSESoPCg0vZy8xMXZfM3pxenk4GAo",
+  },
+  {
+    name: "LinkedIn",
+    handle: "Tânia Melo",
+    href: "https://www.linkedin.com/in/tania-melo-22a1a433/",
+  },
 ] as const;
 
 export const SITE_NAME = "Tânia Melo Advocacia Previdenciária";
@@ -148,6 +167,60 @@ export const SERVICES: readonly Service[] = [
       "A idade exigida é menor, e a prova do trabalho rural é montada com os documentos que existem.",
   },
 ];
+
+export const PRACTICE_AREAS = [
+  {
+    title: "MEI",
+    question:
+      "Contribuiu como microempreendedor individual e quer saber como esse período entra na aposentadoria?",
+    summary:
+      "Conferimos os pagamentos do DAS e o CNIS para avaliar o aproveitamento dos recolhimentos e se é necessário complementar contribuições para a regra pretendida.",
+  },
+  {
+    title: "Contribuinte Individual",
+    question: "Trabalha por conta própria e contribui para o INSS?",
+    summary:
+      "Revisamos a atividade exercida, os comprovantes de recolhimento e o CNIS para identificar períodos que podem ser considerados e eventuais pendências.",
+  },
+  {
+    title: "Facultativo",
+    question: "Você contribui por opção, sem exercer atividade remunerada?",
+    summary:
+      "Conferimos seu histórico, o plano escolhido e os recolhimentos para entender como eles podem ser considerados nas regras aplicáveis ao seu caso.",
+  },
+  {
+    title: "Dona de casa de baixa renda",
+    question:
+      "Você se dedica ao trabalho doméstico na própria residência e contribui como facultativa de baixa renda?",
+    summary:
+      "Analisamos os requisitos do enquadramento, o CadÚnico e as contribuições feitas para verificar a possibilidade de validação e o aproveitamento dos períodos.",
+  },
+  {
+    title: "Médico",
+    question: "Trabalhou como médico exposto a agentes nocivos à saúde?",
+    summary:
+      "Analisamos documentos como o PPP e os registros dos locais de trabalho para verificar se a exposição permite reconhecer períodos especiais. A profissão, por si só, não garante esse enquadramento.",
+  },
+  {
+    title: "Enfermeira",
+    question: "Trabalhou como enfermeira exposta a agentes nocivos à saúde?",
+    summary:
+      "Conferimos o PPP e os registros de cada vínculo para avaliar a exposição a agentes biológicos e a possibilidade de reconhecer períodos especiais.",
+  },
+  {
+    title: "Tempo Especial",
+    question: "Trabalhou exposto a agentes prejudiciais à saúde?",
+    summary:
+      "Avaliamos os períodos trabalhados e documentos como PPP e laudos técnicos para verificar se os requisitos para o reconhecimento do tempo especial foram atendidos.",
+  },
+  {
+    title: "Reclamatória Trabalhista",
+    question:
+      "Uma reclamatória trabalhista reconheceu vínculo ou remunerações que não aparecem no seu CNIS?",
+    summary:
+      "Analisamos a decisão e os documentos do processo junto com as provas do vínculo. O resultado trabalhista, sozinho, não garante o reconhecimento automático pelo INSS.",
+  },
+] as const;
 
 export type JourneyStep = {
   key: SituationKey;

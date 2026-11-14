@@ -25,7 +25,37 @@ describe("Site: rolagem", () => {
     const dialog = await screen.findByRole("dialog");
     await user.click(within(dialog).getAllByRole("button").find((b) => /Fechar/i.test(b.getAttribute("aria-label") ?? ""))!);
 
-    await user.click(screen.getByRole("button", { name: "Vamos falar sobre seus direitos" }));
+    await user.click(
+      screen.getByRole("button", { name: /Vamos falar sobre seus direitos/ }),
+    );
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+});
+
+describe("Site: áreas de atuação", () => {
+  it("mostra os temas adicionais no acordeão com suas descrições", async () => {
+    const { user } = renderApp(<SitePage />);
+    const mei = screen.getByRole("button", { name: /MEI/ });
+
+    await user.click(mei);
+
+    expect(mei).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByText(/Conferimos os pagamentos do DAS e o CNIS/),
+    ).toBeInTheDocument();
+
+    for (const title of [
+      "Contribuinte Individual",
+      "Facultativo",
+      "Dona de casa de baixa renda",
+      "Médico",
+      "Enfermeira",
+      "Tempo Especial",
+      "Reclamatória Trabalhista",
+    ]) {
+      expect(
+        screen.getByRole("button", { name: new RegExp(title) }),
+      ).toBeInTheDocument();
+    }
   });
 });
