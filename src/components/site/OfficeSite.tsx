@@ -444,10 +444,18 @@ function Hero() {
 
 /* ───────────── seções ───────────── */
 
+type PracticeChatOption = {
+  id: string;
+  title: string;
+  question: string;
+  summary: string;
+  topic: Topic | null;
+};
+
 function Practice() {
-  const [open, setOpen] = useState<string | null>(SERVICES[0].key);
+  const [conversation, setConversation] = useState<PracticeChatOption[]>([]);
   const openComposer = useComposer();
-  const practiceItems = [
+  const practiceItems: PracticeChatOption[] = [
     ...SERVICES.map((service) => ({
       ...service,
       id: service.key,
@@ -513,31 +521,89 @@ function Practice() {
             </aside>
           </Reveal>
 
-          <div className="border-b border-hairline">
-            {practiceItems.map((service, index) => (
-              <Reveal key={service.id} delay={index * 70}>
-                <AccordionRow
-                  number={String(index + 1).padStart(2, "0")}
-                  title={service.title}
-                  isOpen={open === service.id}
-                  onToggle={() =>
-                    setOpen(open === service.id ? null : service.id)
-                  }
+          <div className="overflow-hidden border border-hairline bg-ivory/60">
+            <div className="flex items-center gap-4 bg-primary px-6 py-5 text-white max-[480px]:px-4">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-secondary/50 text-secondary">
+                <ChatIcon className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-[11px] font-semibold tracking-[1.6px] text-gold-light uppercase">
+                  Tânia Melo Advocacia
+                </p>
+                <h3 className="mt-1 text-[19px] font-light">
+                  Uma conversa para começar
+                </h3>
+              </div>
+              <span className="ml-auto flex items-center gap-2 text-[11px] text-white/65">
+                <span
+                  className="h-1.5 w-1.5 rounded-full bg-gold-light"
+                  aria-hidden="true"
+                />
+                Atendimento
+              </span>
+            </div>
+
+            <div className="space-y-5 px-6 py-6 max-[480px]:px-4">
+              <div className="max-w-[88%] border border-hairline bg-white px-5 py-4 max-[480px]:max-w-full">
+                <p className="text-[11px] font-semibold tracking-[1.2px] text-secondary uppercase">
+                  Olá, que bom ter você aqui
+                </p>
+                <p className="mt-2 text-[15px] leading-[1.7] text-primary">
+                  Escolha um tema para conhecer como podemos ajudar. Você pode
+                  explorar quantas opções quiser.
+                </p>
+              </div>
+
+              {conversation.map((item, index) => (
+                <div
+                  key={`${item.id}-${index}`}
+                  className="space-y-4"
+                  aria-live="polite"
                 >
-                  <p className="max-w-[560px] text-[17px] leading-[1.8] text-muted-ink">
-                    {service.question} {service.summary}
+                  <p className="ml-auto w-fit max-w-[88%] bg-primary px-5 py-3 text-[14px] text-white max-[480px]:max-w-full">
+                    {item.title}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => openComposer(service.topic ?? undefined)}
-                    className={`group mt-5 flex items-center gap-3 text-[16px] font-medium text-secondary ${PRESS}`}
-                  >
-                    Conversar sobre meu caso
-                    <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
-                  </button>
-                </AccordionRow>
-              </Reveal>
-            ))}
+                  <div className="max-w-[92%] border border-hairline bg-white px-5 py-4 max-[480px]:max-w-full">
+                    <p className="text-[16px] leading-[1.7] font-medium text-primary">
+                      {item.question}
+                    </p>
+                    <p className="mt-2 text-[15px] leading-[1.75] text-muted-ink">
+                      {item.summary}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => openComposer(item.topic ?? undefined)}
+                      className={`group mt-4 flex items-center gap-2 text-[14px] font-medium text-secondary ${PRESS}`}
+                    >
+                      Conversar sobre meu caso
+                      <ArrowUpRight className="h-4 w-4 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              <div className="border-t border-hairline pt-5">
+                <p className="mb-3 text-[11px] font-semibold tracking-[1.4px] text-muted-ink uppercase">
+                  Escolha uma opção
+                </p>
+                <ul className="grid grid-cols-2 gap-2 max-[480px]:grid-cols-1">
+                  {practiceItems.map((item) => (
+                    <li key={item.id}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setConversation((current) => [...current, item])
+                        }
+                        className={`group flex min-h-11 w-full items-center justify-between gap-3 border border-hairline bg-white px-3 text-left text-[13px] leading-[1.4] text-primary transition hover:border-secondary hover:bg-white ${PRESS}`}
+                      >
+                        {item.title}
+                        <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-secondary transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </div>

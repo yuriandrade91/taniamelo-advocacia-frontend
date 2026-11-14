@@ -33,16 +33,23 @@ describe("Site: rolagem", () => {
 });
 
 describe("Site: áreas de atuação", () => {
-  it("mostra os temas adicionais no acordeão com suas descrições", async () => {
+  it("responde aos temas escolhidos e mantém as opções disponíveis", async () => {
     const { user } = renderApp(<SitePage />);
     const mei = screen.getByRole("button", { name: /MEI/ });
 
     await user.click(mei);
 
-    expect(mei).toHaveAttribute("aria-expanded", "true");
     expect(
       screen.getByText(/Conferimos os pagamentos do DAS e o CNIS/),
     ).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Médico" }));
+
+    expect(
+      screen.getByText(/a profissão, por si só, não garante esse enquadramento/i),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("MEI")).toHaveLength(2);
+    expect(screen.getAllByText("Médico")).toHaveLength(2);
 
     for (const title of [
       "Contribuinte Individual",
