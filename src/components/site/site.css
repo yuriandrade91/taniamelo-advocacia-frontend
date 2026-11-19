@@ -102,6 +102,7 @@
 /* O guia da seção 02 troca a resposta sem alongar a página. */
 @keyframes pr-chat-message { from { opacity: 0; transform: translateY(8px) scale(0.99); filter: blur(2px); } to { opacity: 1; transform: none; filter: none; } }
 @keyframes pr-chat-pulse { 50% { opacity: 0.45; transform: scale(0.82); } }
+@keyframes pr-chat-topic { from { opacity: 0; translate: 0 8px; } to { opacity: 1; translate: 0 0; } }
 @keyframes pr-chat-rule { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 @keyframes pr-chat-dot { 0%, 60%, 100% { opacity: 0.35; transform: none; } 30% { opacity: 1; transform: translateY(-3px); } }
 @keyframes pr-chat-caret { 50% { opacity: 0; } }
@@ -112,6 +113,7 @@
 .pr-chat-enter > * { animation: pr-chat-message 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .pr-chat-enter > :nth-child(2) { animation-delay: 400ms; }
 .pr-chat-enter > :nth-child(3) { animation-delay: 600ms; }
+.pr-chat-topic { animation: pr-chat-topic 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
 .pr-chat-pulse { animation: pr-chat-pulse 2s ease-in-out infinite; }
 .pr-chat-rule { animation: pr-chat-rule 0.8s cubic-bezier(0.2, 0.7, 0.2, 1) 0.25s both; }
 .pr-chat-dot { animation: pr-chat-dot 1s ease-in-out infinite; }

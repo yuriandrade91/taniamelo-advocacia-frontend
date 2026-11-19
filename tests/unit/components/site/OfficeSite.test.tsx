@@ -55,6 +55,9 @@ describe("Site: áreas de atuação", () => {
     expect(
       screen.getByRole("button", { name: "Aposentadoria por deficiência" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("group", { name: "Temas para conversar" }),
+    ).toBeInTheDocument();
   });
 
   it("responde aos temas escolhidos e mantém as opções disponíveis", async () => {

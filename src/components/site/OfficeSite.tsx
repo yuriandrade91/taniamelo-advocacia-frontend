@@ -514,7 +514,7 @@ function Practice() {
           </Reveal>
 
           <Reveal delay={180}>
-            <div className="relative flex min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-primary/10 bg-[#fdfdfd] max-[760px]:min-h-[600px]">
+            <div className="relative flex flex-col overflow-hidden rounded-[22px] border border-primary/10 bg-[#fdfdfd]">
               <div className="relative flex items-center gap-4 overflow-hidden rounded-t-[22px] bg-primary px-6 py-5 text-white max-[480px]:px-4">
                 <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-secondary/45 text-gold-light">
                   <ChatIcon className="h-[18px] w-[18px]" />
@@ -537,11 +537,11 @@ function Practice() {
               </div>
 
               <div className="p-6 max-[480px]:p-4">
-                <div className="rounded-2xl border border-hairline/70 bg-white px-5 py-4">
-                  <p className="text-[10px] font-semibold tracking-[1.5px] text-secondary uppercase">
+                <div className="px-1 py-4">
+                  <p className="text-[16px] font-medium text-primary">
                     Olá, que bom ter você aqui
                   </p>
-                  <div className="mt-2">
+                  <div className="mt-2 max-w-[470px]">
                     <TypingSummary summary={PRACTICE_WELCOME} startOnView />
                   </div>
                 </div>
@@ -584,12 +584,16 @@ function Practice() {
                   </div>
                 )}
 
-                <div className="mt-5 border-t border-hairline pt-5">
-                  <p className="mb-3 text-[10px] font-semibold tracking-[1.5px] text-muted-ink uppercase">
-                    Escolha uma opção
+                <div className="mt-5 border-t border-hairline/70 pt-5">
+                  <p className="mb-3 text-[11px] font-medium tracking-[1.2px] text-secondary uppercase">
+                    Sugestões para começar
                   </p>
-                  <div className="grid grid-cols-2 gap-2 max-[480px]:grid-cols-1">
-                    {practiceItems.map((item) => {
+                  <div
+                    role="group"
+                    aria-label="Temas para conversar"
+                    className="flex flex-wrap gap-2"
+                  >
+                    {practiceItems.map((item, index) => {
                       const isSelected = selected?.id === item.id;
                       return (
                         <button
@@ -597,11 +601,14 @@ function Practice() {
                           type="button"
                           aria-pressed={isSelected}
                           onClick={() => setSelected(item)}
-                          className={`group flex min-h-[52px] items-center justify-between gap-3 rounded-xl border border-hairline/70 px-4 text-left text-[13px] leading-[1.45] transition duration-300 ease-out max-[480px]:min-h-11 ${
+                          style={{
+                            animationDelay: `${Math.min(index * 30, 300)}ms`,
+                          }}
+                          className={`pr-chat-topic group inline-flex min-h-10 max-w-full items-center gap-2 whitespace-normal rounded-full border border-hairline/70 px-4 py-2 text-left text-[13px] leading-[1.35] transition duration-500 ease-out hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-secondary ${
                             isSelected
                               ? "border-primary bg-primary text-white"
                               : "bg-white text-primary hover:border-secondary/70 hover:bg-ivory/60"
-                          } duration-500`}
+                          }`}
                         >
                           <span>{item.title}</span>
                           <ArrowUpRight
@@ -613,10 +620,6 @@ function Practice() {
                       );
                     })}
                   </div>
-                </div>
-                <div className="mt-5 flex items-center justify-between border-t border-hairline pt-4 text-[10px] tracking-[1.1px] text-muted-ink uppercase">
-                  <span>Orientação inicial</span>
-                  <span>{practiceItems.length} opções</span>
                 </div>
               </div>
             </div>
