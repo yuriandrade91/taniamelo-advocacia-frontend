@@ -24,6 +24,7 @@ import {
   JOURNEY,
   NAV_LINKS,
   PRACTICE_AREAS,
+  PRACTICE_WELCOME,
   SERVICES,
   SITE_CONTACT,
   SITE_SOCIALS,
@@ -444,7 +445,8 @@ function Hero() {
 
 /* ───────────── seções ───────────── */
 
-type PracticeItem = {
+type PracticeChatOption = {
+  id: string;
   title: string;
   question: string;
   summary: string;
@@ -452,26 +454,20 @@ type PracticeItem = {
 };
 
 function Practice() {
+  const [selected, setSelected] = useState<PracticeChatOption | null>(null);
   const openComposer = useComposer();
-  const groups = [
-    {
-      label: "Benefícios previdenciários",
-      offset: 0,
-      items: SERVICES.map((service) => ({
-        ...service,
-        topic: service.key,
-      })),
-    },
-    {
-      label: "Situações profissionais",
-      offset: SERVICES.length,
-      items: PRACTICE_AREAS.map((service) => ({
-        ...service,
-        topic: null,
-      })),
-    },
-  ] satisfies { label: string; offset: number; items: PracticeItem[] }[];
-
+  const practiceItems: PracticeChatOption[] = [
+    ...SERVICES.map((service) => ({
+      ...service,
+      id: service.key,
+      topic: service.key,
+    })),
+    ...PRACTICE_AREAS.map((service, index) => ({
+      ...service,
+      id: `practice-area-${index}`,
+      topic: null,
+    })),
+  ];
   return (
     <section
       id="atuacao"
@@ -496,50 +492,232 @@ function Practice() {
           </div>
         </Reveal>
 
-        <div className="mx-auto mt-[55px] max-w-[1040px] space-y-12 max-[760px]:mt-[35px] max-[760px]:space-y-9">
-          {groups.map((group, groupIndex) => (
-            <Reveal key={group.label} delay={groupIndex * 100}>
-              <div>
-                <h3 className="mb-4 text-[11px] font-semibold tracking-[1.5px] text-secondary uppercase">
-                  {group.label}
-                </h3>
-                <ol className="border-t border-hairline">
-                  {group.items.map((item, index) => (
-                    <li
-                      key={item.title}
-                      className="grid grid-cols-[34px_minmax(0,1fr)] gap-3 border-b border-hairline py-8 max-[760px]:grid-cols-[24px_minmax(0,1fr)] max-[760px]:gap-3 max-[760px]:py-6"
-                    >
-                      <span className="pt-1 text-[12px] tabular-nums text-secondary">
-                        {String(group.offset + index + 1).padStart(2, "0")}
+        <div className="mt-[55px] grid grid-cols-[minmax(245px,0.78fr)_minmax(0,1.8fr)] items-start gap-[70px] max-[1100px]:gap-8 max-[900px]:grid-cols-[minmax(220px,0.8fr)_minmax(0,1.5fr)] max-[760px]:mt-[35px] max-[760px]:grid-cols-1">
+          <Reveal delay={100}>
+            <aside className="h-full border-t border-hairline pt-10 max-[760px]:pt-6">
+              <ArrowUpRight className="h-[58px] w-[58px] text-secondary" />
+              <h3 className="mt-8 max-w-[300px] text-[30px] leading-[1.4] font-light text-primary max-[760px]:mt-5 max-[760px]:text-[27px]">
+                Um novo olhar
+                <br />
+                para o seu
+                <br />
+                <span className="text-secondary">próximo capítulo.</span>
+              </h3>
+              <a
+                href="#duvidas"
+                className={`group mt-8 inline-flex items-center gap-3 text-[14px] font-medium text-primary ${PRESS}`}
+              >
+                Conheça as dúvidas mais comuns
+                <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+              </a>
+            </aside>
+          </Reveal>
+
+          <Reveal delay={180}>
+            <div className="relative flex min-h-[680px] flex-col overflow-hidden rounded-[22px] border border-primary/10 bg-[#fdfdfd] max-[760px]:min-h-[600px]">
+              <div className="relative flex items-center gap-4 overflow-hidden rounded-t-[22px] bg-primary px-6 py-5 text-white max-[480px]:px-4">
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full border border-secondary/45 text-gold-light">
+                  <ChatIcon className="h-[18px] w-[18px]" />
+                </span>
+                <div>
+                  <p className="text-[11px] font-semibold tracking-[1.5px] text-gold-light uppercase">
+                    Tânia Melo Advocacia
+                  </p>
+                  <p className="mt-1.5 text-[16px] text-white/90">
+                    Uma conversa para começar
+                  </p>
+                </div>
+                <span className="ml-auto flex items-center gap-2 text-[10px] text-white/65">
+                  <span
+                    className="pr-chat-pulse h-1.5 w-1.5 rounded-full bg-success"
+                    aria-hidden="true"
+                  />
+                  Atendimento
+                </span>
+              </div>
+
+              <div className="p-6 max-[480px]:p-4">
+                <div className="rounded-2xl border border-hairline/70 bg-white px-5 py-4">
+                  <p className="text-[10px] font-semibold tracking-[1.5px] text-secondary uppercase">
+                    Olá, que bom ter você aqui
+                  </p>
+                  <div className="mt-2">
+                    <TypingSummary summary={PRACTICE_WELCOME} startOnView />
+                  </div>
+                </div>
+
+                {selected && (
+                  <div
+                    key={selected.id}
+                    aria-live="polite"
+                    className="pr-chat-enter mt-6 space-y-5"
+                  >
+                    <div className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-md border border-primary/5 bg-primary px-4 py-3 text-[13px] text-white">
+                      {selected.title}
+                    </div>
+                    <div className="flex items-start gap-3">
+                      <span
+                        className="mt-1 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-secondary/45 text-secondary"
+                        aria-hidden="true"
+                      >
+                        <span className="text-[10px] font-semibold tracking-[-0.06em]">
+                          TM
+                        </span>
                       </span>
-                      <div>
-                        <h4 className="text-[25px] leading-[1.3] font-light text-primary max-[760px]:text-[21px]">
-                          {item.title}
-                        </h4>
-                        <p className="mt-6 max-w-[790px] text-[17px] leading-[1.8] text-muted-ink max-[760px]:mt-4 max-[760px]:text-[16px]">
-                          {item.question} {item.summary}
-                        </p>
+                      <div className="max-w-[90%] rounded-r-2xl rounded-bl-2xl border-l-2 border-secondary/70 bg-ivory/60 px-5 py-4">
+                        <TypingSummary
+                          summary={selected.summary}
+                          question={selected.question}
+                        />
                         <button
                           type="button"
                           onClick={() =>
-                            openComposer(item.topic ?? undefined)
+                            openComposer(selected.topic ?? undefined)
                           }
-                          aria-label={`Conversar sobre meu caso: ${item.title}`}
-                          className={`group mt-5 inline-flex items-center gap-2 text-[14px] font-medium text-secondary transition hover:gap-3 ${PRESS}`}
+                          className={`group mt-4 inline-flex items-center gap-2 border-b border-secondary/50 pb-1 text-[12px] font-semibold tracking-wide text-primary transition hover:gap-3 ${PRESS}`}
                         >
-                          Conversar sobre meu caso
-                          <ArrowUpRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
+                          Falar sobre meu caso
+                          <ArrowUpRight className="h-3.5 w-3.5 text-secondary" />
                         </button>
                       </div>
-                    </li>
-                  ))}
-                </ol>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-5 border-t border-hairline pt-5">
+                  <p className="mb-3 text-[10px] font-semibold tracking-[1.5px] text-muted-ink uppercase">
+                    Escolha uma opção
+                  </p>
+                  <div className="grid grid-cols-2 gap-2 max-[480px]:grid-cols-1">
+                    {practiceItems.map((item) => {
+                      const isSelected = selected?.id === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          aria-pressed={isSelected}
+                          onClick={() => setSelected(item)}
+                          className={`group flex min-h-[52px] items-center justify-between gap-3 rounded-xl border border-hairline/70 px-4 text-left text-[13px] leading-[1.45] transition duration-300 ease-out max-[480px]:min-h-11 ${
+                            isSelected
+                              ? "border-primary bg-primary text-white"
+                              : "bg-white text-primary hover:border-secondary/70 hover:bg-ivory/60"
+                          } duration-500`}
+                        >
+                          <span>{item.title}</span>
+                          <ArrowUpRight
+                            className={`h-3.5 w-3.5 shrink-0 transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5 ${
+                              isSelected ? "text-gold-light" : "text-secondary"
+                            }`}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="mt-5 flex items-center justify-between border-t border-hairline pt-4 text-[10px] tracking-[1.1px] text-muted-ink uppercase">
+                  <span>Orientação inicial</span>
+                  <span>{practiceItems.length} opções</span>
+                </div>
               </div>
-            </Reveal>
-          ))}
+            </div>
+          </Reveal>
         </div>
       </div>
     </section>
+  );
+}
+
+function TypingSummary({
+  summary,
+  question,
+  startOnView = false,
+}: Readonly<{ summary: string; question?: string; startOnView?: boolean }>) {
+  const ref = useRef<HTMLParagraphElement>(null);
+  const [visibleWords, setVisibleWords] = useState(0);
+  const [hasEnteredView, setHasEnteredView] = useState(
+    () => !startOnView || typeof IntersectionObserver === "undefined",
+  );
+  const reduced = usePrefersReducedMotion();
+  const words = summary.split(" ");
+
+  useEffect(() => {
+    if (!startOnView || hasEnteredView || reduced) return;
+
+    const node = ref.current;
+    if (!node) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setHasEnteredView(true);
+        observer.disconnect();
+      },
+      { rootMargin: "0px 0px -10% 0px", threshold: 0.12 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [hasEnteredView, reduced, startOnView]);
+
+  useEffect(() => {
+    if (reduced || !hasEnteredView || visibleWords >= summary.split(" ").length)
+      return;
+
+    const previousWord = summary.split(" ")[visibleWords - 1] ?? "";
+    const pause = /[.!?]$/.test(previousWord)
+      ? 280
+      : /[,;:]$/.test(previousWord)
+        ? 140
+        : 45;
+    const timer = window.setTimeout(
+      () => setVisibleWords((count) => count + 1),
+      visibleWords === 0 ? 850 : pause,
+    );
+    return () => window.clearTimeout(timer);
+  }, [hasEnteredView, reduced, summary, visibleWords]);
+
+  const displayedWords = reduced ? words.length : visibleWords;
+  const isThinking = displayedWords === 0 && !reduced;
+  const isTyping = displayedWords < words.length && !reduced;
+
+  if (isThinking) {
+    return (
+      <p
+        ref={ref}
+        role="status"
+        aria-label="Tânia está pensando"
+        className="flex items-center gap-2 text-[12px] text-muted-ink"
+      >
+        Pensando
+        <span className="inline-flex items-center gap-1" aria-hidden="true">
+          <span className="pr-chat-dot h-1 w-1 rounded-full bg-secondary" />
+          <span className="pr-chat-dot h-1 w-1 rounded-full bg-secondary" />
+          <span className="pr-chat-dot h-1 w-1 rounded-full bg-secondary" />
+        </span>
+      </p>
+    );
+  }
+
+  return (
+    <>
+      {question && (
+        <p className="mb-2 text-[10px] font-semibold tracking-[1.2px] text-secondary uppercase">
+          {question}
+        </p>
+      )}
+      <p
+        ref={ref}
+        aria-hidden="true"
+        className="text-[14px] leading-[1.75] text-primary"
+      >
+        {words.slice(0, displayedWords).join(" ")}
+        {isTyping && <span className="pr-chat-caret ml-0.5">|</span>}
+      </p>
+      {!isTyping && (
+        <p role="status" aria-label="Resposta completa" className="sr-only">
+          {summary}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -600,31 +778,78 @@ function Manifesto() {
               </ViewLine>
             </h2>
           </Reveal>
-          <Reveal delay={300}>
-            <div className="mt-[28px] flex max-w-[560px] flex-col gap-4 text-[17px] leading-[1.8] text-muted-ink">
-              <p>
-                Há 16 anos sou advogada previdenciária. Deixei uma carreira de
-                36 anos como gestora na administração pública para{" "}
-                <strong className="font-medium text-primary">
-                  inovar e expandir meu atendimento digitalmente
-                </strong>
-                .
-              </p>
-              <p>
-                Ajudo você a entender a importância da aposentadoria, a
-                contribuir corretamente e descubro direitos que você tem e o
-                INSS não te conta. Tudo de forma simples e prática.
-              </p>
+          <blockquote className="mt-[28px] max-w-[560px]">
+            <div className="flex flex-col gap-4 text-[17px] leading-[1.8] text-muted-ink italic">
+              <Reveal delay={300}>
+                <p className="whitespace-pre-line">
+                  <span
+                    aria-hidden="true"
+                    className="mr-1 align-[-0.25em] font-serif text-[2.5em] leading-none font-medium text-secondary"
+                  >
+                    “
+                  </span>
+                  {"Experiência para orientar.\nEstratégia para proteger seu futuro."}
+                </p>
+              </Reveal>
+              <Reveal delay={420}>
+                <p>
+                  Há 16 anos, dedico minha atuação à advocacia previdenciária,
+                  orientando pessoas que desejam compreender seus direitos,
+                  planejar a aposentadoria e tomar decisões mais seguras sobre
+                  o futuro.
+                </p>
+              </Reveal>
+              <Reveal delay={540}>
+                <p>
+                  Minha trajetória também reúne 36 anos de experiência na
+                  gestão pública, uma vivência que trouxe à minha atuação
+                  jurídica uma visão estratégica, pautada na responsabilidade,
+                  na organização e na atenção aos detalhes.
+                </p>
+              </Reveal>
+              <Reveal delay={660}>
+                <p>
+                  Hoje, uno conhecimento jurídico, experiência e tecnologia
+                  para oferecer um atendimento personalizado, acessível e
+                  humanizado, no Brasil e no exterior.
+                </p>
+              </Reveal>
+              <Reveal delay={780}>
+                <p>
+                  <b className="font-medium text-primary">
+                    Acredito que a aposentadoria não deve ser uma decisão
+                    tomada às pressas. Deve ser construída com informação,
+                    planejamento e segurança jurídica.
+                  </b>
+                </p>
+              </Reveal>
+              <Reveal delay={900}>
+                <p>
+                  Meu compromisso é analisar cada história de forma
+                  individualizada, identificar possibilidades previdenciárias
+                  e orientar o melhor caminho, com clareza e transparência.
+                  Acredito que essa versão preserva a minha história, mas coloca
+                  o benefício para o cliente no centro da comunicação.
+                  <span
+                    aria-hidden="true"
+                    className="ml-1 align-[-0.25em] font-serif text-[2.5em] leading-none font-medium text-secondary"
+                  >
+                    ”
+                  </span>
+                </p>
+              </Reveal>
             </div>
+          </blockquote>
+          <Reveal delay={300}>
             <span
               className="pr-draw mt-[36px] block h-px max-w-[560px] bg-hairline"
               aria-hidden="true"
             />
-            <dl className="mt-6 grid max-w-[560px] grid-cols-3 gap-x-6 max-[760px]:grid-cols-1 max-[760px]:gap-y-4">
+            <dl className="mt-6 grid max-w-[560px] justify-between grid-cols-3 gap-6 max-[760px]:grid-cols-1 max-[760px]:gap-y-4">
               {[
-                ["Tributário", "Advogada há 26 anos"],
-                ["Processos", "Digitais e automatizados"],
+                ["Experiência", "Atuação especializada"],
                 ["Atendimento", "Personalizado"],
+                ["Tecnologia", "Processos digitais e automatizados"],
               ].map(([label, value], index) => (
                 <Reveal key={label} delay={450 + index * 120}>
                   <dt className="text-[12px] font-medium tracking-[1.5px] text-secondary uppercase">
@@ -648,14 +873,14 @@ function Manifesto() {
         <ul
           className={`${CONTAINER} grid grid-cols-5 gap-12 max-[900px]:grid-cols-2 max-[480px]:grid-cols-1`}
         >
-          {ESSENCE_STATS.map((stat, index) => (
+          {ESSENCE_STATS.map((stat) => (
             <li
               key={stat.value}
               className="group border-l border-white/15 px-8 py-10 first:border-l-0 first:pl-0 max-[900px]:nth-[odd]:border-l-0 max-[900px]:nth-[odd]:pl-0 max-[900px]:nth-[n+3]:border-t max-[480px]:border-l-0 max-[480px]:px-0 max-[480px]:not-first:border-t max-[480px]:py-7"
             >
-              <Reveal delay={index * 120} className="flex flex-col gap-3">
+              <Reveal className="flex flex-col gap-3">
                 <p className="text-[52px] leading-none font-light text-secondary tabular-nums transition-transform duration-300 group-hover:translate-x-2 max-[760px]:text-[44px]">
-                  <CountUp value={stat.value} delay={index * 120 + 200} />
+                  <CountUp value={stat.value} delay={200} />
                 </p>
                 <p className="text-[13px] leading-[1.5] font-semibold tracking-[1.5px] text-white/85 uppercase">
                   {stat.label}

@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CountUp, parseCount } from "@/components/site/CountUp";
 
@@ -17,7 +17,11 @@ describe("parseCount", () => {
 });
 
 describe("CountUp", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
 
   it("conta de zero até o valor e termina no texto original", async () => {
     vi.useFakeTimers();
@@ -40,9 +44,90 @@ describe("CountUp", () => {
     expect(container.querySelector("[aria-hidden]")).toBeInTheDocument();
   });
 
-  it("valor sem número aparece como está", () => {
+  it("valor sem número aparece como está sem IntersectionObserver", () => {
+    vi.stubGlobal("IntersectionObserver", undefined);
     const { container } = render(<CountUp value="IA" />);
     expect(shown(container)).toBe("IA");
+  });
+
+  it("sincroniza o indicador de IA com a duração dos contadores", async () => {
+    vi.useFakeTimers();
+    const onIntersections: IntersectionObserverCallback[] = [];
+
+    class MockIntersectionObserver {
+      constructor(callback: IntersectionObserverCallback) {
+        onIntersections.push(callback);
+      }
+
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+      takeRecords() {
+        return [];
+      }
+    }
+
+    vi.stubGlobal("IntersectionObserver", MockIntersectionObserver);
+    const { container } = render(
+      <>
+        <CountUp value="IA" delay={100} />
+        <CountUp value="+1.500" delay={100} />
+      </>,
+    );
+    const targets = Array.from(
+      container.querySelectorAll("span[aria-hidden='true']"),
+    );
+    const target = targets.find((span) => span.textContent === "IA")!;
+    const counterTarget = targets.find(
+      (span) => span.textContent === "+0",
+    )!;
+    const observer: IntersectionObserver = {
+      root: null,
+      rootMargin: "0px",
+      thresholds: [],
+      disconnect: () => {},
+      observe: () => {},
+      takeRecords: () => [],
+      unobserve: () => {},
+    };
+
+    act(() => {
+      onIntersections.forEach((onIntersect, index) =>
+        onIntersect(
+          [
+            {
+              isIntersecting: true,
+              target: targets[index],
+            } as IntersectionObserverEntry,
+          ],
+          observer,
+        ),
+      );
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100);
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1100);
+    });
+    expect(shown(container)).toBe("IA");
+    expect(target).toHaveClass("pr-count-typing");
+    expect(target.nextElementSibling).toHaveClass("pr-count-thinking");
+    expect(container.querySelectorAll(".pr-count-thinking .pr-chat-dot")).toHaveLength(3);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    expect(shown(container)).toBe("IA");
+    expect(counterTarget.textContent).not.toBe("+1.500");
+    expect(target).not.toHaveClass("pr-count-typing");
+    expect(target).toHaveClass("pr-count-revealing");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(600);
+    });
+    expect(target).not.toHaveClass("pr-count-revealing");
+    expect(counterTarget.textContent).toBe("+1.500");
   });
 
   it("com reduzir movimento, mostra o valor direto", async () => {

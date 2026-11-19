@@ -3,14 +3,15 @@
 import { useEffect, useRef } from "react";
 import { usePrefersReducedMotion } from "./shared";
 
-const COUNT_MS = 1800;
+const COUNT_MS = 2450;
+const TEXT_REVEAL_MS = 650;
 
 /** Rápido no começo, devagar na chegada: o número "assenta" no valor. */
 const easeOut = (progress: number) => 1 - (1 - progress) ** 4;
 
 /**
- * "+1.500" → prefixo "+", 1500, sufixo ""; "98%" → "", 98, "%". Sem número
- * ("IA"), `null`: não há o que contar. O ponto é separador de milhar (pt-BR).
+ * "+1.500" → prefixo "+", 1500, sufixo ""; "98%" → "", 98, "%". Valores sem
+ * número, como "IA", aparecem depois de uma espera. O ponto é separador de milhar.
  */
 export function parseCount(value: string) {
   const match = /^(\D*)(\d[\d.]*)(\D*)$/.exec(value);
@@ -37,36 +38,47 @@ export function CountUp({
 }>) {
   const ref = useRef<HTMLSpanElement>(null);
   const reduced = usePrefersReducedMotion();
+  const isText = parseCount(value) === null;
 
   useEffect(() => {
     const node = ref.current;
     const count = parseCount(value);
-    if (!node || !count || reduced || typeof IntersectionObserver === "undefined") return;
+    if (!node || reduced || typeof IntersectionObserver === "undefined") return;
 
-    const { prefix, amount, suffix } = count;
     const show = (current: number) => {
+      if (!count) return;
+      const { prefix, suffix } = count;
       node.textContent = `${prefix}${current.toLocaleString("pt-BR")}${suffix}`;
     };
-
     let timer = 0;
     let frame = 0;
     const run = () => {
       let startedAt = 0;
+      let textRevealed = false;
       const tick = (now: number) => {
         startedAt ||= now;
         const progress = Math.min(1, (now - startedAt) / COUNT_MS);
-        if (progress < 1) {
-          show(Math.round(amount * easeOut(progress)));
-          frame = requestAnimationFrame(tick);
-        } else {
-          // O texto original, não o reformatado: o que está no conteúdo é o que fica.
+        if (count) {
+          if (progress < 1) show(Math.round(count.amount * easeOut(progress)));
+          else node.textContent = value;
+        } else if (
+          !textRevealed &&
+          progress >= (COUNT_MS - TEXT_REVEAL_MS) / COUNT_MS
+        ) {
           node.textContent = value;
+          node.classList.remove("pr-count-typing");
+          node.classList.add("pr-count-revealing");
+          textRevealed = true;
         }
+        if (progress < 1) frame = requestAnimationFrame(tick);
+        else node.classList.remove("pr-count-revealing");
       };
       frame = requestAnimationFrame(tick);
     };
 
-    show(0);
+    if (count) show(0);
+    else node.classList.add("pr-count-typing");
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) return;
@@ -82,14 +94,32 @@ export function CountUp({
       clearTimeout(timer);
       cancelAnimationFrame(frame);
       node.textContent = value;
+      node.classList.remove("pr-count-typing");
+      node.classList.remove("pr-count-revealing");
     };
   }, [value, delay, reduced]);
 
   return (
     <>
       <span className="sr-only">{value}</span>
-      <span ref={ref} aria-hidden="true">
-        {value}
+      <span className={isText ? "relative inline-grid" : undefined}>
+        <span
+          ref={ref}
+          aria-hidden="true"
+          className={isText ? "col-start-1 row-start-1" : undefined}
+        >
+          {value}
+        </span>
+        {isText && (
+          <span
+            aria-hidden="true"
+            className="pr-count-thinking col-start-1 row-start-1 hidden items-center justify-center gap-1"
+          >
+            <span className="pr-chat-dot h-1.5 w-1.5 rounded-full bg-secondary" />
+            <span className="pr-chat-dot h-1.5 w-1.5 rounded-full bg-secondary" />
+            <span className="pr-chat-dot h-1.5 w-1.5 rounded-full bg-secondary" />
+          </span>
+        )}
       </span>
     </>
   );
